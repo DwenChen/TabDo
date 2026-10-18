@@ -63,6 +63,7 @@ interface AppShortcutLaunchContext {
  */
 class WindowManager {
   private mainWindow: BrowserWindow | null = null
+  private settingsOpenPromise: Promise<void> | null = null
   private tray: Tray | null = null
   private trayMenu: Menu | null = null // 托盘菜单
   private currentShortcut = 'Option+Z' // 当前注册的快捷键
@@ -1629,37 +1630,54 @@ class WindowManager {
   }
 
   /**
-   * 显示设置页面
+   * 合并并发设置请求，避免窗口 show 与渲染进程互相触发重复装配。
+   * @returns 设置展示完成后的 Promise；并发调用复用同一任务。
    */
-  public async showSettings(): Promise<void> {
-    if (!this.mainWindow) return
+  public showSettings(): Promise<void> {
+    if (!this.mainWindow || this.mainWindow.isDestroyed()) return Promise.resolve()
+    if (this.settingsOpenPromise) return this.settingsOpenPromise
 
-    // 如果当前有插件在显示，先隐藏插件
-    if (pluginManager.getCurrentPluginPath() !== null) {
-      console.log('[Window] 检测到插件正在显示，先隐藏插件')
-      pluginManager.hidePluginView()
-      // 通知渲染进程返回搜索页面
-      this.notifyBackToSearch()
-    }
+    // 在启动插件前发布任务锁，show 事件中的重入请求也必须复用它。
+    this.settingsOpenPromise = Promise.resolve()
+      .then(() => this.openSettingsPlugin())
+      .finally(() => {
+        this.settingsOpenPromise = null
+      })
+    return this.settingsOpenPromise
+  }
 
-    // 记录打开窗口前的激活窗口
-    const currentWindow = clipboardManager.getCurrentWindow()
-    if (currentWindow) {
-      this.previousActiveWindow = currentWindow
-      console.log('[Window] 记录打开前的激活窗口:', currentWindow.app)
+  /**
+   * 复用当前设置视图，或交由统一启动器切换插件。
+   * @returns 设置打开完成后的 Promise；启动失败时记录错误。
+   */
+  private async openSettingsPlugin(): Promise<void> {
+    if (!this.mainWindow || this.mainWindow.isDestroyed()) return
 
-      // 发送窗口信息到渲染进程
-      this.mainWindow.webContents.send('window-info-changed', currentWindow)
-    }
-
-    // 从数据库查找设置插件
     try {
       const settingPlugin = this.findSettingPlugin()
       if (!settingPlugin) return
 
+      // 已打开的设置只恢复可见性和焦点，不退出插件、不重置当前路由。
+      if (pluginManager.getCurrentPluginPath() === settingPlugin.path) {
+        if (!this.mainWindow.isVisible()) this.showWindow()
+        else this.mainWindow.focus()
+        pluginManager.focusPluginView()
+        return
+      }
+
+      // 记录打开窗口前的激活窗口
+      const currentWindow = clipboardManager.getCurrentWindow()
+      if (currentWindow) {
+        this.previousActiveWindow = currentWindow
+        console.log('[Window] 记录打开前的激活窗口:', currentWindow.app)
+
+        // 发送窗口信息到渲染进程
+        this.mainWindow.webContents.send('window-info-changed', currentWindow)
+      }
+
       console.log('[Window] 找到设置插件:', settingPlugin.path)
 
-      // 使用统一的 launch 方法启动设置插件
+      // 启动器先发布插件占位态，再切换视图，避免退出通知被误当成用户关闭。
       const result = await api.launchPlugin({
         path: settingPlugin.path,
         type: 'plugin',
@@ -1671,6 +1689,13 @@ class WindowManager {
         console.error('[Window] 启动设置插件失败:', result.error)
         return
       }
+
+      // 用户可能已关闭或切换插件；过期的异步启动结果不得重新弹出宿主。
+      if (
+        this.mainWindow.isDestroyed() ||
+        pluginManager.getCurrentPluginPath() !== settingPlugin.path
+      )
+        return
 
       // 智能定位：将窗口移动到鼠标所在的显示器（同步，从内存读取）
       this.moveWindowToCursor()

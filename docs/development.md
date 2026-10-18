@@ -26,6 +26,8 @@ pnpm test:e2e
 
 端到端测试直接启动源码 Electron，复用预编译运行时并自动启动源码服务器，不执行本地构建和应用打包。所有测试使用临时数据根目录。截图为插件 WebContentsView 的可见区域，输出到 `test-results/playwright`。
 
+`settings-window-stability.spec.ts` 通过真实窗口事件验证：并发打开设置不重复装配、保留当前设置页面、原生菜单失焦不隐藏窗口、X 关闭后延迟焦点通知不重开，以及过期的异步启动结果不重新弹出窗口。右上角菜单恢复插件分离、开发者工具、运行配置与结束运行；主搜索专属功能继续保持裁剪。
+
 ## 云端发布
 
 更新 `package.json` 与 `changelog.md`，提交到 `main`，创建版本标签并推送：

@@ -19,9 +19,11 @@ function updateText(value: string): void {
  * @returns 无返回值。
  */
 function closePlugin(): void {
+  // 用户关闭必须结束加载态，后续焦点通知不能把设置重新打开。
+  windowStore.setPluginLoading(false)
+  windowStore.updateCurrentPlugin(null)
   window.ztools.hidePlugin()
   window.ztools.hideWindow()
-  windowStore.updateCurrentPlugin(null)
 }
 /** 保留插件宿主的快捷键。
  * @param event 键盘事件。
@@ -68,22 +70,31 @@ function keydown(event: KeyboardEvent): void {
 onMounted(async () => {
   await windowStore.loadSettings()
   await commandDataStore.initializeData()
-  window.ztools.onShowSettings(() => window.ztools.openSettings())
+  window.ztools.onShowPluginPlaceholder(() => windowStore.setPluginLoading(true))
+  window.ztools.onShowSettings(() => {
+    if (!windowStore.currentPlugin && !windowStore.pluginLoading) window.ztools.openSettings()
+  })
   window.ztools.onFocusSearch(() => {
-    if (!windowStore.currentPlugin) window.ztools.openSettings()
+    // 保留插件子输入框聚焦语义，焦点恢复不承担启动设置的职责。
+    if (windowStore.currentPlugin && windowStore.subInputVisible) input.value?.focus()
   })
   window.ztools.onPluginOpened((plugin) => {
     text.value = ''
     windowStore.updateCurrentPlugin(plugin)
   })
   window.ztools.onPluginLoaded(() => windowStore.setPluginLoading(false))
+  window.ztools.onAiStatusChanged((change) => windowStore.setAiRequestStatus(change))
   window.ztools.onPluginClosed(() => {
+    const switching = windowStore.pluginLoading
     windowStore.updateCurrentPlugin(null)
-    window.ztools.hideWindow()
+    windowStore.setPluginLoading(switching)
+    if (!switching) window.ztools.hideWindow()
   })
   window.ztools.onBackToSearch(() => {
+    const switching = windowStore.pluginLoading
     windowStore.updateCurrentPlugin(null)
-    window.ztools.hideWindow()
+    windowStore.setPluginLoading(switching)
+    if (!switching) window.ztools.hideWindow()
   })
   window.ztools.onUpdateSubInputPlaceholder?.((data) =>
     windowStore.updateSubInputPlaceholder(data.placeholder)
@@ -247,7 +258,7 @@ onMounted(async () => {
 
   window.addEventListener('keydown', keydown)
   // 初次显示时直接进入设置，独立主搜索入口已移除。
-  if (!windowStore.currentPlugin) window.ztools.openSettings()
+  if (!windowStore.currentPlugin && !windowStore.pluginLoading) window.ztools.openSettings()
 })
 onUnmounted(() => window.removeEventListener('keydown', keydown))
 </script>

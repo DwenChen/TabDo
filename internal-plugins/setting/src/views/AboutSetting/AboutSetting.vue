@@ -2,7 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { useToast } from '@/components'
 import { GITHUB_REPOSITORY_URL } from '@shared/updateSource'
-const version = ref('1.0.0'),
+const version = ref(''),
   automatic = ref(true),
   checking = ref(false)
 const { info, error } = useToast()

@@ -90,7 +90,7 @@ export function initBackupService(manager: PluginManager): void {
         action === 'export'
           ? await dialog.showSaveDialog({
               title: '导出完整数据备份',
-              defaultPath: `ZTools-1.0.0-${Date.now()}.ztbackup`,
+              defaultPath: `ZTools-${app.getVersion()}-${Date.now()}.ztbackup`,
               filters: [{ name: 'ZTools 数据备份', extensions: ['ztbackup'] }]
             })
           : await dialog.showOpenDialog({

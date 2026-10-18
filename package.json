@@ -1,6 +1,6 @@
 {
   "name": "ZTools",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "ZTools 本地精简版：超级面板、插件与完整数据备份",
   "main": "./out/main/index.js",
   "author": "DwenChen",

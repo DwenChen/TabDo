@@ -6,6 +6,7 @@ import clipboardManager from '../../managers/clipboardManager'
 import appleScriptHelper from '../../utils/appleScriptHelper'
 import { isWindows11, openDialog } from '../../utils/windowUtils'
 import { getAvatarPath } from '../../core/appData/appDataPaths'
+import windowManager from '../../managers/windowManager'
 
 // 头像目录
 const AVATAR_DIR = getAvatarPath()
@@ -188,7 +189,7 @@ export class SystemAPI {
    * 根据渲染进程提供的菜单描述构建并显示原生右键菜单。
    * @param event 触发菜单的 IPC 事件
    * @param menuItems 菜单项描述列表
-   * @returns 菜单创建并展示后结束的 Promise
+   * @returns 菜单关闭且焦点恢复保护已安排后的 Promise。
    */
   private async showContextMenu(event: Electron.IpcMainInvokeEvent, menuItems: any): Promise<void> {
     if (!this.mainWindow) return
@@ -224,7 +225,11 @@ export class SystemAPI {
     const template = buildTemplate(menuItems, senderWebContents)
 
     const menu = Menu.buildFromTemplate(template)
-    menu.popup({ window: this.mainWindow })
+    // 原生菜单暂时持有焦点，菜单关闭前不能把这次失焦视为离开应用。
+    await windowManager.withBlurHideSuppressed(
+      () =>
+        new Promise<void>((resolve) => menu.popup({ window: this.mainWindow!, callback: resolve }))
+    )
   }
 
   public async selectAvatar(): Promise<any> {
