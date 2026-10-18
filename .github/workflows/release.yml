@@ -24,7 +24,7 @@ jobs:
       - run: pnpm --dir internal-plugins/setting install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm typecheck:setting
-      - run: pnpm test --maxWorkers=2
+      - run: node node_modules/vitest/vitest.mjs run --maxWorkers=2
       - name: Build and package in cloud
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
