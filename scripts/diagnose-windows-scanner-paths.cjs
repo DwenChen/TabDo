@@ -236,6 +236,11 @@ async function runScannerIsolated(scanPath, expectedCount, iterations) {
  * @returns {Promise<void>} 场景完成后结束的 Promise。
  * @throws {Error} 参数无效、样本创建失败或扫描失败时抛出。
  */
+/**
+ * 运行隔离扫描诊断，并在退出时释放输入监听和受控样本目录。
+ * @returns {Promise<void>} 诊断和资源清理完成后的 Promise。
+ * @throws {Error} 扫描配置、原生调用或样本准备失败时抛出。
+ */
 async function main() {
   if (process.platform !== 'win32') {
     throw new Error('This diagnostic only supports Windows')
@@ -316,7 +321,8 @@ async function main() {
         fs.rmdirSync(expectedParent)
       } catch (error) {
         if (error?.code !== 'ENOTEMPTY' && error?.code !== 'ENOENT') {
-          throw error
+          // 清理父目录失败只报告证据，不能用 finally 的异常覆盖原诊断结果。
+          console.warn('[diagnostic] 父目录清理失败:', error)
         }
       }
     }

@@ -66,9 +66,10 @@ export function createAsarArtifactPath(
 }
 
 /**
- * 删除插件物理实体；ASAR 会同时删除同名 unpack 目录。
+ * 删除插件物理实体；等待短暂文件占用解除，并同时删除 ASAR sidecar。
  * @param plugin 待删除插件的路径、存储类型和开发状态
  * @returns 删除完成后结束的 Promise
+ * @throws {Error} 重试后仍无法删除安装实体时抛出错误。
  */
 export async function removePluginArtifact(plugin: {
   path: string
@@ -78,13 +79,12 @@ export async function removePluginArtifact(plugin: {
   // 开发插件引用用户项目目录，卸载时不能删除源文件。
   if (plugin.isDevelopment) return
   const fs = physicalFs.promises
+  // Electron 的 PluginOut 回调和原生窗口关闭存在延迟；recursive 也为文件启用 rm 重试。
+  const options = { recursive: true, force: true, maxRetries: 4, retryDelay: 100 }
   if (resolvePluginStorageKind(plugin) === 'asar') {
     // ASAR 与 sidecar 是同一个安装实体，必须一起清理。
-    await Promise.all([
-      fs.rm(plugin.path, { force: true }),
-      fs.rm(`${plugin.path}.unpacked`, { recursive: true, force: true })
-    ])
+    await Promise.all([fs.rm(plugin.path, options), fs.rm(`${plugin.path}.unpacked`, options)])
     return
   }
-  await fs.rm(plugin.path, { recursive: true, force: true })
+  await fs.rm(plugin.path, options)
 }

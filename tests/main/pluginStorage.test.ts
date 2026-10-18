@@ -41,4 +41,20 @@ describe('plugin storage', () => {
     expect(resolvePluginStorageKind({ path: '/plugins/demo' })).toBe('directory')
     expect(resolvePluginStorageKind({ path: '/plugins/demo.asar' })).toBe('asar')
   })
+
+  it('removes installed directories while preserving development source files', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'ztools-storage-test-'))
+    tempDirs.push(root)
+    const installed = path.join(root, 'installed')
+    const source = path.join(root, 'source')
+    await fs.mkdir(installed)
+    await fs.mkdir(source)
+    await fs.writeFile(path.join(source, 'plugin.json'), '{}')
+
+    await removePluginArtifact({ path: installed, storageKind: 'directory' })
+    await removePluginArtifact({ path: source, isDevelopment: true })
+
+    await expect(fs.access(installed)).rejects.toMatchObject({ code: 'ENOENT' })
+    expect(await fs.readFile(path.join(source, 'plugin.json'), 'utf8')).toBe('{}')
+  })
 })

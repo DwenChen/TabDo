@@ -1,8 +1,8 @@
 {
   "$schema": "node_modules/@ztools-center/ztools-api-types/resource/ztools.schema.json",
   "name": "system",
-  "title": "系统",
-  "description": "ZTools 系统内置插件",
+  "title": "工具",
+  "description": "截图、剪贴板与常用工具",
   "author": "Zing",
   "version": "1.0.0",
   "logo": "clear.png",
@@ -138,9 +138,20 @@
     },
     {
       "code": "screenshot",
-      "explain": "截图并复制到剪贴板",
+      "explain": "截图",
       "icon": "screenshot.png",
-      "cmds": ["截图", "截屏", "Screenshot", "Screen Capture"]
+      "cmds": ["截图"]
+    },
+    {
+      "code": "clipboard",
+      "explain": "剪贴板",
+      "icon": "clipboard.png",
+      "cmds": ["剪贴板"]
     }
-  ]
+  ],
+  "main": "index.html",
+  "preload": "preload.js",
+  "development": {
+    "main": "http://127.0.0.1:15178"
+  }
 }

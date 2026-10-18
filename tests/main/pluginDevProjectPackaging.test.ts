@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { dialog, shell } from 'electron'
-import { promises as fs } from 'fs'
 
 const mocks = vi.hoisted(() => ({
   dbGet: vi.fn(),

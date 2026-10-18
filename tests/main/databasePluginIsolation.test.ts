@@ -210,9 +210,23 @@ describe('database plugin isolation', () => {
     // 「清除数据」同时删除 ztools.getPath('pluginData') 指向的目录，与卸载清理语义一致
     expect(fsRm).toHaveBeenCalledWith(getPluginDataPath('demo'), {
       recursive: true,
-      force: true
+      force: true,
+      maxRetries: 10,
+      retryDelay: 100
     })
     fsRm.mockRestore()
+  })
+
+  it('reports a filesystem cleanup failure instead of hiding leftover data', async () => {
+    const fsRm = vi.spyOn(physicalFs.promises, 'rm').mockRejectedValue(new Error('Data is locked'))
+    try {
+      expect(await new DatabaseAPI().clearPluginData('demo')).toEqual({
+        success: false,
+        error: 'Data is locked'
+      })
+    } finally {
+      fsRm.mockRestore()
+    }
   })
 
   it('does not delete the filesystem data directory when clearing host data', async () => {

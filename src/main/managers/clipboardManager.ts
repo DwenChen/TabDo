@@ -17,6 +17,7 @@ import { sleep } from '../utils/common'
 import api from '../api'
 import pluginManager from './pluginManager'
 import ClipboardMonitor, { WindowMonitor, WindowManager } from '../core/native'
+import { classifyClipboardText, type ClipboardCategory } from '../utils/clipboardCategory'
 // 剪贴板类型
 type ClipboardType = 'text' | 'image' | 'file'
 
@@ -43,6 +44,7 @@ interface FileItem {
 interface ClipboardItem {
   id: string
   type: ClipboardType
+  category?: ClipboardCategory
   timestamp: number
   hash: string
   appName?: string // 复制时的应用名称
@@ -103,6 +105,7 @@ class ClipboardManager {
   private isRunning = false
   private config: ClipboardConfig = DEFAULT_CONFIG
   private readonly DB_BUCKET = 'CLIPBOARD'
+  private categoryCache = new Map<string, { content: string; category: ClipboardCategory }>()
   private readonly IMAGE_DIR: string
   private currentWindow: WindowActivationInfo | null = null
   private clipboardMonitor: ClipboardMonitor
@@ -595,14 +598,41 @@ class ClipboardManager {
     }
   }
 
-  // 分页查询
+  /**
+   * 在分页前按分类和关键词查询历史；缓存文本分类，避免切换分类时重复检测。
+   * @param page 页码。
+   * @param pageSize 每页条数。
+   * @param filter 可选关键词。
+   * @param category 可选分类，省略时返回全部类型。
+   * @returns 分页结果及过滤后的总条数。
+   */
   public async getHistory(
     page: number = 1,
     pageSize: number = 50,
-    filter?: string
+    filter?: string,
+    category?: ClipboardCategory
   ): Promise<{ items: any[]; total: number; page: number; pageSize: number }> {
     try {
       let allItems = await this.getAllItems()
+
+      // 分类仅计算一次并按内容校验缓存；删除记录的缓存同步释放。
+      const liveIds = new Set(allItems.map((item) => item.id))
+      for (const id of this.categoryCache.keys()) {
+        if (!liveIds.has(id)) this.categoryCache.delete(id)
+      }
+      allItems = allItems.map((item) => {
+        const content = item.content || item.preview || ''
+        const cached = this.categoryCache.get(item.id)
+        const resolved =
+          item.type === 'text'
+            ? cached?.content === content
+              ? cached.category
+              : classifyClipboardText(content)
+            : item.type
+        this.categoryCache.set(item.id, { content, category: resolved })
+        return { ...item, category: resolved }
+      })
+      if (category) allItems = allItems.filter((item) => item.category === category)
 
       // 过滤（只支持关键词搜索）
       if (filter) {
@@ -993,6 +1023,16 @@ class ClipboardManager {
     console.log('[Clipboard] 等待新的复制内容超时，返回 null')
 
     return null
+  }
+
+  /**
+   * 即时读取时间窗口内的新复制缓存，不模拟复制、不等待新事件。
+   * @param timeLimit 有效时长（毫秒），必须大于零。
+   * @returns 最新复制内容；关闭或过期时返回 null。
+   */
+  public getRecentCopiedContent(timeLimit: number): LastCopiedContent | null {
+    // 零值明确表示关闭，不能传给旧 API 的“不限时间”分支。
+    return timeLimit > 0 ? this.getValidLastCopiedContent(timeLimit) : null
   }
 
   // 获取在有效时间范围内的最后复制内容

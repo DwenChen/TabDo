@@ -20,3 +20,7 @@ test-results
 .pnpm-store/*
 _*
 /.sanshu-memory
+
+# 本机活跃预览、私有配置备份、测试证据和历史临时材料
+/.local/
+/.artifacts/

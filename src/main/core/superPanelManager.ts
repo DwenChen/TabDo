@@ -1,4 +1,4 @@
-import { BrowserWindow, ipcMain, screen } from 'electron'
+import { app, BrowserWindow, ipcMain, screen } from 'electron'
 import { getPreloadPath, getRendererPath } from '../utils/appBundlePath'
 import { is } from '@electron-toolkit/utils'
 import {
@@ -20,13 +20,14 @@ import providerManager from './provider/providerManager.js'
 import { filterSuperPanelPinnedCommands } from './superPanelPinnedCommands.js'
 import { decodeFileUrlToPath } from '../utils/common'
 import { shouldKeepMainWindowHiddenForLaunch } from '../../shared/pluginLaunch'
+import globalInputManager from './globalInputManager'
 
 // 超级面板窗口尺寸
 const SUPER_PANEL_WIDTH = 250
 const SUPER_PANEL_HEIGHT = 400
 
 // 模拟复制后等待剪贴板更新的时间窗口
-const CLIPBOARD_WAIT_MS = 180
+const CLIPBOARD_WAIT_MS = 600
 
 // 剪贴板内容类型
 interface ClipboardContent {
@@ -61,6 +62,11 @@ class SuperPanelManager {
   private pendingMessages: Array<{ channel: string; data: any }> = []
   private windowCommandRequestId = 0
   private activeWindowCommandRequestId: number | null = null
+  private clipboardQuickMatchSeconds = 5
+  private middleDownAt = 0
+  private triggerRevision = 0
+  private capturePending = false
+  private requestedVisible = false
   private config: SuperPanelConfig = {
     enabled: false,
     mouseButton: 'middle',
@@ -79,14 +85,24 @@ class SuperPanelManager {
     this.pluginManager = pluginManager
     this.setupIPC()
     this.loadConfig()
+    this.updateClipboardQuickMatch(this.clipboardQuickMatchSeconds)
+    this.setupOutsideDismiss()
+    // 退出前释放新功能持有的原生输入线程，避免环境卸载后仍回调 JavaScript。
+    app.once('will-quit', () => {
+      this.stopMonitor()
+      globalInputManager.release('clipboard-quick-match')
+      globalInputManager.release('super-panel-dismiss')
+    })
   }
 
   /**
    * 从数据库加载配置并启动监听
+   * @returns 无返回值。
    */
   private loadConfig(): void {
     try {
       const data = databaseAPI.dbGet('settings-general')
+      this.clipboardQuickMatchSeconds = data?.clipboardQuickMatchSeconds ?? 5
       if (data) {
         this.config = {
           enabled: data.superPanelEnabled ?? false,
@@ -105,7 +121,9 @@ class SuperPanelManager {
   }
 
   /**
-   * 设置变更时调用（从设置页面触发）
+   * 设置变更时重启面板监听，并协调中键的快速匹配监听。
+   * @param config 超级面板的触发配置。
+   * @returns 无返回值。
    */
   updateConfig(config: { enabled: boolean; mouseButton: string; longPressMs: number }): void {
     this.config = {
@@ -123,6 +141,106 @@ class SuperPanelManager {
     }
 
     console.log('[SuperPanel] 超级面板配置已更新:', this.config)
+    this.updateClipboardQuickMatch(this.clipboardQuickMatchSeconds)
+  }
+
+  /**
+   * 更新复制后中键匹配的有效时长；使用独立消费者保留其他全局监听。
+   * @param seconds 有效秒数，0 关闭；其余值限制到 1 至 300 秒。
+   * @returns 无返回值。
+   */
+  updateClipboardQuickMatch(seconds: number): void {
+    // 配置切换先释放旧监听，避免一个中键事件被多次处理。
+    globalInputManager.release('clipboard-quick-match')
+    this.clipboardQuickMatchSeconds = Number.isFinite(seconds)
+      ? Math.max(0, Math.min(300, Math.round(seconds)))
+      : 5
+    if (!this.clipboardQuickMatchSeconds) return
+    if (
+      this.config.enabled &&
+      this.config.mouseButton === 'middle' &&
+      this.config.longPressMs === 0
+    )
+      return
+    globalInputManager.on('clipboard-quick-match', 'mousedown', (event) => {
+      if (event.button === 3) this.middleDownAt = Date.now()
+    })
+    globalInputManager.on('clipboard-quick-match', 'mouseup', (event) => {
+      if (event.button !== 3) return
+      // 长按中键仍交给原有超级面板处理，短按才读取最近复制内容。
+      if (
+        this.config.enabled &&
+        this.config.mouseButton === 'middle' &&
+        this.config.longPressMs > 0 &&
+        Date.now() - this.middleDownAt >= this.config.longPressMs
+      )
+        return
+      this.onRecentClipboardTrigger()
+    })
+    globalInputManager.acquire('clipboard-quick-match')
+  }
+
+  /**
+   * 在独立的复制后中键入口中显示有效复制，不替代原有选区匹配。
+   * @returns 显示匹配面板时拦截原始中键；过期或屏蔽窗口时返回 false。
+   */
+  private onRecentClipboardTrigger(): MouseMonitorResult {
+    try {
+      const copied = clipboardManager.getRecentCopiedContent(this.clipboardQuickMatchSeconds * 1000)
+      const content = this.convertLastCopiedContent(copied)
+      if (
+        !content ||
+        !this.mainWindow ||
+        this.mainWindow.isDestroyed() ||
+        dndManager.shouldIgnoreHotkeys()
+      )
+        return { shouldBlock: false }
+      // 在显示窗口前记录来源窗口，后续执行插件或粘贴仍可恢复到正确应用。
+      const cached = clipboardManager.getCurrentWindow()
+      const active = WindowManager.getActiveWindow()
+      const info = active ? { ...cached, ...active } : cached
+      if (info?.app && this.isWindowBlocked({ ...info, app: info.app }))
+        return { shouldBlock: false }
+      this.currentWindowInfo = this.enrichFileLocationWindowInfo(info ?? null)
+      this.currentClipboardContent = content
+      const cursor = screen.getCursorScreenPoint()
+      this.showWindow(cursor.x, cursor.y)
+      this.requestSearch(content)
+      return { shouldBlock: true }
+    } catch (error) {
+      // 原生窗口查询失败时保留中键原行为，不让全局输入回调向外抛错。
+      console.error('[SuperPanel] 剪贴板快捷匹配失败:', error)
+      return { shouldBlock: false }
+    }
+  }
+
+  /**
+   * 监听窗口外点击，补足 Windows 未取得前台焦点时不会收到 blur 的情况。
+   * @returns 无返回值。
+   */
+  private setupOutsideDismiss(): void {
+    globalInputManager.on('super-panel-dismiss', 'mousedown', (event) => {
+      // 等待复制时点击别处即取消，迟到的剪贴板结果不得重新打开面板。
+      if (this.capturePending) {
+        this.hideWindow()
+        return
+      }
+      const win = this.superPanelWindow
+      if (!win || win.isDestroyed() || (!win.isVisible() && !this.requestedVisible)) return
+      const point =
+        process.platform === 'win32'
+          ? screen.screenToDipPoint({ x: event.x, y: event.y })
+          : { x: event.x, y: event.y }
+      const bounds = win.getBounds()
+      if (
+        point.x < bounds.x ||
+        point.y < bounds.y ||
+        point.x >= bounds.x + bounds.width ||
+        point.y >= bounds.y + bounds.height
+      )
+        this.hideWindow()
+    })
+    globalInputManager.acquire('super-panel-dismiss')
   }
 
   /**
@@ -265,7 +383,8 @@ class SuperPanelManager {
   }
 
   /**
-   * 鼠标触发回调
+   * 处理配置的鼠标触发，先保留选区复制，再补充有效的新复制。
+   * @returns 是否拦截原始鼠标事件。
    */
   private onMouseTrigger(): MouseMonitorResult {
     try {
@@ -295,7 +414,13 @@ class SuperPanelManager {
       }
 
       // 异步部分：模拟复制、读取剪贴板、显示面板
-      this.onMouseTriggerAsync(cursorPoint)
+      const recent =
+        this.config.mouseButton === 'middle' && this.config.longPressMs === 0
+          ? clipboardManager.getRecentCopiedContent(this.clipboardQuickMatchSeconds * 1000)
+          : null
+      const revision = ++this.triggerRevision
+      this.capturePending = true
+      void this.onMouseTriggerAsync(cursorPoint, recent, revision)
 
       return { shouldBlock: true }
     } catch (error) {
@@ -304,9 +429,22 @@ class SuperPanelManager {
     }
   }
 
-  private async onMouseTriggerAsync(cursorPoint: { x: number; y: number }): Promise<void> {
+  /**
+   * 捕获本次选区；无新复制时才回退到触发时仍有效的剪贴板或固定面板。
+   * @param cursorPoint 触发时光标位置。
+   * @param recent 触发时有效的主动复制快照。
+   * @param revision 本次请求编号，关闭或后续触发会令旧请求失效。
+   * @returns 本次捕获或取消完成后的 Promise。
+   */
+  private async onMouseTriggerAsync(
+    cursorPoint: { x: number; y: number },
+    recent: LastCopiedContent | null,
+    revision: number
+  ): Promise<void> {
     try {
       const lastSequence = clipboardManager.getLastCopiedSequence()
+      // 先订阅再发送复制，快速应用不会在等待器注册前丢失事件。
+      const nextCopy = clipboardManager.waitForNextCopiedContent(lastSequence, CLIPBOARD_WAIT_MS)
 
       // 2. 超级面板触发前，临时提升 macOS 剪贴板轮询频率
       if (process.platform === 'darwin') {
@@ -318,11 +456,10 @@ class SuperPanelManager {
       WindowManager.simulateKeyboardTap('c', modifier)
 
       // 4. 等待剪贴板监听捕获本次复制事件
-      const lastCopiedContent = await clipboardManager.getLastCopiedContent(
-        CLIPBOARD_WAIT_MS,
-        lastSequence
-      )
-      const newContent = this.convertLastCopiedContent(lastCopiedContent)
+      const lastCopiedContent = await nextCopy
+      if (revision !== this.triggerRevision) return
+      this.capturePending = false
+      const newContent = this.convertLastCopiedContent(lastCopiedContent || recent)
       const hasNewContent = !!newContent
 
       // 4. 保存当前剪贴板内容
@@ -346,11 +483,16 @@ class SuperPanelManager {
       }
     } catch (error) {
       console.error('[SuperPanel] 超级面板触发失败:', error)
+    } finally {
+      if (revision === this.triggerRevision) this.capturePending = false
     }
   }
 
   /**
-   * 创建超级面板窗口
+   * 创建面板并协调首次显示、失焦隐藏和关闭后的请求失效。
+   * @param x 触发时横坐标。
+   * @param y 触发时纵坐标。
+   * @returns 新建的超级面板窗口。
    */
   private createWindow(x: number, y: number): BrowserWindow {
     // 新窗口，标记未就绪
@@ -417,7 +559,9 @@ class SuperPanelManager {
 
     // 窗口加载完成后显示
     win.once('ready-to-show', () => {
+      if (!this.requestedVisible || win.isDestroyed()) return
       win.show()
+      win.focus()
     })
 
     // 失去焦点时关闭
@@ -430,6 +574,9 @@ class SuperPanelManager {
       this.superPanelWindow = null
       this.windowReady = false
       this.pendingMessages = []
+      this.requestedVisible = false
+      this.capturePending = false
+      this.triggerRevision++
     })
 
     return win
@@ -466,9 +613,13 @@ class SuperPanelManager {
   }
 
   /**
-   * 显示超级面板窗口
+   * 显示或复用超级面板，记录显示意图以取消迟到的 ready-to-show。
+   * @param x 触发时横坐标。
+   * @param y 触发时纵坐标。
+   * @returns 无返回值。
    */
   private showWindow(x: number, y: number): void {
+    this.requestedVisible = true
     if (this.superPanelWindow && !this.superPanelWindow.isDestroyed()) {
       // 复用已有窗口：更新位置并显示
       const { position } = this.adjustPosition(x, y)
@@ -515,9 +666,13 @@ class SuperPanelManager {
   }
 
   /**
-   * 隐藏超级面板窗口
+   * 关闭面板并使尚未完成的复制与首次显示请求失效。
+   * @returns 无返回值。
    */
   hideWindow(): void {
+    this.triggerRevision++
+    this.capturePending = false
+    this.requestedVisible = false
     if (this.superPanelWindow && !this.superPanelWindow.isDestroyed()) {
       this.superPanelWindow.hide()
     }
@@ -727,7 +882,7 @@ class SuperPanelManager {
       if (this.currentWindowInfo) {
         windowManager.setPreviousActiveWindow(this.currentWindowInfo)
       }
-      windowManager.showWindow()
+      void windowManager.showSettings()
     })
 
     // 更新超级面板固定列表顺序

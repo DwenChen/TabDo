@@ -1,8 +1,8 @@
 import type { PluginManager } from '../../managers/pluginManager'
-import { ipcMain, type WebContents } from 'electron'
+import { ipcMain, session, webContents, type WebContents } from 'electron'
 import path from 'path'
 import { pathToFileURL } from 'url'
-import { removePluginArtifact } from '../../utils/pluginStorage.js'
+import { removePluginArtifactOrDefer } from '../../core/pluginArtifactCleanup'
 import { normalizeIconPath } from '../../common/iconUtils'
 import { isBundledInternalPlugin } from '../../core/internalPlugins'
 import lmdbInstance from '../../core/lmdb/lmdbInstance'
@@ -16,6 +16,7 @@ import { PluginMarketAPI } from './pluginMarket'
 import { requestPluginMarket } from './pluginMarketConfig'
 import {
   getPluginDataPrefix,
+  getPluginSessionPartition,
   isDevelopmentPluginName
 } from '../../../shared/pluginRuntimeNamespace'
 import {
@@ -298,13 +299,16 @@ export class PluginsAPI {
   }
 
   /**
-   * 获取插件中心展示的正式和开发插件列表。
-   * @returns 已过滤内置插件的列表
+   * 获取插件中心展示的全部插件，并明确标记随包内置插件。
+   * @returns 包含内置、正式和开发插件的列表。
    */
   public async getPlugins(): Promise<any[]> {
     const allPlugins = await this.getAllPlugins()
-    // 过滤掉所有内置插件（system、setting 等）
-    return allPlugins.filter((plugin: any) => !isBundledInternalPlugin(plugin.name))
+    // 内置标记由宿主计算，界面据此隐藏卸载和市场升级入口。
+    return allPlugins.map((plugin: any) => ({
+      ...plugin,
+      isBuiltin: isBundledInternalPlugin(plugin.name)
+    }))
   }
 
   /**
@@ -803,11 +807,11 @@ export class PluginsAPI {
   }
 
   /**
-   * 删除插件
+   * 停止插件，删除安装实体或登记退出后清理，再移除注册记录。
    * @param pluginPath 插件路径
-   * @param options 删除选项 当 options.deleteData 显式设置为 false 时，保留 LMDB 数据、插件专属数据目录
-   * 与各插件名配置；默认或为 true 时一并清除。
-   * @returns 删除结果
+   * @param options 删除选项；deleteData 显式为 false 时保留插件数据、专属目录和浏览器存储，
+   * 默认或为 true 时一并清除；历史和固定入口始终移除。
+   * @returns 卸载结果；锁定包返回 cleanupPending，其他清理失败保留注册记录供重试。
    */
   public async deletePlugin(pluginPath: string, options: DeletePluginOptions = {}): Promise<any> {
     try {
@@ -831,11 +835,23 @@ export class PluginsAPI {
         }
       }
 
-      // 先停止运行实例，再移除注册记录和关联状态。
-      this.pluginManager?.killPlugin(pluginPath)
+      // 先释放运行资源；物理删除失败时不得丢失可重试的注册记录。
+      const pluginSession = await this.stopPluginForRemoval(pluginPath, pluginInfo.name)
 
-      plugins.splice(pluginIndex, 1)
-      databaseAPI.dbPut('plugins', plugins)
+      const cleanupPending = await removePluginArtifactOrDefer(pluginInfo)
+
+      if (options.deleteData !== false) {
+        // 所有插件视图退出后再清浏览器存储，避免退出回调重新写入已删除的数据。
+        await pluginSession.clearStorageData()
+        await pluginSession.clearCache()
+        const result = await databaseAPI.clearPluginData(pluginInfo.name)
+        if (!result.success) throw new Error(result.error || '清理插件数据失败')
+        this.removePluginNameConfigs(PLUGIN_NAME_SETTING_KEYS, pluginInfo.name)
+      }
+
+      // 异步删除期间其他插件可能已安装或卸载，提交时读取最新记录。
+      const currentPlugins = this.readInstalledPlugins()
+      this.writeInstalledPlugins(currentPlugins.filter((plugin: any) => plugin.path !== pluginPath))
 
       this.devProjects.removePluginUsageData(pluginInfo.name)
 
@@ -847,34 +863,69 @@ export class PluginsAPI {
         console.error('[Plugins] 清理 provider 配置失败:', error)
       }
 
-      if (options.deleteData !== false) {
-        await databaseAPI.clearPluginData(pluginInfo.name)
-        this.removePluginNameConfigs(PLUGIN_NAME_SETTING_KEYS, pluginInfo.name)
-      }
-
       // 删除禁用插件标识
       const disabledPlugins = this.getDisabledPluginSet()
       if (disabledPlugins.delete(pluginPath)) this.writeDisabledPluginPaths([...disabledPlugins])
 
-      this.notifyPluginsChanged()
-
-      if (!pluginInfo.isDevelopment) {
-        try {
-          // ASAR 实体会连同 `.asar.unpacked` 一起删除。
-          await removePluginArtifact(pluginInfo)
-          console.log('[Plugins] 已删除插件实体:', pluginPath)
-        } catch (error) {
-          console.error('[Plugins] 删除插件目录失败:', error)
-        }
-      } else {
-        console.log('[Plugins] 开发中插件，保留目录:', pluginPath)
+      // 列表置顶是安装路径引用，即使保留插件数据也必须清除失效入口。
+      const pinned = databaseAPI.dbGet('plugin-center-pinned')
+      if (Array.isArray(pinned) && pinned.includes(pluginPath)) {
+        databaseAPI.dbPut(
+          'plugin-center-pinned',
+          pinned.filter((item) => item !== pluginPath)
+        )
       }
 
-      return { success: true }
+      this.notifyPluginsChanged()
+      return {
+        success: true,
+        ...(cleanupPending ? { cleanupPending: true } : {})
+      }
     } catch (error: unknown) {
       console.error('[Plugins] 删除插件失败:', error)
       return { success: false, error: error instanceof Error ? error.message : '未知错误' }
     }
+  }
+
+  /**
+   * 停止插件并等待其视图真正销毁，避免异步退出回调和文件删除竞态。
+   * @param pluginPath 插件安装路径。
+   * @param pluginName 插件实际名称，用于定位独立浏览器会话。
+   * @returns 插件视图全部退出后的浏览器会话。
+   * @throws {Error} 插件视图未在限定时间内退出时抛出错误。
+   */
+  private async stopPluginForRemoval(
+    pluginPath: string,
+    pluginName: string
+  ): Promise<Electron.Session> {
+    const pluginSession = session.fromPartition(getPluginSessionPartition(pluginName))
+    // 提前监听销毁事件，包含插件主视图和使用相同会话的子窗口。
+    const closing = webContents
+      .getAllWebContents()
+      .filter((contents) => contents.session === pluginSession)
+      .map(
+        (contents) =>
+          new Promise<void>((resolve, reject) => {
+            const timeout = setTimeout(() => {
+              contents.removeListener('destroyed', onDestroyed)
+              reject(new Error('插件窗口尚未退出，请稍后重试卸载'))
+            }, 5000)
+            /**
+             * 在窗口资源释放后结束等待并清理超时任务。
+             * @returns 无返回值。
+             */
+            function onDestroyed(): void {
+              clearTimeout(timeout)
+              resolve()
+            }
+            contents.once('destroyed', onDestroyed)
+          })
+      )
+
+    // killPlugin 保留 PluginOut 生命周期的处理时间；销毁完成前不得清理实体或数据。
+    this.pluginManager?.killPlugin(pluginPath)
+    await Promise.all(closing)
+    return pluginSession
   }
 
   /**

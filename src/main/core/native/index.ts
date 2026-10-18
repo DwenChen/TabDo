@@ -4,6 +4,12 @@ import { execSync, fork, spawnSync } from 'child_process'
 import { app, clipboard } from 'electron'
 import macZToolsNative from '../../../../resources/lib/mac/ztools_native.node?asset'
 import winZToolsNative from '../../../../resources/lib/win/ztools_native.node?asset'
+import {
+  primeToolsScreenshot,
+  startToolsScreenshot,
+  startToolsColorPicker,
+  stopToolsColorPicker
+} from './toolsNativeWorker'
 
 // 原生日志默认关闭：只有设置里的调试控制台开启时才向临时目录写入日志
 // （NativeLogger.setEnabled 联动）。必须在下方 require 原生模块之前设置——
@@ -973,21 +979,27 @@ export class OptimizedShortcutManager {
  */
 export class ScreenCapture {
   /**
-   * 预抓取当前虚拟屏幕帧（2 秒 TTL，start 时命中即用）
+   * 预抓取当前虚拟屏幕帧，Windows 使用两秒后自动释放的独立进程。
+   * @returns 是否成功请求预抓帧。
+   * @throws 不支持的平台或启动失败时抛出。
    */
   static prime(): boolean {
     if (platform === 'linux') {
       throw new Error('ScreenCapture is not supported on Linux')
     }
 
-    return (addon as NativeAddon).primeScreenshotFrame()
+    return platform === 'win32'
+      ? primeToolsScreenshot()
+      : (addon as NativeAddon).primeScreenshotFrame()
   }
 
   /**
    * 启动区域截图
    * @param options 截图选项；直接传函数时按旧签名 start(callback) 处理
-   *   - autoConfirm: 选区确定后直接出图，跳过编辑态（工具栏/标注/翻译），默认 true
+   *   - autoConfirm: 选区确定后直接出图，跳过编辑态（工具栏/标注），默认 true
    * @param callback 截图完成时的回调函数
+   * @returns 无返回值。
+   * @throws 不支持的平台、回调无效或进程启动失败时抛出。
    * - 参数: { success: boolean, width?: number, height?: number, x?: number, y?: number, base64?: string }
    * - success: 是否成功截图
    * - width: 截图宽度（成功时）
@@ -999,7 +1011,7 @@ export class ScreenCapture {
    * // 默认：框选/点选完成即出图，不再二次编辑
    * ScreenCapture.start((result) => { ... });
    *
-   * // 进入编辑态：选区确定后停留在工具栏，可标注/调整/翻译
+   * // 进入编辑态：选区确定后停留在工具栏，可标注和调整
    * ScreenCapture.start({ autoConfirm: false }, (result) => { ... });
    */
   static start(
@@ -1024,6 +1036,11 @@ export class ScreenCapture {
       throw new TypeError('Callback must be a function')
     }
 
+    // Windows 按次加载截图模块，操作结束时由进程退出释放整个原生运行时。
+    if (platform === 'win32') {
+      startToolsScreenshot(opts ?? {}, cb)
+      return
+    }
     ;(addon as NativeAddon).startRegionCaptureWithPrimedFrame(opts ?? {}, (result) => {
       cb!(result)
     })
@@ -1343,6 +1360,8 @@ export class ColorPicker {
    * @param callback - 取色完成时的回调函数
    * - 成功: { success: true, hex: '#59636E' }
    * - 取消: { success: false, hex: null }
+   * @returns 无返回值。
+   * @throws 已有任务、回调无效或原生启动失败时抛出。
    */
   static start(callback: (result: { success: boolean; hex: string | null }) => void): void {
     if (ColorPicker._isActive) {
@@ -1367,31 +1386,48 @@ export class ColorPicker {
       return
     }
 
-    ;(addon as NativeAddon).startColorPicker((result) => {
-      ;(addon as NativeAddon).stopColorPicker()
-
+    /**
+     * 在发布结果前清理当前会话，迟到的旧回调不能结束新会话。
+     * @param result 当前会话的原生结果。
+     * @returns 无返回值。
+     */
+    const finish = (result: { success: boolean; hex: string | null }): void => {
+      if (ColorPicker._callback !== callback) return
+      if (platform !== 'win32') (addon as NativeAddon).stopColorPicker()
       ColorPicker._isActive = false
-      if (ColorPicker._callback) {
-        const cb = ColorPicker._callback
-        ColorPicker._callback = null
-        cb(result)
-      }
-    })
+      ColorPicker._callback = null
+      callback(result)
+    }
+    try {
+      if (platform === 'win32') startToolsColorPicker(finish)
+      else (addon as NativeAddon).startColorPicker(finish)
+    } catch (error) {
+      // 启动失败不能留下 active 标记，下一次取色必须仍可使用。
+      finish({ success: false, hex: null })
+      throw error
+    }
   }
 
   /**
-   * 停止取色器（手动取消）
+   * 停止取色器并使等待者收到取消结果，避免留下未结束的任务。
+   * @returns 无返回值。
    */
   static stop(): void {
     if (!ColorPicker._isActive) {
       return
     }
 
+    if (platform === 'win32') {
+      stopToolsColorPicker()
+      return
+    }
     if (platform !== 'linux') {
       ;(addon as NativeAddon).stopColorPicker()
     }
+    const callback = ColorPicker._callback
     ColorPicker._isActive = false
     ColorPicker._callback = null
+    callback?.({ success: false, hex: null })
   }
 
   /**

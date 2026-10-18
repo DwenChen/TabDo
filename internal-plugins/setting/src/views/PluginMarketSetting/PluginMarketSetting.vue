@@ -441,6 +441,12 @@ async function downloadPlugin(plugin: Plugin): Promise<void> {
   }
 }
 
+/**
+ * 从市场详情卸载插件，并展示被占用安装包的退出后清理状态。
+ * @param plugin 待卸载插件记录。
+ * @param options 用户选择的数据保留选项。
+ * @returns 卸载和市场列表刷新结束后的 Promise。
+ */
 async function handleUninstallPlugin(
   plugin: Plugin,
   options: PluginUninstallOptions
@@ -451,13 +457,18 @@ async function handleUninstallPlugin(
   }
 
   try {
+    // 使用宿主统一卸载结果，避免把已登记的延后清理误报为即时删除。
     const deleteResult = await window.ztools.internal.deletePlugin(plugin.path, options)
     if (!deleteResult.success) {
       error(`卸载失败: ${deleteResult.error}`)
       return
     }
 
-    success(options.deleteData ? '插件已卸载，插件数据已删除' : '插件已卸载，插件数据已保留')
+    const message = options.deleteData ? '插件已卸载，插件数据已删除' : '插件已卸载，插件数据已保留'
+    success(
+      message +
+        (deleteResult.cleanupPending ? '；安装包仍被系统占用，将在退出 ZTools 后自动清理' : '')
+    )
 
     plugin.installed = false
     plugin.localVersion = undefined

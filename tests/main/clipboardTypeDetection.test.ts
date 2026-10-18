@@ -91,6 +91,7 @@ vi.mock('fs', () => ({
 
 import { writeClipboardFiles } from '../../src/main/utils/clipboardFiles'
 import clipboardManager from '../../src/main/managers/clipboardManager'
+import lmdbInstance from '../../src/main/core/lmdb/lmdbInstance'
 
 async function triggerClipboardChange(): Promise<string | undefined> {
   await (clipboardManager as any).handleClipboardChange()
@@ -134,6 +135,45 @@ describe('clipboard type detection', () => {
     clipboardState.text = 'plain text'
 
     expect(await triggerClipboardChange()).toBe('text')
+  })
+})
+
+describe('clipboard category queries and freshness', () => {
+  it('filters the whole history before pagination and refreshes changed cached content', async () => {
+    const records = Array.from({ length: 60 }, (_, index) => ({
+      _id: 'CLIPBOARD/' + index,
+      type: 'text',
+      timestamp: 1000 - index,
+      content: '普通记录 ' + index
+    }))
+    records.push({
+      _id: 'CLIPBOARD/code',
+      type: 'text',
+      timestamp: 1,
+      content: 'const answer = 42;'
+    })
+    vi.mocked(lmdbInstance.promises.allDocs).mockResolvedValue(records as any)
+    const result = await clipboardManager.getHistory(1, 20, undefined, 'code')
+    expect(result.total).toBe(1)
+    expect(result.items[0].id).toBe('code')
+    records[60].content = 'https://example.com'
+    expect((await clipboardManager.getHistory(1, 20, undefined, 'code')).total).toBe(0)
+    expect((await clipboardManager.getHistory(1, 20, 'example', 'link')).items[0].id).toBe('code')
+    vi.mocked(lmdbInstance.promises.allDocs).mockResolvedValue([])
+  })
+
+  it('returns only the latest fresh copy and treats zero as disabled', async () => {
+    const instance = clipboardManager as any
+    instance.lastCopiedContent = {
+      type: 'text',
+      data: 'latest',
+      timestamp: Date.now(),
+      sequence: 99
+    }
+    expect(clipboardManager.getRecentCopiedContent(1000)?.data).toBe('latest')
+    expect(clipboardManager.getRecentCopiedContent(0)).toBeNull()
+    instance.lastCopiedContent.timestamp -= 2000
+    expect(clipboardManager.getRecentCopiedContent(1000)).toBeNull()
   })
 })
 

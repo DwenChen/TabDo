@@ -16,7 +16,11 @@ vi.mock('electron', () => ({
   },
   ipcMain: {
     handle: vi.fn()
-  }
+  },
+  session: {
+    fromPartition: vi.fn(() => ({ clearStorageData: vi.fn(), clearCache: vi.fn() }))
+  },
+  webContents: { getAllWebContents: vi.fn(() => []) }
 }))
 
 vi.mock('fs', () => ({
@@ -28,6 +32,10 @@ vi.mock('fs', () => ({
     cp: vi.fn(),
     stat: vi.fn()
   }
+}))
+
+vi.mock('../../src/main/utils/physicalFs.js', () => ({
+  physicalFs: { promises: { rm: mockFsRm } }
 }))
 
 vi.mock('../../src/main/api/shared/database', () => ({
@@ -222,7 +230,12 @@ describe('plugin removal cleanup', () => {
     expect(removePluginUsageData).toHaveBeenCalledWith('demo')
     expect(mockClearPluginData).toHaveBeenCalledWith('demo')
     expect(mockDbPut).toHaveBeenCalledWith('plugins', [])
-    expect(mockFsRm).toHaveBeenCalledWith('D:\\plugins\\demo', { recursive: true, force: true })
+    expect(mockFsRm).toHaveBeenCalledWith('D:\\plugins\\demo', {
+      recursive: true,
+      force: true,
+      maxRetries: 4,
+      retryDelay: 100
+    })
   })
 
   it('can uninstall a plugin while preserving plugin data', async () => {
@@ -249,7 +262,37 @@ describe('plugin removal cleanup', () => {
     expect(removePluginUsageData).toHaveBeenCalledWith('demo')
     expect(mockClearPluginData).not.toHaveBeenCalled()
     expect(mockDbPut).toHaveBeenCalledWith('plugins', [])
-    expect(mockFsRm).toHaveBeenCalledWith('D:\\plugins\\demo', { recursive: true, force: true })
+    expect(mockFsRm).toHaveBeenCalledWith('D:\\plugins\\demo', {
+      recursive: true,
+      force: true,
+      maxRetries: 4,
+      retryDelay: 100
+    })
+  })
+
+  it('retains registration and data when package cleanup fails', async () => {
+    const plugin = { name: 'demo', path: 'D:\\plugins\\demo.asar' }
+    mockDbGet.mockImplementation((key: string) => (key === 'plugins' ? [plugin] : []))
+    mockFsRm.mockRejectedValueOnce(new Error('EPERM: package is locked'))
+    const api = new PluginsAPI()
+    ;(api as any).pluginManager = { killPlugin: vi.fn() }
+
+    const result = await api.deletePlugin(plugin.path)
+
+    expect(result).toEqual({ success: false, error: 'EPERM: package is locked' })
+    expect(mockDbPut).not.toHaveBeenCalled()
+    expect(mockClearPluginData).not.toHaveBeenCalled()
+  })
+
+  it('does not report success or unregister when data cleanup fails', async () => {
+    const plugin = { name: 'demo', path: 'D:\\plugins\\demo' }
+    mockDbGet.mockImplementation((key: string) => (key === 'plugins' ? [plugin] : []))
+    mockClearPluginData.mockResolvedValueOnce({ success: false, error: 'Data is locked' })
+    const api = new PluginsAPI()
+    ;(api as any).pluginManager = { killPlugin: vi.fn() }
+
+    expect(await api.deletePlugin(plugin.path)).toEqual({ success: false, error: 'Data is locked' })
+    expect(mockDbPut).not.toHaveBeenCalled()
   })
 
   it('cleans plugin settings when uninstalling and clearing plugin data', async () => {

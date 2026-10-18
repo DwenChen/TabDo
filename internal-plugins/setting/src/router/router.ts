@@ -115,13 +115,7 @@ const homeRoutes: MenuRouterItemType[] = [
   {
     path: '/backup',
     name: 'Backup',
-    component: () => import('@/views/BackupSetting/BackupSetting.vue'),
-    meta: {
-      menu: {
-        label: '数据备份与迁移',
-        icon: 'i-z-cloud'
-      }
-    }
+    redirect: { name: 'Data', query: { tab: 'backup' } }
   },
   {
     path: '/debug',

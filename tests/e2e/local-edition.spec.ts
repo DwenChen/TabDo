@@ -3,7 +3,9 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 
-test('local edition settings, backup bridge, providers and complete panel matching', async ({}, testInfo) => {
+test('local edition settings, backup bridge, providers and complete panel matching', async ({
+  browserName: _browserName
+}, testInfo) => {
   const root = path.resolve(__dirname, '../..')
   const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'ztools-local-e2e-'))
   let app: ElectronApplication | undefined
@@ -47,7 +49,15 @@ test('local edition settings, backup bridge, providers and complete panel matchi
     await expect(setting.getByRole('heading', { name: '搜索', exact: true })).toHaveCount(0)
     for (const text of ['注册/登录 ZTools', 'MCP 服务', '数据同步'])
       await expect(setting.getByText(text, { exact: true })).toHaveCount(0)
-    await setting.getByRole('button', { name: '数据备份与迁移', exact: true }).click()
+    await expect(
+      setting.locator('.settings-sidebar').getByText('ZTools 本地版 · 第一版')
+    ).toHaveCount(0)
+    await expect(
+      main.getByRole('button', { name: '插件操作', exact: true }).locator('img')
+    ).toHaveCount(0)
+    await expect(setting.locator('.settings-sidebar').getByText('数据备份与迁移')).toHaveCount(0)
+    await setting.getByRole('button', { name: '我的数据', exact: true }).click()
+    await setting.getByRole('tab', { name: '数据备份与迁移', exact: true }).click()
     await expect(setting.getByRole('button', { name: '导出完整备份' })).toBeVisible()
     expect(
       await setting.evaluate(() => ({
@@ -92,6 +102,17 @@ test('local edition settings, backup bridge, providers and complete panel matchi
     const appVersion = await app.evaluate(({ app }) => app.getVersion())
     await expect(setting.getByText(`第一版 · v${appVersion}`)).toBeVisible()
     await expect(setting.getByText('致谢', { exact: true })).toBeVisible()
+    await setting.getByRole('button', { name: '已安装插件', exact: true }).click()
+    for (const title of ['设置', '工具']) {
+      const builtin = setting
+        .locator('.plugin-item')
+        .filter({ has: setting.locator('.plugin-name', { hasText: title }) })
+      await expect(builtin.getByText('内置', { exact: true })).toBeVisible()
+      await expect(builtin.getByText('DEV', { exact: true })).toHaveCount(0)
+      await builtin.click()
+      await expect(setting.getByRole('button', { name: '卸载', exact: true })).toHaveCount(0)
+      await setting.getByRole('button', { name: '返回', exact: true }).click()
+    }
     await setting.getByRole('button', { name: '提供商', exact: true }).click()
     await expect(setting.getByText('ZTools 官方模型')).toHaveCount(0)
     await expect(main.locator('.search-input')).toHaveCount(0)

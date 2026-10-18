@@ -2,7 +2,6 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { normalizeConfigList } from '@shared/pluginSettings'
 import { useWindowStore } from '../stores/windowStore'
-import defaultIcon from '../assets/image/default.png'
 import AdaptiveIcon from './common/AdaptiveIcon.vue'
 import {
   convertToElectronKeyboardEvent,
@@ -29,11 +28,23 @@ const behaviorCommands: Record<string, BehaviorKey> = {
 }
 defineExpose({ focus: () => input.value?.focus(), selectAll: () => input.value?.select() })
 
-/** 将插件子输入框的导航键转发给插件视图。
+/** 将导航键和没有原生文本选择的复制快捷键转发给插件视图。
  * @param event 输入框键盘事件。
  * @returns 无返回值。
  */
 function navigate(event: KeyboardEvent): void {
+  // 搜索框没有选中文本时，复制应交给插件处理其多选条目。
+  if (
+    (event.ctrlKey || event.metaKey) &&
+    !event.altKey &&
+    event.key.toLowerCase() === 'c' &&
+    input.value?.selectionStart === input.value?.selectionEnd
+  ) {
+    event.preventDefault()
+    for (const type of ['keyDown', 'keyUp'] as const)
+      void host.sendInputEvent({ type, keyCode: 'C', modifiers: readModifiers(event) })
+    return
+  }
   const keys: Record<string, NavDirectionKey> = {
     ArrowUp: 'up',
     ArrowDown: 'down',
@@ -201,7 +212,6 @@ onUnmounted(() => removeMenuListener?.())
         @click.stop="showPluginMenu"
       >
         <span class="more-indicator" aria-hidden="true">⋮</span>
-        <img :src="defaultIcon" alt="" draggable="false" />
       </button>
     </nav>
   </header>
@@ -282,14 +292,10 @@ button:disabled {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   padding: 5px;
-}
-.plugin-actions img {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
 }
 .more-indicator {
   font-size: 22px;

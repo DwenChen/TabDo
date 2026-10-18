@@ -221,8 +221,7 @@ async function handleTemplateSearch(
 }
 
 /**
- * 执行截图：autoConfirm=false 进入编辑态由用户标注后再出图；
- * 仍保留写入剪贴板 + 通知的行为，并在返回值中携带 image/bounds 供工具调用链消费。
+ * 使用精简后的原生截图工具栏，确认后静默复制。
  * @param ctx 系统指令上下文
  * @returns 截图结果，包含 dataURL 与区域信息
  */
@@ -230,19 +229,14 @@ async function handleScreenshot(ctx: SystemCommandContext): Promise<any> {
   console.log('[SystemCmd] 执行截图（编辑态）')
 
   try {
-    // autoConfirm=false：选区确定后进入编辑态，由用户标注/确认后再出图
+    // 选区完成后进入原生编辑态，保留标注、长截图及确认操作。
     const result = await screenCapture(ctx.mainWindow || undefined, false, { autoConfirm: false })
     if (!result.image) {
       return { success: false, error: '未获取到截图内容' }
     }
 
-    // 保留旧行为：写入剪贴板并通知用户
+    // 用户确认后发布最终图像，不弹出复制成功通知。
     clipboard.writeImage(nativeImage.createFromDataURL(result.image))
-
-    new Notification({
-      title: 'ZTools',
-      body: '截图已复制到剪贴板'
-    }).show()
 
     // 附带 image/bounds，供后续工具调用链使用
     return { success: true, image: result.image, bounds: result.bounds }
@@ -568,30 +562,34 @@ async function handleOpenFolder(ctx: SystemCommandContext, param: any): Promise<
   return { success: true }
 }
 
-function handleColorPicker(ctx: SystemCommandContext): Promise<any> {
+/**
+ * 隐藏宿主并等待取色任务收束，进程释放后再发布颜色，写入失败也返回明确结果。
+ * @param ctx 本次系统指令的宿主上下文。
+ * @returns 包含成功颜色或失败原因的 Promise。
+ */
+async function handleColorPicker(ctx: SystemCommandContext): Promise<any> {
   console.log('[SystemCmd] 执行屏幕取色')
   ctx.mainWindow?.hide()
 
-  return new Promise((resolve) => {
-    try {
-      ColorPicker.start((result) => {
-        if (result.success && result.hex) {
-          clipboard.writeText(result.hex)
-          console.log('[SystemCmd] 已复制颜色值:', result.hex)
-          if (Notification.isSupported()) {
-            new Notification({ title: 'ZTools', body: `已复制颜色值: ${result.hex}` }).show()
-          }
-          resolve({ success: true, hex: result.hex })
-        } else {
-          console.log('[SystemCmd] 取色已取消')
-          resolve({ success: false, error: '取色已取消' })
-        }
-      })
-    } catch (error) {
-      console.error('[SystemCmd] 取色失败:', error)
-      resolve({ success: false, error: String(error) })
+  try {
+    const result = await new Promise<{ success: boolean; hex: string | null }>((resolve) => {
+      ColorPicker.start(resolve)
+    })
+    // 原生进程已经退出，此后的剪贴板或通知异常不会遗留后台工作进程。
+    if (!result.success || !result.hex) {
+      console.log('[SystemCmd] 取色已取消')
+      return { success: false, error: '取色已取消' }
     }
-  })
+    clipboard.writeText(result.hex)
+    console.log('[SystemCmd] 已复制颜色值:', result.hex)
+    if (Notification.isSupported()) {
+      new Notification({ title: 'ZTools', body: `已复制颜色值: ${result.hex}` }).show()
+    }
+    return { success: true, hex: result.hex }
+  } catch (error) {
+    console.error('[SystemCmd] 取色失败:', error)
+    return { success: false, error: String(error) }
+  }
 }
 
 /**

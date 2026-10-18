@@ -1,0 +1,26 @@
+{
+  "id": "tools-integration-and-lifecycle",
+  "date": "2026-10-18",
+  "version": "1.1.0",
+  "summary": "工具整合、剪贴板/中键回归和运行时释放",
+  "changes": [
+    "内置工具集成剪贴板分类、高亮、显式选择与合并复制，保留插件标识 system。",
+    "修复中键选区匹配、固定项回退、外部点击关闭和异步结果重开。",
+    "截图进入编辑态，修复非 wheel 长截图；Windows 截图/取色按次独立进程运行。",
+    "工具退出清理前台资源，必要任务完成再销毁；旧任务保持原插件数据隔离。",
+    "预览资源完整同步；此前 1186 个用户文件前后校验一致，保留程序回退副本。"
+  ],
+  "checks": [
+    "本次整理前历史验证：508 项单测通过；8 个源码 E2E 场景均通过（整套 7 项通过后，对旧 Page 引用修正并重跑相关 2 项通过）。",
+    "历史类型检查与修改文件 lint 通过；全仓 lint 的遗留问题在本轮维护中处理。",
+    "历史原始日志迁入 .artifacts/history/，原生截图视觉边界仍需人工验收。"
+  ],
+  "tests": [
+    "tests/e2e/tools-clipboard.spec.ts",
+    "tests/e2e/tools-lifecycle.spec.ts",
+    "tests/e2e/tools-screenshot.spec.ts",
+    "tests/e2e/super-panel-selection.spec.ts",
+    "tests/main/toolsLifecycle.test.ts",
+    "tests/main/toolsHostLifecycle.test.ts"
+  ]
+}

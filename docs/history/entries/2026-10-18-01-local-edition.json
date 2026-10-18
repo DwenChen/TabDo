@@ -1,0 +1,13 @@
+{
+  "id": "local-edition-baseline",
+  "date": "2026-10-18",
+  "version": "1.0.0",
+  "summary": "本地版边界与 Windows 云端发布基线",
+  "changes": [
+    "保留超级面板、插件、自定义模型和系统能力；裁剪账号、云同步、MCP 与主搜索等孤立入口。",
+    "完整数据备份和迁移增加 SHA-256 校验、恢复前检查、回滚与路径重定位。",
+    "源码 Electron 预览和隔离测试数据；发布范围收敛至 Windows x64。"
+  ],
+  "checks": ["历史证据：changelog.md、3579d85、5879de3、d5368ed、6136fe4；v1.0.0 已由云端发布。"],
+  "tests": ["tests/main/backupArchive.test.ts", "tests/e2e/local-edition.spec.ts"]
+}

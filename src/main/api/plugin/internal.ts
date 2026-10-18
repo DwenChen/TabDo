@@ -1252,6 +1252,13 @@ export class InternalPluginAPI {
     )
 
     // ==================== 超级面板 API ====================
+    ipcMain.handle('internal:update-clipboard-quick-match', (event, seconds: number) => {
+      if (!requireInternalPlugin(this.pluginManager, event)) {
+        throw new PermissionDeniedError('internal:update-clipboard-quick-match')
+      }
+      superPanelManager.updateClipboardQuickMatch(seconds)
+      return { success: true }
+    })
     ipcMain.handle(
       'internal:update-super-panel-config',
       async (event, config: { enabled: boolean; mouseButton: string; longPressMs: number }) => {

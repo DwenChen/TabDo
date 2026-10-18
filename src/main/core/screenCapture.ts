@@ -6,7 +6,7 @@ import os from 'os'
 import { ScreenCapture, ScreenCaptureOptions } from './native'
 import windowManager from '../managers/windowManager'
 
-// 原生截图（Windows/macOS：覆盖层选区 + 编辑态工具栏/标注/翻译）
+// 原生截图（Windows/macOS：覆盖层选区与编辑标注）
 export const screenWindow = (
   cb: (image: string, bounds?: { x: number; y: number; width: number; height: number }) => void,
   options?: ScreenCaptureOptions
@@ -202,7 +202,7 @@ export const screenCapture = (
     const startCapture = (): void => {
       if (process.platform === 'darwin' || process.platform === 'win32') {
         // 原生截图（两平台全功能对等）：透传 autoConfirm 选项，false 时进入编辑态
-        // 由用户标注/翻译后再出图（macOS 会话阻塞主线程直至收束，为原生模块既定行为）
+        // 由用户标注确认后再出图（macOS 会话阻塞主线程直至收束，为原生模块既定行为）
         screenWindow((image, bounds) => {
           restoreWindow()
           resolve({ image, bounds })

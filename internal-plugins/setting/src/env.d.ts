@@ -132,7 +132,7 @@ declare global {
         deletePlugin: (
           pluginPath: string,
           options?: { deleteData?: boolean }
-        ) => Promise<{ success: boolean; error?: string }>
+        ) => Promise<{ success: boolean; error?: string; cleanupPending?: boolean }>
         killPlugin: (pluginPath: string) => Promise<{ success: boolean; error?: string }>
         revealInFinder: (filePath: string) => Promise<void>
         launch: (options: {
@@ -604,6 +604,7 @@ declare global {
         }
 
         // 超级面板
+        updateClipboardQuickMatch: (seconds: number) => Promise<{ success: boolean }>
         updateSuperPanelConfig: (config: {
           enabled: boolean
           mouseButton: string

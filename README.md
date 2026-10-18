@@ -1,6 +1,6 @@
 # ZTools 本地版
 
-基于 ZTools 的个人精简版。当前为第一版维护补丁 **v1.0.1**，面向超级面板、插件工作流和完整本地数据备份。
+基于 ZTools 的个人精简版。当前为 **v1.1.0**，面向超级面板、内置工具、插件工作流和完整本地数据备份。
 
 ## 下载与使用
 
@@ -18,7 +18,9 @@
 
 ## 本地预览
 
-已准备依赖的工作区中双击 **Preview.cmd**，或执行 「pnpm preview:local」。不执行本地构建、原生编译或打包；复用预编译 Electron 和原生模块，按需加载源码。预览数据使用仓库内的 「\_preview-data」。
+已准备依赖的工作区中双击 **Preview.cmd**，或执行 「pnpm preview:local」。不执行本地构建、原生编译或打包；复用预编译 Electron 和原生模块，按需加载源码。预览数据使用仓库内的 `.local/source-preview-data`。
+
+本地免安装预览通过 **PreviewPortable.cmd** 启动，程序和隔离数据在 `.local/portable-preview/`。开发前必读 [维护规范](docs/maintenance.md)，改动、Bug 与测试索引见 [文档入口](docs/README.md)；每轮收尾运行 `pnpm maintain`，默认保留预览配置和插件，未经指示不 push、云端构建或发布。
 
 首次准备与测试说明见 [开发、预览与发布](docs/development.md)。独立免安装成品使用云端 Release 的 Windows ZIP。
 

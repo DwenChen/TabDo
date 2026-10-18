@@ -22,7 +22,6 @@ const menuRoutes = computed(
         <span class="menu-label">{{ item.meta?.menu?.label }}</span>
       </button>
     </div>
-    <div class="local-edition">ZTools 本地版 · 第一版</div>
   </div>
 </template>
 <style scoped>
@@ -201,10 +200,5 @@ const menuRoutes = computed(
   width: 100%;
   text-align: left;
   font: inherit;
-}
-.local-edition {
-  padding: 16px;
-  color: var(--text-secondary);
-  font-size: 12px;
 }
 </style>

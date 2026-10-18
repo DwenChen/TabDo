@@ -21,6 +21,7 @@ import httpServer from './core/httpServer'
 import { registerIconProtocolForSession, registerIconScheme } from './core/iconProtocol'
 import { getLogsPath } from './core/appData/appDataPaths'
 import { loadInternalPlugins } from './core/internalPluginLoader'
+import { cleanupPendingPluginArtifacts } from './core/pluginArtifactCleanup'
 import pluginManager from './managers/pluginManager'
 import windowManager from './managers/windowManager'
 
@@ -50,7 +51,10 @@ app.on('second-instance', (_event, argv) => {
   if (focusAccessibilityPermissionWindow()) return
 
   // 当运行第二个实例时，焦点聚焦到这个实例
-  if (applicationInitialized) windowManager.showWindow()
+  if (applicationInitialized) {
+    if (pluginManager.getCurrentPluginPath()) windowManager.showWindow()
+    else void windowManager.showSettings()
+  }
 })
 
 // macOS: 监听文件打开事件（双击 .zpx 文件或拖拽到 Dock 图标）
@@ -133,6 +137,9 @@ app.whenReady().then(async () => {
   // 处理首次运行时的旧数据导入（如果存在旧数据）
   await handleFirstRunStorageImport()
 
+  // 第三方插件再次读取归档前，补清理上次卸载时仍被 Electron 锁定的实体。
+  await cleanupPendingPluginArtifacts()
+
   // 注册自定义图标协议到默认 session (ztools-icon://)
   registerIconProtocolForSession(session.defaultSession)
 
@@ -142,9 +149,15 @@ app.whenReady().then(async () => {
   // 创建主窗口
   const mainWindow = windowManager.createWindow()
 
-  if (isE2ETest || process.env.ZTOOLS_SOURCE_PREVIEW === '1') {
+  if (
+    (isE2ETest || process.env.ZTOOLS_SOURCE_PREVIEW === '1') &&
+    process.env.ZTOOLS_PREVIEW_OPEN_SETTINGS !== '0'
+  ) {
     // 测试模式直接展示窗口，让自动化驱动无需依赖全局快捷键。
-    mainWindow.once('ready-to-show', () => windowManager.showWindow())
+    mainWindow.once('ready-to-show', () => {
+      if (pluginManager.getCurrentPluginPath()) windowManager.showWindow()
+      else void windowManager.showSettings()
+    })
   }
 
   // 初始化 API 和插件管理器

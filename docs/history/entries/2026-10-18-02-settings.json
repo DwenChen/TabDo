@@ -1,0 +1,12 @@
+{
+  "id": "settings-stability",
+  "date": "2026-10-18",
+  "version": "1.0.1",
+  "summary": "设置窗口稳定性与插件菜单恢复",
+  "changes": [
+    "避免设置循环重开，复用并发请求，丢弃过期装配和焦点结果。",
+    "恢复分离、开发者工具、运行设置与终止菜单，保护原生菜单期间的焦点。"
+  ],
+  "checks": ["历史证据：ba75802 与 v1.0.1 成功云端工作流 39099861246；详情见 changelog.md。"],
+  "tests": ["tests/e2e/settings-window-stability.spec.ts"]
+}

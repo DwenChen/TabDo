@@ -4,6 +4,12 @@ import { useToast, AdaptiveIcon, DetailPanel } from '@/components'
 import ProgressCircleButton from '@/components/common/ProgressCircleButton/ProgressCircleButton.vue'
 import { weightedSearch } from '@/utils'
 import { useZtoolsSubInput } from '@/composables'
+import { useRoute, useRouter } from 'vue-router'
+import BackupSetting from '@/views/BackupSetting/BackupSetting.vue'
+
+const route = useRoute()
+const router = useRouter()
+const showBackup = computed(() => route.query.tab === 'backup')
 
 const { success, error, confirm } = useToast()
 
@@ -440,8 +446,21 @@ onUnmounted(() => {
 
 <template>
   <div class="data-management">
+    <div class="data-tabs" role="tablist" aria-label="我的数据">
+      <button role="tab" :aria-selected="!showBackup" @click="router.replace({ name: 'Data' })">
+        插件数据
+      </button>
+      <button
+        role="tab"
+        :aria-selected="showBackup"
+        @click="router.replace({ name: 'Data', query: { tab: 'backup' } })"
+      >
+        数据备份与迁移
+      </button>
+    </div>
+    <BackupSetting v-if="showBackup" />
     <!-- 主内容：插件列表 -->
-    <Transition name="list-slide">
+    <Transition v-else name="list-slide">
       <div v-show="currentLevel === 'main'" class="main-content">
         <div v-if="!isLoaded" class="empty">
           <p>正在加载数据...</p>
@@ -603,10 +622,38 @@ onUnmounted(() => {
 /* 主内容区 */
 .main-content {
   position: absolute;
-  inset: 0;
+  inset: 53px 0 0;
   overflow-y: auto;
   overflow-x: hidden;
   padding: 20px;
+}
+
+.data-tabs {
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--divider-color);
+}
+
+.data-tabs button {
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: inherit;
+}
+
+.data-tabs button[aria-selected='true'] {
+  background: var(--active-bg);
+  color: var(--primary-color);
+}
+
+.data-management > :deep(.backup-panel) {
+  flex: 1;
+  min-height: 0;
 }
 
 /* 列表滑动动画 */

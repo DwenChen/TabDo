@@ -28,7 +28,7 @@
         v-model="searchQuery"
         type="text"
         class="search-input"
-        placeholder="搜索..."
+        :placeholder="searchPlaceholder"
         @input="handleSearchInput"
         @keydown="handleKeydown"
       />
@@ -184,6 +184,7 @@ const pluginId = ref('') // 插件的实际 name（用于数据库操作，与�
 const pluginPath = ref('')
 const pluginLogo = ref<string | undefined>(undefined)
 const searchQuery = ref('')
+const searchPlaceholder = ref('搜索...')
 const subInputVisible = ref(true) // 子输入框是否可见
 const isPinned = ref(false)
 const searchInputRef = ref<HTMLInputElement | null>(null)
@@ -425,7 +426,7 @@ function applyAcrylicOverlay(): void {
 }
 
 // 初始化
-onMounted(async () => {
+onMounted(() => {
   // 仅监听当前独立标题栏发起的市场升级进度。
   cleanupPluginUpdateProgressListener = window.ztools.pluginUpdates.onProgress(
     handlePluginUpgradeProgress
@@ -445,27 +446,30 @@ onMounted(async () => {
   }
 
   // 从数据库加载亚克力透明度设置
-  try {
-    const settings = await window.ztools.dbGet('settings-general')
-    if (settings) {
-      acrylicLightOpacity.value = settings.acrylicLightOpacity ?? 78
-      acrylicDarkOpacity.value = settings.acrylicDarkOpacity ?? 50
-      compactWindowHeader.value = settings.compactMainWindowHeader === true
-      console.log('标题栏加载亚克力透明度:', {
-        light: acrylicLightOpacity.value,
-        dark: acrylicDarkOpacity.value
-      })
-      if (settings.primaryColor) {
-        primaryColor.value = settings.primaryColor
+  // 外观读取不能阻塞 init-titlebar 的订阅，否则迁移后的标题栏丢失插件身份。
+  void window.ztools
+    .dbGet('settings-general')
+    .then((settings) => {
+      if (settings) {
+        acrylicLightOpacity.value = settings.acrylicLightOpacity ?? 78
+        acrylicDarkOpacity.value = settings.acrylicDarkOpacity ?? 50
+        compactWindowHeader.value = settings.compactMainWindowHeader === true
+        console.log('标题栏加载亚克力透明度:', {
+          light: acrylicLightOpacity.value,
+          dark: acrylicDarkOpacity.value
+        })
+        if (settings.primaryColor) {
+          primaryColor.value = settings.primaryColor
+        }
+        if (settings.customColor) {
+          customColor.value = settings.customColor
+        }
+        applyPrimaryColor()
       }
-      if (settings.customColor) {
-        customColor.value = settings.customColor
-      }
-      applyPrimaryColor()
-    }
-  } catch (error) {
-    console.error('加载亚克力透明度设置失败:', error)
-  }
+    })
+    .catch((error) => {
+      console.error('加载亚克力透明度设置失败:', error)
+    })
 
   // 初始化时获取当前窗口材质
   if (window.ztools?.getWindowMaterial) {
@@ -543,6 +547,7 @@ onMounted(async () => {
 
     // 设置搜索框初始值
     searchQuery.value = data.searchQuery || ''
+    searchPlaceholder.value = data.searchPlaceholder || '搜索...'
 
     // 设置子输入框可见性
     if (data.subInputVisible !== undefined) {
@@ -573,7 +578,7 @@ onMounted(async () => {
     console.log('更新搜索框占位符:', data)
     // 清空搜索内容
     searchQuery.value = ''
-    // 可以在这里更新 placeholder，如果需要的话
+    searchPlaceholder.value = data.placeholder || '搜索...'
   })
 
   // 监听插件设置子输入框的值
@@ -744,11 +749,21 @@ function handleDblClick(): void {
 }
 
 /**
- * 键盘事件处理，拦截并转发回车、Tab 及方向键至插件。
+ * 转发插件导航和无原生文本选择时的复制，保留搜索文本自身的复制行为。
  * @param event 键盘事件对象。
  * @returns 无返回值。
  */
 function handleKeydown(event: KeyboardEvent): void {
+  if (
+    (event.ctrlKey || event.metaKey) &&
+    !event.altKey &&
+    event.key.toLowerCase() === 'c' &&
+    searchInputRef.value?.selectionStart === searchInputRef.value?.selectionEnd
+  ) {
+    event.preventDefault()
+    sendKeyToPlugin('C', readModifiers(event))
+    return
+  }
   // ESC 键清空输入
   if (event.key === 'Escape') {
     event.preventDefault()

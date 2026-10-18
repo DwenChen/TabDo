@@ -1,0 +1,29 @@
+{
+  "id": "repository-maintenance-and-release",
+  "date": "2026-10-18",
+  "version": "1.1.0",
+  "summary": "目录集中整理、自动维护与一次授权发布",
+  "changes": [
+    "归档历次日志、一次性脚本、下载与程序回退资源；活跃预览和私有数据集中到 .local。",
+    "建立维护必读、Bug 台账、版本化变更条目、全量测试索引和历史回归分组。",
+    "单测/E2E 自动归档日志和退出状态；提交前自动刷新索引并要求变更记录，推送及云端执行只读维护检查。",
+    "统一维护文本的 LF 换行并清理全仓遗留 lint 问题，Windows 启动脚本保留 CRLF，供应商压缩库保留原样。",
+    "中键取词 E2E 等待真实剪贴板通知和窗口焦点；每轮截图、trace 和主进程日志单独归档，避免后续运行覆盖证据。",
+    "修复迁入 .artifacts 后 ASAR 展开规则失配，新增隐藏目录单项/多项展开回归测试；预览同步同时更新版本元数据。",
+    "用户明确授权本次 push、云端构建及 release；该授权不延续到后续任务。",
+    "按用户确认保留最新预览程序，完整备份配置和插件后重置预览数据为首次启动状态。"
+  ],
+  "checks": [
+    "Windows：pnpm test 全量 71 个文件、517 项单测通过，涵盖归档、提交约束、预览重置与隐藏路径展开。证据：.artifacts/runs/maintenance-unit-complete.log。",
+    "pnpm typecheck、pnpm typecheck:setting 通过；全仓 eslint --no-cache --max-warnings=0 通过，后续变动文件再次检查通过。",
+    "源码 Electron E2E 的 8 个场景均通过：整套先通过 7 项；中键原生输入夹具改进后专项通过，并连续复测两次通过。首次失败及复测证据均保留，不声称整套一次通过。",
+    "本地交付 pnpm build 通过；pnpm preview:sync 更新为 1.1.0，核验 52 份含版本元数据的程序文件；pnpm test:preview:resources 核验 51 份运行资源和 67 份内置插件资源通过。E2E 未使用该编译产物。",
+    "按本轮明确确认将原配置和插件完整移入 .artifacts/backups/portable-profile/2026-10-18T12-14-09-536Z-4de7271d，1189 个文件重新核对 SHA-256 一致；新 data/legacy 为空，未启动以保留首次启动状态。",
+    "本条目记录发布前验证；本轮授权的云端构建和 release 以 GitHub Actions 对应提交及 v1.1.0 release 的最终结果为准，执行回执存于 .artifacts/runs/。多屏/DPI 与截图像素质量继续保留人工验收。"
+  ],
+  "tests": [
+    "tests/scripts/projectMaintenance.test.ts",
+    "tests/scripts/portablePreviewResources.test.ts",
+    "tests/e2e/super-panel-selection.spec.ts"
+  ]
+}

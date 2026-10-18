@@ -12,6 +12,9 @@ export default defineConfig(
       '**/out',
       'build/**',
       'resources/**',
+      '.local/**',
+      '.artifacts/**',
+      'internal-plugins/system/public/vendor/**',
       'ztools-api-types/**',
       '_*',
       '_*/**',
@@ -55,6 +58,21 @@ export default defineConfig(
           }
         }
       ]
+    }
+  },
+  {
+    files: ['internal-plugins/system/**/*.{js,cjs,vue}'],
+    rules: {
+      // The integrated upstream clipboard UI uses JavaScript with JSDoc signatures.
+      '@typescript-eslint/explicit-function-return-type': 'off',
+      'vue/block-lang': ['error', { script: { lang: 'js' } }]
+    }
+  },
+  {
+    files: ['internal-plugins/system/public/*.{js,cjs}'],
+    rules: {
+      // Electron 预加载与生命周期模块直接使用 CommonJS，类型签名由 JSDoc 描述。
+      '@typescript-eslint/no-require-imports': 'off'
     }
   },
   {

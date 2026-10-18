@@ -38,6 +38,12 @@ import {
   getPluginSessionPartition
 } from '../../shared/pluginRuntimeNamespace'
 import aiRequestStatusTracker from '../core/aiRequestStatusTracker'
+import {
+  isToolsPluginPath,
+  releaseToolsView,
+  getRetiringToolsOwner,
+  stopRetiringToolsViews
+} from '../core/toolsLifecycle'
 
 console.log('[Plugin] mainPreload', mainPreload)
 
@@ -258,7 +264,9 @@ export class PluginManager {
       const developmentMain =
         pluginConfig.name === 'setting' && process.env.ZTOOLS_SETTING_DEV_SERVER_URL
           ? process.env.ZTOOLS_SETTING_DEV_SERVER_URL
-          : pluginConfig.development?.main
+          : pluginConfig.name === 'system' && process.env.ZTOOLS_SOURCE_PREVIEW === '1'
+            ? 'http://127.0.0.1:15178'
+            : pluginConfig.development?.main
       if (developmentMain) {
         console.log('[Plugin] 开发中插件，使用 development.main:', developmentMain)
         return { pluginUrl: developmentMain, isConfigHeadless }
@@ -485,11 +493,34 @@ export class PluginManager {
     return true
   }
 
+  /**
+   * 绑定主窗口，并在工具界面隐藏或最小化时立即退役其运行时。
+   * @param mainWindow 当前宿主主窗口。
+   * @returns 无返回值。
+   */
   public init(mainWindow: BrowserWindow): void {
     this.mainWindow = mainWindow
+    // 直接调用 BrowserWindow.hide 的入口也必须遵守工具清理策略。
+    /**
+     * 退役失去可见宿主的工具界面并重置搜索状态。
+     * @returns 无返回值。
+     */
+    const releaseHiddenTools = (): void => {
+      if (!isToolsPluginPath(this.currentPluginPath)) return
+      this.hidePluginView()
+      windowManager.notifyBackToSearch()
+    }
+    mainWindow.on('hide', releaseHiddenTools)
+    mainWindow.on('minimize', releaseHiddenTools)
   }
 
-  // 创建或更新插件视图
+  /**
+   * 创建或复用目标插件视图，并在单例重入时完成宿主加载状态。
+   * @param pluginPath 目标插件路径。
+   * @param featureCode 需要进入的功能代码。
+   * @param cmdName 可选的指令显示名称。
+   * @returns 插件创建或恢复完成后的 Promise。
+   */
   public async createPluginView(
     pluginPath: string,
     featureCode: string,
@@ -536,6 +567,8 @@ export class PluginManager {
         if (this.shouldSkipReEnter(pluginPath, featureCode)) {
           console.log('[Plugin] 同文本指令重入，跳过 onPluginEnter:', { pluginPath, featureCode })
           this.assemblyCoordinator.abortCurrentSession('singleton-skip-reenter')
+          // 启动器已发布占位态；复用同一插件也必须结束本次加载指示。
+          this.sendPluginLoadedEvent(cached.name, pluginPath)
           return
         }
         this.assemblyCoordinator.trace('reuse-current-plugin-view', {
@@ -885,7 +918,10 @@ export class PluginManager {
     }
   }
 
-  // 隐藏插件视图
+  /**
+   * 移除当前视图；内置工具退出缓存并收束资源，其余插件沿用用户的缓存策略。
+   * @returns 无返回值。
+   */
   public hidePluginView(): void {
     if (this.pluginView && this.mainWindow) {
       const currentPath = this.currentPluginPath
@@ -919,6 +955,20 @@ export class PluginManager {
       // 通知渲染进程插件已关闭
       this.mainWindow.webContents.send('plugin-closed')
 
+      // 工具不受用户的退出设置或子窗口缓存豁免影响；仅等待已登记的必要任务。
+      if (currentPath && isToolsPluginPath(currentPath)) {
+        this.pluginViews = this.pluginViews.filter((entry) => entry.view !== pluginView)
+        this.pluginLastEnterState.delete(currentPath)
+        pluginWindowManager.closeByPlugin(currentPath)
+        const contentsId = pluginView.webContents.id
+        releaseToolsView(
+          pluginView.webContents,
+          () => this.assemblyCoordinator.clearDomReady(contentsId),
+          { name: pluginName || 'system', path: currentPath, logo: cached?.logo }
+        )
+        return
+      }
+
       // 检查是否需要终止插件
       if (pluginName && currentPath) {
         if (pluginWindowManager.hasWindowsByPlugin(currentPath)) {
@@ -944,11 +994,16 @@ export class PluginManager {
   }
 
   /**
-   * 主窗口渲染进程刷新时，仅将当前插件视图从 contentView 移除（不发送生命周期事件、不销毁）。
-   * 避免渲染进程状态重置后与插件视图产生叠层问题。
+   * 主窗口刷新时移除插件视图，工具会话同步进入退出清理流程。
+   * @returns 无返回值。
    */
   public detachPluginViewOnRefresh(): void {
     if (!this.pluginView || !this.mainWindow) return
+    // 刷新不能把工具会话留在无宿主的后台缓存中。
+    if (isToolsPluginPath(this.currentPluginPath)) {
+      this.hidePluginView()
+      return
+    }
     const pluginView = this.pluginView
     console.log('[Plugin] 检测到主渲染进程刷新，移除当前插件视图以防叠层:', this.currentPluginPath)
     this.mainWindow.contentView.removeChildView(pluginView)
@@ -1234,15 +1289,24 @@ export class PluginManager {
     return this.pluginViews
   }
 
-  // 通过 webContents 查找插件名称
+  /**
+   * 查询视图或正在完成必要任务的旧工具会话的插件名称。
+   * @param webContents 发起调用的 WebContents。
+   * @returns 插件名称，无法识别时返回 null。
+   */
   public getPluginNameByWebContents(webContents: any): string | null {
     const plugin = this.pluginViews.find((v) => v.view.webContents === webContents)
-    return plugin ? plugin.name : null
+    return plugin?.name || getRetiringToolsOwner(webContents)?.name || null
   }
 
-  // 终止指定插件（包括分离窗口中的插件）
+  /**
+   * 强制终止指定插件的活动视图、分离窗口及尚在收束的旧工具任务。
+   * @param pluginPath 需要终止的插件路径。
+   * @returns 是否找到并终止了对应运行时。
+   */
   public killPlugin(pluginPath: string): boolean {
     try {
+      const retiredCount = stopRetiringToolsViews(pluginPath)
       console.log('[Plugin] killPlugin 开始:', { pluginPath })
       const index = this.pluginViews.findIndex((v) => v.path === pluginPath)
 
@@ -1296,7 +1360,7 @@ export class PluginManager {
       }
 
       console.log('[Plugin] 插件未运行:', pluginPath)
-      return false
+      return retiredCount > 0
     } catch (error) {
       console.error('[Plugin] 终止插件失败:', error)
       return false
@@ -1320,8 +1384,12 @@ export class PluginManager {
     return false
   }
 
-  // 终止所有插件（包括分离窗口中的插件）
+  /**
+   * 强制终止全部活动插件、分离窗口和仍在完成任务的旧工具会话。
+   * @returns 无返回值。
+   */
   public killAllPlugins(): void {
+    stopRetiringToolsViews()
     console.log('[Plugin] killAllPlugins 开始:', { total: this.pluginViews.length })
     for (const { view, path } of this.pluginViews) {
       try {
@@ -2122,7 +2190,8 @@ export class PluginManager {
 
       // 若存在历史尺寸则优先使用
       const windowWidth = storedSize?.width ?? 800
-      const viewHeight = storedSize?.height ?? cached.height ?? defaultViewHeight
+      // 载入和隐藏过程中的零高度只是临时状态，不能成为分离窗口的正文尺寸。
+      const viewHeight = Math.max(200, storedSize?.height ?? cached.height ?? defaultViewHeight)
 
       // 发送插件分离事件（在分离之前通知插件）
       if (!cached.view.webContents.isDestroyed()) {
@@ -2146,6 +2215,11 @@ export class PluginManager {
         console.error('[Plugin] 检测输入框聚焦状态失败:', error)
       }
 
+      // 等待焦点查询时可能已切换插件，只迁移仍属于当前宿主的同一视图。
+      if (this.pluginView !== cached.view || this.currentPluginPath !== cached.path)
+        return { success: false, error: '插件已切换，请重新分离当前插件' }
+      this.mainWindow.contentView.removeChildView(cached.view)
+
       // 使用新的分离窗口管理器创建窗口（使用缓存的搜索框状态）
       const detachedWindow = detachedWindowManager.createDetachedWindow(
         this.currentPluginPath,
@@ -2168,11 +2242,11 @@ export class PluginManager {
       )
 
       if (!detachedWindow) {
+        // 新窗口创建失败时恢复原父视图，不能把仍可用的插件留在无宿主状态。
+        this.mainWindow.contentView.addChildView(cached.view)
+        this.forceRepaintView(cached.view)
         return { success: false, error: '创建独立窗口失败' }
       }
-
-      // 从主窗口中移除插件视图
-      this.mainWindow.contentView.removeChildView(this.pluginView)
 
       // 从缓存中移除
       const index = this.pluginViews.findIndex((v) => v.path === this.currentPluginPath)
@@ -2219,6 +2293,18 @@ export class PluginManager {
     logo?: string
   } | null {
     const customInternalApiPluginNames = this.getCustomInternalApiPluginNames()
+
+    // 必要任务的后续 IPC 保持原身份和存储隔离，但该视图不能被重新复用。
+    const retiringOwner = getRetiringToolsOwner(webContents)
+    if (retiringOwner)
+      return {
+        ...retiringOwner,
+        canUseInternalApi: canPluginUseInternalApi(
+          retiringOwner.name,
+          customInternalApiPluginNames
+        ),
+        isBundledInternal: isBundledInternalPlugin(retiringOwner.name)
+      }
 
     // 1. 先检查主窗口中的插件视图
     for (const pluginViewInfo of this.pluginViews) {

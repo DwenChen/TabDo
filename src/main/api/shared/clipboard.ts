@@ -2,6 +2,7 @@ import { ipcMain } from 'electron'
 import { WindowManager } from '../../core/native'
 import clipboardManager, { type ClipboardWriteContentData } from '../../managers/clipboardManager'
 import windowManager from '../../managers/windowManager'
+import type { ClipboardCategory } from '../../utils/clipboardCategory'
 
 /**
  * 剪贴板历史管理API - 主程序和插件共享
@@ -20,9 +21,15 @@ export class ClipboardAPI {
     // 获取剪贴板历史
     ipcMain.handle(
       'clipboard:get-history',
-      async (_event, page: number, pageSize: number, filter?: string) => {
+      async (
+        _event,
+        page: number,
+        pageSize: number,
+        filter?: string,
+        category?: ClipboardCategory
+      ) => {
         try {
-          return await clipboardManager.getHistory(page, pageSize, filter)
+          return await clipboardManager.getHistory(page, pageSize, filter, category)
         } catch (error) {
           console.error('[Clipboard] 获取剪贴板历史失败:', error)
           return { items: [], total: 0, page, pageSize }

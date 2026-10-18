@@ -68,8 +68,7 @@ function keydown(event: KeyboardEvent): void {
   }
 }
 onMounted(async () => {
-  await windowStore.loadSettings()
-  await commandDataStore.initializeData()
+  // 先注册宿主生命周期，不能在异步配置和指令扫描期间丢失 opened / loaded。
   window.ztools.onShowPluginPlaceholder(() => windowStore.setPluginLoading(true))
   window.ztools.onShowSettings(() => {
     if (!windowStore.currentPlugin && !windowStore.pluginLoading) window.ztools.openSettings()
@@ -82,7 +81,9 @@ onMounted(async () => {
     text.value = ''
     windowStore.updateCurrentPlugin(plugin)
   })
-  window.ztools.onPluginLoaded(() => windowStore.setPluginLoading(false))
+  window.ztools.onPluginLoaded((plugin) => {
+    if (windowStore.currentPlugin?.path === plugin.path) windowStore.setPluginLoading(false)
+  })
   window.ztools.onAiStatusChanged((change) => windowStore.setAiRequestStatus(change))
   window.ztools.onPluginClosed(() => {
     const switching = windowStore.pluginLoading
@@ -257,8 +258,9 @@ onMounted(async () => {
   )
 
   window.addEventListener('keydown', keydown)
-  // 初次显示时直接进入设置，独立主搜索入口已移除。
-  if (!windowStore.currentPlugin && !windowStore.pluginLoading) window.ztools.openSettings()
+  // 数据初始化不承担打开设置的职责，避免覆盖更早到达的插件或截图指令。
+  await windowStore.loadSettings()
+  await commandDataStore.initializeData()
 })
 onUnmounted(() => window.removeEventListener('keydown', keydown))
 </script>

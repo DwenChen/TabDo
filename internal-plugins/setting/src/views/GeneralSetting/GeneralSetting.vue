@@ -112,6 +112,21 @@ const theme = ref<ThemeType>('system')
 const primaryColor = ref<PrimaryColor>('green')
 const windowPositionStrategy = ref<WindowPositionStrategy>('remember')
 const clipboardRetentionDays = ref(180)
+const clipboardQuickMatchSeconds = ref(5)
+
+/**
+ * 保存复制后中键匹配的有效时长，并立即更新全局监听。
+ * @returns 设置保存和运行时更新完成后的 Promise。
+ */
+async function handleClipboardQuickMatchChange(): Promise<void> {
+  // 将空值或无效输入恢复为默认值，零值用于明确关闭功能。
+  const value = Number(clipboardQuickMatchSeconds.value)
+  clipboardQuickMatchSeconds.value = Number.isFinite(value)
+    ? Math.max(0, Math.min(300, Math.round(value)))
+    : 5
+  await saveSettings()
+  await window.ztools.internal.updateClipboardQuickMatch(clipboardQuickMatchSeconds.value)
+}
 
 // 超级面板设置
 const superPanelEnabled = ref(false)
@@ -869,6 +884,8 @@ async function loadSettings(): Promise<void> {
       theme.value = data.theme ?? 'system'
       primaryColor.value = data.primaryColor ?? 'green'
       autoCheckUpdate.value = data.autoCheckUpdate ?? true
+      clipboardRetentionDays.value = data.clipboardRetentionDays ?? 180
+      clipboardQuickMatchSeconds.value = data.clipboardQuickMatchSeconds ?? 5
 
       // 超级面板配置
       superPanelEnabled.value = data.superPanelEnabled ?? false
@@ -957,6 +974,7 @@ async function saveSettings(): Promise<void> {
       proxyUrl: proxyUrl.value,
       autoCheckUpdate: autoCheckUpdate.value,
       clipboardRetentionDays: clipboardRetentionDays.value,
+      clipboardQuickMatchSeconds: clipboardQuickMatchSeconds.value,
       terminal: terminal.value,
       terminalCustomCommand: terminalCustomCommand.value
     })
@@ -1344,6 +1362,30 @@ onUnmounted(() => {
           >
             <div class="i-z-refresh font-size-20px" />
           </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="setting-group">
+      <h3 class="setting-group-title">剪贴板快捷匹配</h3>
+      <div class="setting-item">
+        <div class="setting-label">
+          <label for="clipboard-quick-match">复制后中键匹配时限（秒）</label>
+          <span class="setting-desc"
+            >无选区时，在复制后的指定时间内短按中键匹配最新内容；此时限不影响已启用超级面板的选区匹配。0
+            表示关闭复制后快捷匹配，默认 5 秒。</span
+          >
+        </div>
+        <div class="setting-control">
+          <input
+            id="clipboard-quick-match"
+            v-model.number="clipboardQuickMatchSeconds"
+            type="number"
+            class="input"
+            min="0"
+            max="300"
+            @change="handleClipboardQuickMatchChange"
+          />
         </div>
       </div>
     </div>

@@ -264,13 +264,19 @@ async function scanLegacyDirectoryFlat(dirPath, apps, displayNameMap) {
   }
 }
 
+/**
+ * 按名称与实际目标去重，并从诊断输出中移除内部去重字段。
+ * @param {Object[]} apps 扫描得到的命令。
+ * @returns {Object[]} 已去重的对外命令列表。
+ */
 function deduplicateCommands(apps) {
   const uniqueApps = new Map()
   for (const appInfo of apps) {
     const dedupeTarget = appInfo._dedupeTarget || appInfo.path
     const dedupeKey = `${appInfo.name.toLowerCase()}|${dedupeTarget.toLowerCase()}`
     if (!uniqueApps.has(dedupeKey)) {
-      const { _dedupeTarget, ...cleanApp } = appInfo
+      const cleanApp = { ...appInfo }
+      delete cleanApp._dedupeTarget
       uniqueApps.set(dedupeKey, cleanApp)
     }
   }

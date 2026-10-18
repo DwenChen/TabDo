@@ -692,8 +692,8 @@ export class AppsAPI {
           console.error('[Commands] 读取 plugin.json 失败:', error)
         }
 
-        // 检查是否为 system 插件（特殊处理：执行系统命令而不是创建视图）
-        if (pluginConfig?.name === 'system') {
+        // 工具的剪贴板打开内置视图，其余功能继续执行系统操作。
+        if (pluginConfig?.name === 'system' && featureCode !== 'clipboard') {
           console.log('[Commands] 检测到 system 插件，执行系统命令:', featureCode)
           return await executeSystemCommand(
             featureCode || '',

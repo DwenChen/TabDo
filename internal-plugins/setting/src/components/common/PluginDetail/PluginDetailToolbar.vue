@@ -2,6 +2,7 @@
 defineProps<{
   isRunning?: boolean
   isDevelopment?: boolean
+  isBuiltin?: boolean
   installed?: boolean
   // 已安装插件特有
   isPinned?: boolean
@@ -73,7 +74,12 @@ function handleDisabledToggle(event: Event): void {
     >
       <div class="i-z-store font-size-16px" />
     </button>
-    <button class="icon-btn topbar-action-btn delete-btn" title="卸载" @click="emit('uninstall')">
+    <button
+      v-if="!isBuiltin"
+      class="icon-btn topbar-action-btn delete-btn"
+      title="卸载"
+      @click="emit('uninstall')"
+    >
       <div class="i-z-trash font-size-16px" />
     </button>
     <button

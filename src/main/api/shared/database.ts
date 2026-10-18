@@ -698,7 +698,9 @@ export class DatabaseAPI {
   }
 
   /**
-   * 清空指定插件的所有数据（供内部调用）
+   * 清空插件文档、附件与专属目录，并返回实际清理结果。
+   * @param pluginName 插件实际名称，含开发版后缀。
+   * @returns 数据清理结果，目录删除失败时返回失败原因。
    */
   private async _clearPluginData(
     pluginName: string
@@ -743,15 +745,13 @@ export class DatabaseAPI {
       }
 
       // 3. 清理插件专属文件系统数据目录（ztools.getPath('pluginData')），与「清除数据」语义保持一致。
-      // 失败不阻断清空，避免残留目录导致本次操作整体失败。
-      try {
-        await physicalFs.promises.rm(getPluginDataPath(pluginName), {
-          recursive: true,
-          force: true
-        })
-      } catch (error) {
-        console.error('[Database] 删除插件数据目录失败:', error)
-      }
+      // 短暂占用允许重试，持续失败必须告知调用方，避免将残留误报为成功。
+      await physicalFs.promises.rm(getPluginDataPath(pluginName), {
+        recursive: true,
+        force: true,
+        maxRetries: 10,
+        retryDelay: 100
+      })
 
       return { success: true, deletedCount }
     } catch (error: unknown) {

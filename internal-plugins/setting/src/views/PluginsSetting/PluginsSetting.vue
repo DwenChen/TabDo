@@ -154,11 +154,17 @@ async function loadPlugins(): Promise<void> {
   void checkMarketUpdates()
 }
 
-// 将已安装插件列表按安装时间排序并设置初始字段
+/**
+ * 构建含内置插件的安装列表，并仅为第三方安装版计算市场更新。
+ * @param installedPlugins 宿主返回的插件记录。
+ * @param marketPluginMap 按插件名索引的市场数据。
+ * @returns 按安装时间排序的插件列表。
+ */
 function buildPluginList(installedPlugins: any[], marketPluginMap?: Map<string, any>): any[] {
+  // 内置插件由应用版本管理，不能被同名市场包覆盖。
   return installedPlugins
     .map((plugin: any) => {
-      const market = marketPluginMap?.get(plugin.name)
+      const market = plugin.isBuiltin ? undefined : marketPluginMap?.get(plugin.name)
       return {
         ...plugin,
         installed: true,
@@ -166,6 +172,7 @@ function buildPluginList(installedPlugins: any[], marketPluginMap?: Map<string, 
         latestVersion: market?.version,
         marketPlugin: market,
         hasUpdate:
+          !plugin.isBuiltin &&
           !plugin.isDevelopment &&
           !!market?.version &&
           compareVersions(plugin.version, market.version) < 0
@@ -345,7 +352,12 @@ async function importPlugin(): Promise<void> {
   }
 }
 
-// 从详情页面卸载插件（确认弹窗在 PluginDetail 中已展示，此处直接执行删除）
+/**
+ * 执行已经确认的卸载，并明确告知被 Windows 占用的安装包何时清理。
+ * @param plugin 待卸载插件记录。
+ * @param options 用户选择的数据保留选项。
+ * @returns 卸载和列表刷新结束后的 Promise。
+ */
 async function handleUninstallFromDetail(
   plugin: any,
   options: PluginUninstallOptions
@@ -354,9 +366,15 @@ async function handleUninstallFromDetail(
 
   isDeleting.value = true
   try {
+    // 宿主负责实体删除与退出后清理，界面仅在结果确定后移除详情。
     const result = await window.ztools.internal.deletePlugin(plugin.path, options)
     if (result.success) {
-      success(options.deleteData ? '插件已卸载，插件数据已删除' : '插件已卸载，插件数据已保留')
+      const message = options.deleteData
+        ? '插件已卸载，插件数据已删除'
+        : '插件已卸载，插件数据已保留'
+      success(
+        message + (result.cleanupPending ? '；安装包仍被系统占用，将在退出 ZTools 后自动清理' : '')
+      )
       // 关闭详情面板
       closePluginDetail()
       // 重新加载插件列表
@@ -806,7 +824,9 @@ async function handleInstallFromNpm(data: {
                 draggable="false"
               />
               <div v-else class="plugin-icon-placeholder">🧩</div>
-              <span v-if="plugin.isDevelopment" class="plugin-dev-badge">DEV</span>
+              <span v-if="plugin.isDevelopment && !plugin.isBuiltin" class="plugin-dev-badge"
+                >DEV</span
+              >
               <span
                 v-if="plugin.hasUpdate"
                 class="plugin-update-dot"
@@ -818,6 +838,7 @@ async function handleInstallFromNpm(data: {
               <div class="plugin-name">
                 {{ plugin.title || plugin.name }}
                 <span class="plugin-version">v{{ plugin.version }}</span>
+                <span v-if="plugin.isBuiltin" class="disabled-badge">内置</span>
                 <span v-if="isPluginDisabled(plugin.path)" class="disabled-badge">已禁用</span>
                 <span v-if="isPluginRunning(plugin.path)" class="running-badge">
                   <span class="status-dot"></span>

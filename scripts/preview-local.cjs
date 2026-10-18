@@ -2,7 +2,7 @@ const path = require('node:path')
 const { spawn } = require('node:child_process')
 const root = path.resolve(__dirname, '..')
 
-/** Start two source-only Vite servers, without invoking a build or packager.
+/** Start renderer, settings and tools source servers without invoking a build or packager.
  * @returns {Promise<Array>} Running source servers.
  */
 async function startServers() {
@@ -16,9 +16,14 @@ async function startServers() {
     root: path.join(root, 'internal-plugins/setting'),
     server: { host: '127.0.0.1', port: 15177, strictPort: true }
   })
+  const tools = await createServer({
+    configFile: path.join(root, 'internal-plugins/system/vite.config.mjs'),
+    root: path.join(root, 'internal-plugins/system')
+  })
   await renderer.listen()
   await setting.listen()
-  return [renderer, setting]
+  await tools.listen()
+  return [renderer, setting, tools]
 }
 
 /** Launch the source preview with a dedicated portable data directory.
@@ -30,8 +35,8 @@ async function main() {
   const environment = {
     ...process.env,
     ZTOOLS_SOURCE_PREVIEW: '1',
-    ZTOOLS_DATA_ROOT: path.join(root, '_preview-data'),
-    ZTOOLS_LEGACY_USER_DATA_PATH: path.join(root, '_preview-legacy'),
+    ZTOOLS_DATA_ROOT: path.join(root, '.local/source-preview-data'),
+    ZTOOLS_LEGACY_USER_DATA_PATH: path.join(root, '.local/source-preview-legacy'),
     ELECTRON_RENDERER_URL: 'http://127.0.0.1:5174',
     ZTOOLS_SETTING_DEV_SERVER_URL: 'http://127.0.0.1:15177'
   }

@@ -3,9 +3,14 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 
-test('reopening settings and focus notifications do not hide or reload the active settings view', async ({}, testInfo) => {
+test('reopening settings and focus notifications do not hide or reload the active settings view', async ({
+  browserName: _browserName
+}, testInfo) => {
   const root = path.resolve(__dirname, '../..')
   const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'ztools-settings-stability-'))
+  if (!path.resolve(temporary).startsWith(path.resolve(os.tmpdir()) + path.sep)) {
+    throw new Error('Unexpected test data path')
+  }
   let app: ElectronApplication | undefined
   try {
     const environment = {
@@ -40,7 +45,8 @@ test('reopening settings and focus notifications do not hide or reload the activ
       .pages()
       .find((page) => page.url().startsWith('http://127.0.0.1:15177'))!
     await expect(settings.getByText('启用超级面板', { exact: true })).toBeVisible()
-    await settings.getByRole('button', { name: '数据备份与迁移', exact: true }).click()
+    await settings.getByRole('button', { name: '我的数据', exact: true }).click()
+    await settings.getByRole('tab', { name: '数据备份与迁移', exact: true }).click()
     await expect(settings.getByRole('button', { name: '导出完整备份' })).toBeVisible()
 
     // Keep observations on the real BrowserWindow and plugin instance; cap a faulty loop to protect the test runner.
@@ -223,9 +229,6 @@ test('reopening settings and focus notifications do not hide or reload the activ
     ).toBe(false)
   } finally {
     await app?.close()
-    const resolved = path.resolve(temporary)
-    if (!resolved.startsWith(path.resolve(os.tmpdir()) + path.sep))
-      throw new Error('Unexpected test data path')
-    await fs.rm(resolved, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+    await fs.rm(temporary, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
   }
 })

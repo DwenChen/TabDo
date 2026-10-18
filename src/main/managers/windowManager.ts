@@ -565,7 +565,6 @@ class WindowManager {
       if (this.isPreparingMacSpace) return
 
       // 开始恢复焦点流程，防止 focus 事件监听器修改 lastFocusTarget
-      if (!pluginManager.getCurrentPluginPath()) this.mainWindow?.webContents.send('show-settings')
       this.isRestoringFocus = true
       const savedFocusTarget = this.lastFocusTarget
 
@@ -619,7 +618,8 @@ class WindowManager {
   }
 
   /**
-   * 创建系统托盘
+   * 创建系统托盘，左键始终显示设置，右键保留操作菜单。
+   * @returns 无返回值。
    */
   public createTray(): void {
     // 创建托盘图标
@@ -647,15 +647,15 @@ class WindowManager {
     // 创建右键菜单
     this.createTrayMenu()
 
+    // 点击已显示的设置也只恢复焦点，避免托盘操作将窗口隐藏。
+    this.tray.on('click', () => {
+      void this.showSettings()
+    })
+
     if (platform.isLinux && this.trayMenu) {
       // Linux 下往往无法触发 click 事件，直接使用原生菜单
       this.tray.setContextMenu(this.trayMenu)
     } else {
-      // 左键点击：切换窗口显示
-      this.tray.on('click', () => {
-        this.toggleWindow()
-      })
-
       // 右键点击：显示菜单
       this.tray.on('right-click', () => {
         if (this.tray && this.trayMenu) {
@@ -686,15 +686,6 @@ class WindowManager {
         click: () => {
           dndManager.toggleManual()
           this.refreshTrayMenu()
-        }
-      },
-      {
-        type: 'separator'
-      },
-      {
-        label: '设置',
-        click: () => {
-          this.showSettings()
         }
       },
       {
@@ -833,7 +824,8 @@ class WindowManager {
   }
 
   /**
-   * 切换窗口显示/隐藏
+   * 按用户唤醒意图切换窗口；空宿主显式打开设置，不依赖窗口 show 事件。
+   * @returns 无返回值。
    */
   private toggleWindow(): void {
     if (!this.mainWindow) return
@@ -860,7 +852,8 @@ class WindowManager {
       if (timeSinceBlurHide < 300) {
         return
       }
-      this.showWindow()
+      if (pluginManager.getCurrentPluginPath()) this.showWindow()
+      else void this.showSettings()
       if (platform.isWindows) {
         this.scheduleWindowsHotkeyRefocus()
       }

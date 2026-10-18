@@ -12,6 +12,7 @@ import pluginWindowManager from './pluginWindowManager'
 import { getDetachedWindowSizeKey } from '../../shared/pluginRuntimeNamespace'
 import { getPreloadPath, getRendererPath } from '../utils/appBundlePath'
 import type { AiRequestStatus } from '../../shared/aiRequestStatus'
+import { isToolsPluginPath, releaseToolsView } from './toolsLifecycle'
 import {
   STANDARD_DETACHED_WINDOW_TITLEBAR_HEIGHT,
   normalizeCompactMainWindowHeader,
@@ -244,6 +245,7 @@ class DetachedWindowManager {
         hasShadow: true, // 启用窗口阴影（可调整为 false 来移除阴影）
         webPreferences: {
           preload: getPreloadPath(),
+          sandbox: process.env.ZTOOLS_SOURCE_PREVIEW !== '1',
           backgroundThrottling: false, // 窗口最小化时是否继续动画和定时器
           contextIsolation: true, // 启用上下文隔离
           nodeIntegration: false, // 渲染进程禁止直接使用 Node
@@ -283,10 +285,20 @@ class DetachedWindowManager {
         })
       }
 
-      // 窗口直接加载标题栏 HTML
+      // 正文迁移独立于标题栏加载；标题栏初始化较慢时也不能出现整个空白窗口。
+      const initialBounds = win.getContentBounds()
+      pluginView.setBounds({
+        x: 0,
+        y: titlebarHeight,
+        width: initialBounds.width,
+        height: Math.max(1, initialBounds.height - titlebarHeight)
+      })
+      win.contentView.addChildView(pluginView)
+
+      // 源码预览直接读取同一渲染服务器，不依赖上一次编译留下的 out 文件。
       const titlebarUrl =
-        process.env.NODE_ENV === 'development'
-          ? 'http://localhost:5174/detached-titlebar.html'
+        !app.isPackaged && process.env.ELECTRON_RENDERER_URL
+          ? new URL('detached-titlebar.html', process.env.ELECTRON_RENDERER_URL).href
           : pathToFileURL(getRendererPath('detached-titlebar.html')).href
 
       win.loadURL(titlebarUrl)
@@ -322,7 +334,6 @@ class DetachedWindowManager {
           width: bounds.width,
           height: bounds.height - currentTitlebarHeight
         })
-        win.contentView.addChildView(pluginView)
 
         // 如果需要自动聚焦子输入框，延迟聚焦搜索框（等待 DOM 渲染完成）
         if (options.autoFocusSubInput === true) {
@@ -379,6 +390,30 @@ class DetachedWindowManager {
       }
       this.detachedWindowMap.set(windowId, windowInfo)
 
+      /**
+       * 工具独立窗口隐藏或最小化时退役旧会话；必要任务结束后销毁空窗口。
+       * @returns 无返回值。
+       */
+      const releaseHiddenTools = (): void => {
+        if (!isToolsPluginPath(pluginPath)) return
+        // 立即从可复用窗口中移除，旧任务不能污染随后新打开的工具。
+        this.detachedWindowMap.delete(windowId)
+        pluginWindowManager.closeByPlugin(pluginPath)
+        if (!win.isDestroyed()) win.contentView.removeChildView(pluginView)
+        releaseToolsView(
+          pluginView.webContents,
+          () => {
+            if (!win.isDestroyed()) win.destroy()
+          },
+          { name: pluginName, path: pluginPath, logo: options.logo }
+        )
+      }
+      win.on('hide', releaseHiddenTools)
+      win.on('minimize', releaseHiddenTools)
+
+      // 关闭仅卸下工具页面，必要任务仍可在独立运行时内完成保存。
+      win.on('close', () => releaseHiddenTools())
+
       // 监听窗口关闭
       win.on('closed', () => {
         this.detachedWindowMap.delete(windowId)
@@ -388,10 +423,10 @@ class DetachedWindowManager {
           clearTimeout(timer)
           this.resizeSaveTimers.delete(windowId)
         }
-        // 关闭该插件通过 createBrowserWindow 创建的所有独立窗口
-        pluginWindowManager.closeByPlugin(pluginPath)
+        // 工具子窗口已在退役时关闭；迟到的旧窗口销毁不能按路径关闭新会话的子窗口。
+        if (!isToolsPluginPath(pluginPath)) pluginWindowManager.closeByPlugin(pluginPath)
         // 销毁插件视图的 webContents
-        if (!pluginView.webContents.isDestroyed()) {
+        if (!isToolsPluginPath(pluginPath) && !pluginView.webContents.isDestroyed()) {
           pluginView.webContents.close()
         }
         console.log(`[DetachedWindow] 分离窗口已关闭: ${pluginName}`)

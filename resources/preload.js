@@ -585,8 +585,16 @@ window.ztools = {
 
   // 剪贴板相关API
   clipboard: {
-    getHistory: async (page, pageSize, filter) =>
-      await electron.ipcRenderer.invoke('clipboard:get-history', page, pageSize, filter),
+    /**
+     * 查询剪贴板历史，分类过滤先于分页。
+     * @param page 页码。
+     * @param pageSize 每页条数。
+     * @param filter 可选关键词。
+     * @param category 可选内容分类。
+     * @returns 分页历史结果。
+     */
+    getHistory: async (page, pageSize, filter, category) =>
+      await electron.ipcRenderer.invoke('clipboard:get-history', page, pageSize, filter, category),
     search: async (keyword) => await electron.ipcRenderer.invoke('clipboard:search', keyword),
     delete: async (id) => await electron.ipcRenderer.invoke('clipboard:delete', id),
     clear: async (type) => await electron.ipcRenderer.invoke('clipboard:clear', type),
@@ -1335,6 +1343,13 @@ window.ztools = {
       await electron.ipcRenderer.invoke('internal:analyze-image', imagePath),
 
     // ==================== 超级面板 API ====================
+    /**
+     * 应用剪贴板中键匹配的有效秒数。
+     * @param seconds 有效秒数，0 关闭。
+     * @returns 更新结果。
+     */
+    updateClipboardQuickMatch: async (seconds) =>
+      await electron.ipcRenderer.invoke('internal:update-clipboard-quick-match', seconds),
     updateSuperPanelConfig: async (config) =>
       await electron.ipcRenderer.invoke('internal:update-super-panel-config', config),
     updateSuperPanelBlockedApps: async (blockedApps) =>

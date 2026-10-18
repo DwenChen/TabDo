@@ -8,3 +8,7 @@ tsconfig.*.json
 _*
 test-results
 node_modules
+internal-plugins/system/public/vendor
+/.local/
+/.artifacts/
+/docs/generated/
