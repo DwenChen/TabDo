@@ -7,9 +7,7 @@ import {
   generateDownloadLinksMarkdown
 } from './version-utils.mjs'
 import {
-  mergeMacUpdateMetadata,
   readUpdateMetadata,
-  selectMacUpdateZip,
   validateReferencedAsset,
   withReleaseNotes,
   writeUpdateMetadata
@@ -32,16 +30,16 @@ console.log(`下载地址: ${downloadUrl}`)
 const downloadLinks = generateDownloadLinksMarkdown(downloadUrl, version)
 const updatedChangelog = changelog + downloadLinks
 
-// CI 使用独立目录避免两个 macOS job 的同名 latest-mac.yml 相互覆盖。
+// 发布仅包含 Windows 产物，保留 electron-builder 生成的标准更新清单。
 const windowsMetadataPath = process.env.WINDOWS_UPDATE_METADATA || 'dist/latest.yml'
-const macX64MetadataPath = process.env.MAC_X64_UPDATE_METADATA
-const macArm64MetadataPath = process.env.MAC_ARM64_UPDATE_METADATA
 const metadataOutputDir =
   process.env.UPDATE_METADATA_OUTPUT_DIR || path.dirname(windowsMetadataPath)
 const requireUpdateMetadata = process.env.REQUIRE_UPDATE_METADATA === 'true'
 
 if (existsSync(windowsMetadataPath)) {
   const windowsMetadata = withReleaseNotes(readUpdateMetadata(windowsMetadataPath), changelog)
+  if (windowsMetadata.version !== version) throw new Error('Windows 更新元数据版本与发布版本不一致')
+  for (const file of windowsMetadata.files || []) validateReferencedAsset(windowsMetadataPath, file)
   const windowsOutputPath = path.join(metadataOutputDir, 'latest.yml')
   writeUpdateMetadata(windowsOutputPath, windowsMetadata)
   console.log(`✅ 已生成 ${windowsOutputPath}`)
@@ -49,28 +47,6 @@ if (existsSync(windowsMetadataPath)) {
   const message = `未找到 Windows 更新元数据: ${windowsMetadataPath}`
   if (requireUpdateMetadata) throw new Error(message)
   console.warn(`⚠️ ${message}`)
-}
-
-if (macX64MetadataPath || macArm64MetadataPath) {
-  if (!macX64MetadataPath || !macArm64MetadataPath) {
-    throw new Error('必须同时提供 MAC_X64_UPDATE_METADATA 和 MAC_ARM64_UPDATE_METADATA')
-  }
-
-  const x64Metadata = readUpdateMetadata(macX64MetadataPath)
-  const arm64Metadata = readUpdateMetadata(macArm64MetadataPath)
-  const x64Zip = selectMacUpdateZip(x64Metadata, 'x64')
-  const arm64Zip = selectMacUpdateZip(arm64Metadata, 'arm64')
-
-  // 发布前确认 YAML 中的两个完整 ZIP 确实随构建产物存在。
-  validateReferencedAsset(macX64MetadataPath, x64Zip)
-  validateReferencedAsset(macArm64MetadataPath, arm64Zip)
-
-  const macMetadata = mergeMacUpdateMetadata(x64Metadata, arm64Metadata, changelog)
-  const macOutputPath = path.join(metadataOutputDir, 'latest-mac.yml')
-  writeUpdateMetadata(macOutputPath, macMetadata)
-  console.log(`✅ 已生成 ${macOutputPath}`)
-} else if (requireUpdateMetadata) {
-  throw new Error('缺少 macOS 双架构更新元数据路径')
 }
 
 writeFileSync('changelog.md', updatedChangelog)

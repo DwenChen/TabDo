@@ -36,6 +36,6 @@ git tag v1.0.0
 git push origin v1.0.0
 ```
 
-`release.yml` 执行类型检查和单元测试，然后在 GitHub 托管的 Windows/macOS x64/macOS arm64 运行器上构建。全部成功后统一发布安装包、Windows 免安装 ZIP、macOS DMG/ZIP 和合并的更新元数据。
+`release.yml` 执行类型检查和单元测试，然后仅在 GitHub 托管的 Windows x64 运行器上构建。成功后发布 Windows 安装包、免安装 ZIP 和标准更新元数据 `latest.yml`。
 
-不依赖上游服务器、发布同步密钥、Apple 账户或上游签名证书。macOS 包未签名、未公证，更新使用 Release 页面下载；后续如需要正式签名，应由本仓库维护者配置自己的证书与流程。
+不依赖上游服务器、发布同步密钥或上游签名证书。本版不执行 macOS 构建，也不发布 macOS 产物。后续如需要 Windows 代码签名，应由本仓库维护者配置自己的证书与流程。

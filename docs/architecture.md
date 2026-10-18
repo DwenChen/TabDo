@@ -14,7 +14,7 @@
 | `resources/backup-worker.cjs`   | 应用退出后的归档、完整性验证、事务恢复与重启             |
 | `scripts/preview-*`             | 无打包、无输出构建目录的本地源码预览                     |
 | `tests`                         | 数据归档、插件、模型协议、系统能力及 Electron 端到端测试 |
-| `.github/workflows/release.yml` | Windows、macOS 云端构建及 Release                        |
+| `.github/workflows/release.yml` | Windows x64 云端构建及 Release                           |
 
 ## 保留的能力
 
@@ -30,6 +30,6 @@
 
 ## 更新来源
 
-版本查询直接访问 `api.github.com/repos/DwenChen/ZTools/releases`。下载、标准更新 Feed、关于页和问题反馈均指向本仓库。Windows 安装版复用标准更新器；便携版及未签名的 macOS 版本使用 Release 下载页完成更新。
+版本查询直接访问 `api.github.com/repos/DwenChen/ZTools/releases`。下载、标准更新 Feed、关于页和问题反馈均指向本仓库。Windows 安装版复用标准更新器；便携版使用 Release 下载页完成更新。本版仅发布 Windows x64 产物。
 
 MIT 许可证与原项目版权声明保留。上游信息仅作为致谢，不代表本版获得上游维护或签名支持。

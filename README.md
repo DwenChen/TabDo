@@ -4,7 +4,7 @@
 
 ## 下载与使用
 
-从 [本仓库 Releases](https://github.com/DwenChen/ZTools/releases/latest) 下载。Windows 提供安装包和免安装 ZIP；macOS 提供 Intel 与 Apple Silicon 包。首次使用可从托盘进入设置，开启超级面板并选择鼠标触发方式。
+从 [本仓库 Releases](https://github.com/DwenChen/ZTools/releases/latest) 下载。本版仅发布 Windows 10/11 x64 安装包和免安装 ZIP。首次使用可从托盘进入设置，开启超级面板并选择鼠标触发方式。
 
 ## 本版变化
 

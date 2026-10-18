@@ -7,23 +7,7 @@ permissions:
   contents: write
 jobs:
   build:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: windows-latest
-            target: win
-            arch: x64
-            command: pnpm build:win
-          - os: macos-15-intel
-            target: mac
-            arch: x64
-            command: pnpm build:mac:x64
-          - os: macos-14
-            target: mac
-            arch: arm64
-            command: pnpm build:mac:arm64
-    runs-on: ${{ matrix.os }}
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -44,13 +28,12 @@ jobs:
       - name: Build and package in cloud
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-        run: ${{ matrix.command }}
+        run: pnpm build:win
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.target }}-${{ matrix.arch }}
+          name: win-x64
           path: |
             dist/*.exe
-            dist/*.dmg
             dist/*.zip
             dist/*.yml
             dist/*.blockmap
@@ -75,12 +58,10 @@ jobs:
         id: version
         run: |
           node -e "const fs=require('fs'); const version=require('./package.json').version; const tag='v'+version; if(process.env.GITHUB_EVENT_NAME==='push' && process.env.GITHUB_REF_NAME!==tag) throw Error('Tag must match package version'); fs.appendFileSync(process.env.GITHUB_OUTPUT, 'version='+version+'\ntag='+tag+'\n');"
-      - name: Merge updater metadata
+      - name: Prepare Windows updater metadata
         env:
           RELEASE_VERSION: ${{ steps.version.outputs.version }}
           WINDOWS_UPDATE_METADATA: artifacts/win-x64/latest.yml
-          MAC_X64_UPDATE_METADATA: artifacts/mac-x64/latest-mac.yml
-          MAC_ARM64_UPDATE_METADATA: artifacts/mac-arm64/latest-mac.yml
           UPDATE_METADATA_OUTPUT_DIR: artifacts/metadata
           REQUIRE_UPDATE_METADATA: 'true'
         run: node scripts/updater.mjs
@@ -96,8 +77,4 @@ jobs:
             artifacts/win-x64/*.exe
             artifacts/win-x64/*.zip
             artifacts/win-x64/*.blockmap
-            artifacts/mac-x64/*.dmg
-            artifacts/mac-x64/*.zip
-            artifacts/mac-arm64/*.dmg
-            artifacts/mac-arm64/*.zip
             artifacts/metadata/*.yml
