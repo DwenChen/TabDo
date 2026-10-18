@@ -21,8 +21,7 @@ export const HOST_STORAGE_KEYS = {
   outKillPlugin: 'out-kill-plugin',
   enabledMainPushPlugin: 'enabled-main-push-plugin',
   detachedWindowSizes: 'detached-window-sizes',
-  devPluginRegistry: 'dev-plugin-registry',
-  mcpDisabledPlugins: 'settings-mcp-disabled-plugins'
+  devPluginRegistry: 'dev-plugin-registry'
 } as const
 
 export const LEGACY_CAMEL_CASE_STORAGE_KEYS = {

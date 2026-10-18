@@ -11,12 +11,6 @@ import { getMarketCategoryIcon } from './marketAssets'
 
 const { success, error, confirm } = useToast()
 
-interface BannerItem {
-  image: string
-  url?: string
-  height?: number
-}
-
 interface CategorySummary {
   key: string
   title: string
@@ -30,8 +24,7 @@ interface StorefrontSection {
   type: 'banner' | 'navigation' | 'fixed' | 'random'
   key: string
   title?: string
-  height?: number
-  items?: BannerItem[]
+
   categories?: CategorySummary[]
   plugins?: Plugin[]
 }
@@ -73,9 +66,7 @@ const categoryLayouts = ref<Record<string, CategoryLayoutSection[]>>({})
 const isLoading = ref(false)
 const installingPlugin = ref<string | null>(null)
 const downloadStates = ref<Record<string, PluginDownloadState | undefined>>({})
-const bannerActiveIndexes = ref<Record<string, number>>({})
 let stopDownloadProgressListener: (() => void) | undefined
-let bannerTimer: ReturnType<typeof window.setInterval> | undefined
 
 const { value: searchQuery, setSubInput } = useZtoolsSubInput('', '搜索插件市场...')
 
@@ -145,6 +136,9 @@ function enrichPlugins(
   })
 }
 
+/** 获取匿名市场数据并合并本地安装状态，忽略上游 Banner 区块。
+ * @returns 市场数据加载完成后的 Promise。
+ */
 async function fetchPlugins(): Promise<void> {
   isLoading.value = true
   try {
@@ -201,10 +195,6 @@ async function fetchPlugins(): Promise<void> {
         storefrontSections.value = typedMarketResult.storefront.sections
           .filter((section) => section.type !== 'banner')
           .map((section) => {
-            if (section.type === 'banner') {
-              return section
-            }
-
             if (section.type === 'navigation' && Array.isArray(section.categories)) {
               return {
                 ...section,
@@ -229,16 +219,12 @@ async function fetchPlugins(): Promise<void> {
             return section
           })
           .filter((section) =>
-            section.type === 'banner'
-              ? (section.items?.length ?? 0) > 0
-              : section.type === 'navigation'
-                ? (section.categories?.length ?? 0) > 0
-                : (section.plugins?.length ?? 0) > 0
+            section.type === 'navigation'
+              ? (section.categories?.length ?? 0) > 0
+              : (section.plugins?.length ?? 0) > 0
           )
-        resetBannerActiveIndexes()
       } else {
         storefrontSections.value = []
-        bannerActiveIndexes.value = {}
       }
     } else {
       console.error('获取插件市场列表失败:', typedMarketResult.error)
@@ -485,17 +471,6 @@ async function handleUninstallPlugin(
   }
 }
 
-function resetBannerActiveIndexes(): void {
-  const nextIndexes: Record<string, number> = {}
-  for (const section of storefrontSections.value) {
-    if (section.type === 'banner' && (section.items?.length || 0) > 0) {
-      const current = bannerActiveIndexes.value[section.key] || 0
-      nextIndexes[section.key] = Math.min(current, (section.items?.length || 1) - 1)
-    }
-  }
-  bannerActiveIndexes.value = nextIndexes
-}
-
 async function shuffleRandomSection(section: StorefrontSection): Promise<void> {
   if (section.type !== 'random' || !section.plugins) return
   try {
@@ -558,9 +533,6 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  if (bannerTimer) {
-    window.clearInterval(bannerTimer)
-  }
   stopDownloadProgressListener?.()
   window.removeEventListener('keydown', handleKeydown, true)
 })
@@ -803,88 +775,6 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 24px;
-}
-
-/* Banner */
-.storefront-banner {
-  position: relative;
-}
-
-.banner-stage {
-  position: relative;
-  aspect-ratio: 3.3 / 1;
-  border-radius: 12px;
-  overflow: hidden;
-  background: var(--bg-secondary);
-}
-
-.banner-item {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  width: 100%;
-  height: 100%;
-  border: 0;
-  background: transparent;
-  opacity: 0;
-  padding: 0;
-  pointer-events: none;
-  transform: scale(1.015);
-  transition:
-    opacity 0.55s ease,
-    transform 0.75s ease;
-}
-
-.banner-item.active {
-  opacity: 1;
-  pointer-events: auto;
-  transform: scale(1);
-}
-
-.banner-item.clickable {
-  cursor: pointer;
-}
-.banner-item.clickable:hover {
-  filter: brightness(0.96);
-}
-.banner-image {
-  width: 100%;
-  height: 100%;
-  display: block;
-  border-radius: 12px;
-  object-fit: cover;
-}
-
-.banner-dots {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 10px;
-  display: flex;
-  justify-content: center;
-  gap: 6px;
-  pointer-events: none;
-}
-
-.banner-dot {
-  width: 7px;
-  height: 7px;
-  border: 0;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.55);
-  cursor: pointer;
-  padding: 0;
-  pointer-events: auto;
-  transition:
-    background 0.2s,
-    transform 0.2s,
-    width 0.2s;
-}
-
-.banner-dot.active {
-  width: 18px;
-  background: rgba(255, 255, 255, 0.92);
 }
 
 /* Section 通用 */

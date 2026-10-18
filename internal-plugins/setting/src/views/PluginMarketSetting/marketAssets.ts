@@ -8,9 +8,6 @@ import systemIcon from '../../assets/market/system.png'
 import textIcon from '../../assets/market/text.png'
 import rankingPopularIcon from '../../assets/market/ranking-popular.svg'
 import rankingRecentIcon from '../../assets/market/ranking-recent.svg'
-import bannerImage from '../../assets/market/ztools-banner.png'
-
-export const marketBannerImage = bannerImage
 
 const marketCategoryIcons: Record<string, string> = {
   productivity: productivityIcon,

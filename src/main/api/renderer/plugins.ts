@@ -752,10 +752,10 @@ export class PluginsAPI {
       }
     }
 
-    // 校验 tools 字段（MCP 工具声明）
+    // 兼容校验旧插件中携带的工具元数据，不注册或暴露工具服务。
     if (hasTools) {
       for (const [toolName, tool] of Object.entries(pluginConfig.tools)) {
-        // 工具名必须使用小写 snake_case 命名（符合 MCP 规范）
+        // 沿用插件清单中的小写 snake_case 命名约束。
         if (!/^[a-z][a-z0-9_]*$/.test(toolName)) {
           return { valid: false, error: `tools.${toolName} 必须使用小写 snake_case 命名` }
         }

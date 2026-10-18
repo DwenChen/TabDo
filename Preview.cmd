@@ -1,4 +1,4 @@
 @echo off
 cd /d "%~dp0"
-call pnpm preview:local
+node scripts\preview-local.cjs
 pause

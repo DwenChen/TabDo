@@ -106,8 +106,6 @@ let windowMaterialChangeCallback = null
 let themeChangeCallback = null
 let logEntriesCallback = null
 let foundInPageCallback = null
-// 插件侧注册的 MCP 工具处理器，实际执行时由主进程回调到这里。
-const registeredTools = new Map()
 // 插件侧注册的 provider 处理器，按 type 存放，由主进程聚合后调用。
 const registeredProviders = new Map()
 
@@ -784,34 +782,6 @@ window.ztools = {
     clearHeaders: () => electron.ipcRenderer.sendSync('http-clear-headers')
   },
 
-  // 注册插件工具处理器（用于 MCP 工具暴露）。
-  registerTool: (name, handler) => {
-    const toolName = typeof name === 'string' ? name.trim() : ''
-    if (!toolName) {
-      throw new Error('工具名称不能为空')
-    }
-    if (typeof handler !== 'function') {
-      throw new Error(`工具 "${toolName}" 的处理器必须是函数`)
-    }
-
-    registeredTools.set(toolName, handler)
-    const result = electron.ipcRenderer.sendSync('plugin:tool-register', toolName)
-    if (!result?.success) {
-      registeredTools.delete(toolName)
-      throw new Error(result?.error || `工具 "${toolName}" 注册失败`)
-    }
-  },
-
-  // 由主进程回调执行已注册的工具处理器，不对插件开发者直接暴露。
-  __invokeRegisteredTool: async (name, input) => {
-    const toolName = typeof name === 'string' ? name.trim() : ''
-    const handler = registeredTools.get(toolName)
-    if (!handler) {
-      throw new Error(`工具 "${toolName}" 未注册`)
-    }
-    return await handler(input ?? {})
-  },
-
   // 注册 provider（翻译、OCR 等）处理器。
   // 首参 key 需与 plugin.json 的 providers 字段 key 一致；type 由声明决定。
   // 一个插件可对同一 type 声明多条（如 baidu / google 都为 translation），只要 key 不同。
@@ -1471,16 +1441,6 @@ window.ztools = {
       fetchFavicon: async (url) =>
         await electron.ipcRenderer.invoke('internal:web-search-fetch-favicon', url)
     },
-
-    // ==================== 悬浮球 API ====================
-    setFloatingBallEnabled: async (enabled) =>
-      await electron.ipcRenderer.invoke('floating-ball:set-enabled', enabled),
-    getFloatingBallEnabled: async () =>
-      await electron.ipcRenderer.invoke('floating-ball:get-enabled'),
-    setFloatingBallLetter: async (letter) =>
-      await electron.ipcRenderer.invoke('floating-ball:set-letter', letter),
-    getFloatingBallLetter: async () =>
-      await electron.ipcRenderer.invoke('floating-ball:get-letter'),
 
     // ==================== HTTP 服务 API ====================
     httpServerGetConfig: async () =>

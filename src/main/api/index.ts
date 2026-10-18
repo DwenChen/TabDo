@@ -37,7 +37,6 @@ import pluginRedirectAPI from './plugin/redirect'
 import pluginScreenAPI from './plugin/screen'
 import pluginShellAPI from './plugin/shell'
 import pluginToastAPI from './plugin/toast'
-import pluginToolsAPI from './plugin/tools'
 import pluginUIAPI from './plugin/ui'
 import pluginUserAPI from './plugin/user'
 import pluginWindowAPI from './plugin/window'
@@ -124,7 +123,7 @@ class APIManager {
     initPluginApiDispatcher()
 
     // 初始化插件API
-    pluginToolsAPI.init(pluginManager)
+
     // Provider 管理器（翻译、OCR 等），需在插件 API 之后、消费方之前初始化
     providerManager.init(pluginManager)
     // 暴露给所有插件的 provider 消费入口（查询默认渠道 / 调用），依赖 providerManager 已就绪

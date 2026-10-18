@@ -298,7 +298,6 @@ declare global {
       onUpdateTabTarget: (callback: (target: string) => void) => void
       onUpdateTabKeyFunction: (callback: (mode: 'navigate' | 'target-command') => void) => void
       onUpdateSpaceOpenCommand: (callback: (enabled: boolean) => void) => void
-      onUpdateFloatingBallDoubleClickCommand?: (callback: (command: string) => void) => void
       onUpdateSearchMode: (callback: (mode: string) => void) => void
       onUpdatePrimaryColor: (
         callback: (data: { primaryColor: string; customColor?: string }) => void
@@ -433,10 +432,6 @@ declare global {
         callback: (data: { requestId: number; windowInfo: SuperPanelWindowInfo }) => void
       ) => void
       sendSuperPanelWindowCommandsResult: (data: { requestId: number; results: any[] }) => void
-      onFloatingBallFiles: (
-        callback: (files: Array<{ path: string; name: string; isDirectory: boolean }>) => void
-      ) => void
-      onFloatingBallDoubleClickCommand?: (callback: (command: string) => void) => void
     }
   }
 }

@@ -40,7 +40,7 @@ fileAssociations:
     description: ZTools Plugin Package
     role: Viewer
 win:
-  compression: maximum
+  compression: normal
   executableName: ZTools
   artifactName: ${name}-${version}-${os}-${arch}.${ext}
   target:

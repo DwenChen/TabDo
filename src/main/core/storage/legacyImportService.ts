@@ -76,8 +76,7 @@ const FULL_IMPORT_KEY_MAP = new Map<string, string>(
       HOST_STORAGE_KEYS.enabledMainPushPlugin
     ],
     [LEGACY_CAMEL_CASE_STORAGE_KEYS.detachedWindowSizes, HOST_STORAGE_KEYS.detachedWindowSizes],
-    [HOST_STORAGE_KEYS.devPluginRegistry, HOST_STORAGE_KEYS.devPluginRegistry],
-    [HOST_STORAGE_KEYS.mcpDisabledPlugins, HOST_STORAGE_KEYS.mcpDisabledPlugins]
+    [HOST_STORAGE_KEYS.devPluginRegistry, HOST_STORAGE_KEYS.devPluginRegistry]
   ].map(([source, target]) => [toHostDocId(source), toHostDocId(target)])
 )
 

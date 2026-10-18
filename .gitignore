@@ -5,6 +5,7 @@ playwright-report
 test-results
 .DS_Store
 .eslintcache
+*.tsbuildinfo
 *.log*
 .vscode/extensions.json
 .vscode/launch.json

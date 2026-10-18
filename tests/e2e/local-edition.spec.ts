@@ -53,11 +53,25 @@ test('local edition settings, backup bridge, providers and complete panel matchi
       await setting.evaluate(() => ({
         backup: typeof window.ztools.internal.backupRun,
         account: typeof (window.ztools.internal as any).accountSaveSession,
-        sync: typeof (window.ztools.internal as any).syncConnect
+        sync: typeof (window.ztools.internal as any).syncConnect,
+        floatingBall: typeof (window.ztools.internal as any).setFloatingBallEnabled,
+        mcp: typeof (window.ztools.internal as any).mcpServerStatus,
+        toolRegistration: typeof (window.ztools as any).registerTool
       }))
-    ).toEqual({ backup: 'function', account: 'undefined', sync: 'undefined' })
+    ).toEqual({
+      backup: 'function',
+      account: 'undefined',
+      sync: 'undefined',
+      floatingBall: 'undefined',
+      mcp: 'undefined',
+      toolRegistration: 'undefined'
+    })
     // Capture the plugin view with an opaque material so the exported image stays legible.
-    await setting.evaluate(() => document.documentElement.setAttribute('data-material', 'none'))
+    await setting.evaluate(() => {
+      document.documentElement.setAttribute('data-material', 'none')
+      document.body.style.background = 'var(--bg-color)'
+    })
+    await setting.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)))
     await fs.writeFile(
       testInfo.outputPath('backup.png'),
       Buffer.from(
