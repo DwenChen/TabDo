@@ -2,7 +2,8 @@ vi.mock('../../src/main/appMain', () => ({
   updateShortcut: vi.fn(),
   getCurrentShortcut: () => 'Alt+Z'
 }))
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+const originalPlatform = process.platform
 vi.mock('../../src/main/core/detachedWindowManager', () => ({ default: {} }))
 
 const mocks = vi.hoisted(() => ({
@@ -69,6 +70,8 @@ const { SettingsAPI } = await import('../../src/main/api/renderer/settings')
 
 describe('SettingsAPI optimized shortcut fallback', () => {
   beforeEach(() => {
+    // This suite checks the mocked Windows native listener fallback.
+    Object.defineProperty(process, 'platform', { value: 'win32' })
     vi.clearAllMocks()
     mocks.ensureListener.mockImplementation(() => {
       throw new Error('listener startup timed out')
@@ -80,6 +83,7 @@ describe('SettingsAPI optimized shortcut fallback', () => {
       shouldCaptureSelectedText: false
     })
   })
+  afterEach(() => Object.defineProperty(process, 'platform', { value: originalPlatform }))
 
   it('native listener startup failure falls back to Electron globalShortcut', async () => {
     const settings = new SettingsAPI()

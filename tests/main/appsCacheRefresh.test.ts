@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+const originalPlatform = process.platform
 
 const mocks = vi.hoisted(() => {
   const store = new Map<string, unknown>()
@@ -40,11 +41,14 @@ import { AppsAPI } from '../../src/main/api/renderer/commands'
 
 describe('AppsAPI 应用缓存刷新', () => {
   beforeEach(() => {
+    // All native calls are mocked; explicitly exercise the Windows cache path on every runner.
+    Object.defineProperty(process, 'platform', { value: 'win32' })
     mocks.store.clear()
     vi.clearAllMocks()
     mocks.getUwpApps.mockReturnValue([])
     mocks.getPackageSnapshot.mockReturnValue([])
   })
+  afterEach(() => Object.defineProperty(process, 'platform', { value: originalPlatform }))
 
   it('Windows 来源扫描不完整时保留旧缓存且不写数据库', async () => {
     const oldApps = [{ name: 'Old App', path: 'C:\\OldApp.lnk' }]

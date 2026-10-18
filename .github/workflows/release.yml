@@ -71,9 +71,13 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Resolve release version
+        id: version
+        run: |
+          node -e "const fs=require('fs'); const version=require('./package.json').version; const tag='v'+version; if(process.env.GITHUB_EVENT_NAME==='push' && process.env.GITHUB_REF_NAME!==tag) throw Error('Tag must match package version'); fs.appendFileSync(process.env.GITHUB_OUTPUT, 'version='+version+'\ntag='+tag+'\n');"
       - name: Merge updater metadata
         env:
-          RELEASE_VERSION: ${{ github.ref_name }}
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
           WINDOWS_UPDATE_METADATA: artifacts/win-x64/latest.yml
           MAC_X64_UPDATE_METADATA: artifacts/mac-x64/latest-mac.yml
           MAC_ARM64_UPDATE_METADATA: artifacts/mac-arm64/latest-mac.yml
@@ -83,7 +87,9 @@ jobs:
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          name: ZTools 本地版 ${{ github.ref_name }}
+          tag_name: ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: ZTools 本地版 ${{ steps.version.outputs.tag }}
           body_path: changelog.md
           make_latest: true
           files: |
