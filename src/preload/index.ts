@@ -304,11 +304,6 @@ const api = {
   onUpdateSpaceOpenCommand: (callback: (enabled: boolean) => void) => {
     ipcRenderer.on('update-space-open-command', (_event, enabled) => callback(enabled))
   },
-  onUpdateFloatingBallDoubleClickCommand: (callback: (command: string) => void) => {
-    ipcRenderer.on('update-floating-ball-double-click-command', (_event, command) =>
-      callback(command)
-    )
-  },
   onUpdateSearchMode: (callback: (mode: string) => void) => {
     ipcRenderer.on('update-search-mode', (_event, mode) => callback(mode))
   },
@@ -497,19 +492,6 @@ const api = {
   superPanelReady: () => ipcRenderer.send('super-panel:ready'),
   superPanelShowPinned: () => ipcRenderer.send('super-panel:show-pinned'),
   superPanelShowMainWindow: () => ipcRenderer.send('super-panel:show-main-window'),
-  // 悬浮球
-  floatingBall: {
-    setEnabled: (enabled: boolean) => ipcRenderer.invoke('floating-ball:set-enabled', enabled),
-    getEnabled: () => ipcRenderer.invoke('floating-ball:get-enabled')
-  },
-  onFloatingBallFiles: (
-    callback: (files: Array<{ path: string; name: string; isDirectory: boolean }>) => void
-  ) => {
-    ipcRenderer.on('floating-ball-files', (_event, files) => callback(files))
-  },
-  onFloatingBallDoubleClickCommand: (callback: (command: string) => void) => {
-    ipcRenderer.on('floating-ball-double-click-command', (_event, command) => callback(command))
-  },
   updateSuperPanelPinnedOrder: (commands: any[]) =>
     ipcRenderer.invoke('super-panel:update-pinned-order', commands),
   unpinSuperPanelCommand: (path: string, featureCode?: string) =>
@@ -820,15 +802,6 @@ declare global {
         callback: (data: { requestId: number; windowInfo: SuperPanelWindowInfo }) => void
       ) => void
       sendSuperPanelWindowCommandsResult: (data: { requestId: number; results: any[] }) => void
-      // 悬浮球
-      floatingBall: {
-        setEnabled: (enabled: boolean) => Promise<{ success: boolean }>
-        getEnabled: () => Promise<boolean>
-      }
-      onFloatingBallFiles: (
-        callback: (files: Array<{ path: string; name: string; isDirectory: boolean }>) => void
-      ) => void
-      onFloatingBallDoubleClickCommand: (callback: (command: string) => void) => void
     }
   }
 }

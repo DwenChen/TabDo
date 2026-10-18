@@ -2,7 +2,7 @@ import { app } from 'electron'
 import { storageManager } from '../storage/storageManager'
 
 /**
- * 3.0 共享数据库入口。
+ * 本地共享数据库入口。
  *
  * 这里导出的是 StorageRouter：调用方继续使用 lmdbInstance，
  * 实际读写会按 key 路由到 device/account LMDB。
@@ -10,7 +10,7 @@ import { storageManager } from '../storage/storageManager'
 const initState = storageManager.init()
 const lmdbInstance = storageManager.getRouter()
 
-console.log('[LMDB] ZTools 3.0 storage initialized', {
+console.log('[LMDB] ZTools local storage initialized', {
   firstRun: initState.firstRun,
   legacyLmdbFound: initState.legacyLmdbFound,
   device: initState.layout.deviceLmdbPath,

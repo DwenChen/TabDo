@@ -374,6 +374,7 @@ class SuperPanelManager {
       type: 'panel',
       webPreferences: {
         preload: getPreloadPath(),
+        sandbox: process.env.ZTOOLS_SOURCE_PREVIEW !== '1',
         backgroundThrottling: false,
         contextIsolation: true,
         nodeIntegration: false,

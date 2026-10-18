@@ -3,7 +3,7 @@
   "name": "setting",
   "title": "设置",
   "description": "ZTools 内置设置插件",
-  "author": "Zing",
+  "author": "DwenChen",
   "version": "1.0.0",
   "main": "index.html",
   "logo": "logo.png",
@@ -75,10 +75,10 @@
       "cmds": ["所有指令"]
     },
     {
-      "code": "ui.router?router=Sync",
-      "explain": "WebDAV 同步",
+      "code": "ui.router?router=Backup",
+      "explain": "数据备份与迁移",
       "icon": "logo.png",
-      "cmds": ["WebDAV 同步"]
+      "cmds": ["数据备份与迁移"]
     },
     {
       "code": "ui.router?router=About",
@@ -100,13 +100,13 @@
       ]
     },
     {
-      "code": "function.pin-to-search",
-      "explain": "固定到搜索框",
+      "code": "function.pin-to-super-panel",
+      "explain": "固定到超级面板",
       "icon": "logo.png",
       "cmds": [
         {
           "type": "files",
-          "label": "固定到搜索框",
+          "label": "固定到超级面板",
           "fileType": "all",
           "maxLength": 99
         }

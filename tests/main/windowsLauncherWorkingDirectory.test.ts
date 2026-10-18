@@ -104,11 +104,10 @@ describe('launchApp 传递工作目录 (#603)', () => {
     expect(opts.workingDirectory).toBeUndefined()
   })
 
-  it('PATH 中的裸 exe 走 shell.openPath，不进入原生启动器', async () => {
+  it('PATH 中的裸 exe 复用原生启动器，不覆盖工作目录', async () => {
     await launchApp('calc.exe')
 
-    expect(mockLaunch).not.toHaveBeenCalled()
-    expect(mockOpenPath).toHaveBeenCalledWith('calc.exe')
+    expect(mockLaunch).toHaveBeenCalledWith({ target: 'calc.exe', showCommand: 1 })
   })
 })
 

@@ -1,0 +1,41 @@
+# 开发、预览与发布
+
+## 无本地构建的预览
+
+需要 Node.js 22+ 和 pnpm 9。首次准备仅安装 JavaScript 依赖与下载预编译 Electron，不编译原生模块：
+
+```powershell
+pnpm install --frozen-lockfile --ignore-scripts
+pnpm --dir internal-plugins/setting install --frozen-lockfile --ignore-scripts
+node node_modules/electron/install.js
+pnpm preview:local
+```
+
+也可在已准备的工作区双击 `Preview.cmd`。预览使用 Electron 原运行时、上游原生模块和插件预加载模块；Vite 按需提供 Vue 源码，主进程 TypeScript 在加载时转换到内存，不生成 `out`、`dist` 或安装包。
+
+主界面为 `127.0.0.1:5174`，设置插件为 `127.0.0.1:15177`，均只绑定回环地址。数据放在 `_preview-data`。窗口退出后源码服务器保持运行，以支持备份后的自动重启；在终端按 Ctrl+C 结束预览。源码加载器只用于开发，不随发布版运行。
+
+## 验证
+
+```powershell
+pnpm typecheck
+pnpm typecheck:setting
+pnpm test
+pnpm test:e2e
+```
+
+端到端测试直接启动源码 Electron，复用预编译运行时并自动启动源码服务器，不执行本地构建和应用打包。所有测试使用临时数据根目录。截图为插件 WebContentsView 的可见区域，输出到 `test-results/playwright`。
+
+## 云端发布
+
+更新 `package.json` 与 `changelog.md`，提交到 `main`，创建版本标签并推送：
+
+```powershell
+git push origin main
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+`release.yml` 执行类型检查和单元测试，然后在 GitHub 托管的 Windows/macOS x64/macOS arm64 运行器上构建。全部成功后统一发布安装包、Windows 免安装 ZIP、macOS DMG/ZIP 和合并的更新元数据。
+
+不依赖上游服务器、发布同步密钥、Apple 账户或上游签名证书。macOS 包未签名、未公证，更新使用 Release 页面下载；后续如需要正式签名，应由本仓库维护者配置自己的证书与流程。

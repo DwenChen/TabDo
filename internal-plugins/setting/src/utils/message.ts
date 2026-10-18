@@ -1,4 +1,10 @@
-import { ElMessage } from 'element-plus'
+import { useToast } from '@/components/common/Toast'
+const ElMessage = Object.fromEntries(
+  ['error', 'success', 'warning', 'info'].map((type) => [
+    type,
+    (options: { message: string; duration: number }) => useToast()[type](options.message)
+  ])
+)
 
 /**
  * 将未知错误归一化为可直接展示的文案。

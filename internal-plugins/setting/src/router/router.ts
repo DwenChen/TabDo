@@ -80,17 +80,6 @@ const homeRoutes: MenuRouterItemType[] = [
     }
   },
   {
-    path: '/mcpService',
-    name: 'McpService',
-    component: () => import('@/views/McpServiceSetting/McpServiceSetting.vue'),
-    meta: {
-      menu: {
-        label: 'MCP 服务',
-        icon: 'i-z-mcp'
-      }
-    }
-  },
-  {
     path: '/data',
     name: 'Data',
     component: () => import('@/views/DataSetting/DataSetting.vue'),
@@ -124,12 +113,12 @@ const homeRoutes: MenuRouterItemType[] = [
     }
   },
   {
-    path: '/sync',
-    name: 'Sync',
-    component: () => import('@/views/SyncSetting/SyncSetting.vue'),
+    path: '/backup',
+    name: 'Backup',
+    component: () => import('@/views/BackupSetting/BackupSetting.vue'),
     meta: {
       menu: {
-        label: '数据同步',
+        label: '数据备份与迁移',
         icon: 'i-z-cloud'
       }
     }
@@ -166,16 +155,6 @@ const homeRoutes: MenuRouterItemType[] = [
         icon: 'i-z-info'
       }
     }
-  },
-  {
-    path: '/account',
-    name: 'Account',
-    component: () => import('@/views/AccountSetting/AccountSetting.vue')
-  },
-  {
-    path: '/notifications',
-    name: 'Notifications',
-    component: () => import('@/views/NotificationCenter/NotificationCenter.vue')
   },
   {
     path: '/pluginInstaller',

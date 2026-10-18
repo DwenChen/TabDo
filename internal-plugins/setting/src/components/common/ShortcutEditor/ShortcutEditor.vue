@@ -70,7 +70,9 @@ import { HotkeyInput, DetailPanel } from '@/components'
 import CommandTargetSelector from '@/views/ShortcutsSetting/components/CommandTargetSelector.vue'
 import {
   buildShortcutTargetCandidates,
+  buildShortcutTargetValue,
   normalizeShortcutTargetValue,
+  type ShortcutsSettingCommandTargetOptionBase,
   type ShortcutsSettingShortcutTargetOption
 } from '@/views/ShortcutsSetting/ShortcutsSetting'
 
@@ -167,8 +169,9 @@ function handleSave(): void {
 /**
  * 接收选择器选中的目标指令，并同步更新待保存字符串。
  */
-function handleSelectTarget(target: ShortcutsSettingShortcutTargetOption): void {
-  targetCommand.value = target.value
+function handleSelectTarget(target: ShortcutsSettingCommandTargetOptionBase): void {
+  targetCommand.value =
+    typeof target.value === 'string' ? target.value : buildShortcutTargetValue(target)
 }
 
 /**

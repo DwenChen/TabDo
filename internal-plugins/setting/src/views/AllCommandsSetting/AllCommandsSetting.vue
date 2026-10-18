@@ -185,22 +185,6 @@ async function toggleAppSuperPanelPin(cmd: Command): Promise<void> {
   await loadSuperPanelPinned()
 }
 
-function isAppPinnedToSearch(cmd: Command): boolean {
-  return searchPinned.value.some((item) => item.path === cmd.path && item.name === cmd.name)
-}
-
-async function toggleAppSearchPin(cmd: Command): Promise<void> {
-  const pinned = isAppPinnedToSearch(cmd)
-
-  if (pinned) {
-    await window.ztools.internal.unpinApp(cmd.path || '', undefined, cmd.name)
-  } else {
-    await window.ztools.internal.pinApp(JSON.parse(JSON.stringify(cmd)))
-  }
-
-  await loadSearchPinned()
-}
-
 function getAppMenuItems(cmd: Command): TagDropdownMenuItem[] {
   const items: TagDropdownMenuItem[] = []
   const disabled = isDirectAppCommandDisabled(cmd)
@@ -223,13 +207,6 @@ function getAppMenuItems(cmd: Command): TagDropdownMenuItem[] {
   items.push({
     key: 'pin-super-panel',
     label: superPinned ? '取消固定超级面板' : '固定到超级面板',
-    icon: 'i-z-pin'
-  })
-
-  const pinned = isAppPinnedToSearch(cmd)
-  items.push({
-    key: 'pin-search',
-    label: pinned ? '取消固定搜索' : '固定到搜索',
     icon: 'i-z-pin'
   })
 
@@ -269,8 +246,6 @@ async function handleAppMenuSelect(key: string, cmd: Command): Promise<void> {
     openAppAliasShortcut(cmd)
   } else if (key === 'pin-super-panel') {
     await toggleAppSuperPanelPin(cmd)
-  } else if (key === 'pin-search') {
-    await toggleAppSearchPin(cmd)
   } else if (key === 'toggle') {
     await toggleDirectAppCommandDisabled(cmd)
   }
@@ -420,10 +395,8 @@ const {
   // 共享状态（direct/app 复用同一份）
   disabledCommands,
   superPanelPinned,
-  searchPinned,
   saveDisabledCommands,
   loadSuperPanelPinned,
-  loadSearchPinned,
   // 加载
   loadAll,
   loadPluginCommands,

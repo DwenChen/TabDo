@@ -13,7 +13,7 @@
           :src="avatar"
           class="header-avatar clickable"
           draggable="false"
-          title="显示主搜索窗口"
+          title="打开设置"
           @click="showMainWindow"
         />
         <span class="header-text">超级面板</span>
@@ -908,7 +908,7 @@ function showPinned(): void {
   window.ztools.superPanelShowPinned()
 }
 
-// 点击头像：隐藏超级面板，显示主搜索窗口
+// 点击头像：隐藏超级面板，打开设置
 function showMainWindow(): void {
   window.ztools.superPanelShowMainWindow()
 }

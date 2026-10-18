@@ -1,3 +1,5 @@
+import { vi } from 'vitest'
+vi.mock('../../src/main/core/native/index.js', () => ({ WindowManager: {} }))
 import { describe, it, expect } from 'vitest'
 import { extractAcronym } from '../../src/main/utils/common'
 

@@ -6,7 +6,7 @@ import {
   FULL_INSTALL_RELEASE_URL
 } from './runtimeCompatibility'
 
-if (process.platform === 'win32') app.setAppUserModelId('top.z-tools')
+if (process.platform === 'win32') app.setAppUserModelId('io.github.dwenchen.ztools')
 
 const gotTheLock = app.requestSingleInstanceLock()
 const runtimeCompatibility = checkRuntimeCompatibility({

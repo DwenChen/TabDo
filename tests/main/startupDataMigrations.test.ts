@@ -170,7 +170,7 @@ describe('startupDataMigrations', () => {
       stores[key] = value
     })
 
-    migrateLegacyFileUrls({ homeDir, legacyUserDataPath })
+    migrateLegacyFileUrls({ homeDir, legacyUserDataPath, dataRoot: path.join(homeDir, '.ztools') })
 
     const migratedPluginLogo = pathToFileURL(
       path.join(homeDir, '.ztools', 'plugins', 'demo', 'logo.png')

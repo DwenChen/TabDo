@@ -36,6 +36,21 @@ declare global {
       hideMainWindow: (isRestorePreWindow?: boolean) => boolean | Promise<boolean>
 
       internal: {
+        onLocalShortcutsChanged: (callback: () => void) => () => void
+        onAppsChanged: (callback: () => void) => () => void
+        onCommandAliasesChanged: (callback: () => void) => () => void
+        onLocalShortcutsChanged: (callback: () => void) => () => void
+        onAppsChanged: (callback: () => void) => () => void
+        onCommandAliasesChanged: (callback: () => void) => () => void
+        backupRun: (
+          action: 'export' | 'restore'
+        ) => Promise<{ success?: boolean; cancelled?: boolean }>
+        backupResult: () => Promise<{
+          success: boolean
+          file?: string
+          rollback?: string
+          error?: string
+        } | null>
         // 数据库操作（主程序专用，直接操作 ZTOOLS 命名空间）
         dbPut: (key: string, data: any) => Promise<any>
         dbGet: (key: string) => Promise<any>
@@ -125,7 +140,7 @@ declare global {
         revealInFinder: (filePath: string) => Promise<void>
         launch: (options: {
           path: string
-          type?: 'direct' | 'plugin' | 'builtin'
+          type?: string
           featureCode?: string
           param?: any
           name?: string

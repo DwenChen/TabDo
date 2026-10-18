@@ -494,17 +494,9 @@ class HttpServer {
     }
   }
 
-  private handleShowWindow(body: Record<string, unknown>): ApiResponse {
+  private handleShowWindow(_body: Record<string, unknown>): ApiResponse {
     try {
       windowManager.showWindow()
-
-      const text = typeof body.text === 'string' ? body.text : undefined
-      if (text !== undefined) {
-        const mainWindow = windowManager.getMainWindow()
-        setTimeout(() => {
-          mainWindow?.webContents.send('set-search-text', text)
-        }, 100)
-      }
 
       return { code: 0, message: '操作成功' }
     } catch (error) {

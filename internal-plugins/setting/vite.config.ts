@@ -3,15 +3,9 @@ import { defineConfig } from 'vite'
 import UnoCSS from 'unocss/vite'
 import { fileURLToPath, URL } from 'node:url'
 
-const officialSyncServerUrl =
-  process.env.ZTOOLS_OFFICIAL_SYNC_SERVER_URL?.trim() || 'https://z-tools.top'
-
 // https://vitejs.dev/config/
 export default defineConfig({
   base: './',
-  define: {
-    __ZTOOLS_OFFICIAL_SYNC_SERVER_URL__: JSON.stringify(officialSyncServerUrl)
-  },
   server: {
     port: 5177, // 设置插件开发服务器端口（避免与主程序 5173 冲突）
     strictPort: true,
@@ -19,7 +13,7 @@ export default defineConfig({
   },
   plugins: [
     vue(),
-    UnoCSS(),
+    UnoCSS({ configFile: fileURLToPath(new URL('./uno.config.ts', import.meta.url)) }),
     {
       name: 'configure-response-headers',
       configureServer: (server) => {

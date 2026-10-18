@@ -147,7 +147,7 @@ class AiProviderService {
     const raw = databaseAPI.dbGet(HOST_STORAGE_KEYS.aiModels)
     if (!Array.isArray(raw)) return false
 
-    // 迁移完成后写回原键，继续沿用现有账户同步与导入路由。
+    // 迁移完成后写回原键，继续沿用现有本地持久化与导入路由。
     databaseAPI.dbPut(HOST_STORAGE_KEYS.aiModels, migrateLegacyAiModels(raw as LegacyAiModel[]))
     console.log('[AIProviders] 已将旧版 AI 模型配置迁移为供应商结构')
     return true

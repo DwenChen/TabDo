@@ -289,7 +289,14 @@ function temperatureCapabilityMode(modelId: string): TemperatureCapabilityMode {
  * @param modelId 正在编辑的远端模型 ID
  * @returns 固定值或范围配置；其他模式返回 null
  */
-function temperatureConfig(modelId: string): ConfiguredTemperatureCapability | null {
+function temperatureConfig(modelId: string):
+  | (ConfiguredTemperatureCapability & {
+      value?: number
+      min?: number
+      max?: number
+      default?: number
+    })
+  | null {
   const temperature = ensureModelConfig(modelId).temperature
   return temperature && typeof temperature === 'object' ? temperature : null
 }
@@ -361,7 +368,9 @@ function updateContextWindowK(modelId: string, value: number): void {
  */
 function setInputModality(modelId: string, modality: AiInputModality, enabled: boolean): void {
   const config = ensureModelConfig(modelId)
-  const current = config.inputModalities?.length ? [...config.inputModalities] : ['text']
+  const current: AiInputModality[] = config.inputModalities?.length
+    ? [...config.inputModalities]
+    : ['text']
   const next = enabled
     ? Array.from(new Set([...current, modality]))
     : current.filter((item) => item !== modality)

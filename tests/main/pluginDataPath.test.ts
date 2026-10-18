@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import os from 'os'
 import path from 'path'
 import { getPluginDataPath, getPluginDataRoot } from '../../src/main/core/appData/appDataPaths'
@@ -9,6 +9,9 @@ vi.mock('electron', () => ({
 
 describe('getPluginDataPath', () => {
   const existingDataRoot = process.env.ZTOOLS_DATA_ROOT
+  beforeEach(() => {
+    delete process.env.ZTOOLS_DATA_ROOT
+  })
 
   afterEach(() => {
     if (existingDataRoot === undefined) {

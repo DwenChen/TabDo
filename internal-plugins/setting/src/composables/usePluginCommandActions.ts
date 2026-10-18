@@ -79,7 +79,7 @@ export function usePluginCommandActions(options: UsePluginCommandActionsOptions)
     pluginName: string,
     featureCode: string,
     cmdName: string,
-    cmdType: 'text' | 'window'
+    cmdType: 'text' | 'window' | 'regex' | 'over' | 'img' | 'files'
   ): string {
     return _getCommandId({
       type: 'plugin',
@@ -96,7 +96,7 @@ export function usePluginCommandActions(options: UsePluginCommandActionsOptions)
     pluginName: string,
     featureCode: string,
     cmdName: string,
-    cmdType: 'text' | 'window'
+    cmdType: 'text' | 'window' | 'regex' | 'over' | 'img' | 'files'
   ): boolean {
     const id = getPluginCommandId(pluginName, featureCode, cmdName, cmdType)
     return disabledCommands.value.includes(id)
@@ -106,7 +106,7 @@ export function usePluginCommandActions(options: UsePluginCommandActionsOptions)
     pluginName: string,
     featureCode: string,
     cmdName: string,
-    cmdType: 'text' | 'window'
+    cmdType: 'text' | 'window' | 'regex' | 'over' | 'img' | 'files'
   ): Promise<void> {
     const id = getPluginCommandId(pluginName, featureCode, cmdName, cmdType)
     const index = disabledCommands.value.indexOf(id)
@@ -295,7 +295,7 @@ export function usePluginCommandActions(options: UsePluginCommandActionsOptions)
     pluginName: string,
     featureCode: string,
     cmdName: string,
-    cmdType: 'text' | 'window'
+    cmdType: 'text' | 'window' | 'regex' | 'over' | 'img' | 'files'
   ): ShortcutsSettingAliasDraftTarget {
     const pluginTitle = getPluginTitle() || pluginName
     const commandIcon = findPluginCommand(featureCode, cmdName)?.icon
@@ -320,7 +320,7 @@ export function usePluginCommandActions(options: UsePluginCommandActionsOptions)
     pluginName: string,
     featureCode: string,
     cmdName: string,
-    cmdType: 'text' | 'window'
+    cmdType: 'text' | 'window' | 'regex' | 'over' | 'img' | 'files'
   ): void {
     jumpFunctionShortcutsSetting({
       tab: 'alias',
@@ -365,13 +365,6 @@ export function usePluginCommandActions(options: UsePluginCommandActionsOptions)
         items.push({
           key: 'pin-super-panel',
           label: pinned ? '取消固定超级面板' : '固定到超级面板',
-          icon: 'i-z-pin'
-        })
-
-        const searchPinnedState = isPinnedToSearch(getPluginPath(), featureCode)
-        items.push({
-          key: 'pin-search',
-          label: searchPinnedState ? '取消固定搜索' : '固定到搜索',
           icon: 'i-z-pin'
         })
 
@@ -436,7 +429,7 @@ export function usePluginCommandActions(options: UsePluginCommandActionsOptions)
     pluginName: string,
     featureCode: string,
     cmdName: string,
-    cmdType: 'text' | 'window'
+    cmdType: 'text' | 'window' | 'regex' | 'over' | 'img' | 'files'
   ): Promise<void> {
     if (key === 'toggle') {
       await toggleCommandDisabled(pluginName, featureCode, cmdName, cmdType)

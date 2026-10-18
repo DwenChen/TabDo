@@ -1,246 +1,38 @@
-# ZTools
+# ZTools 本地版
 
-<div align="center">
+基于 ZTools 的个人精简版。当前为第一版 **v1.0.0**，面向超级面板、插件工作流和完整本地数据备份。
 
-<img src="./.github/assets/icon.png" alt="ZTools Logo" width="120">
+## 下载与使用
 
-**A High-Performance, Extensible Application Launcher and Plugin Platform**
+从 [本仓库 Releases](https://github.com/DwenChen/ZTools/releases/latest) 下载。Windows 提供安装包和免安装 ZIP；macOS 提供 Intel 与 Apple Silicon 包。首次使用可从托盘进入设置，开启超级面板并选择鼠标触发方式。
 
-_Open Source Implementation of uTools | Supports macOS and Windows_
+## 本版变化
 
-[![GitHub release](https://img.shields.io/github/v/release/lzx8589561/ZTools)](https://github.com/ZToolsCenter/ZTools/releases)
-[![License](https://img.shields.io/github/license/lzx8589561/ZTools)](./LICENSE)
-[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-blue)](https://github.com/ZToolsCenter/ZTools)
+- 移除账户注册/登录、云同步、MCP 服务、官方模型、插件市场顶部 Banner、主搜索框及相关设置、悬浮球。
+- 保留超级面板的指令固定与排序、文本/图片/文件/窗口匹配、插件及系统应用启动、翻译和 OCR。
+- 保留插件宿主、插件子输入框、插件市场匿名浏览安装、自定义模型、本地启动、剪贴板、HTTP 服务和插件开发能力。
+- 使用「数据备份与迁移」导出和恢复设置、配置、插件文件、插件数据库及附件、插件专属数据和本地会话。
+- 关于页标记第一版并致谢上游，更新只查询本仓库 GitHub Releases。
 
-English | [简体中文](./README_CN.md)
+账户依赖功能（评论发布、官方令牌与支付等）随账户系统移除。已存在的插件继续复用原 SDK 和运行时模块。
 
-</div>
+## 本地预览
 
-## ✨ Features
+已准备依赖的工作区中双击 **Preview.cmd**，或执行 「pnpm preview:local」。不执行本地构建、原生编译或打包；复用预编译 Electron 和原生模块，按需加载源码。预览数据使用仓库内的 「\_preview-data」。
 
-- 🚀 **Quick Launch** - Pinyin search, regex matching, history tracking, pinned apps
-- 🧩 **Plugin System** - Support for UI plugins and headless plugins with complete API support
-- 📋 **Clipboard Management** - History tracking, search, image support, cross-platform native implementation
-- 🎨 **Theme Customization** - System/light/dark mode with 6 theme colors to choose from
-- ⚡ **High Performance** - LMDB database, WebContentsView architecture, ultra-fast response
-- 🌍 **Cross-Platform** - Native support for macOS and Windows with unified experience
-- 🔒 **Data Isolation** - Independent plugin data storage, secure and reliable
-- 🛠️ **Developer Friendly** - Complete TypeScript type support, hot reload development
-- ⚙️ **Modern Tech Stack** - Electron 41 + Node 24.15 + Chrome 146
+首次准备与测试说明见 [开发、预览与发布](docs/development.md)。独立免安装成品使用云端 Release 的 Windows ZIP。
 
-## 📸 Preview
+## 文档
 
-<div align="center">
-  <img src="./.github/assets/demo.gif" alt="ZTools Demo" width="600">
-  <p><i>Quick launch and search functionality demo</i></p>
-</div>
+- [项目结构与裁剪边界](docs/architecture.md)
+- [数据备份与迁移](docs/backup-and-migration.md)
+- [开发、验证与云端发布](docs/development.md)
+- [HTTP API](docs/http-api.md)
+- [提供商开发](docs/provider-development-guide.md)
+- [版本记录](changelog.md)
 
-### Interface Showcase
+备份包含私密设置与密钥，请妥善保存；恢复会退出应用并保留旧数据回滚副本。具体范围和跨平台限制见备份文档。
 
-<div align="center">
-  <table>
-    <tr>
-      <td width="50%">
-        <img src="./.github/assets/main-light.png" alt="Main Interface - Light Theme">
-        <p align="center"><i>Main Interface - Light Theme</i></p>
-      </td>
-      <td width="50%">
-        <img src="./.github/assets/main-dark.png" alt="Main Interface - Dark Theme">
-        <p align="center"><i>Main Interface - Dark Theme</i></p>
-      </td>
-    </tr>
-    <tr>
-      <td width="50%">
-        <img src="./.github/assets/settings.png" alt="Settings">
-        <p align="center"><i>Settings - Theme Customization and General Settings</i></p>
-      </td>
-      <td width="50%">
-        <img src="./.github/assets/plugin-market.png" alt="Plugin Market">
-        <p align="center"><i>Plugin Market - Online Installation and Management</i></p>
-      </td>
-    </tr>
-  </table>
-</div>
+## 致谢与许可
 
-## 🚀 Quick Start
-
-### Installation
-
-#### Method 1: Download Pre-built Version (Recommended)
-
-Download the latest version from [Releases](https://github.com/ZToolsCenter/ZTools/releases):
-
-- **macOS**: `ztools-x.x.x.dmg` or `ZTools-x.x.x-arm64-mac.zip`
-- **Windows**: `ztools-x.x.x-setup.exe` or `ztools-x.x.x-win.zip`
-
-#### Method 2: Build from Source
-
-```bash
-# Clone the repository
-git clone https://github.com/ZToolsCenter/ZTools.git
-cd ZTools
-
-# Install dependencies
-pnpm install
-
-# Development mode
-pnpm dev
-
-# Build
-pnpm build:mac    # macOS
-pnpm build:win    # Windows
-pnpm build:linux  # Linux (Default Arch)
-pnpm build:linux:x64 # Linux (amd64/x64)
-pnpm build:linux:arm64 # Linux (arm64)
-```
-
-### Usage
-
-1. After launching the app, use the shortcut `Option+Z` (macOS) or `Alt+Z` (Windows) to open the main interface
-2. Enter application name or command to search
-3. Use `↑` `↓` `←` `→` to navigate, `Enter` to confirm, `Esc` to exit
-
-## 🧩 Plugin Development
-
-ZTools is a powerful and extensible plugin platform that enhances your productivity with custom plugins. With simple configuration, rich APIs, and cross-platform support, you can easily develop powerful plugins.
-
-**Plugin System Features**:
-
-- 📝 **Simple Configuration** - Easily define plugins through standard `plugin.json` files, no complex setup required
-- 🔌 **Rich APIs** - Access system capabilities through the global `ztools` object, including notifications, simulated input, and persistent storage
-- 🎯 **Flexible Commands** - Trigger your plugins using text, regex, or global hooks to adapt to any workflow
-- 🌍 **Cross-Platform** - Build once, run on Windows, macOS, and Linux with a consistent experience across all devices
-
-> 📖 **Full Documentation**: Visit [ZTools Developer Documentation](https://ztoolscenter.github.io/ZTools-doc/) for more details
-
-## 🛠️ Tech Stack
-
-- **Framework**: Electron 41 + Vue 3 + TypeScript
-- **Build**: Vite + electron-vite
-- **Database**: LMDB (high-performance key-value storage)
-- **State Management**: Pinia
-- **Search Engine**: Fuse.js (with Pinyin support)
-- **Native Modules**: C++ (Node-API)
-  - Clipboard monitoring
-  - Window management
-  - Region screenshot (Windows)
-
-## 📁 Project Structure
-
-```
-ztools/
-├── src/
-│   ├── main/              # Main process
-│   │   ├── api/          # IPC API modules
-│   │   ├── core/         # Core functionality (database, native modules)
-│   │   ├── windowManager.ts
-│   │   └── pluginManager.ts
-│   ├── preload/          # Preload scripts
-│   └── renderer/         # Renderer process (Vue)
-│       ├── components/
-│       ├── stores/       # Pinia state management
-│       └── App.vue
-├── resources/            # Resource files
-│   ├── lib/             # Native modules (.node)
-│   └── preload.js       # Plugin preload
-└── CLAUDE.md            # Complete technical documentation
-```
-
-## 📚 Documentation
-
-- [CLAUDE.md](./CLAUDE.md) - Complete technical documentation and architecture description
-- [Development Commands](#development-commands) - Common command reference
-- [Plugin Development](#plugin-development) - Plugin development guide
-
-## 💻 Development
-
-### Requirements
-
-- Node.js >= 18
-- npm >= 9
-- macOS or Windows development environment
-
-### Development Commands
-
-```bash
-# Install dependencies
-pnpm install
-
-# Development mode (hot reload)
-pnpm dev
-
-# Type checking
-pnpm typecheck          # All
-pnpm typecheck:node     # Main process + preload
-pnpm typecheck:web      # Renderer process
-
-# Code formatting
-pnpm format             # Prettier formatting
-pnpm lint               # ESLint check
-
-# Build
-pnpm build              # Compile source code only
-pnpm build:mac          # Package macOS app
-pnpm build:win          # Package Windows app
-pnpm build:linux        # Package Linux app (Default Arch)
-pnpm build:linux:x64    # Package Linux app (amd64/x64)
-pnpm build:linux:arm64  # Package Linux app (arm64)
-pnpm build:unpack       # Package without installer (for debugging)
-```
-
-### Debugging
-
-- Main process: Press F5 in VS Code, or use `pnpm dev` to view terminal logs
-- Renderer process: Press `Cmd+Option+I` (macOS) or `Ctrl+Shift+I` (Windows) to open developer tools
-- Plugins: Click "Open DevTools" button on the plugin page
-
-## 🗺️ Roadmap
-
-### Completed ✅
-
-- [x] Quick app launch and search
-- [x] Plugin system (UI + headless)
-- [x] Clipboard history management
-- [x] Cross-platform support (macOS + Windows)
-- [x] LMDB database migration
-- [x] Theme customization
-- [x] Data isolation
-- [x] Plugin market
-- [x] Custom global shortcuts
-- [x] Separate plugins into independent windows
-- [ ] Plugin auto-update
-- [ ] Cloud sync (optional)
-- [ ] Linux support
-- [ ] MCP toolkit
-
-## 🐛 Issue Reporting
-
-Having issues? Please report them in [Issues](https://github.com/ZToolsCenter/ZTools/issues).
-
-When submitting an issue, please include:
-
-- Operating system version
-- ZTools version
-- Steps to reproduce
-- Error logs (if any)
-
-## 📄 License
-
-This project is licensed under the [MIT License](./LICENSE).
-
-## 💝 Acknowledgments
-
-- [uTools](https://u.tools/) - Source of inspiration
-- [Electron](https://www.electronjs.org/) - Cross-platform desktop app framework
-- [Vue.js](https://vuejs.org/) - Progressive JavaScript framework
-- [LMDB](http://www.lmdb.tech/) - High-performance embedded database
-
----
-
-<div align="center">
-
-**If this project helps you, please give it a Star ⭐️**
-
-Made with ❤️ by [lzx8589561](https://github.com/lzx8589561)
-
-</div>
+感谢 [ZToolsCenter/ZTools](https://github.com/ZToolsCenter/ZTools)、原作者 Zing 及社区贡献者。本版基于上游提交 「6c9dee8」，独立维护与发布。保留 [MIT 许可证](LICENSE) 和原版权声明。

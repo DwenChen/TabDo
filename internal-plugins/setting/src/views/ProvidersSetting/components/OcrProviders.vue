@@ -4,7 +4,7 @@ import { useToast } from '@/components'
 
 interface ProviderEntry {
   id: string
-  type: 'ocr'
+  type: 'ocr' | 'translation'
   label: string
   description: string
   source: 'builtin' | 'plugin'

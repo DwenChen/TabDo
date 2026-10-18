@@ -1,0 +1,7 @@
+* text=auto eol=lf
+*.cmd text eol=crlf
+*.node binary
+*.png binary
+*.jpg binary
+*.ico binary
+*.icns binary

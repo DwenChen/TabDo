@@ -2,11 +2,6 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
-  DEFAULT_AVATAR,
-  DEFAULT_PLACEHOLDER,
-  type AutoBackToSearchOption,
-  type AutoClearOption,
-  type AutoPasteOption,
   type MouseButtonType,
   type PrimaryColor,
   type TerminalType,
@@ -15,12 +10,6 @@ import {
 } from '@/constants'
 import { Dropdown, HotkeyInput, Slider, useToast } from '@/components'
 import { applyCustomColor, applyPrimaryColor } from '@/utils'
-import {
-  DEFAULT_SEARCH_WALLPAPER_BLUR,
-  DEFAULT_SEARCH_WALLPAPER_OPACITY,
-  normalizeSearchWallpaperConfig,
-  type SearchWallpaperConfig
-} from '@shared/searchWallpaper'
 
 const { success, error, info, confirm } = useToast()
 
@@ -37,63 +26,11 @@ const windowMaterialOptions = [
   { label: '无', value: 'none' }
 ]
 
-const autoPasteOptions = [
-  { label: '关闭', value: 'off' },
-  { label: '1秒内', value: '1s' },
-  { label: '3秒内', value: '3s' },
-  { label: '5秒内', value: '5s' },
-  { label: '10秒内', value: '10s' }
-]
-
-const autoClearOptions = [
-  { label: '立即', value: 'immediately' },
-  { label: '1分钟', value: '1m' },
-  { label: '2分钟', value: '2m' },
-  { label: '3分钟', value: '3m' },
-  { label: '5分钟', value: '5m' },
-  { label: '10分钟', value: '10m' },
-  { label: '从不', value: 'never' }
-]
-
-const autoBackToSearchOptions = [
-  { label: '立即', value: 'immediately' },
-  { label: '30秒', value: '30s' },
-  { label: '1分钟', value: '1m' },
-  { label: '3分钟', value: '3m' },
-  { label: '5分钟', value: '5m' },
-  { label: '10分钟', value: '10m' },
-  { label: '从不', value: 'never' }
-]
-
 const windowPositionStrategyOptions = [
   { label: '记住上次位置', value: 'remember' },
   { label: '鼠标屏居中', value: 'cursor' },
   { label: '主屏居中', value: 'primary' },
   { label: '上次活动屏居中', value: 'lastActive' }
-]
-
-const recentRowsOptions = [
-  { label: '1行', value: 1 },
-  { label: '2行', value: 2 },
-  { label: '3行', value: 3 },
-  { label: '4行', value: 4 }
-]
-
-const pinnedRowsOptions = [
-  { label: '1行', value: 1 },
-  { label: '2行', value: 2 },
-  { label: '3行', value: 3 },
-  { label: '4行', value: 4 }
-]
-
-const searchModeOptions = [
-  { label: '聚合模式', value: 'aggregate' },
-  { label: '列表模式', value: 'list' }
-]
-
-const tabKeyFunctionOptions = [
-  { label: '切换选中', value: 'navigate' },
-  { label: '目标指令', value: 'target-command' }
 ]
 
 const devToolsModeOptions = [
@@ -173,36 +110,8 @@ const settingsLoaded = ref(false)
 // 本地状态（替代 windowStore）
 const theme = ref<ThemeType>('system')
 const primaryColor = ref<PrimaryColor>('green')
-const placeholder = ref(DEFAULT_PLACEHOLDER)
-const avatar = ref(DEFAULT_AVATAR)
-const autoPaste = ref<AutoPasteOption>('3s')
-const autoClear = ref<AutoClearOption>('immediately')
-const autoBackToSearch = ref<AutoBackToSearchOption>('never')
-const hideMainWindowOnPluginEsc = ref(false)
 const windowPositionStrategy = ref<WindowPositionStrategy>('remember')
-const showRecentInSearch = ref(true)
-const showMatchRecommendation = ref(true)
-const localAppSearch = ref(true)
-const recentRows = ref(2)
-const pinnedRows = ref(2)
-const searchMode = ref<'aggregate' | 'list'>('aggregate')
 const clipboardRetentionDays = ref(180)
-
-const availableAutoBackToSearchOptions = computed(() =>
-  hideMainWindowOnPluginEsc.value
-    ? autoBackToSearchOptions.filter((option) => option.value === 'immediately')
-    : autoBackToSearchOptions
-)
-
-// Tab 键目标指令
-const tabTargetCommand = ref('')
-const tabKeyFunction = ref<'navigate' | 'target-command'>('navigate')
-
-// 空格打开指令
-const spaceOpenCommand = ref(false)
-
-// 悬浮球双击目标指令
-const floatingBallDoubleClickCommand = ref('')
 
 // 超级面板设置
 const superPanelEnabled = ref(false)
@@ -273,10 +182,6 @@ const windowDefaultHeight = ref(541)
 // 托盘图标显示设置
 const showTrayIcon = ref(true)
 
-// 悬浮球设置
-const floatingBallEnabled = ref(false)
-const floatingBallLetter = ref('Z')
-
 // 开机启动设置
 const launchAtLogin = ref(false)
 
@@ -299,16 +204,7 @@ const windowMaterial = ref<'mica' | 'acrylic' | 'none'>('none')
 
 // 亚克力材质背景色透明度
 const acrylicLightOpacity = ref(78) // 明亮模式默认 78%
-const acrylicDarkOpacity = ref(50) // 暗黑模式默认 50%
-
-// 主搜索窗口壁纸保存宿主管理的本地副本，用户原始文件保持不变
-const searchWallpaper = ref<SearchWallpaperConfig | null>(null)
-const searchWallpaperPreviewFailed = ref(false)
-const searchWallpaperFileName = computed(() => {
-  const wallpaperPath = searchWallpaper.value?.path
-  if (!wallpaperPath) return ''
-  return wallpaperPath.split(/[\\/]/).pop() || wallpaperPath
-})
+const acrylicDarkOpacity = ref(50)
 
 // 颜色选择器引用
 const colorPickerInput = ref<HTMLInputElement | null>(null)
@@ -327,12 +223,6 @@ const themeColors = [
 
 // 自定义颜色
 const customColor = ref('#db2777')
-
-// 头像默认值
-const defaultAvatar = DEFAULT_AVATAR
-
-// 搜索框提示文字默认值
-const defaultPlaceholder = DEFAULT_PLACEHOLDER
 
 // 处理快捷键变化
 async function handleHotkeyChange(newHotkey: string): Promise<void> {
@@ -496,132 +386,6 @@ async function resetClipboardRetentionDays(): Promise<void> {
   }
 }
 
-// 处理 placeholder 变化
-async function handlePlaceholderChange(): Promise<void> {
-  try {
-    // 如果为空，恢复默认值
-    if (!placeholder.value.trim()) {
-      placeholder.value = defaultPlaceholder
-    }
-    // 保存到数据库
-    await saveSettings()
-    // 通知主渲染进程更新
-    await window.ztools.internal.updatePlaceholder(placeholder.value)
-    console.log('搜索框提示文字已更新:', placeholder.value)
-  } catch (error) {
-    console.error('保存搜索框提示文字失败:', error)
-  }
-}
-
-// 重置搜索框提示文字
-async function handleResetPlaceholder(): Promise<void> {
-  try {
-    placeholder.value = defaultPlaceholder
-    await saveSettings()
-    // 通知主渲染进程更新
-    await window.ztools.internal.updatePlaceholder(placeholder.value)
-    console.log('搜索框提示文字已重置')
-  } catch (error) {
-    console.error('重置搜索框提示文字失败:', error)
-  }
-}
-
-// 选择头像
-async function handleSelectAvatar(): Promise<void> {
-  try {
-    const result = await window.ztools.internal.selectAvatar()
-    if (result.success && result.path) {
-      avatar.value = result.path
-      await saveSettings()
-      // 通知主渲染进程更新
-      await window.ztools.internal.updateAvatar(avatar.value)
-      console.log('头像已更新:', avatar.value)
-    } else if (result.error) {
-      console.error('选择头像失败:', result.error)
-    }
-  } catch (error) {
-    console.error('选择头像失败:', error)
-  }
-}
-
-// 重置头像
-async function handleResetAvatar(): Promise<void> {
-  try {
-    avatar.value = defaultAvatar
-    await saveSettings()
-    // 通知主渲染进程更新
-    await window.ztools.internal.updateAvatar(avatar.value)
-    console.log('头像已重置')
-  } catch (error) {
-    console.error('重置头像失败:', error)
-  }
-}
-
-// 处理自动粘贴配置变化
-async function handleAutoPasteChange(): Promise<void> {
-  try {
-    await saveSettings()
-    // 通知主渲染进程更新
-    await window.ztools.internal.updateAutoPaste(autoPaste.value)
-    console.log('自动粘贴配置已更新:', autoPaste.value)
-  } catch (error) {
-    console.error('保存自动粘贴配置失败:', error)
-  }
-}
-
-// 处理自动清空配置变化
-async function handleAutoClearChange(): Promise<void> {
-  try {
-    await saveSettings()
-    // 通知主渲染进程更新
-    await window.ztools.internal.updateAutoClear(autoClear.value)
-    console.log('自动清空配置已更新:', autoClear.value)
-  } catch (error) {
-    console.error('保存自动清空配置失败:', error)
-  }
-}
-
-/**
- * 保存自动返回搜索配置；插件 ESC 直接隐藏启用时强制保持立即返回。
- * @returns 设置保存和运行时更新完成后结束的 Promise。
- */
-async function handleAutoBackToSearchChange(): Promise<void> {
-  try {
-    // 直接隐藏依赖立即返回，防止下次呼出时仍停留在插件页面。
-    if (hideMainWindowOnPluginEsc.value) {
-      autoBackToSearch.value = 'immediately'
-    }
-    await saveSettings()
-    // 通知主渲染进程更新
-    await window.ztools.internal.updateAutoBackToSearch(autoBackToSearch.value)
-    console.log('自动返回搜索配置已更新:', autoBackToSearch.value)
-  } catch (error) {
-    console.error('保存自动返回搜索配置失败:', error)
-  }
-}
-
-/**
- * 保存插件内 ESC 行为，并在启用时同步锁定立即返回搜索。
- * @returns 设置保存和运行时更新完成后结束的 Promise。
- */
-async function handleHideMainWindowOnPluginEscChange(): Promise<void> {
-  try {
-    // 先收敛关联配置，再一次性持久化，避免两个字段短暂不一致。
-    if (hideMainWindowOnPluginEsc.value) {
-      autoBackToSearch.value = 'immediately'
-    }
-    await saveSettings()
-    const result = await window.ztools.internal.updateHideMainWindowOnPluginEsc(
-      hideMainWindowOnPluginEsc.value
-    )
-    if (!result.success) {
-      throw new Error(result.error || '插件 ESC 行为更新失败')
-    }
-  } catch (error) {
-    console.error('保存插件 ESC 行为失败:', error)
-  }
-}
-
 // 处理窗口呼出位置策略变化
 async function handleWindowPositionStrategyChange(): Promise<void> {
   try {
@@ -641,163 +405,6 @@ async function handleThemeChange(): Promise<void> {
     console.log('主题配置已更新:', theme.value)
   } catch (error) {
     console.error('更新主题配置失败:', error)
-  }
-}
-
-// 处理显示最近使用配置变化
-async function handleShowRecentInSearchChange(): Promise<void> {
-  try {
-    await saveSettings()
-    // 通知主渲染进程更新
-    await window.ztools.internal.updateShowRecentInSearch(showRecentInSearch.value)
-    console.log('显示最近使用配置已更新:', showRecentInSearch.value)
-  } catch (error) {
-    console.error('保存显示最近使用配置失败:', error)
-  }
-}
-
-// 处理匹配推荐配置变化
-async function handleShowMatchRecommendationChange(): Promise<void> {
-  try {
-    await saveSettings()
-    // 通知主渲染进程更新
-    await window.ztools.internal.updateMatchRecommendation(showMatchRecommendation.value)
-    console.log('匹配推荐配置已更新:', showMatchRecommendation.value)
-  } catch (error) {
-    console.error('保存匹配推荐配置失败:', error)
-  }
-}
-
-// 处理本地应用搜索配置变化
-async function handleLocalAppSearchChange(): Promise<void> {
-  try {
-    await saveSettings()
-    // 通知主渲染进程更新
-    await window.ztools.internal.updateLocalAppSearch(localAppSearch.value)
-    console.log('本地应用搜索配置已更新:', localAppSearch.value)
-  } catch (error) {
-    console.error('保存本地应用搜索配置失败:', error)
-  }
-}
-
-// 处理最近使用行数变化
-async function handleRecentRowsChange(): Promise<void> {
-  try {
-    await saveSettings()
-    // 通知主渲染进程更新
-    await window.ztools.internal.updateRecentRows(recentRows.value)
-    console.log('最近使用行数已更新:', recentRows.value)
-  } catch (error) {
-    console.error('保存最近使用行数配置失败:', error)
-  }
-}
-
-// 处理固定栏行数变化
-async function handlePinnedRowsChange(): Promise<void> {
-  try {
-    await saveSettings()
-    // 通知主渲染进程更新
-    await window.ztools.internal.updatePinnedRows(pinnedRows.value)
-    console.log('固定栏行数已更新:', pinnedRows.value)
-  } catch (error) {
-    console.error('保存固定栏行数配置失败:', error)
-  }
-}
-
-// 处理搜索框模式变化
-async function handleSearchModeChange(): Promise<void> {
-  try {
-    await saveSettings()
-    // 通知主渲染进程更新
-    await window.ztools.internal.updateSearchMode(searchMode.value)
-    console.log('搜索框模式已更新:', searchMode.value)
-  } catch (error) {
-    console.error('保存搜索框模式配置失败:', error)
-  }
-}
-
-// 处理空格打开指令变化
-async function handleSpaceOpenCommandChange(): Promise<void> {
-  try {
-    await saveSettings()
-    // 通知主渲染进程更新
-    await window.ztools.internal.updateSpaceOpenCommand(spaceOpenCommand.value)
-    console.log('空格打开指令已更新:', spaceOpenCommand.value)
-  } catch (error) {
-    console.error('保存空格打开指令失败:', error)
-  }
-}
-
-// 处理 Tab 键目标指令变化
-async function handleTabTargetChange(): Promise<void> {
-  try {
-    await saveSettings()
-    // 通知主渲染进程更新
-    await window.ztools.internal.updateTabTarget(tabTargetCommand.value)
-    console.log('Tab 键目标指令已更新:', tabTargetCommand.value)
-  } catch (error) {
-    console.error('保存 Tab 键目标指令失败:', error)
-  }
-}
-
-// 处理 Tab 键功能变化
-async function handleTabKeyFunctionChange(): Promise<void> {
-  try {
-    await saveSettings()
-    await window.ztools.internal.updateTabKeyFunction(tabKeyFunction.value)
-    console.log('Tab 键功能已更新:', tabKeyFunction.value)
-  } catch (error) {
-    console.error('保存 Tab 键功能失败:', error)
-  }
-}
-
-// 清除 Tab 键目标指令
-async function handleClearTabTarget(): Promise<void> {
-  try {
-    tabTargetCommand.value = ''
-    await saveSettings()
-    await window.ztools.internal.updateTabTarget('')
-    console.log('Tab 键目标指令已清除')
-  } catch (error) {
-    console.error('清除 Tab 键目标指令失败:', error)
-  }
-}
-
-// 应用 Tab 键目标指令预设
-async function applyTabTargetPreset(preset: string): Promise<void> {
-  try {
-    tabTargetCommand.value = preset
-    await saveSettings()
-    await window.ztools.internal.updateTabTarget(preset)
-    console.log('Tab 键目标指令预设已应用:', preset)
-  } catch (err) {
-    console.error('应用 Tab 键目标指令预设失败:', err)
-  }
-}
-
-// 处理悬浮球双击目标指令变化
-async function handleFloatingBallDoubleClickChange(): Promise<void> {
-  try {
-    await saveSettings()
-    // 通知主渲染进程更新
-    await window.ztools.internal.updateFloatingBallDoubleClickCommand(
-      floatingBallDoubleClickCommand.value
-    )
-    console.log('悬浮球双击目标指令已更新:', floatingBallDoubleClickCommand.value)
-  } catch (error) {
-    console.error('保存悬浮球双击目标指令失败:', error)
-  }
-}
-
-// 清除悬浮球双击目标指令
-async function handleClearFloatingBallDoubleClick(): Promise<void> {
-  try {
-    floatingBallDoubleClickCommand.value = ''
-    await saveSettings()
-    await window.ztools.internal.updateFloatingBallDoubleClickCommand('')
-    console.log('悬浮球双击目标指令已清除')
-  } catch (error) {
-    console.error('清除悬浮球双击目标指令失败:', error)
   }
 }
 
@@ -1061,30 +668,6 @@ async function handleTrayIconChange(): Promise<void> {
   }
 }
 
-// 处理悬浮球开关变化
-async function handleFloatingBallChange(): Promise<void> {
-  try {
-    await window.ztools.internal.setFloatingBallEnabled(floatingBallEnabled.value)
-    console.log('悬浮球设置已更新:', floatingBallEnabled.value)
-  } catch (err) {
-    console.error('更新悬浮球设置失败:', err)
-    // 恢复状态
-    floatingBallEnabled.value = !floatingBallEnabled.value
-  }
-}
-
-// 处理悬浮球文字变化
-async function handleFloatingBallLetterChange(): Promise<void> {
-  try {
-    const letter = floatingBallLetter.value.trim() || 'Z'
-    floatingBallLetter.value = letter
-    await window.ztools.internal.setFloatingBallLetter(letter)
-    console.log('悬浮球文字已更新:', letter)
-  } catch (err) {
-    console.error('更新悬浮球文字失败:', err)
-  }
-}
-
 // 处理窗口材质变化
 async function handleWindowMaterialChange(): Promise<void> {
   try {
@@ -1123,78 +706,6 @@ async function handleAcrylicDarkOpacityChange(): Promise<void> {
     )
   } catch (error) {
     console.error('更新亚克力暗黑模式透明度失败:', error)
-  }
-}
-
-/**
- * 保存壁纸配置并通知主搜索窗口立即更新。
- * @returns 保存和通知完成后结束的 Promise
- */
-async function persistSearchWallpaper(): Promise<void> {
-  // 先持久化设备本地配置，确保下次启动能够恢复。
-  await saveSettings()
-
-  // 跨 IPC 前转换为普通对象，避免 Vue Proxy 无法被 Electron 结构化克隆。
-  const wallpaperPayload = normalizeSearchWallpaperConfig(searchWallpaper.value)
-  await window.ztools.internal.updateSearchWallpaper(wallpaperPayload)
-}
-
-/**
- * 打开本地图片选择器，并将选中的图片应用为主搜索窗口壁纸。
- * @returns 选择、保存和通知完成后结束的 Promise
- */
-async function handleSelectSearchWallpaper(): Promise<void> {
-  try {
-    const result = await window.ztools.internal.selectSearchWallpaper()
-    if (!result.success || !result.path || !result.url) {
-      if (result.error) error(`选择壁纸失败: ${result.error}`)
-      return
-    }
-
-    // 更换图片时保留用户已经调整的显示参数。
-    searchWallpaper.value = {
-      path: result.path,
-      url: result.url,
-      opacity: searchWallpaper.value?.opacity ?? DEFAULT_SEARCH_WALLPAPER_OPACITY,
-      blur: searchWallpaper.value?.blur ?? DEFAULT_SEARCH_WALLPAPER_BLUR
-    }
-    searchWallpaperPreviewFailed.value = false
-    await persistSearchWallpaper()
-    success('主搜索窗口壁纸已更新')
-  } catch (err) {
-    console.error('选择主搜索窗口壁纸失败:', err)
-    error('选择壁纸失败')
-  }
-}
-
-/**
- * 保存透明度或模糊参数，并同步到主搜索窗口。
- * @returns 保存和通知完成后结束的 Promise
- */
-async function handleSearchWallpaperEffectChange(): Promise<void> {
-  try {
-    searchWallpaper.value = normalizeSearchWallpaperConfig(searchWallpaper.value)
-    await persistSearchWallpaper()
-  } catch (err) {
-    console.error('更新主搜索窗口壁纸效果失败:', err)
-    error('更新壁纸效果失败')
-  }
-}
-
-/**
- * 清除壁纸配置，但不删除用户选择的原始图片。
- * @returns 清除、保存和通知完成后结束的 Promise
- */
-async function handleClearSearchWallpaper(): Promise<void> {
-  try {
-    // 只移除配置引用，避免对用户本地文件执行破坏性操作。
-    searchWallpaper.value = null
-    searchWallpaperPreviewFailed.value = false
-    await persistSearchWallpaper()
-    success('主搜索窗口壁纸已清除')
-  } catch (err) {
-    console.error('清除主搜索窗口壁纸失败:', err)
-    error('清除壁纸失败')
   }
 }
 
@@ -1354,32 +865,10 @@ async function loadSettings(): Promise<void> {
       windowDefaultHeight.value = data.windowDefaultHeight ?? 541
       hotkey.value = data.hotkey ?? defaultHotkey.value
       showTrayIcon.value = data.showTrayIcon ?? true
-      placeholder.value = data.placeholder ?? DEFAULT_PLACEHOLDER
-      avatar.value = data.avatar ?? DEFAULT_AVATAR
-      autoPaste.value = data.autoPaste ?? '3s'
-      autoClear.value = data.autoClear ?? 'immediately'
-      hideMainWindowOnPluginEsc.value = data.hideMainWindowOnPluginEsc === true
-      autoBackToSearch.value = hideMainWindowOnPluginEsc.value
-        ? 'immediately'
-        : (data.autoBackToSearch ?? 'never')
       windowPositionStrategy.value = data.windowPositionStrategy ?? 'remember'
-      showRecentInSearch.value = data.showRecentInSearch ?? true
-      showMatchRecommendation.value = data.showMatchRecommendation ?? true
-      localAppSearch.value = data.localAppSearch ?? true
-      recentRows.value = data.recentRows ?? 2
-      pinnedRows.value = data.pinnedRows ?? 2
       theme.value = data.theme ?? 'system'
       primaryColor.value = data.primaryColor ?? 'green'
-      searchMode.value = data.searchMode ?? 'aggregate'
       autoCheckUpdate.value = data.autoCheckUpdate ?? true
-      tabKeyFunction.value =
-        data.tabKeyFunction ?? (data.tabTargetCommand ? 'target-command' : 'navigate')
-      // Tab 键目标指令
-      tabTargetCommand.value = data.tabTargetCommand ?? ''
-      // 空格打开指令
-      spaceOpenCommand.value = data.spaceOpenCommand ?? false
-      // 悬浮球双击目标指令
-      floatingBallDoubleClickCommand.value = data.floatingBallDoubleClickCommand ?? ''
 
       // 超级面板配置
       superPanelEnabled.value = data.superPanelEnabled ?? false
@@ -1393,7 +882,6 @@ async function loadSettings(): Promise<void> {
       windowMaterial.value = data.windowMaterial
       acrylicLightOpacity.value = data.acrylicLightOpacity ?? 78
       acrylicDarkOpacity.value = data.acrylicDarkOpacity ?? 50
-      searchWallpaper.value = normalizeSearchWallpaperConfig(data.searchWallpaper)
       // 开发者工具位置
       devToolsMode.value = data.devToolsMode ?? 'detach'
       // GPU 加速控制
@@ -1405,10 +893,6 @@ async function loadSettings(): Promise<void> {
       // 代理配置
       proxyEnabled.value = data.proxyEnabled ?? false
       proxyUrl.value = data.proxyUrl ?? ''
-
-      // 悬浮球配置
-      floatingBallEnabled.value = data.floatingBallEnabled ?? false
-      floatingBallLetter.value = data.floatingBallLetter || 'Z'
 
       // 终端打开配置
       terminal.value = data.terminal ?? 'default'
@@ -1442,9 +926,6 @@ async function loadSettings(): Promise<void> {
  */
 async function saveSettings(): Promise<void> {
   try {
-    // 只有自定义头像才保存到数据库，默认头像不保存
-    const avatarToSave = avatar.value === defaultAvatar ? undefined : avatar.value
-
     // 先读取现有设置，保留本页不管理的字段（如 builtinAppShortcutsEnabled）
     const existing = (await window.ztools.internal.dbGet('settings-general')) || {}
 
@@ -1454,25 +935,7 @@ async function saveSettings(): Promise<void> {
       compactMainWindowHeader: compactMainWindowHeader.value,
       windowDefaultHeight: windowDefaultHeight.value,
       hotkey: hotkey.value,
-      placeholder: placeholder.value,
-      avatar: avatarToSave,
-      autoPaste: autoPaste.value,
-      autoClear: autoClear.value,
-      autoBackToSearch: autoBackToSearch.value,
-      hideMainWindowOnPluginEsc: hideMainWindowOnPluginEsc.value,
       windowPositionStrategy: windowPositionStrategy.value,
-      showRecentInSearch: showRecentInSearch.value,
-      showMatchRecommendation: showMatchRecommendation.value,
-      localAppSearch: localAppSearch.value,
-      recentRows: recentRows.value,
-      pinnedRows: pinnedRows.value,
-      searchMode: searchMode.value,
-      tabKeyFunction: tabKeyFunction.value,
-      tabTargetCommand: tabTargetCommand.value,
-      spaceOpenCommand: spaceOpenCommand.value,
-      floatingBallDoubleClickCommand: floatingBallDoubleClickCommand.value,
-      floatingBallEnabled: floatingBallEnabled.value,
-      floatingBallLetter: floatingBallLetter.value,
       superPanelEnabled: superPanelEnabled.value,
       superPanelMouseButton: superPanelMouseButton.value,
       superPanelLongPressMs: superPanelLongPressMs.value,
@@ -1487,8 +950,6 @@ async function saveSettings(): Promise<void> {
       windowMaterial: windowMaterial.value,
       acrylicLightOpacity: acrylicLightOpacity.value,
       acrylicDarkOpacity: acrylicDarkOpacity.value,
-      // 数据库 IPC 同样只接收可结构化克隆的普通壁纸对象。
-      searchWallpaper: normalizeSearchWallpaperConfig(searchWallpaper.value),
       devToolsMode: devToolsMode.value,
       disableGpuAcceleration: disableGpuAcceleration.value,
       customInternalApiPluginNames: [...customInternalApiPluginNames.value],
@@ -1665,7 +1126,7 @@ onUnmounted(() => {
       <div class="setting-item">
         <div class="setting-label">
           <span>紧凑顶部栏</span>
-          <span class="setting-desc">缩小主搜索框和插件顶部栏，显示更多内容</span>
+          <span class="setting-desc">缩小插件顶部栏，显示更多内容</span>
         </div>
         <div class="setting-control">
           <label class="toggle">
@@ -1779,74 +1240,6 @@ onUnmounted(() => {
           />
         </div>
       </div>
-
-      <div class="setting-item wallpaper-setting-item">
-        <div class="setting-label">
-          <span>主搜索窗口壁纸</span>
-          <span class="setting-desc">图片副本保存在 .ztools/avatar，超宽图片会自动压缩</span>
-        </div>
-        <div class="setting-control wallpaper-control">
-          <div v-if="searchWallpaper" class="wallpaper-preview-wrapper">
-            <img
-              v-if="!searchWallpaperPreviewFailed"
-              :src="searchWallpaper.url"
-              class="wallpaper-preview"
-              alt="主搜索窗口壁纸预览"
-              draggable="false"
-              @load="searchWallpaperPreviewFailed = false"
-              @error="searchWallpaperPreviewFailed = true"
-            />
-            <div v-else class="wallpaper-preview wallpaper-preview-error">图片不可用</div>
-          </div>
-          <div class="wallpaper-actions">
-            <span v-if="searchWallpaper" class="wallpaper-file-name" :title="searchWallpaper.path">
-              {{ searchWallpaperFileName }}
-            </span>
-            <div class="wallpaper-buttons">
-              <button class="btn" @click="handleSelectSearchWallpaper">
-                {{ searchWallpaper ? '更换图片' : '选择图片' }}
-              </button>
-              <button v-if="searchWallpaper" class="btn" @click="handleClearSearchWallpaper">
-                清除
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div v-if="searchWallpaper" class="setting-item">
-        <div class="setting-label">
-          <span>壁纸透明度</span>
-          <span class="setting-desc">只调整壁纸图片层，不影响窗口和文字透明度</span>
-        </div>
-        <div class="setting-control opacity-control">
-          <Slider
-            v-model="searchWallpaper.opacity"
-            :min="0.05"
-            :max="1"
-            :step="0.05"
-            :formatter="(value) => `${Math.round(value * 100)}%`"
-            @change="handleSearchWallpaperEffectChange"
-          />
-        </div>
-      </div>
-
-      <div v-if="searchWallpaper" class="setting-item">
-        <div class="setting-label">
-          <span>壁纸模糊</span>
-          <span class="setting-desc">模糊仅作用于壁纸图片，范围 0 至 20 像素</span>
-        </div>
-        <div class="setting-control opacity-control">
-          <Slider
-            v-model="searchWallpaper.blur"
-            :min="0"
-            :max="20"
-            :step="1"
-            :formatter="(value) => `${value}px`"
-            @change="handleSearchWallpaperEffectChange"
-          />
-        </div>
-      </div>
     </div>
 
     <!-- ==================== 终端打开 ==================== -->
@@ -1883,286 +1276,9 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- ==================== 搜索 ==================== -->
-    <div class="setting-group">
-      <h3 class="setting-group-title">搜索</h3>
-
-      <div class="setting-item">
-        <div class="setting-label">
-          <span>搜索框提示文字</span>
-          <span class="setting-desc">自定义搜索框的占位提示文字</span>
-        </div>
-        <div class="setting-control">
-          <input
-            v-model="placeholder"
-            type="text"
-            class="input"
-            placeholder="输入提示文字"
-            @blur="handlePlaceholderChange"
-            @keyup.enter="handlePlaceholderChange"
-          />
-          <button
-            v-if="placeholder !== defaultPlaceholder"
-            class="btn btn-icon"
-            title="重置"
-            @click="handleResetPlaceholder"
-          >
-            <div class="i-z-refresh font-size-20px" />
-          </button>
-        </div>
-      </div>
-
-      <div class="setting-item">
-        <div class="setting-label">
-          <span>搜索框头像</span>
-          <span class="setting-desc">自定义搜索框右侧显示的头像</span>
-        </div>
-        <div class="setting-control avatar-control">
-          <img
-            v-if="avatar"
-            :src="avatar"
-            :class="['avatar-preview', { 'default-avatar': avatar === defaultAvatar }]"
-            alt="头像预览"
-            draggable="false"
-          />
-          <button class="btn" @click="handleSelectAvatar">选择图片</button>
-          <button
-            v-if="avatar !== defaultAvatar"
-            class="btn btn-icon"
-            title="重置"
-            @click="handleResetAvatar"
-          >
-            <div class="i-z-refresh font-size-20px" />
-          </button>
-        </div>
-      </div>
-
-      <div class="setting-item">
-        <div class="setting-label">
-          <span>搜索框模式</span>
-          <span class="setting-desc">选择搜索框的显示模式</span>
-        </div>
-        <div class="setting-control">
-          <Dropdown
-            v-model="searchMode"
-            :options="searchModeOptions"
-            @change="handleSearchModeChange"
-          />
-        </div>
-      </div>
-
-      <div class="setting-item">
-        <div class="setting-label">
-          <span>搜索框显示最近使用</span>
-          <span class="setting-desc">开启后搜索框将显示最近使用的应用</span>
-        </div>
-        <div class="setting-control">
-          <label class="toggle">
-            <input
-              v-model="showRecentInSearch"
-              type="checkbox"
-              @change="handleShowRecentInSearchChange"
-            />
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-      </div>
-
-      <div class="setting-item">
-        <div class="setting-label">
-          <span>匹配推荐</span>
-          <span class="setting-desc">
-            开启后显示匹配推荐分组(建议不要关闭否则带 over 匹配无法正常运行)
-          </span>
-        </div>
-        <div class="setting-control">
-          <label class="toggle">
-            <input
-              v-model="showMatchRecommendation"
-              type="checkbox"
-              @change="handleShowMatchRecommendationChange"
-            />
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-      </div>
-
-      <div v-if="showRecentInSearch && searchMode === 'aggregate'" class="setting-item">
-        <div class="setting-label">
-          <span>最近使用显示行数</span>
-          <span class="setting-desc">设置最近使用列表显示的行数（每行9个）</span>
-        </div>
-        <div class="setting-control">
-          <Dropdown
-            v-model="recentRows"
-            :options="recentRowsOptions"
-            @change="handleRecentRowsChange"
-          />
-        </div>
-      </div>
-
-      <div v-if="searchMode === 'aggregate'" class="setting-item">
-        <div class="setting-label">
-          <span>固定栏显示行数</span>
-          <span class="setting-desc">设置已固定应用列表显示的行数（每行9个）</span>
-        </div>
-        <div class="setting-control">
-          <Dropdown
-            v-model="pinnedRows"
-            :options="pinnedRowsOptions"
-            @change="handlePinnedRowsChange"
-          />
-        </div>
-      </div>
-
-      <div class="setting-item">
-        <div class="setting-label">
-          <span>本地应用搜索</span>
-          <span class="setting-desc">开启后搜索结果将包含本地安装的应用</span>
-        </div>
-        <div class="setting-control">
-          <label class="toggle">
-            <input v-model="localAppSearch" type="checkbox" @change="handleLocalAppSearchChange" />
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-      </div>
-
-      <div class="setting-item">
-        <div class="setting-label">
-          <span>空格打开指令</span>
-          <span class="setting-desc">搜索框为空时按空格键打开选中的指令</span>
-        </div>
-        <div class="setting-control">
-          <label class="toggle">
-            <input
-              v-model="spaceOpenCommand"
-              type="checkbox"
-              @change="handleSpaceOpenCommandChange"
-            />
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-      </div>
-
-      <div class="setting-item tab-target-setting-item">
-        <div class="setting-label">
-          <span>Tab 功能</span>
-          <span class="setting-desc">设置 Tab 键用于切换选中项，或直接进入指定指令</span>
-        </div>
-        <div class="setting-control-column">
-          <div class="setting-control">
-            <Dropdown
-              v-model="tabKeyFunction"
-              :options="tabKeyFunctionOptions"
-              @change="handleTabKeyFunctionChange"
-            />
-          </div>
-        </div>
-      </div>
-
-      <div v-if="tabKeyFunction === 'target-command'" class="setting-item tab-target-setting-item">
-        <div class="setting-label">
-          <span>Tab 键目标指令</span>
-          <span class="setting-desc"
-            >配置后在搜索框输入文字按 Tab 键可直接进入对应指令，常用于快速打开 AI 对话等场景</span
-          >
-        </div>
-        <div class="setting-control-column">
-          <div class="setting-control">
-            <input
-              v-model="tabTargetCommand"
-              type="text"
-              class="input"
-              placeholder="例如：AI助手/对话"
-              @blur="handleTabTargetChange"
-              @keyup.enter="handleTabTargetChange"
-            />
-            <button
-              v-if="tabTargetCommand"
-              class="btn btn-icon"
-              title="清除"
-              @click="handleClearTabTarget"
-            >
-              <div class="i-z-close font-size-20px" />
-            </button>
-          </div>
-          <div class="hotkey-presets">
-            <button
-              class="hotkey-preset-btn"
-              :class="{ active: tabTargetCommand === 'AI助手/AI对话' }"
-              @click="applyTabTargetPreset('AI助手/AI对话')"
-            >
-              AI提问
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- ==================== 行为 ==================== -->
     <div class="setting-group">
       <h3 class="setting-group-title">行为</h3>
-
-      <div class="setting-item">
-        <div class="setting-label">
-          <span>自动粘贴搜索框</span>
-          <span class="setting-desc">复制文本后在设定时间内打开窗口自动粘贴</span>
-        </div>
-        <div class="setting-control">
-          <Dropdown
-            v-model="autoPaste"
-            :options="autoPasteOptions"
-            @change="handleAutoPasteChange"
-          />
-        </div>
-      </div>
-
-      <div class="setting-item">
-        <div class="setting-label">
-          <span>自动清空搜索框</span>
-          <span class="setting-desc">窗口显示状态切换后自动清空搜索框内容的时间</span>
-        </div>
-        <div class="setting-control">
-          <Dropdown
-            v-model="autoClear"
-            :options="autoClearOptions"
-            @change="handleAutoClearChange"
-          />
-        </div>
-      </div>
-
-      <div class="setting-item">
-        <div class="setting-label">
-          <span>插件内 ESC 直接隐藏</span>
-          <span class="setting-desc">在插件中按 ESC 直接隐藏主窗口，下次呼出时显示搜索</span>
-        </div>
-        <div class="setting-control">
-          <label class="toggle">
-            <input
-              v-model="hideMainWindowOnPluginEsc"
-              type="checkbox"
-              aria-label="插件内 ESC 直接隐藏"
-              @change="handleHideMainWindowOnPluginEscChange"
-            />
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-      </div>
-
-      <div class="setting-item">
-        <div class="setting-label">
-          <span>自动返回到搜索</span>
-          <span class="setting-desc">主窗口打开插件后隐藏，在设定时间后自动返回搜索界面</span>
-        </div>
-        <div class="setting-control">
-          <Dropdown
-            v-model="autoBackToSearch"
-            :options="availableAutoBackToSearchOptions"
-            @change="handleAutoBackToSearchChange"
-          />
-        </div>
-      </div>
 
       <div class="setting-item">
         <div class="setting-label">
@@ -2324,76 +1440,6 @@ onUnmounted(() => {
               </button>
             </span>
           </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ==================== 悬浮球 ==================== -->
-    <div class="setting-group">
-      <h3 class="setting-group-title">悬浮球</h3>
-
-      <div class="setting-item">
-        <div class="setting-label">
-          <span>显示悬浮球</span>
-          <span class="setting-desc"
-            >在桌面显示一个置顶悬浮球，点击可快速启动/隐藏主界面，支持拖入文件到悬浮球</span
-          >
-        </div>
-        <div class="setting-control">
-          <label class="toggle">
-            <input
-              v-model="floatingBallEnabled"
-              type="checkbox"
-              @change="handleFloatingBallChange"
-            />
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-      </div>
-
-      <div v-if="floatingBallEnabled" class="setting-item">
-        <div class="setting-label">
-          <span>悬浮球文字</span>
-          <span class="setting-desc">自定义悬浮球上显示的文字，默认为 Z</span>
-        </div>
-        <div class="setting-control">
-          <input
-            v-model="floatingBallLetter"
-            type="text"
-            class="input"
-            placeholder="Z"
-            maxlength="2"
-            style="width: 60px; text-align: center"
-            @blur="handleFloatingBallLetterChange"
-            @keyup.enter="handleFloatingBallLetterChange"
-          />
-        </div>
-      </div>
-
-      <div v-if="floatingBallEnabled" class="setting-item">
-        <div class="setting-label">
-          <span>悬浮球双击目标指令</span>
-          <span class="setting-desc"
-            >配置后双击悬浮球可直接进入对应指令，常用于快速打开 AI 对话等场景</span
-          >
-        </div>
-        <div class="setting-control">
-          <input
-            v-model="floatingBallDoubleClickCommand"
-            type="text"
-            class="input"
-            placeholder="例如：AI助手/对话"
-            @blur="handleFloatingBallDoubleClickChange"
-            @keyup.enter="handleFloatingBallDoubleClickChange"
-          />
-          <button
-            v-if="floatingBallDoubleClickCommand"
-            class="btn btn-icon"
-            title="清除"
-            @click="handleClearFloatingBallDoubleClick"
-          >
-            <div class="i-z-close font-size-20px" />
-          </button>
         </div>
       </div>
     </div>

@@ -382,6 +382,7 @@ class WindowManager {
       hasShadow: true, // 启用窗口阴影（可调整为 false 来移除阴影）
       webPreferences: {
         preload: getPreloadPath(),
+        sandbox: process.env.ZTOOLS_SOURCE_PREVIEW !== '1',
         backgroundThrottling: false, // 窗口最小化时是否继续动画和定时器
         contextIsolation: true, // 禁用上下文隔离, 渲染进程和preload共用window对象
         nodeIntegration: false, // 渲染进程禁止直接使用 Node
@@ -563,6 +564,7 @@ class WindowManager {
       if (this.isPreparingMacSpace) return
 
       // 开始恢复焦点流程，防止 focus 事件监听器修改 lastFocusTarget
+      if (!pluginManager.getCurrentPluginPath()) this.mainWindow?.webContents.send('show-settings')
       this.isRestoringFocus = true
       const savedFocusTarget = this.lastFocusTarget
 
@@ -673,7 +675,7 @@ class WindowManager {
     // 使用普通菜单项显示游戏模式状态，避免原生 checkbox 为整个菜单预留勾选栏。
     this.trayMenu = Menu.buildFromTemplate([
       {
-        label: '显示/隐藏',
+        label: '显示/隐藏设置',
         click: () => {
           this.toggleWindow()
         }
@@ -1375,7 +1377,8 @@ class WindowManager {
    * 更新自动返回搜索配置
    */
   public async updateAutoBackToSearch(config: string): Promise<void> {
-    this.autoBackToSearchConfig = config
+    this.autoBackToSearchConfig = 'never'
+    void config
     console.log('[Window] 更新自动返回搜索配置:', config)
   }
 

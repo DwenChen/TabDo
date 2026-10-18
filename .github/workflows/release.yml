@@ -1,0 +1,97 @@
+name: Release local edition
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: win
+            arch: x64
+            command: pnpm build:win
+          - os: macos-15-intel
+            target: mac
+            arch: x64
+            command: pnpm build:mac:x64
+          - os: macos-14
+            target: mac
+            arch: arm64
+            command: pnpm build:mac:arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            internal-plugins/setting/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --dir internal-plugins/setting install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm typecheck:setting
+      - run: pnpm test
+      - name: Build and package in cloud
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: ${{ matrix.command }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}-${{ matrix.arch }}
+          path: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.zip
+            dist/*.yml
+            dist/*.blockmap
+          if-no-files-found: error
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Merge updater metadata
+        env:
+          RELEASE_VERSION: ${{ github.ref_name }}
+          WINDOWS_UPDATE_METADATA: artifacts/win-x64/latest.yml
+          MAC_X64_UPDATE_METADATA: artifacts/mac-x64/latest-mac.yml
+          MAC_ARM64_UPDATE_METADATA: artifacts/mac-arm64/latest-mac.yml
+          UPDATE_METADATA_OUTPUT_DIR: artifacts/metadata
+          REQUIRE_UPDATE_METADATA: 'true'
+        run: node scripts/updater.mjs
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ZTools 本地版 ${{ github.ref_name }}
+          body_path: changelog.md
+          make_latest: true
+          files: |
+            artifacts/win-x64/*.exe
+            artifacts/win-x64/*.zip
+            artifacts/win-x64/*.blockmap
+            artifacts/mac-x64/*.dmg
+            artifacts/mac-x64/*.zip
+            artifacts/mac-arm64/*.dmg
+            artifacts/mac-arm64/*.zip
+            artifacts/metadata/*.yml

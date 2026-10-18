@@ -27,9 +27,9 @@ const apiEndpoints: ApiEndpoint[] = [
   {
     method: 'POST',
     path: '/api/window/show',
-    desc: '显示主窗口，可传 text 参数填充搜索框',
+    desc: '显示当前插件或设置窗口',
     auth: true,
-    body: { text: '设置' }
+    body: {}
   },
   { method: 'POST', path: '/api/window/hide', desc: '隐藏 ZTools 主窗口', auth: true },
   {

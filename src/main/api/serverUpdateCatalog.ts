@@ -1,111 +1,123 @@
 import { app } from 'electron'
-import { OFFICIAL_SERVER_HTTP_URL } from '../../shared/syncServerUrl'
 import { httpRequest } from '../utils/httpRequest'
 import type { PlatformUpdateInfo, UpdateDownloadSource } from './platformUpdater/types'
 import databaseAPI from './shared/database'
-import { HOST_STORAGE_KEYS } from '../../shared/storageKeys'
 import { resolveUpdateChannel, type UpdateChannel } from '../../shared/updateChannel'
-import pluginDeviceAPI from './plugin/device'
-
+import { GITHUB_REPOSITORY_URL, getGitHubReleaseUrl } from '../../shared/updateSource'
+const RELEASE_API = 'https://api.github.com/repos/DwenChen/ZTools/releases'
 export interface ServerUpdateInfo {
   available: boolean
   latestVersion: string
   releaseNotes: string
   publishedAt: number
 }
-
-interface ServerUpdateResponse {
-  update: ServerUpdateInfo | null
+interface Release {
+  tag_name: string
+  draft: boolean
+  prerelease: boolean
+  body: string
+  published_at: string
 }
-
-interface ServerDownloadsResponse {
-  version: string
-  systemType: string
-  sources: UpdateDownloadSource[]
-}
-
-/**
- * 返回服务端更新目录使用的系统类型。
- * @returns 当前 Electron 运行平台与架构对应的系统类型。
- */
-export function getUpdateSystemType(): string {
-  if (process.platform === 'win32') return 'windows-x64-installer'
-  if (process.platform === 'darwin') return process.arch === 'arm64' ? 'macos-arm64' : 'macos-x64'
-  if (process.platform === 'linux') return process.arch === 'arm64' ? 'linux-arm64' : 'linux-x64'
-  return `${process.platform}-${process.arch}`
-}
-
-/**
- * 根据当前应用版本和本地更新偏好选择服务端更新通道。
- * @returns 当前应使用的 stable 或 beta 通道。
+/** 获取更新通道。
+ * @returns 用户选择的稳定版或测试版通道。
  */
 export function getUpdateChannel(): UpdateChannel {
-  const version = app.getVersion()
-  try {
-    // Beta 订阅属于设备级更新偏好，自动和手动检查统一读取同一设置。
-    const settings = databaseAPI.dbGet(HOST_STORAGE_KEYS.settingsGeneral)
-    return resolveUpdateChannel(version, settings?.receiveBetaUpdates === true)
-  } catch (error) {
-    console.warn('[Updater] 读取 Beta 更新偏好失败，使用版本默认通道:', error)
-    return resolveUpdateChannel(version)
-  }
+  return resolveUpdateChannel(
+    app.getVersion(),
+    databaseAPI.dbGet('settings-general')?.receiveBetaUpdates === true
+  )
 }
-
-/**
- * 从官方服务端执行一次主动更新检查。
- * @returns 服务端返回的最新版本信息；没有适用版本时为 null。
+/** 获取当前平台标识。
+ * @returns 平台与架构。
+ */
+export function getUpdateSystemType(): string {
+  return `${process.platform}-${process.arch}`
+}
+/** 比较语义版本，避免版本降级与同版本重复提醒。
+ * @param candidate 候选版本。
+ * @param current 当前版本。
+ * @returns 候选版本是否更新。
+ */
+export function isNewerVersion(candidate: string, current: string): boolean {
+  const a = candidate.replace(/^v/, '').split('+')[0].split('-'),
+    b = current.replace(/^v/, '').split('+')[0].split('-')
+  const ac = a[0].split('.').map(Number),
+    bc = b[0].split('.').map(Number)
+  if (ac.length !== 3 || ac.some(Number.isNaN)) return false
+  for (let i = 0; i < 3; i++) if (ac[i] !== bc[i]) return ac[i] > bc[i]
+  if (!a[1] || !b[1]) return !a[1] && !!b[1]
+  const ap = a.slice(1).join('-').split('.'),
+    bp = b.slice(1).join('-').split('.')
+  for (let i = 0; i < Math.max(ap.length, bp.length); i++) {
+    if (ap[i] === bp[i]) continue
+    if (ap[i] === undefined) return false
+    if (bp[i] === undefined) return true
+    const an = /^\d+$/.test(ap[i]),
+      bn = /^\d+$/.test(bp[i])
+    if (an && bn) return Number(ap[i]) > Number(bp[i])
+    if (an !== bn) return !an
+    return ap[i] > bp[i]
+  }
+  return false
+}
+/** 从本仓库的 GitHub Releases 查询可用更新。
+ * @returns 最新适用版本；尚未发布时为 null。
+ * @throws GitHub 请求失败时抛错。
  */
 export async function fetchLatestServerUpdate(): Promise<ServerUpdateInfo | null> {
-  const query = new URLSearchParams({
-    systemType: getUpdateSystemType(),
-    currentVersion: app.getVersion(),
-    updateChannel: getUpdateChannel(),
-    deviceId: pluginDeviceAPI.getDeviceIdPublic()
+  const response = await httpRequest(RELEASE_API + '?per_page=100', {
+    headers: { Accept: 'application/vnd.github+json' }
   })
-  const response = await httpRequest(
-    `${OFFICIAL_SERVER_HTTP_URL}/api/updates/latest?${query.toString()}`
+  const releases = (response.data as Release[]).filter(
+    (r) => !r.draft && (getUpdateChannel() === 'beta' || !r.prerelease)
   )
-  return (response.data as ServerUpdateResponse)?.update ?? null
+  const release = releases.reduce<Release | null>(
+    (best, item) => (!best || isNewerVersion(item.tag_name, best.tag_name) ? item : best),
+    null
+  )
+  if (!release) return null
+  const version = release.tag_name.replace(/^v/, '')
+  return {
+    available: isNewerVersion(version, app.getVersion()),
+    latestVersion: version,
+    releaseNotes: release.body || '',
+    publishedAt: Date.parse(release.published_at)
+  }
 }
-
-/**
- * 获取指定版本在当前系统上的官方、GitHub 和人工下载入口。
- * @param version 检查更新接口返回的目标版本号。
- * @returns 当前系统可用的下载源列表。
+/** 返回本仓库的标准更新 Feed 与发布页。
+ * @param version 版本号。
+ * @returns 更新源列表。
  */
 export async function fetchServerUpdateSources(version: string): Promise<UpdateDownloadSource[]> {
-  const query = new URLSearchParams({
-    version,
-    systemType: getUpdateSystemType(),
-    updateChannel: getUpdateChannel(),
-    deviceId: pluginDeviceAPI.getDeviceIdPublic()
-  })
-  const response = await httpRequest(
-    `${OFFICIAL_SERVER_HTTP_URL}/api/updates/downloads?${query.toString()}`
-  )
-  const data = response.data as ServerDownloadsResponse
-  return Array.isArray(data?.sources) ? data.sources : []
+  const releaseUrl = getGitHubReleaseUrl(version)
+  return [
+    {
+      id: 1,
+      platformName: 'GitHub',
+      downloadUrl: releaseUrl,
+      feedUrl: `${GITHUB_REPOSITORY_URL}/releases/download/v${encodeURIComponent(version)}`,
+      isDirect: process.platform === 'win32'
+    },
+    { id: 2, platformName: 'GitHub Release', downloadUrl: releaseUrl, isDirect: false }
+  ]
 }
-
-/**
- * 将服务端版本信息和下载源转换为现有更新窗口使用的数据结构。
- * @param update 服务端返回的版本信息。
- * @returns 可交给平台更新器和更新窗口使用的统一信息。
+/** 转换 GitHub 版本信息以复用现有更新窗口。
+ * @param update GitHub 版本信息。
+ * @returns 平台更新信息。
  */
 export async function resolvePlatformUpdateInfo(
   update: ServerUpdateInfo
 ): Promise<PlatformUpdateInfo> {
-  const sources = await fetchServerUpdateSources(update.latestVersion)
-  const directSource = sources.find((source) => source.isDirect && source.feedUrl)
-  const fallbackSource = sources.find((source) => !source.isDirect) ?? sources[0]
+  const sources = await fetchServerUpdateSources(update.latestVersion),
+    direct = sources.find((source) => source.isDirect)
   return {
     version: update.latestVersion,
     changelog: update.releaseNotes,
     releaseNotes: update.releaseNotes,
-    downloadUrl: directSource?.downloadUrl,
-    feedUrl: directSource?.feedUrl,
-    releaseUrl: fallbackSource?.downloadUrl ?? directSource?.downloadUrl,
-    manualDownloadRequired: !directSource,
+    downloadUrl: direct?.downloadUrl,
+    feedUrl: direct?.feedUrl,
+    releaseUrl: getGitHubReleaseUrl(update.latestVersion),
+    manualDownloadRequired: !direct,
     sources
   }
 }

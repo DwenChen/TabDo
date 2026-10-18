@@ -1,3 +1,5 @@
+import { vi } from 'vitest'
+vi.mock('../../src/main/core/native/index.js', () => ({ WindowManager: {} }))
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 const { mockDbGet, mockSpawn, mockExecFile } = vi.hoisted(() => ({

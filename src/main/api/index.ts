@@ -1,3 +1,4 @@
+import { initBackupService, applyBackupMigration } from '../core/backupService'
 import { BrowserWindow, ipcMain, Notification } from 'electron'
 import type { PluginManager } from '../managers/pluginManager'
 
@@ -14,7 +15,6 @@ import localShortcutsAPI from './renderer/localShortcuts'
 import pluginsAPI from './renderer/plugins'
 import settingsAPI from './renderer/settings'
 import storageAPI from './renderer/storage'
-import syncAPI from './renderer/sync'
 import systemAPI from './renderer/system'
 import { systemSettingsAPI } from './renderer/systemSettings'
 import windowAPI from './renderer/window'
@@ -40,7 +40,6 @@ import pluginToastAPI from './plugin/toast'
 import pluginToolsAPI from './plugin/tools'
 import pluginUIAPI from './plugin/ui'
 import pluginUserAPI from './plugin/user'
-import pluginPaymentAPI from './plugin/payment'
 import pluginWindowAPI from './plugin/window'
 import { setupImageAnalysisAPI } from './shared/imageAnalysis'
 import {
@@ -55,7 +54,6 @@ import zbrowserAPI from './plugin/zbrowser'
 import pluginFFmpegAPI from './plugin/ffmpeg'
 
 import httpServer from '../core/httpServer'
-import mcpServer from '../core/mcpServer'
 import providerManager from '../core/provider/providerManager'
 import { startProviderBridgeHost } from '../core/provider/providerBridgeHost'
 import { runStartupDataMigrations } from '../core/startupDataMigrations'
@@ -101,6 +99,8 @@ class APIManager {
 
     // 初始化共享API
     databaseAPI.init(pluginManager)
+    applyBackupMigration()
+    initBackupService(pluginManager)
     // 启动时统一迁移mac图标历史遗留数据
     runStartupDataMigrations()
     clipboardAPI.init()
@@ -117,7 +117,6 @@ class APIManager {
     storageAPI.init()
     systemAPI.init(mainWindow)
     systemSettingsAPI.init()
-    syncAPI.init(mainWindow, pluginManager)
     localShortcutsAPI.init(mainWindow)
     localShortcutsAPI.setCommandsCacheInvalidator(() => appsAPI.invalidateCommandsCache(false))
 
@@ -135,8 +134,7 @@ class APIManager {
     pluginAiAPI.init(mainWindow, pluginManager)
     pluginLifecycleAPI.init(mainWindow, pluginManager)
     pluginUIAPI.init(mainWindow, pluginManager)
-    pluginUserAPI.init(pluginManager)
-    pluginPaymentAPI.init(mainWindow, pluginManager)
+    pluginUserAPI.init()
     // 注入主题信息变更钩子：当主题色/材质变更时通知所有插件视图
     windowManager.setOnThemeInfoChanged(() => {
       pluginUIAPI.broadcastThemeInfoToAllPlugins()
@@ -170,10 +168,6 @@ class APIManager {
     httpServer.setPluginLauncher((options) => this.launchPlugin(options))
     httpServer.init().catch((error) => {
       console.error('[API] HTTP 服务初始化失败:', error)
-    })
-    // 初始化 MCP 服务
-    mcpServer.init().catch((error) => {
-      console.error('[API] MCP 服务初始化失败:', error)
     })
 
     // 初始化超级面板管理器

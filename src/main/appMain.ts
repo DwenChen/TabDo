@@ -8,7 +8,6 @@ import updaterAPI from './api/updater'
 import appsAPI from './api/renderer/commands'
 import pluginsAPI from './api/renderer/plugins'
 import appWatcher from './appWatcher'
-import activityHeartbeatService from './core/activity/heartbeatService'
 import {
   ensureMacAccessibilityPermission,
   focusAccessibilityPermissionWindow,
@@ -18,9 +17,7 @@ import {
   handleFirstRunStorageImport,
   isLegacyImportWindowActive
 } from './core/firstRunStorageImport'
-import floatingBallManager from './core/floatingBallManager'
 import httpServer from './core/httpServer'
-import mcpServer from './core/mcpServer'
 import { registerIconProtocolForSession, registerIconScheme } from './core/iconProtocol'
 import { getLogsPath } from './core/appData/appDataPaths'
 import { loadInternalPlugins } from './core/internalPluginLoader'
@@ -145,7 +142,7 @@ app.whenReady().then(async () => {
   // 创建主窗口
   const mainWindow = windowManager.createWindow()
 
-  if (isE2ETest) {
+  if (isE2ETest || process.env.ZTOOLS_SOURCE_PREVIEW === '1') {
     // 测试模式直接展示窗口，让自动化驱动无需依赖全局快捷键。
     mainWindow.once('ready-to-show', () => windowManager.showWindow())
   }
@@ -159,15 +156,11 @@ app.whenReady().then(async () => {
       appsAPI.setAfterFirstAppsReadyCallback(() => {
         appWatcher.init(mainWindow)
       })
-      activityHeartbeatService.start()
     }
   }
 
   // 注册全局快捷键
   if (!isE2ETest) windowManager.registerShortcut()
-
-  // 初始化悬浮球（从配置决定是否显示）
-  if (!isE2ETest) await floatingBallManager.init()
 
   // 自动启动已配置的"跟随主程序同时启动运行"的插件
   if (mainWindow && !isE2ETest) {
@@ -226,14 +219,8 @@ app.on('will-quit', () => {
   updaterAPI.cleanup()
   // 停止应用目录监听
   appWatcher.stop()
-  // 清理悬浮球
-  floatingBallManager.cleanup()
   // 关闭 HTTP 服务器
   httpServer.stop()
-  // 关闭 MCP 服务器
-  mcpServer.stop()
-  // 停止活动心跳
-  activityHeartbeatService.stop()
 })
 
 app.on('before-quit', (event) => {
@@ -255,9 +242,6 @@ app.on('before-quit', (event) => {
   } else {
     // 主动退出时，同步销毁所有窗口
     console.log('[Main] 开始同步销毁所有窗口...')
-
-    // 先清理悬浮球窗口（避免 close 事件干扰）
-    floatingBallManager.cleanup()
 
     // 通过 Electron API 获取所有 webContents 并销毁（包括主窗口、分离窗口、插件视图）
     const allContents = webContents.getAllWebContents()

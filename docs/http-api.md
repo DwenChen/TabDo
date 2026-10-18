@@ -1,4 +1,4 @@
-# ZTools HTTP API
+# ZTools 本地版 HTTP API
 
 ZTools 内置 HTTP 服务，允许第三方应用通过本地 HTTP 接口控制 ZTools。
 
@@ -93,9 +93,9 @@ curl http://127.0.0.1:36578/
 
 ---
 
-### POST /api/window/show — 显示主窗口
+### POST /api/window/show — 显示设置或当前插件窗口
 
-显示 ZTools 主窗口并激活到前台。可选传入 `text` 参数，自动填充到搜索输入框。
+显示当前插件或设置窗口并激活到前台。本地版已移除主搜索输入参数。
 
 **请求**
 
@@ -107,16 +107,12 @@ Content-Type: application/json
 
 **入参**
 
-| 字段   | 类型     | 必填 | 说明                                       |
-| ------ | -------- | ---- | ------------------------------------------ |
-| `text` | `string` | 否   | 填充到搜索输入框的文本，不传则保持原有内容 |
+无。
 
 **请求体示例**
 
 ```json
-{
-  "text": "搜索关键词"
-}
+{}
 ```
 
 请求体也可为空或空 JSON `{}`，此时仅显示窗口。
@@ -137,11 +133,11 @@ Content-Type: application/json
 curl -X POST http://127.0.0.1:36578/api/window/show \
   -H "Authorization: Bearer <API_KEY>"
 
-# 显示窗口并填充搜索文本
+# 显示当前插件或设置窗口
 curl -X POST http://127.0.0.1:36578/api/window/show \
   -H "Authorization: Bearer <API_KEY>" \
   -H "Content-Type: application/json" \
-  -d '{"text": "搜索关键词"}'
+  -d '{}'
 ```
 
 ---

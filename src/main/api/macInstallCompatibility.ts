@@ -5,7 +5,7 @@ import yaml from 'yaml'
 import { GITHUB_LATEST_RELEASE_URL } from '@shared/updateSource'
 import { EXPECTED_ELECTRON_VERSION } from '../runtimeCompatibility'
 
-export const MAC_APP_ID = 'top.z-tools'
+export const MAC_APP_ID = 'io.github.dwenchen.ztools'
 export const MAC_ELECTRON_VERSION = EXPECTED_ELECTRON_VERSION
 export const MAC_UPDATER_TYPE = 'electron-updater-mac'
 export const MAC_INSTALL_INFO_FILE = 'ztools-install-info.json'
@@ -101,7 +101,7 @@ export async function getMacInstallCompatibility(): Promise<MacInstallCompatibil
     const updateConfig = yaml.parse(await fs.readFile(updateConfigPath, 'utf8'))
     hasUpdateConfig =
       updateConfig?.provider === 'github' &&
-      updateConfig?.owner === 'ZToolsCenter' &&
+      updateConfig?.owner === 'DwenChen' &&
       updateConfig?.repo === 'ZTools'
   } catch {
     hasUpdateConfig = false

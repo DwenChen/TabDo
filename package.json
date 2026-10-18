@@ -1,16 +1,16 @@
 {
   "name": "ZTools",
-  "version": "3.2.0",
-  "description": "ZTools",
+  "version": "1.0.0",
+  "description": "ZTools 本地精简版：超级面板、插件与完整数据备份",
   "main": "./out/main/index.js",
-  "author": "ZToolsCenter",
-  "homepage": "https://github.com/ZToolsCenter/ZTools",
+  "author": "DwenChen",
+  "homepage": "https://github.com/DwenChen/ZTools",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ZToolsCenter/ZTools.git"
+    "url": "https://github.com/DwenChen/ZTools.git"
   },
   "bugs": {
-    "url": "https://github.com/ZToolsCenter/ZTools/issues"
+    "url": "https://github.com/DwenChen/ZTools/issues"
   },
   "license": "MIT",
   "scripts": {
@@ -38,14 +38,16 @@
     "build:linux:arm64": "cross-env ZTOOLS_TARGET_PLATFORM=linux pnpm build && electron-builder --linux --arm64",
     "updater": "node scripts/updater.mjs",
     "test": "vitest run",
-    "test:e2e": "pnpm exec electron-vite build && playwright test --config=playwright.e2e.config.ts",
+    "test:e2e": "playwright test --config=playwright.e2e.config.ts",
     "test:windows-scanner": "electron scripts/compare-windows-scanner.cjs",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "sync-api-types": "node scripts/sync-api-types.js",
     "check-api-types": "node -p \"require('./ztools-api-types/package.json')['utools-version']\"",
     "hooks:install": "git config core.hooksPath .githooks",
-    "postinstall": "pnpm run hooks:install || true"
+    "postinstall": "pnpm run hooks:install || true",
+    "typecheck:setting": "vue-tsc --noEmit -p internal-plugins/setting/tsconfig.web.json --composite false",
+    "preview:local": "node scripts/preview-local.cjs"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
@@ -71,7 +73,6 @@
     "uuid": "^13.0.0",
     "vuedraggable": "^4.1.0",
     "winreg": "^1.2.5",
-    "ws": "^8.20.0",
     "yaml": "^2.8.2"
   },
   "devDependencies": {
@@ -85,7 +86,6 @@
     "@types/tar": "^7.0.87",
     "@types/turndown": "^5.0.6",
     "@types/uuid": "^10.0.0",
-    "@types/ws": "^8.18.1",
     "@vitejs/plugin-vue": "^6.0.1",
     "concurrently": "^9.1.2",
     "cross-env": "^10.1.0",
@@ -113,5 +113,6 @@
       "msgpackr-extract",
       "uiohook-napi"
     ]
-  }
+  },
+  "packageManager": "pnpm@9.15.9"
 }

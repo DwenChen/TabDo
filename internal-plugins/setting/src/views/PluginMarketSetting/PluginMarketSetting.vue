@@ -199,6 +199,7 @@ async function fetchPlugins(): Promise<void> {
 
         // 处理 sections：将 fixed/random 中的插件替换为带安装状态的版本
         storefrontSections.value = typedMarketResult.storefront.sections
+          .filter((section) => section.type !== 'banner')
           .map((section) => {
             if (section.type === 'banner') {
               return section
@@ -484,25 +485,6 @@ async function handleUninstallPlugin(
   }
 }
 
-function handleBannerClick(item: BannerItem): void {
-  if (!item.url) return
-  void window.ztools.hideMainWindow(false)
-  window.ztools.shellOpenExternal(item.url)
-}
-
-function getBannerActiveIndex(section: StorefrontSection): number {
-  return bannerActiveIndexes.value[section.key] || 0
-}
-
-function setBannerActiveIndex(section: StorefrontSection, index: number): void {
-  const count = section.items?.length || 0
-  if (count <= 0) return
-  bannerActiveIndexes.value = {
-    ...bannerActiveIndexes.value,
-    [section.key]: ((index % count) + count) % count
-  }
-}
-
 function resetBannerActiveIndexes(): void {
   const nextIndexes: Record<string, number> = {}
   for (const section of storefrontSections.value) {
@@ -512,13 +494,6 @@ function resetBannerActiveIndexes(): void {
     }
   }
   bannerActiveIndexes.value = nextIndexes
-}
-
-function rotateBanners(): void {
-  for (const section of storefrontSections.value) {
-    if (section.type !== 'banner' || (section.items?.length || 0) <= 1) continue
-    setBannerActiveIndex(section, getBannerActiveIndex(section) + 1)
-  }
 }
 
 async function shuffleRandomSection(section: StorefrontSection): Promise<void> {
@@ -577,7 +552,6 @@ useJumpFunction<PluginMarketSettingJumpFunction>((state) => {
 
 onMounted(() => {
   fetchPlugins()
-  bannerTimer = window.setInterval(rotateBanners, 5000)
   stopDownloadProgressListener =
     window.ztools.internal.onPluginMarketDownloadProgress(handleDownloadProgress)
   window.addEventListener('keydown', handleKeydown, true)
@@ -641,40 +615,8 @@ onUnmounted(() => {
         <template v-else-if="hasStorefront">
           <div class="storefront">
             <template v-for="section in storefrontSections" :key="section.key">
-              <!-- Banner 区块 -->
-              <div v-if="section.type === 'banner'" class="storefront-banner">
-                <div v-if="(section.items?.length || 0) > 0" class="banner-stage">
-                  <button
-                    v-for="(item, idx) in section.items"
-                    :key="`${section.key}-${idx}-${item.image}`"
-                    class="banner-item"
-                    :class="{
-                      active: idx === getBannerActiveIndex(section),
-                      clickable: !!item.url
-                    }"
-                    type="button"
-                    :aria-hidden="idx !== getBannerActiveIndex(section)"
-                    :tabindex="idx === getBannerActiveIndex(section) ? 0 : -1"
-                    @click="handleBannerClick(item)"
-                  >
-                    <img :src="item.image" alt="" class="banner-image" draggable="false" />
-                  </button>
-                </div>
-                <div v-if="(section.items?.length || 0) > 1" class="banner-dots">
-                  <button
-                    v-for="(_, idx) in section.items"
-                    :key="idx"
-                    class="banner-dot"
-                    :class="{ active: idx === getBannerActiveIndex(section) }"
-                    type="button"
-                    :aria-label="`切换到第 ${idx + 1} 张 Banner`"
-                    @click.stop="setBannerActiveIndex(section, idx)"
-                  />
-                </div>
-              </div>
-
               <!-- 分类导航区块 -->
-              <div v-else-if="section.type === 'navigation'" class="storefront-section">
+              <div v-if="section.type === 'navigation'" class="storefront-section">
                 <div v-if="section.title" class="section-header">
                   <span class="storefront-title">{{ section.title }}</span>
                 </div>

@@ -1,4 +1,9 @@
+vi.mock('../../src/main/appMain', () => ({
+  updateShortcut: vi.fn(),
+  getCurrentShortcut: () => 'Alt+Z'
+}))
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+vi.mock('../../src/main/core/detachedWindowManager', () => ({ default: {} }))
 
 const mocks = vi.hoisted(() => ({
   electronRegister: vi.fn(),

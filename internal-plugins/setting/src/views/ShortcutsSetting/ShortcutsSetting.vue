@@ -72,20 +72,6 @@ const baseBuiltInShortcuts: GlobalShortcut[] = [
     enabled: true
   },
   {
-    id: 'builtin-search',
-    shortcut: 'MOD+F',
-    target: '固定搜索框的文本，进行二次筛选',
-    enabled: true,
-    configurable: true,
-    configKey: 'search'
-  },
-  {
-    id: 'builtin-tab-target',
-    shortcut: 'Tab',
-    target: '在搜索框输入文字后，按 Tab 进入 Tab 键目标指令',
-    enabled: true
-  },
-  {
     id: 'builtin-settings',
     shortcut: 'MOD+,',
     target: '打开设置',
@@ -239,7 +225,7 @@ function getCommandId(command: {
   type: 'plugin' | 'direct'
   subType?: 'app' | 'system-setting' | 'local-shortcut'
   featureCode?: string
-  cmdType?: 'text' | 'window'
+  cmdType?: 'text' | 'window' | 'regex' | 'over' | 'img' | 'files'
   pluginName?: string
 }): string {
   return _getCommandId({

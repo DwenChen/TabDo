@@ -13,6 +13,8 @@ export default defineConfig(
       'build/**',
       'resources/**',
       'ztools-api-types/**',
+      '_*',
+      '_*/**',
       'ztools-plugin-cli/templates/**'
     ]
   },
@@ -53,6 +55,14 @@ export default defineConfig(
           }
         }
       ]
+    }
+  },
+  {
+    files: ['scripts/*.cjs', 'resources/backup-worker.cjs'],
+    rules: {
+      // These files execute directly in Node/Electron CommonJS; their signatures use JSDoc.
+      '@typescript-eslint/no-require-imports': 'off',
+      '@typescript-eslint/explicit-function-return-type': 'off'
     }
   },
   eslintConfigPrettier

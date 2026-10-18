@@ -47,9 +47,9 @@ addZtoolsCodeEventListener('function.install-plugin', (e) => {
 })
 
 /**
- * 固定文件/文件夹到搜索框
+ * 固定文件/文件夹到超级面板
  */
-addZtoolsCodeEventListener('function.pin-to-search', async (e) => {
+addZtoolsCodeEventListener('function.pin-to-super-panel', async (e) => {
   const { payload, code } = e.pluginEnterParams
   console.info(`[code-event] ${code} 成功接收事件`)
   const files = Array.isArray(payload) ? payload : []
@@ -75,7 +75,7 @@ addZtoolsCodeEventListener('function.pin-to-search', async (e) => {
     }
 
     // 调用固定 API（内置插件使用 internal 命名空间）
-    await window.ztools.internal.pinApp(command)
+    await window.ztools.internal.pinToSuperPanel(command)
   }
 
   // 固定完成后，显示提示并退出插件
