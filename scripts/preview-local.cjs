@@ -34,13 +34,15 @@ async function main() {
   if (process.argv.includes('--servers-only')) return
   const environment = {
     ...process.env,
-    ZTOOLS_SOURCE_PREVIEW: '1',
-    ZTOOLS_DATA_ROOT: path.join(root, '.local/source-preview-data'),
-    ZTOOLS_LEGACY_USER_DATA_PATH: path.join(root, '.local/source-preview-legacy'),
+    TABDO_SOURCE_PREVIEW: '1',
+    TABDO_DATA_ROOT: path.join(root, '.local/source-preview-data'),
+    TABDO_LEGACY_USER_DATA_PATH: path.join(root, '.local/source-preview-legacy'),
     ELECTRON_RENDERER_URL: 'http://127.0.0.1:5174',
-    ZTOOLS_SETTING_DEV_SERVER_URL: 'http://127.0.0.1:15177'
+    TABDO_SETTING_DEV_SERVER_URL: 'http://127.0.0.1:15177'
   }
   delete environment.ELECTRON_RUN_AS_NODE
+  // Electron 系 IDE 的终端会注入该变量，把源码预览误判成打包应用；预览必须清掉它。
+  delete environment.ELECTRON_FORCE_IS_PACKAGED
   const child = spawn(require('electron'), [path.join(__dirname, 'preview-main.cjs')], {
     cwd: root,
     env: environment,

@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useToast } from '@/components'
 import { weightedSearch } from '@/utils'
 import { AiProviderEditor } from './components'
-import { useZtoolsSubInput } from '@/composables'
+import { useTabDoSubInput } from '@/composables'
 import type { AiProvider, AiProviderInput, AiProviderStore } from '@shared/aiProviderShared'
 import { AI_API_FORMAT_OPTIONS } from '@shared/aiProviderShared'
 
@@ -14,7 +14,7 @@ const isWorking = ref(false)
 const showEditor = ref(false)
 const editingProvider = ref<AiProvider | null>(null)
 const isCopyingProvider = ref(false)
-const { value: searchQuery } = useZtoolsSubInput('', '搜索 AI 供应商或模型...')
+const { value: searchQuery } = useTabDoSubInput('', '搜索 AI 供应商或模型...')
 
 const filteredProviders = computed(() =>
   weightedSearch(store.value.providers, searchQuery.value || '', [
@@ -34,7 +34,7 @@ const filteredProviders = computed(() =>
 async function loadProviders(): Promise<void> {
   loading.value = true
   try {
-    const result = await window.ztools.internal.aiProviders.getAll()
+    const result = await window.tabdo.internal.aiProviders.getAll()
     if (result.success && result.data) {
       store.value = result.data
     } else {
@@ -123,8 +123,8 @@ async function handleSave(provider: AiProviderInput): Promise<void> {
   isWorking.value = true
   try {
     const result = provider.id
-      ? await window.ztools.internal.aiProviders.update(provider)
-      : await window.ztools.internal.aiProviders.add(provider)
+      ? await window.tabdo.internal.aiProviders.update(provider)
+      : await window.tabdo.internal.aiProviders.add(provider)
     if (!result.success) {
       error(result.error || '保存供应商失败')
       return
@@ -156,7 +156,7 @@ async function handleDelete(provider: AiProvider): Promise<void> {
 
   isWorking.value = true
   try {
-    const result = await window.ztools.internal.aiProviders.delete(provider.id)
+    const result = await window.tabdo.internal.aiProviders.delete(provider.id)
     if (!result.success) {
       error(result.error || '删除供应商失败')
       return
@@ -182,7 +182,7 @@ async function handleToggleProvider(provider: AiProvider, enabled: boolean): Pro
 
   isWorking.value = true
   try {
-    const result = await window.ztools.internal.aiProviders.setEnabled(provider.id, enabled)
+    const result = await window.tabdo.internal.aiProviders.setEnabled(provider.id, enabled)
     if (!result.success) {
       error(result.error || '更新供应商状态失败')
       return

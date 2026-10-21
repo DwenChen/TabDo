@@ -1,4 +1,61 @@
 {
+  "performance": {
+    "unit": [
+      "tests/main/pluginRuntimeResources.test.ts",
+      "tests/main/proxySessionReuse.test.ts",
+      "tests/main/asyncPool.test.ts",
+      "tests/main/iconProtocol.test.ts",
+      "tests/main/providerManager.test.ts",
+      "tests/main/builtinProviderService.test.ts",
+      "tests/main/superPanelClipboardTrigger.test.ts",
+      "tests/renderer/commandSearchResources.test.ts",
+      "tests/renderer/settingsSubInputResources.test.ts",
+      "tests/main/httpRequestResources.test.ts",
+      "tests/main/localMarket.test.ts"
+    ],
+    "e2e": [
+      "tests/e2e/performance-budget.spec.ts",
+      "tests/e2e/plugin-host-regressions.spec.ts",
+      "tests/e2e/super-panel-selection.spec.ts",
+      "tests/e2e/tools-lifecycle.spec.ts",
+      "tests/e2e/tools-clipboard.spec.ts",
+      "tests/e2e/tools-recorder-web.spec.ts",
+      "tests/e2e/media-batch.spec.ts",
+      "tests/e2e/third-party-lifecycle.spec.ts"
+    ]
+  },
+  "recorder-web": {
+    "unit": [
+      "tests/main/webQuickOpen.test.ts",
+      "tests/main/lensBrowserUpload.test.ts",
+      "tests/main/recorderLayout.test.ts",
+      "tests/main/startupDataMigrations.test.ts",
+      "tests/main/toolsFiles.test.ts",
+      "tests/scripts/portablePreviewResources.test.ts"
+    ],
+    "e2e": [
+      "tests/e2e/lens-browser-upload.spec.ts",
+      "tests/e2e/recorder-overlay.spec.ts",
+      "tests/e2e/tools-recorder-web.spec.ts",
+      "tests/e2e/tools-expanded.spec.ts",
+      "tests/e2e/tools-polish.spec.ts",
+      "tests/e2e/tools-lifecycle.spec.ts"
+    ]
+  },
+  "tools-expanded": {
+    "unit": [
+      "tests/main/toolsFiles.test.ts",
+      "tests/main/toolsRenameRules.test.ts",
+      "tests/main/everythingBridge.test.ts",
+      "tests/main/clipboardCategory.test.ts",
+      "tests/main/internalPluginDefaults.test.ts"
+    ],
+    "e2e": [
+      "tests/e2e/tools-expanded.spec.ts",
+      "tests/e2e/builtin-providers.spec.ts",
+      "tests/e2e/tools-lifecycle.spec.ts"
+    ]
+  },
   "clipboard": {
     "unit": [
       "tests/main/clipboardCategory.test.ts",
@@ -6,11 +63,19 @@
       "tests/main/clipboardSelectionState.test.ts",
       "tests/main/clipboardWriteContentApi.test.ts"
     ],
-    "e2e": ["tests/e2e/tools-clipboard.spec.ts"]
+    "e2e": [
+      "tests/e2e/tools-clipboard.spec.ts"
+    ]
   },
   "panel": {
-    "unit": ["tests/main/clipboardTypeDetection.test.ts"],
-    "e2e": ["tests/e2e/super-panel-selection.spec.ts", "tests/e2e/tools-clipboard.spec.ts"]
+    "unit": [
+      "tests/main/clipboardTypeDetection.test.ts",
+      "tests/renderer/commandUtils.test.ts"
+    ],
+    "e2e": [
+      "tests/e2e/super-panel-selection.spec.ts",
+      "tests/e2e/tools-clipboard.spec.ts"
+    ]
   },
   "host": {
     "unit": [
@@ -18,7 +83,8 @@
       "tests/main/pluginLaunchVisibility.test.ts",
       "tests/main/pluginRemovalCleanup.test.ts",
       "tests/main/pluginCleanupWorker.test.ts",
-      "tests/main/pluginStorage.test.ts"
+      "tests/main/pluginStorage.test.ts",
+      "tests/main/internalPluginDefaults.test.ts"
     ],
     "e2e": [
       "tests/e2e/plugin-host-regressions.spec.ts",
@@ -27,12 +93,22 @@
     ]
   },
   "screenshot": {
-    "unit": [],
-    "e2e": ["tests/e2e/tools-screenshot.spec.ts"]
+    "unit": [
+      "tests/main/screenCaptureResult.test.ts"
+    ],
+    "e2e": [
+      "tests/e2e/tools-screenshot.spec.ts"
+    ]
   },
   "lifecycle": {
-    "unit": ["tests/main/toolsLifecycle.test.ts", "tests/main/toolsHostLifecycle.test.ts"],
-    "e2e": ["tests/e2e/tools-lifecycle.spec.ts", "tests/e2e/tools-screenshot.spec.ts"]
+    "unit": [
+      "tests/main/toolsLifecycle.test.ts",
+      "tests/main/toolsHostLifecycle.test.ts"
+    ],
+    "e2e": [
+      "tests/e2e/tools-lifecycle.spec.ts",
+      "tests/e2e/tools-screenshot.spec.ts"
+    ]
   },
   "maintenance": {
     "unit": [
@@ -49,7 +125,211 @@
     "e2e": []
   },
   "preview": {
-    "unit": ["tests/scripts/portablePreviewResources.test.ts"],
+    "unit": [
+      "tests/scripts/portablePreviewResources.test.ts"
+    ],
     "e2e": []
+  },
+  "providers": {
+    "unit": [
+      "tests/main/builtinProviderService.test.ts",
+      "tests/main/modelAssets.test.ts",
+      "tests/main/providerManager.test.ts",
+      "tests/main/providerConsumption.test.ts",
+      "tests/main/pluginPreloadInternalApi.test.ts"
+    ],
+    "e2e": [
+      "tests/e2e/builtin-providers.spec.ts"
+    ]
+  },
+  "tools-polish": {
+    "unit": [
+      "tests/main/builtinProviderService.test.ts"
+    ],
+    "e2e": [
+      "tests/e2e/tools-polish.spec.ts",
+      "tests/e2e/builtin-providers.spec.ts"
+    ]
+  },
+  "tools-followup": {
+    "unit": [
+      "tests/main/localSearchQuery.test.ts",
+      "tests/main/everythingBridge.test.ts"
+    ],
+    "e2e": [
+      "tests/e2e/tools-polish.spec.ts"
+    ]
+  },
+  "native-shutdown": {
+    "unit": [
+      "tests/main/clipboardShutdown.test.ts",
+      "tests/main/clipboardTypeDetection.test.ts",
+      "tests/main/clipboardCategory.test.ts"
+    ],
+    "e2e": [
+      "tests/e2e/native-shutdown.spec.ts",
+      "tests/e2e/tools-lifecycle.spec.ts"
+    ]
+  },
+  "floating-pointer": {
+    "unit": [
+      "tests/main/floatingPointer.test.ts"
+    ],
+    "e2e": [
+      "tests/e2e/floating-pointer.spec.ts",
+      "tests/e2e/tools-polish.spec.ts"
+    ]
+  },
+  "tools-commands": {
+    "unit": [
+      "tests/main/toolsRenameRules.test.ts",
+      "tests/main/toolsFiles.test.ts"
+    ],
+    "e2e": [
+      "tests/e2e/tools-copy-commands.spec.ts",
+      "tests/e2e/tools-folder-break.spec.ts",
+      "tests/e2e/tools-expanded.spec.ts"
+    ]
+  },
+  "panel-switch": {
+    "unit": [
+      "tests/renderer/commandUtils.test.ts",
+      "tests/main/toolsLifecycle.test.ts",
+      "tests/main/toolsHostLifecycle.test.ts",
+      "tests/main/toolsFiles.test.ts"
+    ],
+    "e2e": [
+      "tests/e2e/super-panel-selection.spec.ts",
+      "tests/e2e/tools-lifecycle.spec.ts",
+      "tests/e2e/tools-expanded.spec.ts",
+      "tests/e2e/plugin-host-regressions.spec.ts"
+    ]
+  },
+  "tools-visual": {
+    "unit": [],
+    "e2e": [
+      "tests/e2e/tools-expanded.spec.ts",
+      "tests/e2e/builtin-providers.spec.ts",
+      "tests/e2e/tools-clipboard.spec.ts",
+      "tests/e2e/tools-lifecycle.spec.ts"
+    ]
+  },
+  "tools-review": {
+    "unit": [
+      "tests/main/toolsRenameRules.test.ts",
+      "tests/main/toolsFiles.test.ts",
+      "tests/main/floatingPointer.test.ts",
+      "tests/renderer/commandUtils.test.ts",
+      "tests/main/consolePipeGuard.test.ts"
+    ],
+    "e2e": [
+      "tests/e2e/tools-expanded.spec.ts",
+      "tests/e2e/tools-folder-break.spec.ts",
+      "tests/e2e/floating-pointer.spec.ts",
+      "tests/e2e/super-panel-selection.spec.ts",
+      "tests/e2e/tools-copy-commands.spec.ts",
+      "tests/e2e/console-pipe.spec.ts"
+    ]
+  },
+  "media-tools": {
+    "unit": [
+      "tests/main/mediaOperations.test.ts",
+      "tests/main/recorderLayout.test.ts",
+      "tests/scripts/mediaRuntimeDependencies.test.ts",
+      "tests/scripts/portablePreviewResources.test.ts"
+    ],
+    "e2e": [
+      "tests/e2e/media-batch.spec.ts",
+      "tests/e2e/recorder-overlay.spec.ts",
+      "tests/e2e/tools-recorder-web.spec.ts",
+      "tests/e2e/tools-lifecycle.spec.ts"
+    ]
+  },
+  "recorder-reference": {
+    "unit": [
+      "tests/main/mediaOperations.test.ts",
+      "tests/main/recorderLayout.test.ts",
+      "tests/main/localSearchQuery.test.ts",
+      "tests/main/everythingBridge.test.ts",
+      "tests/scripts/portablePreviewResources.test.ts",
+      "tests/scripts/mediaRuntimeDependencies.test.ts"
+    ],
+    "e2e": [
+      "tests/e2e/media-batch.spec.ts",
+      "tests/e2e/recorder-overlay.spec.ts",
+      "tests/e2e/tools-recorder-web.spec.ts",
+      "tests/e2e/tools-expanded.spec.ts",
+      "tests/e2e/tools-lifecycle.spec.ts"
+    ]
+  },
+  "clipboard-trigger": {
+    "unit": [
+      "tests/main/superPanelClipboardTrigger.test.ts",
+      "tests/main/clipboardTypeDetection.test.ts",
+      "tests/main/dndManager.test.ts"
+    ],
+    "e2e": []
+  },
+  "settings-defaults": {
+    "unit": [
+      "tests/main/localEditionDefaults.test.ts",
+      "tests/main/dataLocation.test.ts",
+      "tests/main/startupDataMigrations.test.ts",
+      "tests/main/settingsOptimizedShortcutFallback.test.ts",
+      "tests/main/dndManager.test.ts",
+      "tests/main/backupArchive.test.ts"
+    ],
+    "e2e": [
+      "tests/e2e/settings-cleanup.spec.ts",
+      "tests/e2e/settings-window-stability.spec.ts",
+      "tests/e2e/plugin-host-regressions.spec.ts",
+      "tests/e2e/native-shutdown.spec.ts",
+      "tests/e2e/tools-catalog.spec.ts",
+      "tests/e2e/tools-lifecycle.spec.ts",
+      "tests/e2e/tools-recorder-web.spec.ts"
+    ]
+  },
+  "tools-catalog": {
+    "unit": [
+      "tests/renderer/toolFeatureGroups.test.ts",
+      "tests/main/internalPluginDefaults.test.ts",
+      "tests/main/detachedWindowUpgrade.test.ts",
+      "tests/main/pluginLaunchVisibility.test.ts",
+      "tests/main/toolsHostLifecycle.test.ts",
+      "tests/renderer/commandUtils.test.ts"
+    ],
+    "e2e": [
+      "tests/e2e/tools-catalog.spec.ts",
+      "tests/e2e/plugin-host-regressions.spec.ts",
+      "tests/e2e/tools-lifecycle.spec.ts",
+      "tests/e2e/tools-recorder-web.spec.ts"
+    ]
+  },
+  "overlay-surfaces": {
+    "unit": [],
+    "e2e": [
+      "tests/e2e/overlay-surfaces.spec.ts"
+    ]
+  },
+  "tabdo-release": {
+    "unit": [
+      "tests/main/localMarket.test.ts",
+      "tests/main/tabdoProfileCompatibility.test.ts",
+      "tests/main/httpRequestResources.test.ts",
+      "tests/main/toolsLifecycle.test.ts",
+      "tests/main/toolsHostLifecycle.test.ts",
+      "tests/main/providerManager.test.ts",
+      "tests/main/pluginRuntimeResources.test.ts",
+      "tests/main/windowsInstallCompatibility.test.ts",
+      "tests/main/backupArchive.test.ts"
+    ],
+    "e2e": [
+      "tests/e2e/third-party-lifecycle.spec.ts",
+      "tests/e2e/performance-budget.spec.ts",
+      "tests/e2e/local-edition.spec.ts",
+      "tests/e2e/settings-cleanup.spec.ts",
+      "tests/e2e/plugin-host-regressions.spec.ts",
+      "tests/e2e/tabdo-market.spec.ts"
+    ]
   }
 }

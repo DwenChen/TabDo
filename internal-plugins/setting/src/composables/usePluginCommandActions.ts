@@ -123,8 +123,8 @@ export function usePluginCommandActions(options: UsePluginCommandActionsOptions)
   async function saveDisabledCommands(): Promise<void> {
     try {
       const plainArray = [...disabledCommands.value]
-      await window.ztools.internal.dbPut(DISABLED_COMMANDS_KEY, plainArray)
-      await window.ztools.internal.notifyDisabledCommandsChanged()
+      await window.tabdo.internal.dbPut(DISABLED_COMMANDS_KEY, plainArray)
+      await window.tabdo.internal.notifyDisabledCommandsChanged()
     } catch (error) {
       console.error('保存禁用指令列表失败:', error)
     }
@@ -132,7 +132,7 @@ export function usePluginCommandActions(options: UsePluginCommandActionsOptions)
 
   async function loadDisabledCommands(): Promise<void> {
     try {
-      const data = await window.ztools.internal.dbGet(DISABLED_COMMANDS_KEY)
+      const data = await window.tabdo.internal.dbGet(DISABLED_COMMANDS_KEY)
       if (data && Array.isArray(data)) {
         disabledCommands.value = data
       }
@@ -145,7 +145,7 @@ export function usePluginCommandActions(options: UsePluginCommandActionsOptions)
 
   async function loadSuperPanelPinned(): Promise<void> {
     try {
-      superPanelPinned.value = await window.ztools.internal.getSuperPanelPinned()
+      superPanelPinned.value = await window.tabdo.internal.getSuperPanelPinned()
     } catch (error) {
       console.error('加载超级面板固定列表失败:', error)
     }
@@ -170,13 +170,13 @@ export function usePluginCommandActions(options: UsePluginCommandActionsOptions)
         (i) => i.name === cmdName && i.featureCode === featureCode && i.pluginName === pluginName
       )
       if (item) {
-        await window.ztools.internal.unpinSuperPanelCommand(item.path, item.featureCode)
+        await window.tabdo.internal.unpinSuperPanelCommand(item.path, item.featureCode)
       }
     } else {
       const command = findPluginCommand(featureCode, cmdName)
 
       if (command) {
-        await window.ztools.internal.pinToSuperPanel({
+        await window.tabdo.internal.pinToSuperPanel({
           name: command.name,
           path: command.path || '',
           icon: command.icon || '',
@@ -196,7 +196,7 @@ export function usePluginCommandActions(options: UsePluginCommandActionsOptions)
 
   async function loadSearchPinned(): Promise<void> {
     try {
-      const data = await window.ztools.internal.dbGet(SEARCH_PINNED_KEY)
+      const data = await window.tabdo.internal.dbGet(SEARCH_PINNED_KEY)
       if (data && Array.isArray(data)) {
         searchPinned.value = data
       }
@@ -222,12 +222,12 @@ export function usePluginCommandActions(options: UsePluginCommandActionsOptions)
     if (pinned) {
       // 注意：主进程 filterOutCommand 对插件类型按 pluginName 匹配（而非指令名），
       // 因此取消固定时必须传 pluginName，否则无法命中存储项导致取消失败。
-      await window.ztools.internal.unpinApp(pluginPath || '', featureCode, pluginName)
+      await window.tabdo.internal.unpinApp(pluginPath || '', featureCode, pluginName)
     } else {
       const command = findPluginCommand(featureCode, cmdName)
 
       if (command) {
-        await window.ztools.internal.pinApp(JSON.parse(JSON.stringify(command)))
+        await window.tabdo.internal.pinApp(JSON.parse(JSON.stringify(command)))
       }
     }
 
@@ -253,7 +253,7 @@ export function usePluginCommandActions(options: UsePluginCommandActionsOptions)
     }
 
     try {
-      const result = await window.ztools.internal.getCommands()
+      const result = await window.tabdo.internal.getCommands()
       const all: CommandActionCommand[] = [
         ...(result.commands || []),
         ...(result.regexCommands || [])
@@ -275,7 +275,7 @@ export function usePluginCommandActions(options: UsePluginCommandActionsOptions)
         return
       }
 
-      await window.ztools.internal.launch({
+      await window.tabdo.internal.launch({
         path: command.path || '',
         type: command.type,
         featureCode: command.featureCode,

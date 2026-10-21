@@ -32,19 +32,35 @@ test('native tools screenshot keeps editing and confirms silently without transl
   browserName: _browserName
 }, testInfo) => {
   test.skip(process.platform !== 'win32', 'Windows native screenshot module')
+  test.setTimeout(180_000)
   const root = path.resolve(__dirname, '../..')
-  const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'ztools-screenshot-e2e-'))
+  const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'tabdo-screenshot-e2e-'))
   let app: ElectronApplication | undefined
+  let collectedEvaluations = 0
+  /**
+   * 重试 Electron CDP 在原生大图分配触发 GC 时丢失的临时求值 Promise。
+   * @returns 当前截图流程是否已成功结束。
+   * @throws 非临时 GC 的 Electron 通信错误。
+   */
+  async function captureComplete(): Promise<boolean> {
+    try {
+      return await app!.evaluate(() => Boolean((globalThis as any).__captureResult?.success))
+    } catch (failure) {
+      if (!String(failure).includes('Resulting promise was garbage collected')) throw failure
+      collectedEvaluations++
+      return false
+    }
+  }
   try {
     const environment = {
       ...process.env,
-      ZTOOLS_E2E: '1',
-      ZTOOLS_LOG_LEVEL: 'debug',
-      ZTOOLS_SOURCE_PREVIEW: '1',
-      ZTOOLS_DATA_ROOT: path.join(temporary, 'data'),
-      ZTOOLS_LEGACY_USER_DATA_PATH: path.join(temporary, 'legacy'),
+      TABDO_E2E: '1',
+      TABDO_LOG_LEVEL: 'debug',
+      TABDO_SOURCE_PREVIEW: '1',
+      TABDO_DATA_ROOT: path.join(temporary, 'data'),
+      TABDO_LEGACY_USER_DATA_PATH: path.join(temporary, 'legacy'),
       ELECTRON_RENDERER_URL: 'http://127.0.0.1:5174',
-      ZTOOLS_SETTING_DEV_SERVER_URL: 'http://127.0.0.1:15177'
+      TABDO_SETTING_DEV_SERVER_URL: 'http://127.0.0.1:15177'
     }
     delete environment.ELECTRON_RUN_AS_NODE
     app = await electron.launch({
@@ -143,21 +159,23 @@ test('native tools screenshot keeps editing and confirms silently without transl
     nativePointer(
       '[CaptureInput]::keybd_event(13,0,0,[UIntPtr]::Zero); [CaptureInput]::keybd_event(13,0,2,[UIntPtr]::Zero)'
     )
-    await expect
-      .poll(() => app!.evaluate(() => (globalThis as any).__captureResult?.success))
-      .toBe(true)
+    await expect.poll(captureComplete, { timeout: 30_000 }).toBe(true)
     expect(await app.evaluate(() => (globalThis as any).__captureNotices)).toBe(0)
     const size = await app.evaluate(({ clipboard }) => clipboard.readImage().getSize())
     expect(size.width).toBeGreaterThan(500)
     expect(size.height).toBeGreaterThan(150)
 
+    // 默认回归覆盖数万像素的长图；身份色带验证中间内容连续，不能只检查高度。
+    const longEndY = Math.round((dimensions.bounds.y + dimensions.bounds.height - 130) * factor)
+    const scrollSteps = 96
+    const scrollDistance = 360
     // 不发送鼠标滚轮事件，模拟触控板或滚动条带来的页面滚动。
     await fixture.evaluate(() => {
       document.body.style.cssText = 'margin:0;padding:0;font:20px monospace'
       document.body.innerHTML = Array.from(
-        { length: 100 },
+        { length: 2000 },
         (_, i) =>
-          `<div style="height:60px;display:grid;grid-template-columns:repeat(3,1fr);background:hsl(${(i * 31) % 360} 65% 85%);border-bottom:3px solid #567">${[0, 1, 2].map((j) => `<span>Row ${i} / Col ${j}: ${i * 137 + j * 29} — scroll capture</span>`).join('')}</div>`
+          `<div style="height:64px;box-sizing:border-box;position:relative;display:grid;grid-template-columns:repeat(3,1fr);background:hsl(${(i * 31) % 360} 65% 85%);border-bottom:0"><i style="position:absolute;left:150px;top:0;width:16px;height:64px;background:rgb(${i & 255},${(i >>> 8) & 255},${(i * 73) & 255})"></i>${[0, 1, 2].map((j) => `<span>Row ${i} / Col ${j}: ${i * 137 + j * 29} — scroll capture</span>`).join('')}</div>`
       ).join('')
       window.scrollTo(0, 0)
     })
@@ -173,7 +191,7 @@ test('native tools screenshot keeps editing and confirms silently without transl
         })
     })
     nativePointer(
-      `$capture = [IntPtr]::Zero; for($i=0; $i -lt 50; $i++) { $capture = [CaptureInput]::FindWindow('ZToolsScreenshotOverlay', 'Screenshot Overlay'); if($capture -ne [IntPtr]::Zero) { break }; Start-Sleep -Milliseconds 50 }; if($capture -eq [IntPtr]::Zero) { throw 'Capture overlay not found' }; [CaptureInput]::SetCursorPos(${x},${y}); [CaptureInput]::mouse_event(2,0,0,0,[UIntPtr]::Zero); Start-Sleep -Milliseconds 100; [CaptureInput]::SetCursorPos(${endX},${endY}); Start-Sleep -Milliseconds 100; [CaptureInput]::mouse_event(4,0,0,0,[UIntPtr]::Zero); Start-Sleep -Milliseconds 100;`
+      `$capture = [IntPtr]::Zero; for($i=0; $i -lt 50; $i++) { $capture = [CaptureInput]::FindWindow('ZToolsScreenshotOverlay', 'Screenshot Overlay'); if($capture -ne [IntPtr]::Zero) { break }; Start-Sleep -Milliseconds 50 }; if($capture -eq [IntPtr]::Zero) { throw 'Capture overlay not found' }; [CaptureInput]::SetCursorPos(${x},${y}); [CaptureInput]::mouse_event(2,0,0,0,[UIntPtr]::Zero); Start-Sleep -Milliseconds 100; [CaptureInput]::SetCursorPos(${endX},${longEndY}); Start-Sleep -Milliseconds 100; [CaptureInput]::mouse_event(4,0,0,0,[UIntPtr]::Zero); Start-Sleep -Milliseconds 100;`
     )
     await fs.writeFile(
       testInfo.outputPath('before-long-toolbar.png'),
@@ -192,31 +210,74 @@ test('native tools screenshot keeps editing and confirms silently without transl
       )
     )
     nativePointer(`
-      $scale = [CaptureInput]::GetDpiForSystem() / 96.0; $btn = [Math]::Round(32*$scale); $gap = [Math]::Round($scale); $pad=[Math]::Round(6*$scale); $border=[Math]::Round($scale); $tw=16*($btn+$gap)-$gap+2*$pad+2*$border-2*($btn-[Math]::Floor($btn*3/8)); $left=${x}+(${endX - x}-$tw)/2; $bx=[int]($left+$pad+$border+8*($btn+$gap)+$btn/2); $by=[int](${endY}+[Math]::Round(6*$scale)+[Math]::Round(44*$scale)/2); [CaptureInput]::SetCursorPos($bx,$by); [CaptureInput]::mouse_event(2,0,0,0,[UIntPtr]::Zero); [CaptureInput]::mouse_event(4,0,0,0,[UIntPtr]::Zero);
+      $scale = [CaptureInput]::GetDpiForSystem() / 96.0; $btn = [Math]::Round(32*$scale); $gap = [Math]::Round($scale); $pad=[Math]::Round(6*$scale); $border=[Math]::Round($scale); $tw=16*($btn+$gap)-$gap+2*$pad+2*$border-2*($btn-[Math]::Floor($btn*3/8)); $left=${x}+(${endX - x}-$tw)/2; $bx=[int]($left+$pad+$border+8*($btn+$gap)+$btn/2); $by=[int](${longEndY}+[Math]::Round(6*$scale)+[Math]::Round(44*$scale)/2); [CaptureInput]::SetCursorPos($bx,$by); [CaptureInput]::mouse_event(2,0,0,0,[UIntPtr]::Zero); [CaptureInput]::mouse_event(4,0,0,0,[UIntPtr]::Zero);
       $toolbar=[IntPtr]::Zero; for($i=0; $i -lt 50; $i++) { $toolbar=[CaptureInput]::FindWindow('ZToolsLongCaptureToolbar','LongCaptureToolbar'); if($toolbar -ne [IntPtr]::Zero) { break }; Start-Sleep -Milliseconds 50 }; if($toolbar -eq [IntPtr]::Zero) { throw ('Long capture toolbar not found: scale=' + $scale + ', click=' + $bx + ',' + $by) }`)
-    for (let step = 1; step <= 5; step++) {
-      await fixture.evaluate(async () => {
-        window.scrollBy(0, 60)
+    for (let step = 1; step <= scrollSteps; step++) {
+      await fixture.evaluate(async (distance) => {
+        window.scrollBy(0, distance)
         await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
         // 原生采样节拍为 150ms；保留两个节拍供稳定性检测和拼接提交。
         await new Promise((resolve) => setTimeout(resolve, 450))
-      })
+      }, scrollDistance)
     }
     nativePointer(
       `$toolbar=[CaptureInput]::FindWindow('ZToolsLongCaptureToolbar','LongCaptureToolbar'); $r=New-Object CaptureInput+Rect; [CaptureInput]::GetWindowRect($toolbar,[ref]$r) | Out-Null; [CaptureInput]::SetCursorPos($r.right-25,($r.top+$r.bottom)/2); [CaptureInput]::mouse_event(2,0,0,0,[UIntPtr]::Zero); [CaptureInput]::mouse_event(4,0,0,0,[UIntPtr]::Zero)`
     )
-    await expect
-      .poll(() => app!.evaluate(() => (globalThis as any).__captureResult?.success))
-      .toBe(true)
-    const longCapture = await app.evaluate(({ clipboard }) => ({
-      size: clipboard.readImage().getSize(),
-      image: clipboard.readImage().toPNG().toString('base64')
+    await expect.poll(captureComplete, { timeout: 30_000 }).toBe(true)
+    // 复用原生已编码的 PNG，测试本身也不重复读取和编码整张长图。
+    const longCapture = await app.evaluate(() => ({
+      size: (globalThis as any).__captureResult.bounds,
+      image: (globalThis as any).__captureResult.image
     }))
     await fs.writeFile(
       testInfo.outputPath('long-screenshot.png'),
-      Buffer.from(longCapture.image, 'base64')
+      Buffer.from(longCapture.image.split(',')[1], 'base64')
     )
-    expect(longCapture.size.height).toBeGreaterThan(size.height + 200)
+    expect(longCapture.size.height).toBeGreaterThan(30_000)
+    const continuity = await app.evaluate(({ clipboard }) => {
+      const image = clipboard.readImage()
+      const { width, height } = image.getSize()
+      const bits = image.toBitmap()
+      // 从原图色带定位身份列，兼容系统 DPI、窗口缩放与选区边缘舍入。
+      let identityX = -1
+      for (let x = 2; x < Math.min(width, 250) && identityX < 0; x++) {
+        let matches = 0
+        for (let y = 3; y < Math.min(512, height); y += 3) {
+          const offset = (y * width + x) * 4
+          if (bits[offset] === ((bits[offset + 2] * 73) & 255)) matches++
+        }
+        if (matches > 150) identityX = x
+      }
+      const rows: number[] = []
+      if (identityX >= 0)
+        for (let y = 0; y < height; y++) {
+          const offset = (y * width + identityX) * 4
+          // 忽略 DPI 插值产生的行边缘混色，只比较已知色带的精确行。
+          if (bits[offset] !== ((bits[offset + 2] * 73) & 255)) continue
+          const row = bits[offset + 2] + (bits[offset + 1] << 8)
+          if (rows[rows.length - 1] !== row) rows.push(row)
+        }
+      const gaps = rows.flatMap((row, i) =>
+        i > 0 && row !== rows[i - 1] + 1 ? [{ previous: rows[i - 1], row }] : []
+      )
+      return {
+        width,
+        height,
+        identityX,
+        checkedRows: rows.length,
+        firstRow: rows[0],
+        lastRow: rows[rows.length - 1],
+        gaps: gaps.slice(0, 12),
+        gapCount: gaps.length
+      }
+    })
+    await fs.writeFile(
+      testInfo.outputPath('long-screenshot-continuity.json'),
+      JSON.stringify({ ...continuity, collectedEvaluations }, null, 2)
+    )
+    expect(continuity.identityX).toBeGreaterThanOrEqual(0)
+    expect(continuity.gapCount).toBe(0)
+    expect(continuity.checkedRows).toBeGreaterThan(400)
     expect(await app.evaluate(() => (globalThis as any).__captureNotices)).toBe(0)
 
     // 截图结束时不得留下原生模块进程，未使用的预抓帧也必须自动释放。

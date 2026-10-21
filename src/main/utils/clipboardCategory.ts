@@ -1,6 +1,20 @@
 export type ClipboardCategory = 'text' | 'code' | 'link' | 'image' | 'file'
 
 /**
+ * 识别纯图片文件组，保留文件载荷以继续支持资源管理器粘贴。
+ * @param files 剪贴板文件组。
+ * @returns 非空且全部为受支持图片文件时为真。
+ */
+export function isClipboardImageFiles(files?: { path: string; isDirectory?: boolean }[]): boolean {
+  return (
+    !!files?.length &&
+    files.every(
+      (file) => !file.isDirectory && /\.(?:png|jpe?g|gif|bmp|webp|ico|avif|tiff?)$/i.test(file.path)
+    )
+  )
+}
+
+/**
  * 用有界的同步规则识别文本类别，避免对完整历史反复运行语言自动检测。
  * @param content 剪贴板原始文本。
  * @returns 文本、代码或链接类别。

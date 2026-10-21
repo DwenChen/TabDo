@@ -1,4 +1,4 @@
-import { addZtoolsCodeEventListener } from '@/events/codeEvent'
+import { addTabDoCodeEventListener } from '@/events/codeEvent'
 import { jumpFunctionPluginInstaller } from '@/views/PluginInstaller/PluginInstaller'
 import { jumpFunctionPluginMarketSetting } from '@/views/PluginMarketSetting/PluginMarketSetting'
 import { jumpLocalLaunchSettingJumpFunction } from '@/views/LocalLaunchSetting/LocalLaunchSetting'
@@ -6,7 +6,7 @@ import { jumpLocalLaunchSettingJumpFunction } from '@/views/LocalLaunchSetting/L
 /**
  * 将文件和文件夹添加到本地启动
  */
-addZtoolsCodeEventListener('function.local-launch-add', (e) => {
+addTabDoCodeEventListener('function.local-launch-add', (e) => {
   const { payload, code } = e.pluginEnterParams
   console.info(`[code-event] ${code} 成功接收事件`)
   const files = Array.isArray(payload) ? payload : []
@@ -21,7 +21,7 @@ addZtoolsCodeEventListener('function.local-launch-add', (e) => {
 /**
  * 插件市场搜索
  */
-addZtoolsCodeEventListener('function.plugin-market-search', async (e) => {
+addTabDoCodeEventListener('function.plugin-market-search', async (e) => {
   const { payload, code, type } = e.pluginEnterParams
   console.info(`[code-event] ${code} 成功接收事件`, payload)
   if (payload) {
@@ -32,7 +32,7 @@ addZtoolsCodeEventListener('function.plugin-market-search', async (e) => {
 /**
  * 安装插件
  */
-addZtoolsCodeEventListener('function.install-plugin', (e) => {
+addTabDoCodeEventListener('function.install-plugin', (e) => {
   const { payload, code } = e.pluginEnterParams
   console.info(`[code-event] ${code} 成功接收事件`)
   const files = Array.isArray(payload) ? payload : []
@@ -49,7 +49,7 @@ addZtoolsCodeEventListener('function.install-plugin', (e) => {
 /**
  * 固定文件/文件夹到超级面板
  */
-addZtoolsCodeEventListener('function.pin-to-super-panel', async (e) => {
+addTabDoCodeEventListener('function.pin-to-super-panel', async (e) => {
   const { payload, code } = e.pluginEnterParams
   console.info(`[code-event] ${code} 成功接收事件`)
   const files = Array.isArray(payload) ? payload : []
@@ -75,22 +75,22 @@ addZtoolsCodeEventListener('function.pin-to-super-panel', async (e) => {
     }
 
     // 调用固定 API（内置插件使用 internal 命名空间）
-    await window.ztools.internal.pinToSuperPanel(command)
+    await window.tabdo.internal.pinToSuperPanel(command)
   }
 
   // 固定完成后，显示提示并退出插件
   if (files.length > 0) {
-    await window.ztools.showNotification(
+    await window.tabdo.showNotification(
       `已固定 ${files.length} 个${files.length === 1 ? (files[0].isDirectory ? '文件夹' : '文件') : '项'}`
     )
     // 退出插件（内置插件通过 outPlugin 退出）
-    await window.ztools.outPlugin()
+    await window.tabdo.outPlugin()
   }
 })
 
 /**
- * 退出 ZTools 应用
+ * 退出 TabDo 应用
  */
-addZtoolsCodeEventListener('function.exit', () => {
-  void window.ztools.internal.quitApp()
+addTabDoCodeEventListener('function.exit', () => {
+  void window.tabdo.internal.quitApp()
 })

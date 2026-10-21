@@ -2,6 +2,573 @@
 
 > 自动生成；原始记录在 [entries](../history/entries/)。
 
+## 2026-10-22 · TabDo 最终整理、资源策略与独立插件市场
+
+记录：[tabdo-final](../../docs/history/entries/2026-10-22-01-tabdo-final.json)；版本：2.0.0。
+
+- 保留工作区既有多轮未提交成果；用户本轮明确授权软件更名、独立插件市场、内存优化、push、云端构建、release及预览重置。
+- 软件统一更名为TabDo，独立应用仓库更名DwenChen/TabDo，更新来源/发布元数据/界面/启动器同步；新建浅绿色鼠标SVG、多尺寸ICO/PNG/ICNS及托盘图标。旧API别名、资料与备份格式仅作迁移兼容，上游版权与README/关于致谢保留。
+- 第三方与内置工具共享session-v1资源作用域：隐藏/最小化/切换/刷新后移出缓存，前台立即取消与清理；有限任务保留旧IPC身份完成后销毁。移除退出保活、随主程序启动设置和运行链；可见独立子窗口归自身、解除父引用。
+- 隐藏Provider/动态指令按完整调用链引用计数，合并并发装载；最后一个调用结束后回收隐藏页。登记资源支持主动提前释放并移除闭包；最新版本缓存上限128项，独立索引请求合并且有2MiB/15秒边界。新Session默认system代理不重复设置，自定义配置切换仍串行。
+- 新建DwenChen/TabDo-plugins，含插件源码/图标/校验构建脚本/CI/索引及可安装的hello-tabdo示例。仅收录session-v1，主程序不再请求原市场服务或回退旧目录缓存；讨论/提交改为仓库入口。安装核对实际包的名称、版本与生命周期。
+- 新增第三方开发规范与市场维护说明，移除原CLI/类型同步发布脚本及未初始化的旧子模块入口；开发使用本地plugin.json。保留开发期API类型依赖和许可。整理文档入口、回归分组、Bug台账及历史记录，未挪动稳定业务目录。
+- 新安装默认.tabdo；已有.ztools、旧Chromium资料、迁移位置指针和旧备份格式原地兼容；NSIS保留原安装GUID，产品与新安装标记使用TabDo。用户本轮授权的预览重置单独备份后执行。
+
+- 验证：开始前阅读维护、变更索引、Bug台账、性能审查及工具/设置约定；默认使用context-mode。
+- 验证：首轮全量单测发现6项失败：新市场协议fixture、实际旧资料根与更名后的原生文件路径假设；修正后98文件673项全量通过（.artifacts/runs/2026-10-21T16-26-17-204Z-unit），之后补充旧备份兼容用例待最终全量。
+- 验证：第三方源码E2E连续8次分配并填充32MiB后退出，缓存归零，最终仅宿主1页；后台保存重进、超时清理、可见子窗口独立及最小化回收通过。补充并发Provider成功后最后一次调用回收；初次3项及Provider专项分别归档16-19-24和16-24-37运行目录。
+- 验证：首轮全量源码E2E共30项，20通过、8失败、1模型资源未指定跳过、1串行后续未执行；保留失败证据（.artifacts/runs/2026-10-21T16-26-40-510Z-e2e）。失败包括旧品牌/QR矩阵/原生窗口类的更名假设、相同URL取到收束旧页、设置Page退出后仍复用，以及第三方新Session代理初始化挂起并导致worker teardown超时。
+- 验证：修正fixture会话选择与新建设置页预期，不为通过测试改产品布局；QR矩阵重新生成并由真实Worker解码，原生Win32类名保留二进制接口。新Session默认代理不重复写入后宿主专项15.2秒通过；不将单次通过推断为所有系统网络服务故障已消除。第二批12项11通过，仅设置计数仍沿用错误假设，已纠正，最终全量进行中。
+- 验证：独立市场初始CI与tag发布成功，v1.0.0示例ZPX 21245字节；实际源码Electron联网读取新索引、下载发布包、安装、保存、退出回收和重进保留数据通过（第二批16-38-07运行）。主仓库尚未push/构建/release。
+- 验证：pnpm lint最终零错误零警告；类型与最终源码/单测、预览和发布核验待完成。
+- 验证：最终全量单测98文件675项通过（.artifacts/runs/2026-10-21T16-52-48-136Z-unit）；新增旧备份marker恢复私有数据、模拟hashed preload成品目录装载作用域与zbrowser客户端的回归。首个成品路径夹具误用已Mock的fs已修正，失败证据保留。
+- 验证：指定本机既有v1.1.1离线归档运行最终31项源码E2E（.artifacts/runs/2026-10-21T16-41-12-329Z-e2e）：30项通过，含真实OCR/公式推理、录屏和截图；1项tools-polish仍按同URL取到收束旧页。先仅排除旧Page又破坏同指令无操作重入，改为按宿主当前WebContents身份选页后专项通过（.artifacts/runs/2026-10-21T16-55-01-780Z-e2e）。31项不同场景本轮均实际通过，未把有失败的整批记录宣称为整批全绿。
+- 验证：最终第三方压力同机工作集约601MiB起始、748MiB峰值、615MiB结束，页面/缓存仍回到1/0；工作集可因系统调度波动，不宣称反复操作必然降低全部工作集。原始JSON在最终全量运行的third-party-memory.json。
+- 验证：补跑宿主、市场联网安装、第三方生命周期与浮图/搜索专项：16-52-36运行前三项通过，最后夹具修正后16-55-01通过。公共SDK按资源根装载浏览器客户端，避免编译后相对hashed目录丢失依赖。所有E2E均使用preview-main.cjs源码与临时数据，未用本地成品做E2E。
+- 验证：pnpm typecheck:setting、pnpm build通过Node/Web/设置类型检查及设置、工具、宿主/preload编译；pnpm lint最终零错误零警告。保留已有循环重导出/供应商脚本/混合导入提示。只为交付预览编译，所有源码E2E已先执行；未执行本地electron-builder或build:unpack。
+- 验证：预览运行时沿用相同Electron基座，原可执行文件与启动器完整备份后将Windows图标/产品名/文件版本更新为TabDo 2.0.0；旧exe移入.artifacts/backups/preview-branding/1792601892226。启动器3种调用方式用私有GUI探针核对真实目录、TABDO数据/旧数据隔离和ELECTRON_RUN_AS_NODE清除均通过；未启动真实预览写入测试数据。
+- 验证：pnpm preview:sync最终同步2.0.0，209个既有资料/插件文件前后逐文件一致，91个程序文件核验；资源回退.artifacts/backups/preview-sync/update-1792602163010/previous-resources。同步脚本完整替换当前resources/out，并去除历史开发入口与旧原生文件，防止更名后旧资源残留；portablePreviewResources的11项专项通过。
+- 验证：pnpm test:preview:resources通过：90个程序资源、229个内置插件文件、1676个媒体运行库文件。随后按当前用户授权执行pnpm preview:reset --confirm-reset，209文件完整备份到.artifacts/backups/portable-profile/2026-10-21T17-04-16-175Z-2382ea83，指纹一致，data/legacy确认空目录，程序不变。真实用户资料根未重置。
+- 验证：提交hook的差异检查发现jsQR许可副本末尾多余空行并阻止首次提交；仅规范化末尾换行，许可正文保持不变，再次执行正常hook。暂存清单未包含.local、.artifacts、test-results或个人环境文件，新增文件无超过50MiB的单文件。
+
+## 2026-10-21 · 覆盖宿主、超级面板、插件与工具子组件的性能审查及优化
+
+记录：[performance-audit](../../docs/history/entries/2026-10-21-08-performance-audit.json)；版本：未发布。
+
+- 完成宿主、面板、插件 Session、搜索索引、设置页及 37 个工具功能/10 个异步工具页面的资源审查，新增 docs/performance-audit.md，区分本轮实现、保留设计、验证范围和设备边界。保留工作区既有修改。
+- 公共 preload 按 Session 幂等注册，代理初始化按配置合并及串行切换；关闭通知携带切换身份，避免旧关闭通知隐藏新工具。插件 RPC 和 DOM 就绪等待在成功、超时、失败或销毁后撤销监听。
+- 超级面板在系统复制等待期间准备隐藏首帧，隐藏即清空选文/图片/翻译/结果，取消内置翻译，30 秒闲置回收页面；请求编号拒绝迟到结果，未就绪通道只保留最新消息，同批更新合并布局测量。
+- 只读搜索集合和 Fuse 索引改为 shallowRef，保留别名、排序和所有输入匹配；网页文本匹配直接读取原工具私有配置并执行原二级菜单，不再创建完整工具页面，不改变管理页和识图流程。
+- 图标缓存限制为 128 条/16MiB并合并同源在途提取；剪贴板分类缓存只留版本/哈希及分类、上限1024条；分页文件存在性检查使用4×8有界I/O，保持顺序且失败先等待已开始工作收束。
+- 媒体前台读取和预览取消旧请求并等待进程结束后再执行最新请求，清空、换模式和退出均令旧结果失效，退出等前台请求收束；必要编码任务保持独立。设置子输入框立即注册、有限重试、卸载清理注册与聚焦计时器。
+- 新增 performance 回归分组、TX-62～64和资源预算/压力用例；同步 Bug 台账。未改UI设计、布局、功能码或用户数据。
+
+- 验证：默认使用 context-mode 盘点与分析，先阅读维护、当前改动、Bug台账及工具/设置约定；不把已有未提交修改当作本轮新工作。
+- 验证：基线源码 E2E 复现连续6次切换公共preload注册1→6，归档 .artifacts/runs/2026-10-21T14-45-06-261Z-e2e；最终资源压力回归注册数稳定为1。
+- 验证：pnpm test 最终全量96文件/667项通过，归档 .artifacts/runs/2026-10-21T15-26-50-448Z-unit；包含100次preload配置、100次RPC超时清理、2000条搜索索引重建、1000项有界I/O、图标字节淘汰及20次设置页面生命周期/失败重试。
+- 验证：14个不同源码E2E分批执行并补跑后通过。首批 .artifacts/runs/2026-10-21T15-06-46-816Z-e2e 的12项中11通过，tools-expanded最后断言仍使用旧文案“悬浮文本”，按当前清单修为“悬浮文字”后 .artifacts/runs/2026-10-21T15-13-00-354Z-e2e 通过，未改产品文案。设置清理、设置稳定性和真实原生选区3项在 .artifacts/runs/2026-10-21T15-20-34-568Z-e2e 通过。其余覆盖识别、剪贴板、生命周期、截图、录屏、悬浮与宿主。
+- 验证：media-batch新增真实读图的快速换图检查通过，前台预览并发峰值1、旧请求被取消、最终选择正确；首次新增检查因循环已停留在手动裁剪而没有触发新读取，修正测试准备步骤后通过。
+- 验证：最终性能专项 .artifacts/runs/2026-10-21T15-25-16-508Z-e2e 通过：真实30秒闲置后仅宿主1个WebContents、工具缓存0；1040条历史缓存1024且不含正文，修改记录后分类仍正确。固定600ms复制延迟交替对照中位数1923ms→935ms（约51%）；文本二级菜单905ms→395ms（约56%），直达路径不创建工具页。包含Playwright往返，不作为所有设备/生产版的承诺。冷开/复用基准改用中性测试窗口交接焦点，避免把宿主失焦恢复前应用的真实行为误判为面板性能失败，保留产品的blur退出。
+- 验证：实现期间的新用例语法/选择器、命名空间Mock及临时Prettier文件写入失败均已纠正，失败记录保留；首次全量因新增静态LMDB导入扩大旧测试依赖失败，改为文本匹配路径内按需导入后全量通过。
+- 验证：修改范围ESLint零错误零警告；pnpm build通过Node/Web/设置类型检查及设置、工具、宿主/preload编译。保留构建中的循环重导出、供应商脚本和混合导入提示；LMDB按需导入用于缩小AppsAPI直接依赖，主程序其他静态引用使其仍在主包内，不宣称分包收益。全部E2E先于交付编译使用源码运行，未执行electron-builder、build:unpack或云端构建。
+- 验证：pnpm preview:sync同步1.1.0，208个既有资料/插件文件前后逐文件一致，核对89个程序文件；回退资源 .artifacts/backups/preview-sync/update-1792596500264/previous-resources，同目录preservation.json保留指纹。pnpm test:preview:resources通过：88个程序资源、229个内置插件文件、1676个媒体运行库文件。
+- 验证：pnpm maintain、pnpm maintain:check及git diff --check均通过；维护记录与自动索引已刷新。未重置数据、未push、未云端构建、未发布release。
+
+## 2026-10-21 · 图片标记窗口以图片图标和中文标题替代左上角装饰点
+
+记录：[annotation-window-title](../../docs/history/entries/2026-10-21-07-annotation-title.json)；版本：未发布。
+
+- 移除拖动区的三颗装饰点，补充简洁的图片图标与“图片标记”标题，保留原生拖动。标题单行可收缩，基础第三方样式保持原样。
+
+- 验证：使用 context-mode 阅读维护、变更、Bug、工具与悬浮窗口规范。生产改动仅涉及独立 HTML/CSS 及来源说明，保留原生拖动区和现有操作，无新增运行时函数或依赖。
+- 验证：运行既有 tools-polish 源码 Electron 用例，首次在旧的 Everything 命名实例定位器处失败；当前精简界面已移除此字段且连接区域已分为两组，因此更新定位器及全部区域的无内部裁剪检查，未改变产品逻辑。
+- 验证：增加默认/窄窗口截图时发现旧 setSize 调用没有真正缩到预期宽度，记录仍为 618 CSS px；改为调用实际窗口手柄使用的受限 resize 入口，并等待宽度不超过 342。最终记录 341×520 CSS px，标题及所有现有操作在视口内。
+- 验证：pnpm test:e2e tests/e2e/tools-polish.spec.ts 最终 1/1 通过，归档 .artifacts/runs/2026-10-21T14-30-02-711Z-e2e。绘制、荧光笔配色、文字标注、复制图片、独立窗口存续/关闭、便签及文件搜索既有路径均通过；测试使用隔离数据和旧数据目录，不访问真实或预览资料。
+- 验证：直接查看工具独立 WebContents 的 tools-image-toolbar-default.png 与 tools-image-toolbar-narrow.png 当前可见区域截图。默认及窄窗口标题均完整、无装饰点，操作按钮正常；尺寸记录在 annotation-toolbar-layout.json。仅复用现有用例补充截图和修正旧假设，未为此低影响样式新增独立测试。
+- 验证：修改范围 ESLint 通过；Prettier 完成格式检查。HTML/CSS 由预览同步器直接复制，未更改需要编译的生产源码，本轮沿用已有编译输出，未重新构建或运行打包器。
+- 验证：pnpm preview:sync 已同步 1.1.0，208 个现有配置及插件文件前后逐项一致，核对 89 个程序文件；备份 .artifacts/backups/preview-sync/update-1792593049065/previous-resources，同目录 preservation.json 留存前后指纹。pnpm test:preview:resources 通过：88 个程序资源、229 个内置插件文件、1676 个媒体运行库文件。
+- 验证：收尾执行 pnpm maintain、pnpm maintain:check 及 git diff --check，全部通过。未重置资料，未启动实际免安装预览写入测试资料，未 push、云端构建或发布 release。
+
+## 2026-10-21 · 修复聚焦窗口中快捷键页签实色色带，恢复整页详情的材质融合
+
+记录：[material-page-layout](../../docs/history/entries/2026-10-21-06-material-page-layout.json)；版本：未发布。
+
+- 确认上轮防透字方案把不透明背景同时用于固定导航和整页详情，原生材质在聚焦时变化后出现固定色带，失焦时才接近页面底色。快捷键页签改为独立布局，正文单独滚动并裁剪，页签不再覆盖旧内容，移除固定实色和吸顶偏移。
+- 设置共享 DetailPanel 与市场分类页恢复 --bg-color；离场列表/详情在过渡开始隐藏，分类退到详情后立即隐藏，数据二/三级页隐藏主级导航，避免透明材质内叠放两页文字。真正覆盖正文的菜单、对话框、提示及工具表头继续使用不透明底色。
+- 重新审查上轮实色处理：固定页签和整页详情恢复材质；菜单/消息/确认栏等具备独立弹层用途，保留遮挡。宿主 DetailPanel 当前无使用方，不以未知调用推断应透明。设置、工具开发必读及覆盖层清单更新为先分区/撤下旧页、再判断实际叠放，不把透明材质全部填实。
+- overlay-surfaces 新增 TX-61 真实焦点与材质回归；TX-58 的页签检查改为越界裁剪，透明反例移至实际菜单，继续覆盖之前修复的工具弹窗和便签。
+
+- 验证：遵照项目要求使用 context-mode 阅读维护、当前变更、Bug 及设置/工具规范，核对共享详情全部调用处和列表的 v-show/过渡结构，保留既有未提交内容。
+- 验证：pnpm test:regressions overlay-surfaces --e2e 最终 5/5 通过，归档 .artifacts/runs/2026-10-21T14-11-06-069Z-e2e。48 次分区/弹层像素检查保持通过；菜单透明反例有效；新增明暗 × none/Mica/Acrylic × 真实窗口聚焦/失焦共 12 组、三个滚动位置的几何检查，固定页签不移动且与正文不交叉。
+- 验证：16 处页签或详情留白 PNG 透明通道检查通过：Mica/Acrylic alpha=0，普通材质 alpha=255；检查快捷键编辑、插件安装、数据二/三级详情旧内容或导航隐藏。当前 Windows 单屏 1397×786 DIP，scaleFactor=1.375；显示器/主题记录在 native-focus-environment.json。数据和旧数据目录均隔离，不访问真实或免安装预览资料。
+- 验证：直接捕获并查看插件 WebContents 当前可见区域，未拼接宿主截图。WebContents 不含 DWM 最终材质合成，因此透明通道和真实焦点断言不能冒充桌面原生色彩的最终视觉验收。
+- 验证：首轮新增详情测试错误地寻找已安装页中的内置工具，而该页按裁剪约定排除内置插件，定位超时；改用真实的 npm 安装子页覆盖同一详情组件，未实际安装插件或改产品筛选规则。一次 Prettier 写入返回临时 UNKNOWN，重试成功；失败及最终通过记录均保留。
+- 验证：修改范围 ESLint 零错误零警告；pnpm build 完成 Node/Web/设置类型检查及设置、工具、宿主/preload 编译。保留已有循环重导出、混合导入及 pnpm 兼容提示；源码 E2E 先于交付编译完成，未使用编译成品或 electron-builder 运行测试。
+- 验证：pnpm preview:sync 已同步 1.1.0，204 个现有配置及插件文件前后逐项一致，核对 89 个程序文件；备份 .artifacts/backups/preview-sync/update-1792592090038/previous-resources，同目录 preservation.json 留存前后指纹。pnpm test:preview:resources 通过：88 个程序资源、229 个内置插件文件、1676 个媒体运行库文件。
+- 验证：收尾执行 pnpm maintain、pnpm maintain:check 及 git diff --check，全部通过；仅同步程序资源，未重置资料，未启动实际免安装预览写入测试资料，未 push、云端构建或发布 release。
+
+## 2026-10-21 · 修复快捷键吸顶栏透字，并统一设置、工具和独立窗口的覆盖层背景
+
+记录：[opaque-interaction-surfaces](../../docs/history/entries/2026-10-21-05-overlay-surfaces.json)；版本：未发布。
+
+- 快捷键页签补充不透明主题底色并覆盖两侧/底部留白，抵消滚动容器 20px 内边距，吸顶后上方不再露出旧卡片。
+- 设置共享 Dropdown、TagDropdown、Select 改用 --dialog-bg；四类 Toast 的透明语义色叠在不透明底色上。设置/宿主详情和市场分类覆盖页不再复用透明窗口背景，宿主增加明暗 --bg-elevated。
+- 剪贴板右键、收藏、确认及悬浮提示改用工具 --bg-elevated，公共表格吸顶表头和固定确认条补充不透明底色与叠放顺序。
+- 便签选项移出纸张 opacity 层，纸张降至 35% 时菜单继续不透明；图片标记文字输入、提示、工具栏、悬浮图片控制按钮，以及更新来源提示和窗口信息采用不透明前景背景。保留纸张、画布、选区、OCR 定位、遮罩、窗口圆角及录屏效果的透明用途。
+- 新增覆盖层审查文档，记录现有正确表面及透明例外，并将约束写入设置/工具开发必读。新增 overlay-surfaces 源码 E2E 回归组，登记 TX-58/59/60 和 Bug 台账。
+
+- 验证：使用 context-mode 分析；初始扫描设置、工具、宿主及独立 HTML/CSS 共 122 个文件、256 条交互/定位规则，逐类检查背景变量、父表面、布局及同名规则覆盖，补查主进程生成的窗口 HTML。修正后再次解析 122 文件、248 条规则，零解析错误；剩余候选包含有意透明的遮罩/选区、普通流控件及过渡态，不能按颜色字符串批量改造。私有扫描器和盘点保存在 .artifacts/work/opacity-audit、.artifacts/reviews/opacity-audit-2026-10-21。
+- 验证：pnpm test:regressions overlay-surfaces --e2e 最终 4/4 通过，归档 .artifacts/runs/2026-10-21T13-47-37-622Z-e2e。48 次正向内部像素比较全部不受底图变化影响，透明反例出现约 23.47% 变化，证明探针有效。明暗 × none/Mica/Acrylic 覆盖吸顶栏、设置菜单及四类 Toast；剪贴板右键/收藏/清空确认、文件表头/确认条、35% 透明度便签菜单覆盖明暗。取消后测试历史与 25 个文件保留，关闭便签后窗口销毁。
+- 验证：验证直接从 scripts/preview-main.cjs 加载源码与设置开发页，数据和旧数据目录均隔离；截图直接捕获对应 WebContents 当前可见区域。人工查看吸顶栏、明暗菜单/收藏、文件确认条及便签截图。未为 E2E 使用编译成品或打包器。
+- 验证：首轮探针在 Vue 进入位移完成前采样 Toast，后改为等待帧提交/不透明；表格探针原先在 tr 中插入 div 造成匿名盒重排，改为在 table 前插入且保持同层顺序。正向检查通过后视觉发现吸顶上方仍有 20px 缝隙，新增贴顶几何断言并修正偏移；各次失败、通过和截图均由测试入口归档，未隐去失败。
+- 验证：修改范围 ESLint 零错误零警告；pnpm build 完成 Node/Web/设置类型检查及设置、工具、宿主/preload 编译，保留已有循环重导出、混合导入及 pnpm 兼容提示。
+- 验证：pnpm preview:sync 已同步 1.1.0，177 个现有配置及插件文件前后逐项一致，核对 89 个程序文件；备份 .artifacts/backups/preview-sync/update-1792590566277/previous-resources，同目录 preservation.json 留存前后指纹。pnpm test:preview:resources 通过：88 个程序资源、229 个内置插件文件、1676 个媒体运行库文件。
+- 验证：收尾执行 pnpm maintain、pnpm maintain:check 与 git diff --check。仅更新预览程序资源，未重置配置、插件或历史，未启动实际预览写入测试资料；不提交私有文件、不 push、不云端构建或 release。
+
+## 2026-10-21 · 优化通用设置翻译入口、快捷匹配文案和秒数输入宽度，统一插件默认高度为 540
+
+记录：[general-settings-compact-controls](../../docs/history/entries/2026-10-21-04-general-settings-layout.json)；版本：未发布。
+
+- 描述区可收缩换行，操作区保持独立宽度，前往翻译按钮保持单行；精简自动翻译与复制后匹配说明，标签去掉固定中键。秒数输入框覆盖旧 250px 最小宽度，固定为 96 CSS 像素。
+- 插件正文初值、无效输入回退、主动重置与宿主初值统一使用 DEFAULT_PLUGIN_HEIGHT=540；已有自定义高度保留，占位文字和重置按钮同步采用共享常量。
+- 最近主动复制的回退匹配不再限定 middle 且非长按，跟随当前配置的超级面板触发键，当前选区仍优先；既有独立中键兼容入口保持原行为。
+- 用户补充要求对此触发键适配单独测试并加入测试集：新增 17 项用例和 clipboard-trigger 三文件回归组；同步 Bug 台账、TX-56 视觉/TX-57 行为说明及既有剪贴板 E2E 标签定位器（本轮未运行 E2E）。
+
+- 验证：按用户最初要求，界面仅做隔离源码窗口视觉验证；随后按其补充要求，仅对触发键逻辑运行专项单测。本轮未运行 E2E，未使用成品执行端到端流程。
+- 验证：直接捕获并查看设置插件当前可见区域的默认、较窄及高度位置三张图。视口 804×543 和 788×551 CSS 像素，翻译按钮为 nowrap，秒数框实测 96px，表单及宿主高度为 540。截图/布局记录在 test-results/playwright/settings-layout-visual，独立资料在 .artifacts/visual/settings-layout，不访问真实或免安装预览资料。
+- 验证：首轮视觉发现旧最小宽度仍把输入框撑至 250px，修正选择器后截图确认 96px。私有截图脚本初次退出等待及关闭后 process API 失效已修正，最终视觉脚本正常退出。
+- 验证：pnpm test:regressions clipboard-trigger --list 明确选择 3 个单测文件、0 个 E2E；--unit 实际 35 项通过，新增触发链用例 17 项，归档 .artifacts/runs/2026-10-21T10-20-03-281Z-unit。原生监视器和窗口发布边界用替身隔离，宿主异步匹配链真实执行；剪贴板既有测试用真实时效读取验证过期/关闭。
+- 验证：修改范围 ESLint 零错误零警告；pnpm build 完成 Node/Web/设置类型检查与设置、工具、宿主/preload 编译。既有循环重导出、混合静态/动态导入及 pnpm 兼容提示保留；未执行 electron-builder/build:unpack。
+- 验证：pnpm preview:sync 已同步 1.1.0，105 个现有资料及插件文件前后校验一致；核对 89 个程序文件，回退资源在 .artifacts/backups/preview-sync/update-1792578060763/previous-resources，资料指纹在同目录 preservation.json。pnpm test:preview:resources 通过：88 个程序资源、229 个内置插件文件、1676 个媒体运行库文件。
+- 验证：本轮只更新程序资源，未重置任何预览或正常用户资料，未启动实际免安装预览写入测试资料。收尾执行 pnpm maintain、pnpm maintain:check 与 git diff --check，不提交私有文件，不 push、云端构建或发布 release。
+
+## 2026-10-21 · 整理设置与快捷键，精简调试日志和托盘菜单，增加数据缓存目录选择并调整初始指令
+
+记录：[settings-shortcuts-defaults-and-data-location](../../docs/history/entries/2026-10-21-03-settings-defaults-storage.json)；版本：未发布。
+
+- 通用设置优先展示超级面板，开发者组默认折叠；呼出及全屏快捷键统一移至快捷键的内置页，呼出明确打开应用设置页。所有应用级快捷键与全屏暂停初始关闭，宿主、插件、分离视图、开发者全局注册和录屏 F10 均按显式 true 启用；Windows 移除会绕过开关的 Electron 默认菜单。
+- 完整删除唤醒黑名单设置、系统指令、运行时拦截与内部 API，失效内置固定/历史引用清理且不改原始配置。工具清单现为 36 功能、28 个普通中文入口和 13 类。删除调试日志页、路由、内存收集器及日志 API，保留文件日志。托盘左键打开设置，右键删除重复显示/隐藏设置；游戏模式继续暂停呼出/全局指令快捷键和超级面板鼠标触发，不优化性能或停止剪贴板采集。
+- 新增数据与缓存目录选择，迁移整个 .ztools 配置、插件、历史与缓存。原生确认后退出，由专属工作进程复制并逐文件 SHA-256 校验、发布空目标、最后原子切换锚点位置记录并重启；userData/sessionData 跟随新根。原件保留，拒绝非空/嵌套/联接，复制失败不切换；插件私有同名文件保留，宿主路径重定位，根外开发插件仍在原位。
+- 首次缺失对应存储键时禁用设置来源全部普通与匹配指令，并按截图、剪贴板、便签、文件搜索、录屏顺序固定到超级面板；已有明确选择和空列表不覆盖。
+- 新增设置开发必读并关联 AGENTS.md、维护必读和文档入口；同步架构、迁移、工具清单、Bug 台账与 settings-defaults 回归组。再次核对终端、代理、剪贴板保留、外观材质及插件高度仍有实际消费者，保留其设置。保留本来已有的未提交改动。
+
+- 验证：全量单测 90 文件 637 项通过，.artifacts/runs/2026-10-21T04-54-30-926Z-unit。此前全量发现浮动窗口夹具缺少上轮图标 API mock，补齐 nativeImage/createFromPath 与窗口 setter 后通过，失败归档 .artifacts/runs/2026-10-21T04-53-54-210Z-unit。
+- 验证：追加二次迁移和插件私有 .data-location.json 保留场景后，目录迁移单测 9 项通过，.artifacts/runs/2026-10-21T04-58-32-172Z-unit；覆盖完整内容、非空/同根/相互嵌套/联接/复制失败和坏位置记录。
+- 验证：settings-defaults 源码 Electron E2E 七项通过，.artifacts/runs/2026-10-21T04-55-20-249Z-e2e；覆盖设置默认状态、实际 Ctrl+D 开关、托盘游戏模式、设置指令禁用及固定项、完整资料迁移退出重启、相邻宿主/窗口稳定/任务栏图标/生命周期/原生录屏/退出清理。未用成品或打包进行 E2E。
+- 验证：迁移专项先修正测试输入方式（CDP 按键不经过宿主 before-input-event，改原生 ctrl 注入）、Playwright 调试连接释放、重启探针错误模块引用及等待启动迁移完成；曾遇到测试 worker 原生退出和清理时 EBUSY。失败和一次挂起中断均保留归档，不表述为首次通过；最终专项单独通过 .artifacts/runs/2026-10-21T04-51-26-710Z-e2e，完整组再次通过。
+- 验证：已直接查看设置插件当前可见区域截图，核对超级面板提前、快捷键归类及关闭状态；目录 E2E 真实重启后核对 userData/sessionData、插件版本、私有二进制、宿主绝对路径与原件保留。
+- 验证：Node、设置类型检查通过，修改范围 ESLint 零错误，格式修正后新增测试零警告，数据工作进程 node --check 通过；pnpm build 完成 Node/Web/设置类型检查及设置、工具、宿主/preload 编译。既有设置组件循环分块与宿主静态/动态导入提示保留；未执行 electron-builder/build:unpack。
+- 验证：pnpm preview:sync 已同步 1.1.0，494 个原有配置及插件文件前后逐项校验一致，核对 89 个程序资源；回退资源 .artifacts/backups/preview-sync/update-1792558789805/previous-resources，资料校验在同目录 preservation.json。pnpm test:preview:resources 通过：88 个程序资源、229 个内置插件文件及 1676 个媒体运行库文件均与当前编译/源码一致。
+- 验证：按用户本轮明确要求，在同步后运行 pnpm preview:reset --confirm-reset：494 个原配置和已安装插件文件完整移入 .artifacts/backups/portable-profile/2026-10-21T05-03-44-894Z-9a453e96，备份前后指纹完全一致。data 和 legacy 已确认空目录，程序不变，未启动真实预览写入测试资料，下一次通过 PreviewPortable.cmd 初始化最新默认状态。正常用户 .ztools 未重置。
+- 验证：收尾生成 CHANGES.md 首次遇到 UNKNOWN 文件访问错误，随后只重试标准维护入口成功；最终执行 pnpm maintain、pnpm maintain:check 和 git diff --check，不绕过维护检查。不提交私有配置、插件、截图、日志或备份，未提交、push、云端构建或 release。
+- 验证：初次清理旧隔离测试临时目录被自动审批拒绝，返回 blocked by policy；用户随后明确授权重试时仍被拒绝，当时未绕过限制，临时资料保留。项目根未产生临时文件。
+- 验证：用户切换为请求审批并再次要求清理后，通过 require_escalated 发起一次审批并执行成功。仅删除系统临时目录下 ztools-settings-cleanup-DJwdWu、ztools-settings-cleanup-Jblrmi、ztools-settings-cleanup-e9UuQT：先核对绝对路径白名单、普通目录/无联接及无 Electron 占用，再逐项删除并确认不存在。项目、预览程序、用户配置及资料备份未参与删除；预览可执行文件和 494 文件备份清单仍存在。仅补记清理结果，未改业务源码，无需重新构建或运行 E2E；收尾执行标准维护与差异检查。
+
+## 2026-10-21 · 工具指令中文去重与分类，配备独立功能图标并补齐子组件任务栏入口
+
+记录：[tools-command-catalog-and-window-icons](../../docs/history/entries/2026-10-21-02-tools-catalog-icons.json)；版本：未发布。
+
+- 全面梳理 37 个功能：普通文字指令 57 → 29，清除同功能中英文重复名称；保留全部功能码及文本、图片、文件、窗口匹配约束。按 13 类整理，录屏、区域录屏和停止录屏同组，图片处理与网页快开等同样归类。
+- 设置所有指令与插件详情共用分组函数，指令菜单仍传递原功能码；分类名参与搜索。每项功能采用独立 Lucide 图形与本地 128px PNG，固定来源提交，保留原始 SVG、完整许可及逐项配色清单。
+- 可见工具正文打开时更新宿主任务栏图标、标题与身份，退出和分离后恢复搜索面板。补齐分离、自动分离、便签、悬浮图片、图片标记、窗口信息及录屏控制条图标；临时选区、倒计时和效果覆盖层继续不占任务栏。
+- 同步工具开发原则、工具清单、Bug 台账和 tools-catalog 回归组；保留本来已有的未提交改动，未提交、push、云端构建或 release。
+- 按用户补充要求，将语义去重、唯一中文命名、分类保留原指令身份、免费图标许可/来源/本地资源、专属图形、可见窗口任务栏及验证要求写入工具开发必读；根 AGENTS.md 和维护必读建立强制关联。
+
+- 验证：tools-catalog 回归单测 6 文件 42 项通过，.artifacts/runs/2026-10-21T03-46-59-044Z-unit；覆盖分组保持原成员身份、筛选与第三方不误合并、指令排序、宿主启动和旧默认配置保留。
+- 验证：新增 E2E 夹具先修正 Windows PowerShell 编码与 UIntPtr 参数、Electron 没有 isSkipTaskbar getter（改为观察实际 setter）及测试误取退出中的旧页面；失败归档保留，不表述为首次全绿。
+- 验证：最终完整相关源码 E2E 4 项通过，.artifacts/runs/2026-10-21T03-47-12-840Z-e2e：宿主冷热启动/单例/分离、工具分类和全部正文/独立窗口、生命周期、实际原生录屏/网页快开。均使用 preview-main.cjs、源码服务器和隔离数据，无成品 E2E。
+- 验证：进一步补充实际 setIcon 像素比对后，tools-catalog 与 tools-recorder-web 两项再通过，.artifacts/runs/2026-10-21T03-50-47-592Z-e2e。20 个窗口全部通过对应功能图标、Windows WM_GETICON 原生句柄和真实任务栏 setter 检查；另验证实际录制控制条。分组内单条禁用/恢复不影响同组、图片和文件匹配保留；直接切换旧页关闭、宿主分离后恢复搜索任务栏、独立图片/便签隐藏后销毁。
+- 验证：38 张本地 PNG（37 功能及工具总图标）均为 128×128，像素哈希全部不同；固定 Lucide 提交 c29c276f16590cf017126671535ad8c792be64d8，保留原始 SVG 和完整许可。已查看图标总览及稳定插件正文截图；证据 .artifacts/reviews/tools-catalog-2026-10-21。
+- 验证：Node 与设置类型检查、修改范围 ESLint 零错误零警告、git diff --check 通过；pnpm build 完成 Node/Web/设置类型检查、设置/工具/宿主与 preload 编译。既有设置组件循环重导出、宿主静态/动态导入分块和 pnpm 配置兼容提示仍保留；未执行 electron-builder/build:unpack。
+- 验证：pnpm preview:sync 已同步 1.1.0，470 个配置及插件文件前后校验一致；回退资源 .artifacts/backups/preview-sync/update-1792554733856/previous-resources，数据校验在同目录 preservation.json。pnpm test:preview:resources 通过，核对 87 个程序资源、234 个内置插件文件和 1676 个媒体运行库文件。
+- 验证：收尾运行 pnpm maintain、pnpm maintain:check 和 git diff --check；不提交配置、插件、备份、截图、探针或日志。
+
+## 2026-10-21 · 按用户原录屏插件重做布局交互，媒体默认输出源目录并精简文件搜索设置
+
+记录：[recorder-reference-and-source-output](../../docs/history/entries/2026-10-21-01-recorder-reference-output.json)；版本：未发布。
+
+- 重新在隔离渲染器对照用户录频助手 2.1.0，不执行原 preload、不开外部账号。替换上一版录屏页面和区域选择器：全屏单列大图、窗口图标列表、横排声音/操作、3–9 秒分段及中心数字倒计时；区域按钮直接进入真实鼠标所在屏幕的全屏可调整选区，支持八方向、宽高、键盘微调、显式确认和取消。
+- 设置改为原版式右抽屉、系统/自定义存储目录、质量、左右键独立颜色与 Emoji 卡片/恢复、屏幕取色、五种键帽与九宫格位置；实际效果与预览一致，声音勾选检查设备且不持有流。保留统一系统字体、绿色、明暗与圆角控制条。自动命名保存，停止等待封装后定位文件；宿主真正退出只保存，启动、取消和停止等待完整准备链及资源清理。
+- 图片与视频输出方式各自保存，默认源文件同级，多目录逐项分别输出，合并归首项，剪贴板图片回退下载目录。自定义路径保留可切换；源模式不显示无效的自定义路径，减少误解。各输出卷暂存目录由宿主登记准备 Promise 并统一清理，排他发布不覆盖，非硬链接文件系统回退排他复制。
+- 文件搜索移除命名实例和通用权限说明输入块，默认自动连接常用实例，旧命名配置只读兼容回退；正则和大小写改为独立搜索方式、说明示例和持久化。更新工具开发规范、媒体/录屏文档、Bug 台账与 recorder-reference 回归组。保留已有未提交内容，没有提交、push、云端构建或 release。
+
+- 验证：单测 6 文件 35 项通过，.artifacts/runs/2026-10-21T02-39-39-264Z-unit。包括真实媒体编码、非硬链接排他复制、Everything Unicode/标志/分页、查询组装、录屏避让、依赖树及预览核验逻辑。
+- 验证：源码 E2E 先后修正多屏夹具选择、误用不存在的 uiohook 鼠标接口及外部失焦干扰扫码；保留失败归档。区域效果刻意录入的键帽与输入法候选使纯色阈值不成立，改为聚焦专属纯色窗口按 Shift，并等待键帽退场后核对控制条排除。新增剪贴板测试另修正 output 元素隐含 status 导致的定位歧义。没有把这些失败写成一次全绿。
+- 验证：最终录屏区域、文件搜索/相邻工具和原生录屏/网页 3 项通过，.artifacts/runs/2026-10-21T02-56-58-036Z-e2e；界面和生命周期在 .artifacts/runs/2026-10-21T02-53-43-461Z-e2e 中通过，其余录屏项后续独立复核。完整启动和停止覆盖自动保存、确认/取消、捕获进程与效果窗口/输入订阅释放。
+- 验证：媒体 E2E 新增多目录同级输出、合并首项、图片/视频独立设置、同级编码暂存区出现后取消和剪贴板下载回退；并检查原版来源布局、设备缺失提示、设置卡片/颜色/Emoji/九位置、明暗主题。最终补充及收紧输出设置复核通过，.artifacts/runs/2026-10-21T03-05-10-819Z-e2e。截图直接捕获稳定插件 WebContentsView，并查看对照，留存 .artifacts/reviews/recorder-reference-2026-10-21。
+- 验证：修改范围 ESLint 零错误零警告，Node 类型检查、Vue 模板检查及 git diff --check 通过。pnpm build 成功，包含 Node/Web/设置类型检查和全部编译；最后收紧输出目录设置后 pnpm build:tools 通过。既有循环重导出、静态/动态分块和 pnpm 配置兼容提示仍保留，未执行 electron-builder/build:unpack。
+- 验证：pnpm preview:sync 完成，更新免安装预览 1.1.0，467 个配置及插件文件前后校验一致；备份与校验清单位于 .artifacts/backups/preview-sync/update-1792552103610。pnpm test:preview:resources 通过，核对 87 个程序资源、156 个内置插件文件和 1676 个媒体运行库文件。预览 Electron 的隔离媒体探针 6 项通过，证据 .artifacts/probes/media-runtime-1792552287762/result.json。
+- 验证：收尾执行 pnpm maintain、pnpm maintain:check 和 git diff --check。
+
+## 2026-10-20 · 研究用户提供的三个插件，移植图片与视频批量处理并完善录屏
+
+记录：[media-tools-asar-port](../../docs/history/entries/2026-10-20-11-media-tools-port.json)；版本：未发布。
+
+- 对照用户提供的录频助手 2.1.0、图片批量处理 2.2.5、视频批量处理 1.2.0 研究布局与实际依赖；新建图片/视频批处理子组件，左侧功能、中间参数、右侧文件队列，统一系统字体、绿色强调色与明暗主题，不重复宿主标题。增加图片文件夹、手动裁剪、合并直达入口及文件/图片匹配。
+- 图片处理接入 Sharp、PDFKit 和用户提供的 x64 GIF 编码器，支持压缩、九种输出格式、尺寸、裁剪、旋转/翻转、水印、圆角、边框/填充和图片/PDF/GIF 合并。视频通过所属 FFmpeg 支持压缩、截取、比例裁剪、格式、动图、水印、尺寸、封面、倍速、翻转/旋转、合并、音轨和提帧。原文件保留，同名结果独占发布并自动编号，逐项提示错误，可取消。
+- 媒体读取和处理使用按次 Electron Node 工作进程，读取随前台退出取消，确认批次登记完整必要任务。取消、超时或宿主真正退出等待所属进程树结束后清理本次暂存目录，不停止全局剪贴板，不读外部插件配置。
+- 录屏更新为用户提供的 2.1.0 六参数引擎，补质量、存储和点击/按键效果设置及区域/停止快捷入口；输入效果复用宿主已有全局输入管理器的专属订阅。按最新要求控制条改为 12px 圆角矩形、原生透明四角并适配明暗，保留拖动、停止、录区避让与首次显示前的捕获排除。
+- 修复新增子组件遗漏宿主视图白名单导致不显示，补齐首帧高度；开发文档加入入口四处登记和真实宿主验证要求。记录三份 ASAR/原生文件哈希与许可来源，新增 media-tools 文档、Bug 台账和回归组。生产依赖完整版本树进入免安装物理展开及逐文件核验。保留既有未提交修改，未提交、push、云端构建或 release。
+
+- 验证：专项单测最终 4 文件 30 项通过，归档 .artifacts/runs/2026-10-20T16-12-40-759Z-unit。实际编码九种图片格式、压缩大小边界、图片像素/几何、PDF/GIF、视频水印像素、封面、音轨替换、混合尺寸/缺音轨合并和取消；验证非覆盖发布与生产依赖树展开。较早测试失败和修正保留在 runs，不覆盖失败证据。
+- 验证：源码 E2E 首轮发现宿主白名单遗漏；后续发现并修正 Vue 清空事件模板解析问题。测试夹具修正原生目录对话框 async API、插件 outPlugin 调用作用域及纯色底图被无关桌面窗口遮挡问题。media-batch 独立通过 .artifacts/runs/2026-10-20T16-05-29-642Z-e2e；最终组合 .artifacts/runs/2026-10-20T16-12-30-423Z-e2e 为 3 通过 1 失败，图片/视频、生命周期、录屏/网页均通过，新增透明断言误将仅返回 RGB 的 getBackgroundColor 当含 alpha，按本地 Electron 类型说明改为直接检查捕获位图 alpha；补充键盘效果测试另修正主进程裸 require 的解析上下文。最终 recorder-overlay 独立复核通过 .artifacts/runs/2026-10-20T16-16-16-230Z-e2e，圆角 12px、角像素 alpha=0、原生按键显示、效果窗口关闭与专属订阅释放全部通过。解码视频 578×358、底图绿色比例 1、洋红控制条比例 0。保留失败归档，不表述为组合一次全绿。所有 E2E 从源码和隔离数据启动，未为 E2E 打包。
+- 验证：修改范围 ESLint 零错误零警告，git diff --check 通过。pnpm build 成功，包含 Node/Web/设置类型检查、设置与工具构建及宿主编译；已有设置循环重导出和宿主静态/动态混用提示仍存在，未改无关构建策略；未执行 electron-builder/build:unpack。
+- 验证：pnpm preview:sync 同步 1.1.0，86 个程序文件（含 package.json），458 个 data/legacy 文件前后哈希完全一致；备份 .artifacts/backups/preview-sync/update-1792512518240/previous-resources，同目录 preservation.json。只读资源核验通过：85 运行时、156 内置插件、1676 媒体依赖文件。
+- 验证：同步后使用成品自己的 Electron Node 和物理工作脚本执行六个合成媒体探针：图片缩放、PDF、GIF、BMP 转换与读取，以及视频缩放均成功，验证依赖从 app.asar 完整解析；证据 .artifacts/probes/media-runtime-1792512648302/result.json。未启动产品界面，未读取/写入预览配置或用户图片。
+- 验证：最终 pnpm maintain 与 pnpm maintain:check 刷新并检查历史、Bug 和项目索引；未改预览数据、未启动产品界面。
+
+## 2026-10-20 · 修复 Google Lens 浏览器结果上传失败与录屏控制条进入画面
+
+记录：[lens-result-and-recorder-overlay](../../docs/history/entries/2026-10-20-10-lens-recorder-followup.json)；版本：未发布。
+
+- 根据用户确认的浏览器上传失败，复现应用会话返回的 Lens 地址在独立浏览器缺少图片和结果；修正上轮仅验证重定向的验收表述。Lens 改由默认浏览器直接提交一次性内存 JPEG 表单，使用随机回环端口和路径、无同源权限的 CSP sandbox、nonce、无缓存/无来源策略和限定 Google 的提交与跳转；不保存临时图片、不使用图床，不保活工具视图。
+- 一次性页面完整送达后关闭所属服务；浏览器启动失败、取消、连接中断及 60 秒未领取统一清理。Bing 保留已验证的 ClientRequest 重定向方式，搜索图片的校验、缩放和 JPEG 编码共用。
+- 录屏控制条在首次显示前设置系统排除捕获；区域模式按全局 DIP 坐标依次避让到下、上、侧面及其他显示器，覆盖负坐标工作区。全屏或用户拖入选区仍保留系统保护，不改变原录制进程和停止收尾链。
+- 工具子组件开发原则、录屏说明和工具模块文档补齐浏览器完整会话交接、临时资源释放和视频像素验证要求；同步 Bug 台账与 recorder-web 回归分组。保留已有未提交改动，不 push、不云端构建、不发布 release。
+
+- 验证：新增 Lens 交接与录屏布局单测，专项 3 文件 13 项通过，归档 .artifacts/runs/2026-10-20T14-52-13-841Z-unit；最终 recorder-web 单测分组 6 文件 45 项通过，归档 .artifacts/runs/2026-10-20T14-56-35-408Z-unit。覆盖领取协议、JPEG 内容、CSP、失败/取消/超时端口回收和布局边界，以及相邻迁移与预览资源逻辑。
+- 验证：源码 E2E 首轮 3 项通过、1 项失败，归档 .artifacts/runs/2026-10-20T14-52-45-028Z-e2e。录屏实际区域视频、原生进程清理、网页快开及工具生命周期均通过；Lens 已完成表单提交和图片解码，失败来自自定义 protocol Request 不携带 Origin，而断言只接受字符串 null。修正测试边界后 Lens 独立复核通过，归档 .artifacts/runs/2026-10-20T14-56-08-139Z-e2e；保留首轮失败，不写成一次完整运行全绿。E2E 均使用源码和隔离数据，未为测试打包。
+- 验证：真实区域录制将洋红控制条强制移入绿色录区，解码 MP4 得到 578×358、绿色比例 0.9960468577835341、洋红比例 0；初始位置也验证在选区外。当前桌面验证系统排除真实生效，不只检查 API 标志。
+- 验证：真实联网使用生产 launchWebQuickOpen 和本机生成的 640×400 彩色网格；由替代 shell.openExternal 的独立无持久化 Chromium 会话领取表单并直接上传，Google 结果页显示 640×400 原图和实际搜索内容。未上传用户图片。已查看截图，证据 .artifacts/reviews/lens-recorder-2026-10-20，不能把网络替身 E2E 或单纯跳转当作外网验收。
+- 验证：pnpm typecheck:node、修改范围 ESLint 和 git diff --check 通过；pnpm build 成功，含 Node/Web/设置类型检查、设置与工具及宿主编译。保留已有设置组件循环重导出等提示，未调整无关构建策略；未执行 electron-builder 或 build:unpack。
+- 验证：pnpm preview:sync 已同步 1.1.0，更新 77 个程序文件（含 package.json），458 个 data/legacy 文件同步前后 SHA-256 一致；pnpm test:preview:resources 只读核验 76 个运行时文件、154 个内置插件文件一致。保留 .artifacts/backups/preview-sync/update-1792508330474/previous-resources 与同目录 preservation.json，未启动成品。
+- 验证：收尾执行 pnpm maintain 与 pnpm maintain:check，生成变更、故障和项目索引；不提交配置、插件、备份、日志、截图或探针。
+
+## 2026-10-20 · 重命名预览校验与清晰提示、文件搜索设置修复、新增内置录屏及网页快开
+
+记录：[recorder-web-search-and-tool-refinements](../../docs/history/entries/2026-10-20-09-recorder-web-search.json)；版本：未发布。
+
+- 重命名主按钮改为执行重命名；预览增加逐行名称、重复目标、既有目标、父子混合和源文件身份检查，8 路有界并发、去抖与迟到结果隔离，提供刷新；事务仍重新校验并支持回滚与撤销，无二次确认。
+- 模型未配置等状态消息进入独立布局并使用不透明 --bg-elevated 明暗背景，避免叠字；收紧规则栏，保留预览列表可读空间。
+- 文件搜索补齐 FinderIcon 导入和可见设置文字，抽屉只保留一个关闭按钮；整理分类响应式网格、连接选项和复选框尺寸，增加焦点及 Esc。
+- 移植指定 screen-recorder 2.0.1 的 Windows x64 原生录制引擎，来源提交 af6dc6df9bae6dc61022dabeb3a1d0c54e6de8f2、MIT 许可保留。统一 Vue 界面提供全屏/窗口/区域、系统声音/麦克风/鼠标及倒计时。录制由独立可见控制条和隔离工作进程持有，停止等待原生捕获与工作进程退出后发布 MP4，异常保留可恢复文件。启动等待首个输出再计时，避免编码器尚未开始就提前停止导致空文件。
+- 新增网页快开网站配置，以及文本搜索/以图搜图匹配指令。多个启用项使用独立紧凑二级菜单，取消和失焦销毁；文字编码进网址模板，图片上传 Bing 或 Google Lens 并在默认浏览器打开结果。使用 Electron ClientRequest 捕获重定向，避免 net.fetch manual 模式拒绝跳转；无图片缓存或图床。
+- 旧网页快开迁移逻辑明确保留新增的两个固定匹配功能码，避免重启时删除其固定项和使用统计；预览同步与核验把录屏 exe 纳入必须物理展开的资源。
+- 更新工具开发原则、模块说明、Bug 台账和 recorder-web 回归分组；保留已有未提交工作、配置和插件，不 push、不云端构建、不发布 release。
+
+- 验证：全量单测 83 文件 596 项通过，归档 .artifacts/runs/2026-10-20T13-32-11-080Z-unit；随后迁移专项新增保留固定指令用例，6 项通过，归档 .artifacts/runs/2026-10-20T13-34-13-972Z-unit。
+- 验证：录屏资源展开和网页请求单测专项 15 项通过，归档 .artifacts/runs/2026-10-20T13-46-48-597Z-unit；更换 Electron 请求方式后网页专项 4 项通过。
+- 验证：完整源码 E2E 首轮 16 通过、1 跳过、1 失败，归档 .artifacts/runs/2026-10-20T13-32-53-015Z-e2e；失败确认录制进程已启动但编码器尚未输出，过早停止未生成 MP4，改为等待输出后计时。此前和后续专项保留全部失败与修复证据，不把失败计为通过。
+- 验证：补验真实 Electron 联网时发现 net.fetch redirect:manual 报 Redirect was cancelled，改用 ClientRequest redirect 事件并立即关闭请求。用本机生成的 32×32 纯色图片调用实际生产上传函数，Bing 返回 www.bing.com/images/search，Google Lens 返回 www.google.com/search，证据 .artifacts/probes/recorder-web-network.json；未上传用户图片。
+- 验证：最终网页快开/录屏源码专项通过，归档 .artifacts/runs/2026-10-20T13-51-18-382Z-e2e；实际点击二级菜单、验证两个匹配入口、MP4 和两级进程清理、倒计时及区域取消。Windows 菜单请求宽度 250，实际页面客户区 254，紧凑宽度断言允许 260；不套用超级面板的固定宽度断言。
+- 验证：最终全量单测 83 文件 598 项通过，归档 .artifacts/runs/2026-10-20T13-53-16-069Z-unit；包含新增迁移保留与 exe 解包用例。类型检查、修改范围 ESLint（无错误）和 runtime 脚本语法检查通过，git diff --check 通过。
+- 验证：最终完整源码 E2E 16 通过、1 跳过、1 原生截图工具栏点击超时，归档 .artifacts/runs/2026-10-20T13-53-05-634Z-e2e；新工具、重命名、搜索设置及生命周期均通过。原生截图未改代码单独复核通过，归档 .artifacts/runs/2026-10-20T13-59-38-493Z-e2e。不能将跨运行合并结果写成一次完整运行全绿；保留整轮失败和 trace。跳过项为缺少真实离线模型归档。
+- 验证：已查看重命名模型提示、文件搜索设置、网页快开明暗及录屏正文截图；稳定截图等候抽屉过渡完成，截图直接来自工具 WebContentsView，留存 .artifacts/reviews/recorder-web-2026-10-20。
+- 验证：pnpm build 编译成功，包含类型检查、设置、工具、宿主和 preload；未执行 electron-builder 或 build:unpack，E2E 均使用源码。保留既有设置循环重导出等构建提示，未借本轮改动调整无关构建策略。
+- 验证：pnpm preview:sync 成功同步 1.1.0，更新 77 个程序文件（含 package.json），453 个 data/legacy 文件前后 SHA-256 一致。pnpm test:preview:resources 只读核验 76 个运行时文件及 154 个内置插件文件一致，包含新原生 exe 的物理展开。保留回滚 .artifacts/backups/preview-sync/update-1792504944574/previous-resources，数据证据同目录 preservation.json。
+- 验证：pnpm maintain 与 pnpm maintain:check 完成；源码和免安装交付分开验证，未启动成品替用户操作，未 push、未云端构建、未 release。
+
+## 2026-10-20 · 恢复窄版面板、上次使用置首、切换退役旧页面，重命名取消二次确认并修复图标
+
+记录：[panel-ranking-and-tool-switch](../../docs/history/entries/2026-10-20-08-panel-ranking-and-switch.json)；版本：未发布。
+
+- 根据用户确认隐藏匹配指令的描述，仅显示名称并收紧图标和行间距；恢复初始 250×400 默认尺寸，内容高度限于 250–400，宽度不大于高度。每次调整或复用均显式使用逻辑宽度，不继承异常旧宽度。
+- 匹配候选中最近使用的一项固定首位，其余按真实频次降序，同频次按最近时间再保持稳定顺序；不再以频次封顶和近期权重竞争首位。插件统计按路径与功能码识别，显示别名不丢失使用记录。超级面板先等待最新统计，并对合并后的结果统一排序。
+- 重命名执行按钮使用 SVG 圆与三角形，三角形几何中心与圆心重合，不依赖字体三角字符的基线和字面框。
+- 确认同工具插件路径的子组件切换此前复用同一 WebContents，绕过整页退役；现于占位/显示前移除旧工具，撤销可见性、退出缓存、释放前台，必要任务收尾后关闭旧 WebContents。保留同一文本指令的无操作重入及第三方插件缓存/分离单例行为。
+- 按用户后续要求取消重命名二次确认：点击时锁定计划快照，在同一必要任务中校验并直接执行；防重复提交，冲突阻止、失败回滚及本次撤销保留。删除确认状态、暂存计划和弹层样式。
+- 保留本轮开始时已有未提交工作，未 push、未云端构建、未发布 release，未重置配置或插件。
+
+- 验证：排序与生命周期单测 34 项通过，归档 .artifacts/runs/2026-10-20T11-59-55-442Z-unit。首次类型检查发现持久化功能码可为 null，补齐参数后 pnpm typecheck 通过。
+- 验证：pnpm test 全量单测：82 文件 591 项通过，归档 .artifacts/runs/2026-10-20T12-07-44-778Z-unit。
+- 验证：源码专项：plugin-host-regressions 通过；super-panel-selection 在 .artifacts/runs/2026-10-20T12-04-35-290Z-e2e 中通过；最终 tools-expanded（单击、冲突与撤销）及 tools-lifecycle（直接切换、有保存任务）2 项通过，归档 .artifacts/runs/2026-10-20T12-07-32-481Z-e2e。
+- 验证：保留失败证据：.artifacts/runs/2026-10-20T12-01-02-722Z-e2e 初次窗口断言只容忍 1px，但实际 Windows 客户区为 252px；改为 2px 并继续验证 20 次请求完全稳定。生命周期用例原先只按共享 URL 选页，曾误选尚在导航或退役的扫码页；改为等待本次剪贴板正文，不以额外延时掩盖。相关失败记录均保留。
+- 验证：最终 pnpm test:e2e 完整源码回归：16 项通过、1 项因缺少真实离线模型归档跳过，归档 .artifacts/runs/2026-10-20T12-09-31-887Z-e2e。未为 E2E 打包，测试结束无隔离 Electron 进程遗留。
+- 验证：pnpm build 编译交付资源成功，包含宿主、preload、设置与工具；未运行 electron-builder 或 build:unpack。保留设置循环重导出、工具静态 highlight 脚本的既有构建提示。修改范围 ESLint 无错误，git diff --check 通过。
+- 验证：用户从托盘退出预览后，pnpm preview:sync 成功替换 64 个程序文件（含 package.json）；450 个 data/legacy 文件前后 SHA-256 相同。pnpm test:preview:resources 只读核验 63 个运行时文件和 150 个内置插件文件一致。实际截图已查看并留存 .artifacts/reviews/panel-switch-2026-10-20。
+
+## 2026-10-20 · 对齐剪贴板与 OCR 的系统字体和绿色主题，重命名界面统一配色，二维码改为方正双栏并固化开发要求
+
+记录：[tools-visual-consistency](../../docs/history/entries/2026-10-20-07-tools-visual-consistency.json)；版本：未发布。
+
+- 抽出工具共用系统字体变量，剪贴板、OCR、utility 页面与重命名复用；文件名和手动编辑不再使用上游等宽字体。
+- 重命名主题接入工具现有强调色、文本、背景与边框变量，默认绿色，移除上游蓝色主题、焦点及阴影；保留用户宿主主题注入和错误/警告语义色。
+- 二维码空态、扫描中与结果态均为左图右结果等宽双栏；图片充分占用左栏并保持比例，右栏结果独立滚动，主窗口按宽度计算有界高度尽量方正，首帧同步更新。窄窗可堆叠，宽度监听随会话释放。
+- 工具子组件开发要求补充字体、默认绿色、语义色、明暗模式、紧凑间距、图片双栏、稳定窗口与可访问性要求，并明确实际正文截图和视觉验收。
+- 保留本轮开始时已有未提交工作；不 push、不云端构建、不发布 release，不修改用户配置与已安装插件。
+
+- 验证：pnpm test:e2e tests/e2e/tools-expanded.spec.ts tests/e2e/builtin-providers.spec.ts tests/e2e/tools-clipboard.spec.ts tests/e2e/tools-lifecycle.spec.ts：4 项通过，归档 .artifacts/runs/2026-10-20T10-45-23-898Z-e2e。全部直接运行源码且使用隔离数据，未为 E2E 打包。
+- 验证：真实二维码 Worker 解码、完整文本复制、HTTP(S) 打开通过；图像实际展示宽度超过左栏 85%，双栏对齐且无横向溢出，宿主宽高比小于 1.35。空态与结果态均截取实际插件视图，明暗截图已人工查看。
+- 验证：重命名文件名、编号输入和手动编辑的计算字体与剪贴板一致，默认选中及执行按钮为绿色；深色正文可读，实际规则预览、执行、撤销及无效名称阻止继续通过。
+- 验证：pnpm typecheck、本轮改动范围 ESLint 及 git diff --check 通过。
+- 验证：pnpm build 交付资源编译成功（含类型检查、设置/工具及宿主），未执行 electron-builder 或 build:unpack。设置页原有循环重导出和工具静态 highlight 脚本构建提示仍存在，本轮未改其实现。
+- 验证：pnpm test:regressions tools-visual --list 正确选择 4 个源码 E2E 文件；审阅截图留存 .artifacts/reviews/tools-visual-2026-10-20。
+- 验证：用户从托盘退出预览后，pnpm preview:sync 成功替换 64 个程序文件（含 package.json）；436 个 data/legacy 文件前后 SHA-256 完全一致。只读 pnpm test:preview:resources 验证 63 个运行时资源与 150 个内置插件文件一致。测试结束无隔离 Electron 实例遗留。
+
+## 2026-10-20 · 逐项复查工具优化，直接复用 batch-rename 界面、压紧解散文件夹，修复窗口尺寸遗漏与主进程 EPIPE 弹窗
+
+记录：[tools-review-ui-and-window-behavior](../../docs/history/entries/2026-10-20-06-tools-review.json)；版本：未发布。
+
+- 直接复用 batch-rename 提交 af6dc6df9bae6dc61022dabeb3a1d0c54e6de8f2 的编号卡片、替换/插入/手动/智能面板、图标与底部操作栏，保留 MIT 许可；六个标签按用户顺序排列。
+- 重命名双列预览明确原名/新名，手动页行内编辑并校验非法名称；虚拟列表仅在条目集合或顺序变化时归零，编辑不会跳回首行。规则清理用四个紧凑分组，AI 模型仅进入智能页才查询；保留 Worker、执行检查、事务回滚及撤销。 清理配置区按当前分组自然高度收紧；无变化使用中性状态，与待改名及错误区分。
+- 解散文件夹删除重复拖放占位与选择块，目录栏和模式/冲突策略压紧为两行；不再展示标题或介绍。目录解散、历史与撤销经过实际临时文件验证。
+- 二维码以紧凑入口、固定最大缩略图和结果双栏减少留白，避免用 vh 造成窗口越测越高；二维码、解散目录及重命名冷启动和缓存恢复时直接使用目标高度。
+- 浮窗成功入口不再渲染大标题、介绍或重试页；保留 mainHide 与转交完成后入口释放。 App 改为按需加载当前工具组件，避免扫码入口先解析全部工具；只加载组件定义，不缓存退出的实例。
+- 便签拖动中暂停不贴靠，释放即收起且悬停不展开；标签可沿边移动并同步恢复位置，点击或拖离解除，拖出本次释放不会再贴回。贴靠开关同步全部便签，正文字号保留 12–32。
+- 贴靠动画调整为 200ms 缓出；标签去空格、零字距、upright 使数字直立紧凑；解除拖出直接接续纸张拖动。
+- 修复图片连续缩小时旧画布滚动条造成的透明区域：画布按百分比铺满窗口；单边缩放等比跟随，拖动固定最近缩放的逻辑尺寸，避免 Windows 非整数 DPI 下 getBounds/setPosition 的逐次尺寸增长。
+- 超级面板补齐此前遗漏的宿主 preload 尺寸接口，按自然内容高度伸缩至 84–420 DIP；头部拖动及返回按钮 no-drag 保持可用。
+- 使用频次与最近使用统一排序，最近七天按精确时间连续衰减，补上同一天使用先后的区分。复制名称（文件及目录）和复制路径的文本历史及 mainHide 重新验收。
+- 针对用户新截图的 electron-log EPIPE，安装/免安装模式关闭控制台通道；开发方式同步/异步断管只停用控制台，保留文件日志与订阅，其他异常保持抛出。新增真实关闭管道的源码 E2E。
+- 预览同步遇到旧原生模块哈希残留导致的校验失败，发生在切换资源之前；重建当前展开清单，排除失效 out 哈希但保留依赖完整性校验，并清理私有暂存中的旧 out。实际重新同步成功。
+- 保留开始时的全部未提交工作；本轮未 push、未云端构建、未发布 release、未重置配置或插件。
+
+- 验证：最终全量单测 pnpm test：82 个文件 586 项通过，归档 .artifacts/runs/2026-10-20T08-59-55-784Z-unit。
+- 验证：主进程与渲染器类型检查通过；本轮修改范围 ESLint 无错误。
+- 验证：源码 E2E 先后暴露真实画布滚动条留白、面板 preload 漏接及移动 DPI 尺寸增长，已逐项修复并通过专项。首轮失败与修复后日志均由测试入口归档。
+- 验证：pnpm test:e2e 完整源码验证：16 通过、1 跳过（未提供真实离线模型归档），归档 .artifacts/runs/2026-10-20T09-07-45-115Z-e2e。之后的最终界面收紧与组件按需加载，重命名/二维码/浮窗/文件搜索、解散文件夹及生命周期 3 项专项通过（.artifacts/runs/2026-10-20T09-22-46-826Z-e2e）；识别工具与冷启动/分离宿主另 2 项通过（.artifacts/runs/2026-10-20T09-24-39-228Z-e2e）。
+- 验证：确认并正常退出一个父进程已结束的旧隔离测试实例（临时 ztools-folder-break 数据目录），先停用断开的控制台；未退出用户免安装实例或改动真实数据。
+- 验证：此前完整回归包含一次长截图高度不足的失败；保留失败证据 .artifacts/runs/2026-10-20T08-48-44-036Z-e2e，未修改截图实现，专项复验及最终完整回归均通过，不把偶发失败隐藏或归入 EPIPE 的已证实根因。
+- 验证：pnpm build 编译交付资源成功，含宿主、宿主 preload、设置及工具分块；源码 E2E 不依赖这些编译产物，未执行 electron-builder 或 build:unpack。构建保留设置页既有循环重导出分块警告，本轮未修改设置模块。
+- 验证：新版插件视图截图留存 .artifacts/reviews/tools-2026-10-20（直接 WebContentsView 捕获，未拼接宿主）。
+- 验证：预览同步器补充新旧哈希替换及缺失依赖回归，portablePreviewResources 10 项通过，归档 .artifacts/runs/2026-10-20T10-30-41-327Z-unit。
+- 验证：pnpm preview:sync 成功：64 个程序文件比对（含 package.json）；433 个 data/legacy 文件 SHA-256 前后完全一致。只读 pnpm test:preview:resources 通过：63 个运行时文件及 150 个内置插件文件一致。
+
+## 2026-10-20 · 便签字号与贴靠交互重做、图片悬浮尺寸跟随、重命名预览重做、指令使用热度排序
+
+记录：[note-dock-interaction-and-command-ranking](../../docs/history/entries/2026-10-20-05-note-dock-and-ranking.json)；版本：未发布。
+
+- 便签选项新增字号设置（12–32 像素），只影响当前窗口正文，不写入用户配置。
+- 图片悬浮窗口尺寸按原图比例锁定：缩小高度跟随图片、放大不超过原图，拖动只保留原点不再还原旧尺寸；悬浮窗口禁用原生边缘缩放，缩放统一走页面手柄。
+- 便签贴靠改为拖动释放即收起，指针停在色签上不再自动展开；点击色签或把色签拖离边缘才解除贴靠，解除后需再次拖动才会重新贴边。
+- 收起后的色签可以沿所属边缘自由拖动，位置不再由宿主固定分配；标签在垂直边缘使用 18×80、水平边缘使用 88×18。
+- 贴靠与解除改为分帧缓出过渡（150ms），色签与正文增加淡入动画，贴靠过程更顺滑。
+- 竖排色签去掉“便签 1”里的空格并把字距收紧到 1 像素，标签与编号之间不再出现大间距。
+- 匹配指令列表按使用频次与最近使用排序：新增 calculateUsageBoost（频次最多 120、最近使用最多 180 并按天衰减），接入文本搜索排序与图片/文件/文本/窗口匹配列表，启动指令后强制刷新统计。
+- 文件批量重命名预览区按上游 batch-rename 重做：卡片式“原名 → 新名”行、状态徽标（待改名/无变化/错误）、行内改名、还原与移除、全选与已选计数、筛选框、有界滚动提示，底部按左右分组排列操作。
+- 重命名、二维码扫描、解散文件夹三个子组件不再自带标题与说明文字，正文直接进入控件。
+- 修复超级面板头部拖动区域吞掉左上角“返回固定列表”按钮点击：标题按钮补 no-drag。
+- 修复源码 E2E 与源码预览在 Electron 系 IDE 终端下误判打包环境：启动被测 Electron 前清除宿主残留的 ELECTRON_FORCE_IS_PACKAGED（连同 ELECTRON_RUN_AS_NODE），避免内置插件与原生资源按 app.asar.unpacked 解析。
+
+- 验证：仅验证本轮改动与相关回归，没有为验证打包应用。
+- 验证：node scripts/run-tests.cjs unit：81 个文件 580 项通过（含 calculateUsageBoost 与指令使用统计键、贴合与图片比例、贴靠状态机用例）；归档 .artifacts/runs/2026-10-20T07-22-36-036Z-unit。
+- 验证：node scripts/run-tests.cjs e2e：全量源码 E2E 15 通过 1 跳过（4.9 分钟），覆盖 floating-pointer、super-panel-selection、tools-polish、tools-expanded、tools-folder-break、tools-copy-commands、tools-clipboard、tools-screenshot、tools-lifecycle、builtin-providers、local-edition、plugin-host-regressions 等；归档 .artifacts/runs/2026-10-20T07-17-29-909Z-e2e。
+- 验证：floatingPointer 单测 9 项通过：四边识别与拖动释放收起、指针停留不展开、点击解除贴靠、色签沿边缘拖动与拖离解除、图片窗口比例锁定与拖动保持尺寸、贴靠开关。
+- 验证：floating-pointer 源码 E2E 通过：系统鼠标把便签拖到边缘后释放即收起、指针停在色签不展开、拖动色签改变位置、点击色签解除贴靠并保留纸张尺寸与正文，图片正文进入后按钮显示并真实点击关闭。
+- 验证：tools-expanded 源码 E2E 通过：二维码、重命名插入规则→检查并重命名→确认执行→撤销、便签与悬浮窗口、mainHide 与入口退役、本地搜索；tools-polish 通过贴靠登记与解除、便签字号 16/22、本地搜索 Finder 布局；super-panel-selection 通过返回按钮可点击断言。
+- 验证：node_modules/.bin/tsc --noEmit -p tsconfig.node.json 与 node_modules/.bin/vue-tsc --noEmit -p tsconfig.web.json 通过；vite build internal-plugins/system 与 electron-vite build 成功。
+- 验证：宿主环境修复前后对比：同一终端下全量 E2E 从 13 失败 2 通过变为 15 通过 1 跳过；探针确认内置插件路径回到 internal-plugins/<name>/public。
+
+## 2026-10-20 · 便签贴靠手感与开关、入口页面闪现、二维码扫描、重命名与解散文件夹、复制名称与复制路径、超级面板自适应
+
+记录：[tools-commands-panel-and-rename](../../docs/history/entries/2026-10-20-04-tools-commands-panel.json)；版本：未发布。
+
+- 便签拖动释放后宿主在尺寸稳定时立即贴靠，不再要求指针离开便签；释放位置仍在色签上时保持收起，指针离开后重新进入才展开，指针已在别处则照常响应悬停。
+- 便签选项新增贴靠开关，作用于本次运行的整组便签；关闭时解除已有贴靠并恢复完整纸张，不写入用户配置。
+- 竖排收起色签的文字使用 text-orientation: upright，编号不再横躺。
+- 只开独立窗口的子组件（便签、悬浮内容、图片标记）声明 mainHide，面板或快捷键启动不唤出宿主窗口；入口转交完成后主动隐藏宿主窗口并按内容收紧高度，去除闪出的入口页面。
+- 二维码扫描重做紧凑界面并按实测正文高度请求 setExpendHeight，去掉固定高度留下的大片空白。
+- 纯系统指令（复制路径、复制名称、前往文件夹、取色等）声明 mainHide，从超级面板触发不再闪出宿主窗口。
+- 新增匹配指令“复制名称”，文件与文件夹均能匹配，复制末级名称并登记到剪贴板历史。
+- 修复“复制路径”：宿主 clipboardManager.writeTextEntry 写入文本并立即按文本条目登记，剪贴板与历史都呈现路径文本。
+- 文件批量重命名按 batch-rename 界面重做：上栏顺序为自动编号、查找替换、规则清理、插入内容、手动编辑、智能重命名；规则清理含大小写转换、文件名清洗、扩展名处理、删除字符；预览列表、行内改名、排序、检查后确认执行与撤销上次改名。
+- 新增内置“解散文件夹”：单层或递归模式、自动重命名/覆盖/跳过冲突策略、预览统计、确认后执行、最近 50 条历史与撤销；文件事务在插件私有桥接内完成并先回滚。
+- 超级面板按正文与列表实测高度自适应（120–420），弹层展开时撑到上限；面板头部可拖动窗口。
+
+- 验证：仅验证本轮改动与相关回归，没有为验证打包应用。
+- 验证：node scripts/run-tests.cjs unit：81 个文件 574 项通过，含新增的贴合/开关用例与重构后的重命名规则用例；归档 .artifacts/runs/2026-10-20T05-41-02-695Z-unit。
+- 验证：node scripts/test-regressions.cjs tools-commands：新增分组（2 个单测文件 24 项 + tools-copy-commands、tools-expanded、tools-folder-break 三个源码 E2E）全部通过；归档 .artifacts/runs/2026-10-20T05-46-43-799Z-unit 与 .artifacts/runs/2026-10-20T05-46-45-864Z-e2e。
+- 验证：node scripts/run-tests.cjs e2e 全量：15 项通过、1 项跳过（builtin-models 因本机没有离线模型资产）；归档 .artifacts/runs/2026-10-20T05-35-40-016Z-e2e。覆盖真实系统鼠标拖动贴靠与展开、便签开关、超级面板弹出与关闭、剪贴板与工具生命周期、原生退出码。
+- 验证：floating-pointer 用真实系统鼠标按下/移动/松开标题栏后释放即收起、指针离开重进展开；tools-polish 验证开关关闭/开启与竖排色签 text-orientation；tools-expanded 验证 mainHide、入口转交后宿主隐藏、重命名执行与撤销、二维码扫描。
+- 验证：tools-copy-commands 先在剪贴板与历史留下文件条目，再以超级面板来源启动复制路径与复制名称，断言剪贴板文本、历史首条为文本条目、宿主窗口未 show() 且两条指令声明 mainHide。
+- 验证：tools-folder-break 单层解散把文件与子目录移到父目录并删除空目录，历史保留移动 2 项并可撤销回原结构。
+- 验证：node_modules/.bin/tsc --noEmit -p tsconfig.node.json 与 node_modules/.bin/vue-tsc --noEmit -p tsconfig.web.json 通过。
+- 验证：vite build internal-plugins/system 与 electron-vite build 通过，仅为交付预览编译；未执行 electron-builder、build:unpack，未使用 dist 替代源码 E2E。
+- 验证：node scripts/project-maintenance.cjs prepare 与 check 通过（prepare 生成 2 份索引，check 无待处理项）。
+- 验证：node scripts/sync-portable-preview.cjs：更新 64 份程序文件、保留 423 份用户数据文件，版本 1.1.0，回滚资源 .artifacts/backups/preview-sync/update-1792475161288/previous-resources。
+- 验证：node scripts/verify-portable-preview.cjs：63 份运行资源与 134 份内置插件资源一致。
+
+## 2026-10-20 · 修复便签贴边漏触发与悬浮图片关闭按钮难以显示
+
+记录：[floating-edge-and-pointer-input](../../docs/history/entries/2026-10-20-03-floating-pointer.json)；版本：未发布。
+
+- 贴边识别覆盖接近和越过工作区边缘，使用实际窗口位置和系统鼠标坐标；不再依赖 moved 或页面悬停消息。
+- 便签标题栏及普通图片使用受控指针拖动，避免原生 app-region 拦截移动/悬停；图片关闭按钮保持淡显，鼠标进入图片后完整显示。
+- 共享鼠标观察器仅属于存活的独立窗口，最后一个窗口关闭后立即释放；标记窗口不运行此观察器。
+- 更正旧专项里手工 emit moved 和调用 dock-hover 的验证，新增系统鼠标按下、拖动、松开及真实关闭点击验收。
+- 拖动和展开恢复使用正常纸张尺寸，便签最小纸张尺寸由受限缩放入口保证，避免频繁切换原生最小尺寸及移动时累积 DPI 舍入。
+
+- 验证：仅验证相关改动，没有全量回归。
+- 验证：pnpm test tests/main/floatingPointer.test.ts：最终 5 项通过，覆盖四边越界贴靠、展开及解除、鼠标状态发布和观察器回收；归档 .artifacts/runs/2026-10-20T01-58-47-411Z-unit。
+- 验证：pnpm test:e2e tests/e2e/floating-pointer.spec.ts tests/e2e/tools-polish.spec.ts：2 项源码 Electron E2E 通过，归档 .artifacts/runs/2026-10-20T01-57-52-141Z-e2e。真实系统鼠标按下/移动/松开拖动标题栏；四边接近/越界后收起、系统鼠标进入展开、拖离解除、正文及纸张尺寸保留；鼠标进入图片正文使按钮完整显示，真实系统点击关闭按钮成功。
+- 验证：旧人工 emit moved / 调用 dock-hover 的专项已改为系统鼠标输入。真实系统拖动复现旧方案失败，并发现展开与移动的 DPI 尺寸累积；修复后专项通过，所有中间失败 trace 和拖动诊断均保留。
+- 验证：pnpm typecheck:node、变更文件 eslint --no-cache --max-warnings=0、node --check resources/tools-floating.js 通过。源码测试结束后无 preview-main Electron 进程遗留。
+- 验证：pnpm test:e2e tests/e2e/floating-pointer.spec.ts --repeat-each=2：针对用户报告的交互可靠性，系统鼠标专项连续两次通过，归档 .artifacts/runs/2026-10-20T02-02-00-641Z-e2e；未扩大到全量回归。
+- 验证：pnpm build 通过，仅为预览交付编译，没有为 E2E 构建或使用打包应用；未调用 electron-builder/build:unpack。原有 Rollup 分块及 highlight 脚本提示保留。
+- 验证：pnpm preview:sync：64 份程序文件核验，268 个 data/legacy 文件内容指纹保持一致，版本 1.1.0；回滚资源 .artifacts/backups/preview-sync/update-1792461684701/previous-resources。
+- 验证：pnpm test:preview:resources 通过：63 份运行资源及 134 份内置插件资源一致。
+
+## 2026-10-20 · 定位并修复原生剪贴板及窗口监听未停止导致的退出崩溃
+
+记录：[native-monitor-shutdown](../../docs/history/entries/2026-10-20-02-native-shutdown.json)；版本：未发布。
+
+- 独立进程复现：仅加载正常；启动剪贴板或窗口监听后直接退出均返回 0xc0000409；先停止监听均返回 0。未替换原生二进制。
+- 真正退出前停止原生提供商桥接、全局剪贴板及窗口监听；先封闭回调入口并等待已接收记录保存，再继续窗口和数据库关闭。
+- 退出清理幂等，取消复制等待计时器；目录初始化迟到时不再启动原生线程。工具隐藏/关闭不停止全局采集。
+- 开发终止信号走同一清理链，移除会跳过异步保存的 process.exit。
+
+- 验证：只运行相关验证，没有全量回归。
+- 验证：独立进程对照证据 .artifacts/runs/native-exit-reproduction.json。
+- 验证：pnpm test tests/main/clipboardShutdown.test.ts tests/main/clipboardTypeDetection.test.ts tests/main/clipboardCategory.test.ts：3 文件 27 项通过，归档 .artifacts/runs/2026-10-20T01-29-03-397Z-unit。覆盖在途保存等待、停止幂等、迟到初始化、原有采集分类与写入行为。
+- 验证：pnpm test:e2e tests/e2e/native-shutdown.spec.ts tests/e2e/tools-lifecycle.spec.ts：2 项源码 Electron E2E 通过，归档 .artifacts/runs/2026-10-20T01-28-47-078Z-e2e。自动化关闭、app.quit、SIGTERM 三个真实进程退出码均为 0，重启读取隔离哨兵记录验证留存；工具隐藏后仍采集新内容和必要任务收尾也通过。
+- 验证：修复后的专项期间 Windows Application Error 未新增 ztools_native.node 事件；无本轮源码测试进程遗留。检查证据 .artifacts/runs/native-exit-after-fix-events.json。
+- 验证：pnpm typecheck:node 及变更文件 eslint --no-cache --max-warnings=0 通过。
+- 验证：pnpm build 通过，仅用于本地预览交付；没有为 E2E 构建应用，没有调用 electron-builder 或 build:unpack。原有 Rollup 分块及 highlight 脚本提示保留。
+- 验证：pnpm preview:sync：64 份程序文件核验，267 个 data/legacy 文件内容保持一致，版本 1.1.0；回滚资源 .artifacts/backups/preview-sync/update-1792459918748/previous-resources。
+- 验证：pnpm test:preview:resources 通过：63 份运行资源及 134 份内置插件资源一致。
+
+## 2026-10-20 · 新增便签贴边彩色标签，修复多选悬浮与编号重置，恢复原文件搜索分类及布局
+
+记录：[floating-multiselect-and-original-finder](../../docs/history/entries/2026-10-20-01-floating-and-finder.json)；版本：未发布。
+
+- 图片悬浮隐藏绘图工具栏与标注交互，仅保留悬停置顶/关闭；标记仍使用完整工具栏。
+- 多选文本按可见列表顺序合并悬浮；便签全部关闭后序号和颜色重新开始。
+- 重新检查 upstream 691870b5b45a209f34b3626b162efeb00f177601，复用原分类侧栏、设置抽屉、分栏拖动与排序底栏，使用宿主搜索框。
+- 原十类筛选、自定义分组与启用排序；空搜索仍列举分类文件，全部支持空表达式浏览，保留连接检测契约。
+- 便签拖至屏幕工作区四边后收起为同色编号小标签，移入展开、移出收起，拖离解除；完整纸张尺寸和正文保留，追加文字时展开。
+- 修复搜索底栏箭头默认 SVG 视口放大，统一图标尺寸；设置连接指引按内容自然布局，避免被挤压。
+
+- 验证：按用户要求仅验证相关改动，不进行全量回归。
+- 验证：pnpm test tests/main/localSearchQuery.test.ts tests/main/everythingBridge.test.ts：2 文件 4 项通过，归档 .artifacts/runs/2026-10-20T01-16-03-888Z-unit。覆盖原十类、空查询、正则与分类组合、自定义规则、桥接分页/Unicode/路径匹配。
+- 验证：pnpm typecheck、变更源码及测试 eslint --no-cache --max-warnings=0、node --check resources/tools-floating.js 通过。
+- 验证：验证期间修复 Windows PowerShell 5 对无 BOM 中文注释的解析问题；便签窄标签断言兼容当前 Windows DPI 的 2 DIP 舍入。真实 Everything 已返回文件，将旧空列表断言改为接受已连接与未连接状态。
+- 验证：pnpm test:e2e tests/e2e/tools-polish.spec.ts：最终 1 项源码 Electron E2E 通过，归档 .artifacts/runs/2026-10-20T01-20-54-277Z-e2e。覆盖图片悬浮与标记分离、多选文本全部悬浮、便签黄色编号重置、贴边标签实际鼠标移入/移出和解除、原十类空查询、宿主输入、排序/分栏、真实文件预览及查询进程退出。
+- 验证：原生退出日志仍记录 ztools_native.node 0xc0000409，未宣称修复。已保留 .artifacts/runs/tools-followup-native-exit-events.json，并确认最终无本轮源码 Electron、Everything 桥接或 IPC 夹具进程遗留。
+- 验证：pnpm build 通过，仅用于预览交付；连接卡片布局补充后 pnpm build:tools 再次通过。未使用 electron-builder 或 build:unpack，源码 E2E 未使用构建应用。原有 Rollup 分块及 highlight 脚本提示保留。
+- 验证：pnpm preview:sync：核验 64 份程序文件，267 个 data/legacy 文件内容指纹一致，版本 1.1.0；备份 .artifacts/backups/preview-sync/update-1792459318350/previous-resources。
+- 验证：pnpm test:preview:resources 通过：63 份运行资源及 134 份内置插件资源一致。
+
+## 2026-10-19 · 优化便签、图片标记、搜索及识别界面，增加自动翻译与语言设置
+
+记录：[tools-ui-and-translation-preferences](../../docs/history/entries/2026-10-19-06-tools-polish.json)；版本：未发布。
+
+- 便签缩小初始尺寸，黄色起始并轮换新窗口颜色，置顶独立图标，支持四边和角落缩放。
+- 图片窗口按原图与工作区适配，修复文字输入焦点，荧光笔独立颜色、默认荧光黄，五档笔触与分行工具栏。
+- 本地文件搜索复用原插件 Finder 布局与样式，集中连接指引、分类与预览。
+- 选区弹窗新增独立自动翻译开关；在线服务保存源语言和目标语言，默认自动识别并译为简体中文。
+- 识别页参考原插件双栏布局，保留坐标选文并增加受限 LaTeX 预览。
+
+- 验证：按用户本轮指示，仅验证相关改动，不运行全量单测或全量 E2E。
+- 验证：pnpm test tests/main/builtinProviderService.test.ts --maxWorkers=2：1 个文件、6 项通过，归档 .artifacts/runs/2026-10-19T15-43-17-890Z-unit。覆盖在线语言默认值、服务配置、显式调用优先级与原有提供商协调。
+- 验证：pnpm test:e2e tests/e2e/builtin-providers.spec.ts：在两次组合执行中均通过，最近证据 .artifacts/runs/2026-10-19T15-49-58-796Z-e2e。覆盖自动翻译关闭后不调用服务、开关持久化、在线语言配置、OCR 双栏坐标选文与翻译，以及 KaTeX 实时预览和公式格式复制。该组合中的 tools-expanded 失败未计为通过。
+- 验证：pnpm test:e2e tests/e2e/tools-polish.spec.ts：独立专项通过，归档 .artifacts/runs/2026-10-19T15-54-42-067Z-e2e。覆盖图片初始贴合、340px 工具栏、文字实际输入与画布变化、荧光笔独立配色、五档笔触、便签初始黄色/新建轮色/独立置顶/真实边缘拖动、原搜索布局和连接提示、真实文件预览及分类查询。
+- 验证：开发验证中的模板多语句编译错误、入口固定绿色参数、Windows DPI 尺寸断言等均已修正并在最终专项通过。首次类型检查发现 unknown 配置值类型不匹配，已增加字符串边界检查；后续 pnpm typecheck、pnpm typecheck:setting 及 pnpm build 中类型检查通过。
+- 验证：早期 tools-expanded 组合在无关二维码阶段出现页面重载/结果丢失，并有一次测试 worker 原生退出异常，未宣称该宽组通过。按用户范围新增无二维码/重命名路径的 tools-polish 专项，失败日志与 trace 均保留。
+- 验证：修改文件 eslint --no-cache --max-warnings=0、resources/tools-floating.js 的 node --check、git diff --check 通过；新增专项文件 lint 通过。
+- 验证：公式预览固定使用 KaTeX 0.16.22，trust:false，保留 MIT 许可；原搜索 Finder 固定源码的布局/样式来源及 MIT 许可随插件保留。依赖增加只包含 KaTeX 和 commander@8.3.0，保留既有 jsQR 变更。
+- 验证：pnpm build 通过，仅用于本地预览交付，未执行 electron-builder、build:unpack 或云端构建。原有 Rollup 分块和 highlight 非 module 脚本警告仍保留。
+- 验证：pnpm preview:sync 通过：64 份程序文件核验，172 个 data/legacy 文件同步前后内容指纹一致；版本保持 1.1.0，回滚程序 .artifacts/backups/preview-sync/update-1792425398894/previous-resources。
+- 验证：pnpm test:preview:resources 通过：63 份运行资源与 134 份内置插件资源一致。
+- 验证：用户询问 Java 报错弹窗后，读取 Windows Application Error，发现本轮源码 Electron 在退出时发生 ztools_native.node 0xc0000409。还发现 23:49 创建的本轮中断 E2E 进程 PID 28656 遗留，已按精确 PID 结束该进程及其两个子进程，并确认无仍运行的本项目 preview-main 源码实例；未按进程名批量结束用户应用。事件证据 .artifacts/runs/tools-polish-native-exit-events.json。弹窗正文尚未取得，不能断言原生异常就是该弹窗或已修复底层退出问题。
+- 验证：最终 pnpm maintain、pnpm maintain:check、git diff --check 通过；变更、Bug 与测试索引已刷新。
+
+## 2026-10-19 · 复用原插件悬浮界面并改为临时纸张便签
+
+记录：[floating-plugin-ui-and-ephemeral-notes](../../docs/history/entries/2026-10-19-05-floating-ui.json)；版本：未发布。
+
+- 移除系统边框，复用原图片插件窗口结构、SVG 工具栏、拖动与缩放手柄，保留 MIT 许可和明确来源。
+- 颜色为预览圆圈点击展开八种基本配色，笔触大小为单独显示的拖动滑块；窄窗口工具栏可换行。
+- 便签复用原插件窄彩色标题栏与五种纸色，增加纸张折角；关闭即释放，不再记录或提供历史入口。
+- 文字条目右下角增加悬浮固定，匹配标签精简为悬浮文本/悬浮图片；文本匹配优先于残留剪贴板图片。
+- 剪贴板文字默认以空行追加到最近聚焦的存活便签，保留用户编辑；多窗口关闭后顺延，首次初始化期间排队追加。独立便签指令、窗口加号和 Ctrl+N 可主动新建空白窗口，新窗口错开位置。
+- 按本轮明确要求，在程序同步和资源校验后备份并重置免安装预览为初始状态。
+- 工具默认嵌入主窗口；一次迁移只撤回工具旧版默认自动分离与通用退出开关。内置插件隐藏主窗口与独立窗口右上角行为设置入口。
+- 评估后保留专属后台释放：子组件取消资源，宿主等待已登记任务后销毁页面；工具分支不会重复进入通用杀插件流程，退出 Promise 和窗口标识提供幂等保护。
+
+- 验证：pnpm test --maxWorkers=2：78 个文件、554 项单测通过，归档 .artifacts/runs/2026-10-19T13-58-59-364Z-unit。
+- 验证：全套源码 pnpm test:e2e：8 项通过、2 项失败、1 项真实模型测试按默认跳过；两项失败分别是新增标题栏检查未等待页面，以及冷启动未等待宿主 IPC 监听。保留完整失败日志 .artifacts/runs/2026-10-19T13-55-54-938Z-e2e。
+- 验证：修正等待条件后，pnpm test:e2e tests/e2e/plugin-host-regressions.spec.ts tests/e2e/tools-expanded.spec.ts：2 项通过，归档 .artifacts/runs/2026-10-19T14-00-50-586Z-e2e。本轮所有 10 个常规源码 E2E 均有通过记录，未把默认跳过模型测试计为通过。
+- 验证：tools-expanded 验证透明无边框、340px 工具栏、颜色圆圈与预设色板、实际滑块拖动、标注复制、文字快捷入口、折角/配色、关闭不持久化、多窗口聚焦追加/关闭回退、独立便签指令、加号与 Ctrl+N、新窗口初始化期间排队追加。
+- 验证：builtin-providers 验证工具默认嵌入后的自动识别和退出释放；宿主/设置稳定性回归验证内置两种标题栏无行为入口，第三方两种标题栏仍保留入口。
+- 验证：开发中早期高 DPI 1px 边界、output 隐式 status 角色、便签指令未加入宿主白名单及旧菜单断言等失败均已修正。失败输出与 trace 均保留于 .artifacts/runs，未删改或覆盖为成功。
+- 验证：pnpm typecheck、全仓 eslint --no-cache --max-warnings=0 通过；格式化过程的 Windows 临时文件占用已重试成功。
+- 验证：界面来源及 MIT 许可随资源保留；原图片插件基础 CSS 与下载版本一致。
+- 验证：git diff --check 通过。
+- 验证：pnpm build 通过，仅用于免安装预览交付；未执行 electron-builder 或 build:unpack。既有 Rollup 循环分块、动态/静态导入和 highlight 非 module 脚本警告仍保留，未宣称消除。
+- 验证：pnpm preview:sync 成功：64 份程序文件核验，565 个 data/legacy 文件同步前后 SHA-256 一致；版本保持 1.1.0。程序回退 .artifacts/backups/preview-sync/update-1792418577471/previous-resources。
+- 验证：pnpm test:preview:resources 通过：63 份运行资源、73 份内置插件资源一致。
+- 验证：按本轮用户明确授权执行 pnpm preview:reset --confirm-reset：原 data/legacy 共 565 文件完整迁移并校验到 .artifacts/backups/portable-profile/2026-10-19T14-03-52-978Z-a6ef7c76，创建空数据目录，程序不变；同步后未再次启动预览。
+- 验证：pnpm maintain、pnpm maintain:check 与最终 git diff --check 通过；记录更新后的索引过期提示已通过重新生成解决。
+
+## 2026-10-19 · 工具扩充与剪贴板悬浮融合
+
+记录：[tools-expansion-and-clipboard-floating](../../docs/history/entries/2026-10-19-04-tools-expansion.json)；版本：未发布。
+
+- 超级面板译文改为可选文、可滚动区域；识别工具进入、换图、粘贴与切换渠道后自动识别。
+- 纯图片文件组进入剪贴板图片分类并显示缩略图，保留文件载荷及资源管理器粘贴语义。
+- 参考指定五个上游插件 c8475ad7944ffdb78843cc5f56886d1443d0a724，内置文件重命名、二维码扫描、悬浮标注与本地文件搜索。
+- 重命名提供十类规则工作流、Worker 预览、冲突预检、交换改名、失败回滚和本次撤销；扫码在可终止 Worker 中执行，HTTP(S) 结果可默认浏览器打开。
+- 剪贴板右键与选区匹配可打开图片标注或悬浮；独立文字便签可选六种颜色并保存，图片标记采用换行工具栏与统一画笔设置。
+- Everything 仅连接用户已运行的本机实例，缺失或未运行时提供官方安装和开机启动指引；不随包携带、下载或自动运行 Everything。
+- 本地搜索提供有界文本、图片、目录与音视频预览；图片条目提供逐张悬浮/标记入口，支持含空格、井号和 Unicode 的路径。
+
+- 验证：pnpm test --maxWorkers=2：77 个单测文件、551 项通过，归档 .artifacts/runs/2026-10-19T12-53-50-066Z-unit。
+- 验证：原生 Everything IPC 在唯一命名的隔离 Win32 测试实例中验证中文路径、正则/大小写标志、排序及 100 条分页；不启动或停止用户 Everything。
+- 验证：最终 pnpm test:e2e：11 项中 10 项通过、1 项显式真实模型下载测试默认跳过；全套只启动 scripts/preview-main.cjs 源码和隔离数据。归档 .artifacts/runs/2026-10-19T12-55-36-664Z-e2e。
+- 验证：新增 tools-expanded 源码 E2E 覆盖真实二维码 Worker 解码与默认浏览器点击、图片文件历史分类、340 像素标注窗口无横向溢出、真实绘制/复制、关闭剪贴板后悬浮窗口保留、便签颜色/编辑/重开、真实重命名与撤销、查询进程退出以及长译文滚动。
+- 验证：自动识别由 builtin-providers 验证进入后选图、换图后取消旧翻译并自动重新识别、切换 OCR 服务及公式模式。
+- 验证：开发期间遇到模板多语句解析、测试焦点/旧 Page 选择、悬浮脚本全局 top 名冲突、窄窗口溢出及画笔浮层遮挡等失败，均已修正；失败日志和 trace 继续保存在 .artifacts/runs，未删改为成功。
+- 验证：pnpm typecheck、pnpm typecheck:setting、全仓 eslint --no-cache --max-warnings=0 通过。
+- 验证：pnpm build 通过，仅用于本地预览交付，未运行 electron-builder、build:unpack；保留既有构建警告记录，未将警告当作错误或宣称消除。
+- 验证：pnpm maintain、pnpm maintain:check 和 git diff --check 通过；预览同步完成后再次维护检查。
+- 验证：pnpm preview:sync 成功：61 份含版本元数据的程序文件通过同步核验，555 个 data/legacy 文件同步前后 SHA-256 一致；版本保持 1.1.0。
+- 验证：程序回退资源与 preservation.json：.artifacts/backups/preview-sync/update-1792414913480。
+- 验证：pnpm test:preview:resources：60 份运行资源、73 份内置插件资源一致；免安装物理展开目录包含查询桥接、文件事务和 jsQR 许可，未携带 Everything.exe。
+
+## 2026-10-19 · 长截图持续拼接验证与大图交付优化
+
+记录：[long-screenshot-continuity](../../docs/history/entries/2026-10-19-03-long-screenshot.json)；版本：未发布。
+
+- 按用户后续要求，以固定数万像素连续页面验收，不查找极限上限；身份色带检查拼接连续性和完整输出。
+- 宿主直接复用原生 PNG，不再重复读取并编码剪贴板；Windows/macOS 确认时沿用原生复制/保存，避免再次解码写回。
+- 保留旧原生模块缺少 PNG 的兼容回退；取消不触碰剪贴板，保存文件可返回正确原图而非旧剪贴板。
+
+- 验证：screenCaptureResult 与 toolsHostLifecycle 2 个单测文件、7 项通过，归档 .artifacts/runs/2026-10-19T11-38-26-541Z-unit。
+- 验证：初次扩展场景原生日志生成 PNG，但 E2E 完成后遇到 CDP 临时求值 Promise 被 GC 而失败；加入仅针对该错误的有限等待重试后完成完整验收，失败证据仍保留。
+- 验证：最终全量 pnpm test --maxWorkers=2：74 个文件、531 项通过；日志 .artifacts/runs/2026-10-19T11-41-25-266Z-unit。
+- 验证：最终源码 Electron E2E builtin-providers 与 tools-screenshot 2 项通过，归档 .artifacts/runs/2026-10-19T11-40-55-149Z-e2e；pnpm typecheck、全仓 eslint 通过。
+- 验证：固定页面 96 次滚动后输出 931×48170 PNG，549 个身份编号段从 2 到 550 连续，gapCount=0；完成、预抓帧超时和取色取消后全部工具进程退出。
+- 验证：此前 80 次滚动场景同样通过：931×40250、459 个身份段无断序，归档 .artifacts/runs/2026-10-19T11-39-18-877Z-e2e。最终场景均记录 1 次 CDP 临时求值 GC 重试，其他通信错误不忽略；不将本次长度声称为最大上限。
+- 验证：最终 pnpm build 通过；pnpm preview:sync 核验 57 份程序文件，527 个 data/legacy 文件同步前后 SHA-256 一致，未重置数据或插件。
+- 验证：预览回退资源和 preservation.json：.artifacts/backups/preview-sync/update-1792410460157；程序版本保持 1.1.0。
+- 验证：pnpm test:preview:resources：56 份运行资源、67 份内置插件资源通过；pnpm maintain、pnpm maintain:check 与 git diff --check 通过。
+
+## 2026-10-19 · 精简识别指令并恢复图片选文、坐标标注与识别后翻译
+
+记录：[ocr-selection-and-translation](../../docs/history/entries/2026-10-19-02-ocr-interaction.json)；版本：未发布。
+
+- 移除独立文本翻译、代码翻译及图片识别并翻译功能入口；旧快捷键返回已移除说明，保留翻译提供商供结果翻译与公共 API 使用。
+- 保留 OCR 完整行框，恢复原图坐标、逐行高亮、缩放对齐与图上整行和部分文字选择。
+- 识别后手动翻译英文，优先选文否则全文；原文、坐标与译文分别展示，换图/取消/退出阻止迟到回填。
+- 离线翻译沿用引擎单次 1000 字符限制，结果页明确拒绝超长输入并提示选文或改用在线/AI，避免静默截断。
+
+- 验证：提供商与指令相关 6 个单测文件、64 项通过。
+- 验证：源码 Electron E2E：builtin-providers、tools-clipboard、tools-lifecycle、tools-screenshot 共 4 项通过；补充翻译失败重试、无坐标说明与公式识别后 builtin-providers 专项通过。
+- 验证：pnpm typecheck、全仓 eslint --no-cache --max-warnings=0、pnpm build 通过；构建仅用于交付，E2E 直接加载源码。
+- 验证：失败过程包括旧控件名称、模板多语句格式化及纯中文夹具仍含 AI 英文；均修正并保留自动归档。
+- 验证：日志：.artifacts/runs/2026-10-19T11-24-00-535Z-unit、2026-10-19T11-25-36-101Z-e2e、2026-10-19T11-28-08-865Z-e2e；成功截图分别记录原图标注与译文。
+- 验证：最终全量 pnpm test --maxWorkers=2：74 个文件、531 项通过；日志 .artifacts/runs/2026-10-19T11-41-25-266Z-unit。
+- 验证：最终源码 Electron E2E builtin-providers 与 tools-screenshot 2 项通过，归档 .artifacts/runs/2026-10-19T11-40-55-149Z-e2e；pnpm typecheck、全仓 eslint 通过。
+- 验证：最终补充离线翻译长度提示与拒绝截断的源码 E2E 通过，归档 .artifacts/runs/2026-10-19T11-45-37-571Z-e2e。
+- 验证：最终 pnpm build 通过；pnpm preview:sync 核验 57 份程序文件，527 个 data/legacy 文件同步前后 SHA-256 一致，未重置数据或插件。
+- 验证：预览回退资源和 preservation.json：.artifacts/backups/preview-sync/update-1792410460157；程序版本保持 1.1.0。
+- 验证：pnpm test:preview:resources：56 份运行资源、67 份内置插件资源通过；pnpm maintain、pnpm maintain:check 与 git diff --check 通过。
+
+## 2026-10-19 · 提供商内置、工具子组件与本地版默认行为优化
+
+记录：[builtin-providers-and-tools](../../docs/history/entries/2026-10-19-01-builtin-providers.json)；版本：未发布。
+
+- 研究并固定 f-provider 源码 ae2bd2cc678b743f7683c3fb40b6606940acc3d1，将翻译、OCR、公式识别及图床配置内置到提供商页。
+- 在线翻译四个服务共用下拉栏目；AI OCR 直接复用宿主视觉模型。离线资源启用即下载，支持校验、取消、重试与删除。
+- 将文本翻译、文字/公式识别、图片识别并翻译、九种代码命名和处理记录整合为工具子组件；移除重复截图入口。
+- 默认路由只调用仍存在且已启用的提供商；保留旧 f-provider 安装与私有数据，兼容旧参数、默认标识和快捷入口。
+- 原生能力按次独立进程执行，结果交付前结束进程树；ONNX 显式 release，Bergamot 按次释放 Worker 并改用隔离数据根。
+- 超级面板始终启用，缺省按下中键触发，保留已有按键设置；已安装列表隐藏内置插件，首次应用其默认分离与退出结束配置。
+
+- 验证：pnpm test --maxWorkers=2：73 个单测文件、526 项通过；之后增加的旧提供商显式标识兼容用例随 providerConsumption/pluginPreloadInternalApi 专项 15 项通过。
+- 验证：源码 Electron E2E 全量运行 10 项：9 项通过，托盘用例因 Playwright 尚未登记插件 Page 引用失败；补充正文/页面等待后专项复测通过。
+- 验证：最终 pnpm test:e2e builtin-models、builtin-providers、plugin-cleanup-tray 专项 3 项通过；其余 7 项已在全量运行通过。所有 E2E 仅加载源码并使用隔离数据。
+- 验证：真实微信 OCR 识别 HELLO 123 通过；真实 ONNX 公式模型完成推理、逐项 release 与资源删除，实际文本记录在 real-offline-results.json，精度不作为本次通过结论。
+- 验证：初次全量单测 520 项通过、1 项窗口测试超时；该文件单独 7 项通过，随后完整 526 项通过。初期界面语法、测试控件及旧默认假设失败与修正日志均保留。
+- 验证：pnpm typecheck、pnpm typecheck:setting、全仓 eslint --no-cache --max-warnings=0 及 pnpm build 均通过；编译仅用于本地交付，E2E 未使用编译或打包产物。
+- 验证：日志和截图证据：.artifacts/runs/2026-10-19T10-51-58-470Z-unit、2026-10-19T10-54-41-602Z-unit、2026-10-19T10-49-06-766Z-e2e、2026-10-19T10-54-12-021Z-e2e。
+- 验证：pnpm preview:sync：57 份含版本元数据的程序文件通过核验；241 个 data/legacy 文件同步前后 SHA-256 一致。回退资源与 preservation.json 位于 .artifacts/backups/preview-sync/update-1792407479668。
+- 验证：pnpm test:preview:resources：56 份运行资源、67 份内置插件资源一致；公式适配脚本采用 .cjs 确保免安装预览物理展开，独立进程的两个 CommonJS 适配模块导入通过。
+- 验证：pnpm maintain 与 pnpm maintain:check 通过，改动索引、Bug 台账和回归分组已同步；既有启动器修复及维护记录未撤销。
+
+## 2026-10-18 · 修复免安装启动器找不到可执行文件
+
+记录：[portable-launcher-absolute-path](../../docs/history/entries/2026-10-18-05-portable-launcher.json)；版本：1.1.0。
+
+- 复现根启动器相对 CALL 后内部脚本切换工作目录，导致 %~dp0 重新解析并把 .local/portable-preview 重复拼接。
+- 根启动器在调用前保存绝对入口路径；本机内部启动器在 cd 前保存绝对目录，并检查 exe 存在。两份批处理使用 CRLF，关闭延迟展开以兼容含感叹号的路径。
+- 本地预览入口已直接修复，程序资源、配置、数据、已安装插件和原数据备份均不改动；本轮不 push、不云端构建、不发布 release。
+
+- 验证：先在隔离副本复现重复路径，确认 LF 和 CRLF 都存在同一相对路径问题，未将换行格式误记为根因。
+- 验证：Windows 真实 cmd.exe 调用三种启动方式全部通过：从无关目录以绝对路径调用根入口、从父目录以相对路径调用根入口、直接相对调用内部入口；夹具路径包含空格和中文。
+- 验证：隔离探针验证实际可执行目录、工作目录、data/legacy 目录及 ELECTRON_RUN_AS_NODE 清除；探针不启动 ZTools，不读写真实预览数据。证据：.artifacts/runs/portable-launcher-smoke-result.json。
+- 验证：仅修复批处理启动入口，未修改宿主/插件代码，未运行源码 E2E 或应用编译打包。
+
 ## 2026-10-18 · 目录集中整理、自动维护与一次授权发布
 
 记录：[repository-maintenance-and-release](../../docs/history/entries/2026-10-18-04-maintenance.json)；版本：1.1.0。

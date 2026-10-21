@@ -5,7 +5,7 @@ import path from 'node:path'
 import { execFileSync } from 'node:child_process'
 
 /**
- * 发送 Windows 原生中键按下与松开，覆盖真正的系统鼠标监听链路。
+ * 先真实左键聚焦隔离夹具，再发送中键，覆盖系统鼠标监听链路。
  * @param point 隔离测试窗口中的物理屏幕坐标。
  * @returns 无返回值。
  * @throws 原生输入辅助进程执行失败时抛出错误。
@@ -19,7 +19,7 @@ function clickNativeMiddle(point: { x: number; y: number }): void {
       '-WindowStyle',
       'Hidden',
       '-Command',
-      `Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class MiddleInput { [DllImport("user32.dll")] public static extern bool SetProcessDPIAware(); [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y); [DllImport("user32.dll")] public static extern void mouse_event(uint flags, uint x, uint y, uint data, UIntPtr extra); }'; [MiddleInput]::SetProcessDPIAware() | Out-Null; [MiddleInput]::SetCursorPos(${point.x},${point.y}) | Out-Null; [MiddleInput]::mouse_event(32,0,0,0,[UIntPtr]::Zero); Start-Sleep -Milliseconds 70; [MiddleInput]::mouse_event(64,0,0,0,[UIntPtr]::Zero)`
+      `Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class MiddleInput { [DllImport("user32.dll")] public static extern bool SetProcessDPIAware(); [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y); [DllImport("user32.dll")] public static extern void mouse_event(uint flags, uint x, uint y, uint data, UIntPtr extra); }'; [MiddleInput]::SetProcessDPIAware() | Out-Null; [MiddleInput]::SetCursorPos(${point.x},${point.y}) | Out-Null; [MiddleInput]::mouse_event(2,0,0,0,[UIntPtr]::Zero); [MiddleInput]::mouse_event(4,0,0,0,[UIntPtr]::Zero); Start-Sleep -Milliseconds 70; [MiddleInput]::mouse_event(32,0,0,0,[UIntPtr]::Zero); Start-Sleep -Milliseconds 70; [MiddleInput]::mouse_event(64,0,0,0,[UIntPtr]::Zero)`
     ],
     { windowsHide: true, stdio: 'pipe' }
   )
@@ -29,17 +29,17 @@ test('built-in tools classify history, copy multiple items and match recent clip
   browserName: _browserName
 }, testInfo) => {
   const root = path.resolve(__dirname, '../..')
-  const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'ztools-tools-e2e-'))
+  const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'tabdo-tools-e2e-'))
   let app: ElectronApplication | undefined
   try {
     const environment = {
       ...process.env,
-      ZTOOLS_E2E: '1',
-      ZTOOLS_SOURCE_PREVIEW: '1',
-      ZTOOLS_DATA_ROOT: path.join(temporary, 'data'),
-      ZTOOLS_LEGACY_USER_DATA_PATH: path.join(temporary, 'legacy'),
+      TABDO_E2E: '1',
+      TABDO_SOURCE_PREVIEW: '1',
+      TABDO_DATA_ROOT: path.join(temporary, 'data'),
+      TABDO_LEGACY_USER_DATA_PATH: path.join(temporary, 'legacy'),
       ELECTRON_RENDERER_URL: 'http://127.0.0.1:5174',
-      ZTOOLS_SETTING_DEV_SERVER_URL: 'http://127.0.0.1:15177'
+      TABDO_SETTING_DEV_SERVER_URL: 'http://127.0.0.1:15177'
     }
     delete environment.ELECTRON_RUN_AS_NODE
     app = await electron.launch({
@@ -48,6 +48,11 @@ test('built-in tools classify history, copy multiple items and match recent clip
       env: environment
     })
     const main = await app.firstWindow()
+    await app.evaluate(({ app }) => {
+      process
+        .mainModule!.require(app.getAppPath() + '/src/main/api/shared/database.ts')
+        .default.dbPut('auto-detach-plugin', [])
+    })
     await expect
       .poll(
         () =>
@@ -66,7 +71,7 @@ test('built-in tools classify history, copy multiple items and match recent clip
       .context()
       .pages()
       .find((p) => p.url().startsWith('http://127.0.0.1:15177'))!
-    const limit = setting.getByLabel('复制后中键匹配时限（秒）')
+    const limit = setting.getByLabel('复制后匹配时限（秒）')
     await expect(limit).toHaveValue('5')
     await limit.fill('2')
     await limit.dispatchEvent('change')
@@ -74,12 +79,12 @@ test('built-in tools classify history, copy multiple items and match recent clip
       .poll(() =>
         setting.evaluate(
           async () =>
-            (await window.ztools.internal.dbGet('settings-general')).clipboardQuickMatchSeconds
+            (await window.tabdo.internal.dbGet('settings-general')).clipboardQuickMatchSeconds
         )
       )
       .toBe(2)
     const builtin = await main.evaluate(async () =>
-      (await window.ztools.getAllPlugins()).find((p) => p.name === 'system')
+      (await window.tabdo.getAllPlugins()).find((p) => p.name === 'system')
     )
     expect(builtin?.title).toBe('工具')
     const screenshot = builtin!.features.find((f) => f.code === 'screenshot')!
@@ -115,7 +120,7 @@ test('built-in tools classify history, copy multiple items and match recent clip
       })
     })
     await main.evaluate(async (pluginPath) => {
-      await window.ztools.launch({
+      await window.tabdo.launch({
         path: pluginPath,
         type: 'plugin',
         featureCode: 'clipboard',
@@ -196,7 +201,7 @@ test('built-in tools classify history, copy multiple items and match recent clip
 
     // 侧栏按钮同样复制全部已勾选条目，刷新列表后仍不自动选择最新记录。
     await main.evaluate(async (pluginPath) => {
-      await window.ztools.launch({
+      await window.tabdo.launch({
         path: pluginPath,
         type: 'plugin',
         featureCode: 'clipboard',
@@ -232,6 +237,12 @@ test('built-in tools classify history, copy multiple items and match recent clip
       .poll(() => app!.evaluate(({ clipboard }) => clipboard.readText()))
       .toBe(selectedText.join('\n'))
 
+    // 先验证面板使用其他按键时独立的中键快速匹配；后半段再验证共用中键的入口。
+    await app.evaluate(({ app }) => {
+      process
+        .mainModule!.require(app.getAppPath() + '/src/main/core/superPanelManager.ts')
+        .default.updateConfig({ enabled: true, mouseButton: 'right', longPressMs: 500 })
+    })
     // 在独立前台窗口中通过系统鼠标输入触发，不能只向 EventEmitter 注入事件。
     const point = await app.evaluate(async ({ BrowserWindow, screen }) => {
       const area = screen.getPrimaryDisplay().workArea

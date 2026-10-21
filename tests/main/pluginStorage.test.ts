@@ -24,7 +24,7 @@ describe('plugin storage', () => {
   })
 
   it('removes an ASAR together with its unpacked directory', async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'ztools-storage-test-'))
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'tabdo-storage-test-'))
     tempDirs.push(root)
     const asarPath = path.join(root, 'demo-1.0.0-test.asar')
     await fs.writeFile(asarPath, 'asar')
@@ -43,7 +43,7 @@ describe('plugin storage', () => {
   })
 
   it('removes installed directories while preserving development source files', async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'ztools-storage-test-'))
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'tabdo-storage-test-'))
     tempDirs.push(root)
     const installed = path.join(root, 'installed')
     const source = path.join(root, 'source')

@@ -1,0 +1,34 @@
+{
+  "id": "tools-expansion-and-clipboard-floating",
+  "date": "2026-10-19",
+  "summary": "工具扩充与剪贴板悬浮融合",
+  "changes": [
+    "超级面板译文改为可选文、可滚动区域；识别工具进入、换图、粘贴与切换渠道后自动识别。",
+    "纯图片文件组进入剪贴板图片分类并显示缩略图，保留文件载荷及资源管理器粘贴语义。",
+    "参考指定五个上游插件 c8475ad7944ffdb78843cc5f56886d1443d0a724，内置文件重命名、二维码扫描、悬浮标注与本地文件搜索。",
+    "重命名提供十类规则工作流、Worker 预览、冲突预检、交换改名、失败回滚和本次撤销；扫码在可终止 Worker 中执行，HTTP(S) 结果可默认浏览器打开。",
+    "剪贴板右键与选区匹配可打开图片标注或悬浮；独立文字便签可选六种颜色并保存，图片标记采用换行工具栏与统一画笔设置。",
+    "Everything 仅连接用户已运行的本机实例，缺失或未运行时提供官方安装和开机启动指引；不随包携带、下载或自动运行 Everything。",
+    "本地搜索提供有界文本、图片、目录与音视频预览；图片条目提供逐张悬浮/标记入口，支持含空格、井号和 Unicode 的路径。"
+  ],
+  "checks": [
+    "pnpm test --maxWorkers=2：77 个单测文件、551 项通过，归档 .artifacts/runs/2026-10-19T12-53-50-066Z-unit。",
+    "原生 Everything IPC 在唯一命名的隔离 Win32 测试实例中验证中文路径、正则/大小写标志、排序及 100 条分页；不启动或停止用户 Everything。",
+    "最终 pnpm test:e2e：11 项中 10 项通过、1 项显式真实模型下载测试默认跳过；全套只启动 scripts/preview-main.cjs 源码和隔离数据。归档 .artifacts/runs/2026-10-19T12-55-36-664Z-e2e。",
+    "新增 tools-expanded 源码 E2E 覆盖真实二维码 Worker 解码与默认浏览器点击、图片文件历史分类、340 像素标注窗口无横向溢出、真实绘制/复制、关闭剪贴板后悬浮窗口保留、便签颜色/编辑/重开、真实重命名与撤销、查询进程退出以及长译文滚动。",
+    "自动识别由 builtin-providers 验证进入后选图、换图后取消旧翻译并自动重新识别、切换 OCR 服务及公式模式。",
+    "开发期间遇到模板多语句解析、测试焦点/旧 Page 选择、悬浮脚本全局 top 名冲突、窄窗口溢出及画笔浮层遮挡等失败，均已修正；失败日志和 trace 继续保存在 .artifacts/runs，未删改为成功。",
+    "pnpm typecheck、pnpm typecheck:setting、全仓 eslint --no-cache --max-warnings=0 通过。",
+    "pnpm build 通过，仅用于本地预览交付，未运行 electron-builder、build:unpack；保留既有构建警告记录，未将警告当作错误或宣称消除。",
+    "pnpm maintain、pnpm maintain:check 和 git diff --check 通过；预览同步完成后再次维护检查。",
+    "pnpm preview:sync 成功：61 份含版本元数据的程序文件通过同步核验，555 个 data/legacy 文件同步前后 SHA-256 一致；版本保持 1.1.0。",
+    "程序回退资源与 preservation.json：.artifacts/backups/preview-sync/update-1792414913480。",
+    "pnpm test:preview:resources：60 份运行资源、73 份内置插件资源一致；免安装物理展开目录包含查询桥接、文件事务和 jsQR 许可，未携带 Everything.exe。"
+  ],
+  "pending": [
+    "真实模型下载/精度测试未在本轮重新启用；不能将该跳过用例计为通过。",
+    "真实 Everything 的索引完整性与第三方文件关联、不同权限和企业策略需要在用户环境验收；协议和进程释放已有隔离自动化。",
+    "不同 DPI、多屏、真实 Explorer 选区及标注手感仍需手动验收；大图读取限制 50MB，标注画布限制 4000 万像素。"
+  ],
+  "preview": "已同步 .local/portable-preview，使用 PreviewPortable.cmd 手动测试；保留原配置、模型、剪贴板历史和已安装插件。未 push、未云端构建、未发布 release。"
+}

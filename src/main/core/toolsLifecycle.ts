@@ -81,7 +81,7 @@ export function releaseToolsView(
   // 后台清理和保存必须及时执行；页面销毁后其计时器和 JS 堆一并回收。
   contents.setBackgroundThrottling(false)
   void contents
-    .executeJavaScript('window.toolsLifecycle?.dispose()')
-    .catch((error) => console.warn('[ToolsLifecycle] 旧工具会话清理失败:', error))
+    .executeJavaScript('(window.tabdo?.lifecycle || window.toolsLifecycle)?.dispose()')
+    .catch((error) => console.warn('[PluginLifecycle] 旧会话清理失败:', error))
     .finally(finish)
 }

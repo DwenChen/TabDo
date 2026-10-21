@@ -28,7 +28,7 @@ const transformClipboardItem = (item) => {
   if (item.type === 'image') {
     return {
       ...baseItem,
-      content: 'file://' + item.imagePath || '',
+      content: item.imagePath ? window.toolsProvider.fileUrl(item.imagePath) : '',
       imagePath: item.imagePath,
       preview: item.preview,
       size: item.resolution
@@ -40,6 +40,11 @@ const transformClipboardItem = (item) => {
       return {
         ...baseItem,
         content: item.preview || '',
+        imagePath: item.category === 'image' ? item.files[0]?.path : undefined,
+        imageSources:
+          item.category === 'image'
+            ? item.files.map((file) => window.toolsProvider.fileUrl(file.path))
+            : [],
         files: item.files.map((file) => ({
           name: file.name,
           path: file.path,
@@ -176,7 +181,7 @@ export function useClipboardData(activeTab, searchText, favorites) {
         return
       }
 
-      const result = await window.ztools.clipboard.getHistory(
+      const result = await window.tabdo.clipboard.getHistory(
         currentPage.value,
         PAGE_SIZE,
         searchText.value || undefined,

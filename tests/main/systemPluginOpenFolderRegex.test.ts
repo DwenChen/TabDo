@@ -44,7 +44,7 @@ describe('system plugin open-folder regex', () => {
 
   it('matches Windows drive paths that use backslashes', () => {
     expect(regex.test('C:\\Users\\Test\\Desktop')).toBe(true)
-    expect(regex.test('D:\\Work Projects\\ZTools')).toBe(true)
+    expect(regex.test('D:\\Work Projects\\TabDo')).toBe(true)
   })
 
   it('matches Unix-style folder paths', () => {

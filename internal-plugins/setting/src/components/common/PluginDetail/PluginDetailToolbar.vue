@@ -12,9 +12,7 @@ defineProps<{
   showMarketButton?: boolean
   // 设置
   showSettingsDropdown: boolean
-  isAutoKill: boolean
   isAutoDetach: boolean
-  isAutoStart: boolean
   isMainPushEnabled: boolean
   showMainPushToggle?: boolean
 }>()
@@ -28,9 +26,7 @@ const emit = defineEmits<{
   (e: 'toggle-pin'): void
   (e: 'toggle-disabled', disabled: boolean): void
   (e: 'toggle-settings-dropdown'): void
-  (e: 'toggle-auto-kill'): void
   (e: 'toggle-auto-detach'): void
-  (e: 'toggle-auto-start'): void
   (e: 'toggle-main-push-enabled'): void
 }>()
 
@@ -142,31 +138,11 @@ function handleDisabledToggle(event: Event): void {
           </div>
           <div class="settings-dropdown-item">
             <div class="settings-item-info">
-              <span class="settings-item-label">退出即结束</span>
-              <span class="settings-item-desc">退出到后台时立即终止插件进程</span>
-            </div>
-            <label class="toggle">
-              <input type="checkbox" :checked="isAutoKill" @change="emit('toggle-auto-kill')" />
-              <span class="toggle-slider"></span>
-            </label>
-          </div>
-          <div class="settings-dropdown-item">
-            <div class="settings-item-info">
               <span class="settings-item-label">自动分离窗口</span>
               <span class="settings-item-desc">打开时自动分离为独立窗口</span>
             </div>
             <label class="toggle">
               <input type="checkbox" :checked="isAutoDetach" @change="emit('toggle-auto-detach')" />
-              <span class="toggle-slider"></span>
-            </label>
-          </div>
-          <div class="settings-dropdown-item">
-            <div class="settings-item-info">
-              <span class="settings-item-label">跟随启动</span>
-              <span class="settings-item-desc">跟随主程序同时启动运行</span>
-            </div>
-            <label class="toggle">
-              <input type="checkbox" :checked="isAutoStart" @change="emit('toggle-auto-start')" />
               <span class="toggle-slider"></span>
             </label>
           </div>

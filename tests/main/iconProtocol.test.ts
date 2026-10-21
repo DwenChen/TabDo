@@ -18,7 +18,10 @@ vi.mock('../../src/main/core/native/index', () => ({
   }
 }))
 
-import { registerIconProtocolForSession } from '../../src/main/core/iconProtocol'
+import {
+  getFileIconAsBase64,
+  registerIconProtocolForSession
+} from '../../src/main/core/iconProtocol'
 
 const tempDirectories: string[] = []
 
@@ -31,6 +34,29 @@ afterEach(async () => {
 })
 
 describe('icon protocol', () => {
+  it('coalesces simultaneous extraction and retries after failure', async () => {
+    mocks.getFileIcon.mockResolvedValueOnce(Buffer.from('same icon'))
+    const results = await Promise.all(
+      Array.from({ length: 20 }, () => getFileIconAsBase64('/coalesced.exe'))
+    )
+    expect(new Set(results).size).toBe(1)
+    expect(mocks.getFileIcon).toHaveBeenCalledOnce()
+    mocks.getFileIcon
+      .mockRejectedValueOnce(new Error('not ready'))
+      .mockResolvedValueOnce(Buffer.from('retry icon'))
+    await expect(getFileIconAsBase64('/retry.exe')).rejects.toThrow('not ready')
+    await expect(getFileIconAsBase64('/retry.exe')).resolves.toContain('data:image/png;base64,')
+    expect(mocks.getFileIcon).toHaveBeenCalledTimes(3)
+  })
+
+  it('evicts by bytes even when only two large icons were requested', async () => {
+    mocks.getFileIcon.mockImplementation(async () => Buffer.alloc(9 * 1024 * 1024))
+    await getFileIconAsBase64('/large-a.exe')
+    await getFileIconAsBase64('/large-b.exe')
+    await getFileIconAsBase64('/large-a.exe')
+    expect(mocks.getFileIcon).toHaveBeenCalledTimes(3)
+  })
+
   it('直接返回 UWP PNG 原图，不提取 PNG 文件类型图标', async () => {
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'ztools-icon-protocol-'))
     tempDirectories.push(directory)

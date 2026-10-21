@@ -18,15 +18,15 @@ export class PluginRedirectAPI {
   }
 
   private setupIPC(): void {
-    ipcMain.on('ztools-redirect', (event, { label, payload }) => {
+    ipcMain.on('tabdo-redirect', (event, { label, payload }) => {
       event.returnValue = this.handleRedirect(label, payload)
     })
 
-    ipcMain.on('ztools-redirect-hotkey-setting', (event, cmdLabel: string) => {
+    ipcMain.on('tabdo-redirect-hotkey-setting', (event, cmdLabel: string) => {
       event.returnValue = this.redirectToSettingPage('Shortcuts', '快捷键', cmdLabel)
     })
 
-    ipcMain.on('ztools-redirect-ai-models-setting', (event) => {
+    ipcMain.on('tabdo-redirect-ai-models-setting', (event) => {
       // 兼容旧跳转：AI 模型已并入「提供商」容器页的 AI tab
       event.returnValue = this.redirectToSettingPage('Providers', '提供商')
     })
@@ -252,7 +252,7 @@ export class PluginRedirectAPI {
   private showNotification(body: string): void {
     if (Notification.isSupported()) {
       new Notification({
-        title: 'ZTools',
+        title: 'TabDo',
         body: body
       }).show()
     }

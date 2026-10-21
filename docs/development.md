@@ -2,6 +2,8 @@
 
 本项目每轮改动必须遵守 [维护必读](maintenance.md)，目录、历史故障和测试入口见 [文档索引](README.md)。
 
+第三方插件按 [新开发规范](plugin-development.md) 实现，独立索引在 [TabDo-plugins](https://github.com/DwenChen/TabDo-plugins) 管理。
+
 涉及内置“工具”插件的开发，必须先阅读 [工具子组件开发原则](tools-development.md)。
 
 ## 无本地构建的预览
@@ -32,7 +34,7 @@ pnpm test:e2e
 
 端到端测试直接启动源码 Electron，复用预编译运行时并自动启动源码服务器，不执行本地构建和应用打包。所有测试使用临时数据根目录。截图为插件 WebContentsView 的可见区域，输出到 `test-results/playwright`。
 
-`settings-window-stability.spec.ts` 通过真实窗口事件验证：并发打开设置不重复装配、保留当前设置页面、原生菜单失焦不隐藏窗口、X 关闭后延迟焦点通知不重开，以及过期的异步启动结果不重新弹出窗口。右上角菜单恢复插件分离、开发者工具、运行配置与结束运行；主搜索专属功能继续保持裁剪。
+`settings-window-stability.spec.ts` 通过真实窗口事件验证：并发打开设置不重复装配、保留当前设置页面、原生菜单失焦不隐藏窗口、X 关闭后延迟焦点通知不重开，以及过期的异步启动结果不重新弹出窗口。右上角菜单提供插件分离、开发者工具与结束运行；主搜索专属功能继续保持裁剪。
 
 工具、剪贴板、中键、截图、插件加载/分离与免安装预览曾出现的问题，统一收录在[历史故障回归集](../tests/regressions/README.md)。先用 `pnpm test:regressions --list` 查看，再按 `clipboard`、`panel`、`host`、`screenshot`、`preview` 分组执行；小范围修复不默认运行全部回归。成品资源同步后可独立运行 `pnpm test:preview:resources` 只读核验，人工交互与配置/插件保留按清单逐项验收。
 

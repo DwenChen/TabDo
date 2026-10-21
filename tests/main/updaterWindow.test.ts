@@ -47,7 +47,7 @@ const mocks = vi.hoisted(() => {
 
 vi.mock('electron', () => ({
   app: {
-    getAppPath: vi.fn(() => 'D:\\ztools'),
+    getAppPath: vi.fn(() => 'D:\\tabdo'),
     getVersion: vi.fn(() => '3.1.0'),
     isPackaged: false
   },
@@ -125,7 +125,7 @@ describe('updater window controls', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.useFakeTimers()
-    vi.stubEnv('ZTOOLS_E2E', '1')
+    vi.stubEnv('TABDO_E2E', '1')
     vi.mocked(databaseAPI.dbGet).mockReturnValue(null)
     mocks.ipcListeners.clear()
     mocks.navigationListeners.clear()
@@ -140,7 +140,7 @@ describe('updater window controls', () => {
   })
 
   it('checks the update catalog on startup and every 30 minutes without heartbeat responses', async () => {
-    vi.stubEnv('ZTOOLS_E2E', '0')
+    vi.stubEnv('TABDO_E2E', '0')
     const updater = new UpdaterAPI()
     updater.init({ webContents: { send: vi.fn() } } as any)
     await vi.advanceTimersByTimeAsync(0)
@@ -164,7 +164,7 @@ describe('updater window controls', () => {
   })
 
   it('keeps automatic checks off when disabled while allowing manual checks', async () => {
-    vi.stubEnv('ZTOOLS_E2E', '0')
+    vi.stubEnv('TABDO_E2E', '0')
     vi.mocked(databaseAPI.dbGet).mockReturnValue({ autoCheckUpdate: false })
     const updater = new UpdaterAPI()
     updater.init({ webContents: { send: vi.fn() } } as any)
@@ -177,7 +177,7 @@ describe('updater window controls', () => {
   })
 
   it('does not notify when automatic checks are disabled during an in-flight request', async () => {
-    vi.stubEnv('ZTOOLS_E2E', '0')
+    vi.stubEnv('TABDO_E2E', '0')
     let resolveUpdate!: (value: any) => void
     vi.mocked(fetchLatestServerUpdate).mockImplementationOnce(
       () =>

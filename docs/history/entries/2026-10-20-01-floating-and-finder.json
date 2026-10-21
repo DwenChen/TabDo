@@ -1,0 +1,30 @@
+{
+  "id": "floating-multiselect-and-original-finder",
+  "date": "2026-10-20",
+  "summary": "新增便签贴边彩色标签，修复多选悬浮与编号重置，恢复原文件搜索分类及布局",
+  "changes": [
+    "图片悬浮隐藏绘图工具栏与标注交互，仅保留悬停置顶/关闭；标记仍使用完整工具栏。",
+    "多选文本按可见列表顺序合并悬浮；便签全部关闭后序号和颜色重新开始。",
+    "重新检查 upstream 691870b5b45a209f34b3626b162efeb00f177601，复用原分类侧栏、设置抽屉、分栏拖动与排序底栏，使用宿主搜索框。",
+    "原十类筛选、自定义分组与启用排序；空搜索仍列举分类文件，全部支持空表达式浏览，保留连接检测契约。",
+    "便签拖至屏幕工作区四边后收起为同色编号小标签，移入展开、移出收起，拖离解除；完整纸张尺寸和正文保留，追加文字时展开。",
+    "修复搜索底栏箭头默认 SVG 视口放大，统一图标尺寸；设置连接指引按内容自然布局，避免被挤压。"
+  ],
+  "checks": [
+    "按用户要求仅验证相关改动，不进行全量回归。",
+    "pnpm test tests/main/localSearchQuery.test.ts tests/main/everythingBridge.test.ts：2 文件 4 项通过，归档 .artifacts/runs/2026-10-20T01-16-03-888Z-unit。覆盖原十类、空查询、正则与分类组合、自定义规则、桥接分页/Unicode/路径匹配。",
+    "pnpm typecheck、变更源码及测试 eslint --no-cache --max-warnings=0、node --check resources/tools-floating.js 通过。",
+    "验证期间修复 Windows PowerShell 5 对无 BOM 中文注释的解析问题；便签窄标签断言兼容当前 Windows DPI 的 2 DIP 舍入。真实 Everything 已返回文件，将旧空列表断言改为接受已连接与未连接状态。",
+    "pnpm test:e2e tests/e2e/tools-polish.spec.ts：最终 1 项源码 Electron E2E 通过，归档 .artifacts/runs/2026-10-20T01-20-54-277Z-e2e。覆盖图片悬浮与标记分离、多选文本全部悬浮、便签黄色编号重置、贴边标签实际鼠标移入/移出和解除、原十类空查询、宿主输入、排序/分栏、真实文件预览及查询进程退出。",
+    "原生退出日志仍记录 ztools_native.node 0xc0000409，未宣称修复。已保留 .artifacts/runs/tools-followup-native-exit-events.json，并确认最终无本轮源码 Electron、Everything 桥接或 IPC 夹具进程遗留。",
+    "pnpm build 通过，仅用于预览交付；连接卡片布局补充后 pnpm build:tools 再次通过。未使用 electron-builder 或 build:unpack，源码 E2E 未使用构建应用。原有 Rollup 分块及 highlight 脚本提示保留。",
+    "pnpm preview:sync：核验 64 份程序文件，267 个 data/legacy 文件内容指纹一致，版本 1.1.0；备份 .artifacts/backups/preview-sync/update-1792459318350/previous-resources。",
+    "pnpm test:preview:resources 通过：63 份运行资源及 134 份内置插件资源一致。"
+  ],
+  "pending": [
+    "多屏/DPI、系统原生拖动与多张色签堆叠的手感保留人工验收。",
+    "真实 Everything 不同版本和大型数据下的查询体验需用户手动检查；本轮已验证隔离 IPC 协议并在当前环境成功返回实际文件。",
+    "此前主进程弹窗精确堆栈仍未知；系统记录的原生模块退出异常保持待排查，不属于本轮已修复项。"
+  ],
+  "preview": "已同步 .local/portable-preview，使用 PreviewPortable.cmd 进行手动测试；267 个原数据文件内容保持一致，保留配置、插件及备份。未重置、未 push、未云端构建、未发布 release。"
+}

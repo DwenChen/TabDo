@@ -1,9 +1,9 @@
-import { ipcMain, shell } from 'electron'
+import { ipcMain, shell, Notification } from 'electron'
 import { execFile } from 'child_process'
 import type { PluginManager } from '../../managers/pluginManager'
 import { promises as fs } from 'fs'
 import path from 'path'
-import { normalizeIconPath, toZToolsIconUrl } from '../../common/iconUtils'
+import { normalizeIconPath, toTabDoIconUrl } from '../../common/iconUtils'
 import { launchApp, type ConfirmDialogOptions } from '../../core/commandLauncher'
 import { scanApplications } from '../../core/commandScanner'
 import {
@@ -19,6 +19,9 @@ import { executeSystemCommand } from './systemCommands'
 import { findCommandIndex, filterOutCommand, hasCommand } from './commandMatchers'
 import { systemSettingsAPI } from './systemSettings'
 import { shouldKeepMainWindowHiddenForLaunch, type PluginLaunchSource } from '@shared/pluginLaunch'
+import { isToolsPluginPath } from '../../core/toolsLifecycle'
+import { launchWebQuickOpen } from '../../core/webQuickOpen'
+import { getPluginDocId } from '@shared/pluginRuntimeNamespace'
 
 /**
  * 上次匹配状态接口
@@ -236,7 +239,7 @@ export class AppsAPI {
         let hasUwpPackageChanges = false
         if (process.platform === 'win32') {
           try {
-            // 轻量比较包注册快照，补偿 ZTools 未运行期间错过的安装、更新和卸载事件。
+            // 轻量比较包注册快照，补偿 TabDo 未运行期间错过的安装、更新和卸载事件。
             currentUwpPackageSnapshot = UwpManager.getPackageSnapshot()
             const cachedUwpPackageSnapshot = databaseAPI.dbGet(AppsAPI.UWP_PACKAGE_SNAPSHOT_KEY)
             hasUwpPackageChanges = hasUwpPackageSnapshotChanged(
@@ -305,7 +308,7 @@ export class AppsAPI {
       apps.push({
         name: uwpApp.name,
         path: uwpPath,
-        icon: toZToolsIconUrl(uwpApp.icon)
+        icon: toTabDoIconUrl(uwpApp.icon)
       })
     }
 
@@ -555,6 +558,9 @@ export class AppsAPI {
       return { success: true }
     }
 
+    // 主窗口占位或 show 之前先移除旧工具，防止同插件内切换时把旧正文重新亮出。
+    this.pluginManager.retireToolsViewForLaunch(appPath, featureCode)
+
     if (shouldAutoDetach) {
       const result = await this.pluginManager.createPluginInDetachedWindow(appPath, featureCode)
 
@@ -619,6 +625,29 @@ export class AppsAPI {
     try {
       // 判断是插件还是直接启动
       if (type === 'plugin') {
+        const registered = this.getPluginsFromDB()
+        // 已删除功能的旧固定项与快捷键也不能恢复原界面或自动翻译。
+        const targetPlugin = registered.find((plugin) => plugin.path === appPath)
+        if (
+          ['system', 'f-provider'].includes(targetPlugin?.name || '') &&
+          ['translate', 'code-translate', 'ocr-translate', 'screen-ocr-translate'].includes(
+            featureCode || ''
+          )
+        ) {
+          return { success: false, error: '该指令已移除，请使用“文字识别”中的翻译按钮' }
+        }
+        if (registered.some((plugin) => plugin.path === appPath && plugin.name === 'f-provider')) {
+          const tools = registered.find((plugin) => plugin.name === 'system')
+          const migratedCode =
+            (
+              {
+                manage: 'recognize',
+                'screen-ocr': 'recognize',
+                'screen-latex': 'latex-recognize'
+              } as Record<string, string>
+            )[featureCode || 'manage'] || featureCode
+          if (tools) return this.launch({ ...options, path: tools.path, featureCode: migratedCode })
+        }
         if (pluginsAPI.isPluginDisabled(appPath)) {
           return { success: false, error: '插件已禁用' }
         }
@@ -683,6 +712,38 @@ export class AppsAPI {
           this.addToHistory({ path: appPath, type, featureCode, param, name, cmdType })
         }
 
+        // 文本匹配直接交给有界宿主操作，避免为一个二级菜单装载完整工具页面。
+        if (
+          featureCode === 'web-search-text' &&
+          isToolsPluginPath(appPath) &&
+          typeof param?.payload === 'string' &&
+          param.payload
+        ) {
+          const { default: lmdbInstance } = await import('../../core/lmdb/lmdbInstance')
+          const stored = lmdbInstance.get(getPluginDocId('system', 'web-quick-open'))
+          this.pluginManager?.hidePluginView()
+          this.notifyRenderer('app-launched')
+          try {
+            // 先登记完整宿主任务，再隐藏来源窗口；菜单首帧仍在加载完成后显示。
+            const operation = launchWebQuickOpen(0, {
+              id: crypto.randomUUID(),
+              kind: 'text',
+              text: param.payload,
+              config: stored?.value ?? stored?.data
+            })
+            this.mainWindow?.hide()
+            await operation
+          } catch (error) {
+            // 隐藏型入口仍沿用工具的系统通知，不创建错误提示页面。
+            if (Notification.isSupported())
+              new Notification({
+                title: 'TabDo',
+                body: `网页快开：${error instanceof Error ? error.message : String(error)}`
+              }).show()
+          }
+          return { success: true }
+        }
+
         // 读取 plugin.json（一次性读取，后续复用）
         let pluginConfig: any = null
         try {
@@ -692,8 +753,33 @@ export class AppsAPI {
           console.error('[Commands] 读取 plugin.json 失败:', error)
         }
 
-        // 工具的剪贴板打开内置视图，其余功能继续执行系统操作。
-        if (pluginConfig?.name === 'system' && featureCode !== 'clipboard') {
+        // 有界面的工具子组件交给统一窗口流程，其余功能执行系统操作。
+        if (
+          pluginConfig?.name === 'system' &&
+          ![
+            'clipboard',
+            'recognize',
+            'latex-recognize',
+            'file-renamer',
+            'folder-break',
+            'qrcode-scan',
+            'image-annotate',
+            'float-content',
+            'sticky-note',
+            'local-search',
+            'screen-recorder',
+            'screen-recorder-region',
+            'screen-recorder-stop',
+            'image-batch',
+            'image-batch-folder',
+            'image-manual-crop',
+            'image-merge',
+            'video-batch',
+            'web-quick-open',
+            'web-search-text',
+            'web-search-image'
+          ].includes(featureCode || '')
+        ) {
           console.log('[Commands] 检测到 system 插件，执行系统命令:', featureCode)
           return await executeSystemCommand(
             featureCode || '',
@@ -1353,6 +1439,8 @@ export class AppsAPI {
 
       // 处理插件指令。
       for (const plugin of plugins) {
+        // 原 f-provider 的能力统一由工具提供，旧安装与私有数据继续保留。
+        if (plugin.name === 'f-provider') continue
         if (!plugin.features || !Array.isArray(plugin.features)) {
           continue
         }

@@ -3,6 +3,7 @@ import { computed, onMounted, watch } from 'vue'
 import { CommandTag, FeatureCard, MatchCommandDetailDialog, TagDropdown } from '@/components'
 import { usePluginCommandActions } from '@/composables'
 import type { DocItem, PluginItem, TabId, TabItem } from './types'
+import { groupToolFeatures } from '@/utils/toolFeatureGroups'
 import PluginReleaseNotes from './PluginReleaseNotes.vue'
 
 const props = defineProps<{
@@ -53,6 +54,14 @@ const {
 
 const pluginName = computed(() => props.plugin.name || '')
 const hasCommandActions = computed(() => Boolean(props.plugin.path))
+
+// 分类只影响内置工具的展示；菜单始终接收原功能码，保留快捷键、固定与禁用的作用范围。
+const featureGroups = computed(() =>
+  groupToolFeatures(
+    props.plugin.features || [],
+    Boolean(props.plugin.isBuiltin && props.plugin.name === 'system')
+  )
+)
 
 // 首次挂载 + 切换插件（组件实例被复用、onMounted 不再触发）时重新加载指令操作数据
 onMounted(() => {
@@ -135,57 +144,82 @@ function formatDate(dateStr?: string): string {
       <!-- 指令列表 Tab -->
       <div v-if="activeTab === 'commands'" class="tab-panel">
         <div v-if="plugin.features && plugin.features.length > 0" class="feature-list">
-          <FeatureCard v-for="feature in plugin.features" :key="feature.code" :feature="feature">
-            <template v-for="cmd in feature.cmds" :key="cmdKey(cmd)">
-              <!-- 已安装：全部指令支持操作菜单 -->
-              <TagDropdown
-                v-if="hasCommandActions && isMatchCommand(cmd)"
-                :menu-items="
-                  getMenuItems(
-                    isCommandDisabled(pluginName, feature.code, cmdKey(cmd), cmd.type || 'text'),
-                    cmd.type,
-                    pluginName,
-                    feature.code,
-                    cmdKey(cmd)
-                  )
-                "
-                @select="(key) => handleMatchMenuSelect(key, feature, cmd)"
-              >
-                <CommandTag
-                  :command="normalizeCommand(cmd)"
-                  :disabled="
-                    isCommandDisabled(pluginName, feature.code, cmdKey(cmd), cmd.type || 'text')
+          <FeatureCard
+            v-for="group in featureGroups"
+            :key="group.code"
+            :feature="group"
+            :data-command-group="group.code"
+          >
+            <div
+              v-for="feature in group.features"
+              :key="feature.code"
+              class="feature-command-row"
+              :class="{ grouped: group.features.length > 1 }"
+              :data-feature-code="feature.code"
+            >
+              <img
+                v-if="group.features.length > 1 && feature.icon"
+                class="command-feature-icon"
+                :src="feature.icon"
+                alt=""
+              />
+              <template v-for="cmd in feature.cmds" :key="cmdKey(cmd)">
+                <!-- 已安装：全部指令支持操作菜单 -->
+                <TagDropdown
+                  v-if="hasCommandActions && isMatchCommand(cmd)"
+                  :menu-items="
+                    getMenuItems(
+                      isCommandDisabled(pluginName, feature.code, cmdKey(cmd), cmd.type || 'text'),
+                      cmd.type,
+                      pluginName,
+                      feature.code,
+                      cmdKey(cmd)
+                    )
                   "
-                  show-arrow
-                />
-              </TagDropdown>
-              <TagDropdown
-                v-else-if="hasCommandActions"
-                :menu-items="
-                  getMenuItems(
-                    isCommandDisabled(pluginName, feature.code, cmdKey(cmd), cmd.type || 'text'),
-                    cmd.type || 'text',
-                    pluginName,
-                    feature.code,
-                    cmdKey(cmd)
-                  )
-                "
-                @select="
-                  (key) =>
-                    handleMenuSelect(key, pluginName, feature.code, cmdKey(cmd), cmd.type || 'text')
-                "
-              >
-                <CommandTag
-                  :command="normalizeCommand(cmd)"
-                  :disabled="
-                    isCommandDisabled(pluginName, feature.code, cmdKey(cmd), cmd.type || 'text')
+                  @select="(key) => handleMatchMenuSelect(key, feature, cmd)"
+                >
+                  <CommandTag
+                    :command="normalizeCommand(cmd)"
+                    :disabled="
+                      isCommandDisabled(pluginName, feature.code, cmdKey(cmd), cmd.type || 'text')
+                    "
+                    show-arrow
+                  />
+                </TagDropdown>
+                <TagDropdown
+                  v-else-if="hasCommandActions"
+                  :menu-items="
+                    getMenuItems(
+                      isCommandDisabled(pluginName, feature.code, cmdKey(cmd), cmd.type || 'text'),
+                      cmd.type || 'text',
+                      pluginName,
+                      feature.code,
+                      cmdKey(cmd)
+                    )
                   "
-                  show-arrow
-                />
-              </TagDropdown>
-              <!-- 未安装：纯展示 -->
-              <CommandTag v-else :command="normalizeCommand(cmd)" />
-            </template>
+                  @select="
+                    (key) =>
+                      handleMenuSelect(
+                        key,
+                        pluginName,
+                        feature.code,
+                        cmdKey(cmd),
+                        cmd.type || 'text'
+                      )
+                  "
+                >
+                  <CommandTag
+                    :command="normalizeCommand(cmd)"
+                    :disabled="
+                      isCommandDisabled(pluginName, feature.code, cmdKey(cmd), cmd.type || 'text')
+                    "
+                    show-arrow
+                  />
+                </TagDropdown>
+                <!-- 未安装：纯展示 -->
+                <CommandTag v-else :command="normalizeCommand(cmd)" />
+              </template>
+            </div>
           </FeatureCard>
         </div>
         <div v-else class="empty-message">暂无指令</div>
@@ -483,6 +517,24 @@ function formatDate(dateStr?: string): string {
 }
 
 /* 指令列表样式 */
+.feature-command-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.feature-command-row.grouped {
+  width: 100%;
+}
+
+.command-feature-icon {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
 .feature-list {
   display: flex;
   flex-direction: column;

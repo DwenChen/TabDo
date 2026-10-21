@@ -1,12 +1,12 @@
 import { platform } from '@electron-toolkit/utils'
-import { app, BrowserWindow, session, webContents } from 'electron'
+import { app, BrowserWindow, session, webContents, Menu } from 'electron'
 import log from 'electron-log'
+import { installConsolePipeGuard } from './core/consolePipeGuard'
 import path from 'path'
 import lmdbInstance from './core/lmdb/lmdbInstance'
 import api from './api/index'
 import updaterAPI from './api/updater'
 import appsAPI from './api/renderer/commands'
-import pluginsAPI from './api/renderer/plugins'
 import appWatcher from './appWatcher'
 import {
   ensureMacAccessibilityPermission,
@@ -24,12 +24,19 @@ import { loadInternalPlugins } from './core/internalPluginLoader'
 import { cleanupPendingPluginArtifacts } from './core/pluginArtifactCleanup'
 import pluginManager from './managers/pluginManager'
 import windowManager from './managers/windowManager'
+import clipboardManager from './managers/clipboardManager'
+import { stopProviderBridgeHost } from './core/provider/providerBridgeHost'
+import { stopRecorder } from './core/screenRecorder'
+import { stopWebQuickOpen } from './core/webQuickOpen'
+import { stopMedia } from './core/mediaProcessor'
 
-const isE2ETest = process.env.ZTOOLS_E2E === '1'
+const isE2ETest = process.env.TABDO_E2E === '1'
 
 // 待打开的 .zpx 文件路径（在 app.ready 之前收到的文件打开事件）
 let pendingZpxFile: string | null = null
 let applicationInitialized = false
+let nativeResourcesReleased = false
+let nativeShutdown: Promise<void> | null = null
 
 // macOS 在 ready 事件前隐藏 Dock 图标，避免应用启动期间短暂显示。
 if (platform.isMacOS) {
@@ -94,16 +101,15 @@ log.transports.file.maxSize = 5 * 1024 * 1024 // 5MB
 log.transports.file.resolvePathFn = () => {
   return path.join(getLogsPath(), 'main.log')
 }
-log.transports.console.level = 'debug'
+// 免安装与安装版无需终端输出；开发终端断开时仅停用控制台通道，文件日志继续保存。
+log.transports.console.level = app.isPackaged ? false : 'debug'
+const releaseConsolePipeGuard = installConsolePipeGuard(log.transports.console)
+process.once('exit', releaseConsolePipeGuard)
 
 // 生产环境接管 console
 // if (process.env.NODE_ENV === 'production') {
 Object.assign(console, log.functions)
 // }
-
-// 安装日志收集器 hook（用于设置插件的调试控制台）
-import logCollector from './core/logCollector.js'
-logCollector.install()
 
 // 开发模式下禁用某些警告
 if (process.env.NODE_ENV !== 'production') {
@@ -117,20 +123,25 @@ if (process.env.NODE_ENV !== 'production') {
 
 // 导出函数供 API 使用
 /**
- * 更新主窗口使用的全局唤起快捷键。
+ * 更新打开应用设置页的全局快捷键，空字符串表示关闭。
+ * @param shortcut 用户录制的快捷键或空字符串。
+ * @returns 是否成功注册或关闭。
  */
 export function updateShortcut(shortcut: string): boolean {
   return windowManager.registerShortcut(shortcut)
 }
 
 /**
- * 读取当前已经生效的全局唤起快捷键。
+ * 读取当前设置页呼出快捷键。
+ * @returns 当前快捷键；关闭时为空字符串。
  */
 export function getCurrentShortcut(): string {
   return windowManager.getCurrentShortcut()
 }
 
 app.whenReady().then(async () => {
+  // 避免 Windows 默认菜单的关闭和开发者加速键绕过内置快捷键开关。
+  if (process.platform === 'win32') Menu.setApplicationMenu(null)
   // macOS 辅助功能权限检查和请求（如果未授权则弹窗提示）
   await ensureMacAccessibilityPermission()
 
@@ -150,8 +161,8 @@ app.whenReady().then(async () => {
   const mainWindow = windowManager.createWindow()
 
   if (
-    (isE2ETest || process.env.ZTOOLS_SOURCE_PREVIEW === '1') &&
-    process.env.ZTOOLS_PREVIEW_OPEN_SETTINGS !== '0'
+    (isE2ETest || process.env.TABDO_SOURCE_PREVIEW === '1') &&
+    process.env.TABDO_PREVIEW_OPEN_SETTINGS !== '0'
   ) {
     // 测试模式直接展示窗口，让自动化驱动无需依赖全局快捷键。
     mainWindow.once('ready-to-show', () => {
@@ -175,33 +186,7 @@ app.whenReady().then(async () => {
   // 注册全局快捷键
   if (!isE2ETest) windowManager.registerShortcut()
 
-  // 自动启动已配置的"跟随主程序同时启动运行"的插件
-  if (mainWindow && !isE2ETest) {
-    try {
-      const autoStartPlugins = api.dbGet('auto-start-plugin')
-      const disabledPlugins = pluginsAPI.getDisabledPluginSet()
-      if (autoStartPlugins && Array.isArray(autoStartPlugins) && autoStartPlugins.length > 0) {
-        console.log('[Main] 开始处理自动启动插件:', { count: autoStartPlugins.length })
-        const plugins = api.dbGet('plugins')
-        if (plugins && Array.isArray(plugins)) {
-          for (const pluginName of autoStartPlugins) {
-            if (typeof pluginName !== 'string') continue
-            const plugin = plugins.find((p: any) => p?.name === pluginName)
-            if (plugin?.path && !disabledPlugins.has(plugin.path)) {
-              console.log('[Main] 自动启动插件:', { pluginName: plugin.name })
-              pluginManager.preloadPlugin(plugin.path).catch((error) => {
-                console.error('[Main] 自动启动插件失败:', plugin.name, error)
-              })
-            } else {
-              console.warn('[Main] 自动启动插件已跳过，未找到对应变体:', pluginName)
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error('[Main] 读取自动启动插件配置失败:', error)
-    }
-  }
+  // 插件只在用户操作或明确能力调用时创建，不恢复旧的随宿主预加载设置。
 
   applicationInitialized = true
 
@@ -236,12 +221,25 @@ app.on('will-quit', () => {
   httpServer.stop()
 })
 
-app.on('before-quit', (event) => {
-  // 自动化关闭应用时不拦截退出流程，避免测试进程残留。
-  if (isE2ETest) return
+/**
+ * 在 JS 环境和数据库仍可用时停止原生回调源，并等待已采集的剪贴板记录保存。
+ * @returns 原生监听与在途记录清理完成后的 Promise。
+ */
+async function releaseNativeResources(): Promise<void> {
+  stopWebQuickOpen()
+  await stopMedia()
+  await stopRecorder(false)
+  try {
+    stopProviderBridgeHost()
+  } catch (error) {
+    console.error('[Main] 停止原生提供商桥接失败:', error)
+  }
+  await clipboardManager.stop()
+}
 
+app.on('before-quit', (event) => {
   // 检查是否是通过托盘菜单主动退出
-  if (!windowManager.getQuitting()) {
+  if (!isE2ETest && !windowManager.getQuitting()) {
     // 不是主动退出（如 Command+Q），阻止退出
     event.preventDefault()
     console.log('[Main] 阻止了 Command+Q 退出，请使用托盘菜单退出')
@@ -252,7 +250,18 @@ app.on('before-quit', (event) => {
     if (windowManager.isKillPluginShortcutEnabled() && !hasActivePlugin) {
       windowManager.hideWindow(false)
     }
-  } else {
+    return
+  }
+  // 真实退出（含自动化关闭）先停止监听，第二次 quit 才进入窗口与数据库销毁。
+  if (!nativeResourcesReleased) {
+    event.preventDefault()
+    nativeShutdown ||= releaseNativeResources().then(() => {
+      nativeResourcesReleased = true
+      app.quit()
+    })
+    return
+  }
+  if (!isE2ETest) {
     // 主动退出时，同步销毁所有窗口
     console.log('[Main] 开始同步销毁所有窗口...')
 
@@ -282,14 +291,21 @@ app.on('activate', () => {
 // 开发模式下监听 Ctrl+C 信号
 if (process.env.NODE_ENV !== 'production') {
   process.on('SIGINT', () => {
-    console.log('[Main] 收到 SIGINT 信号，退出应用')
-    app.quit()
-    process.exit(0)
+    quitFromSignal('SIGINT')
   })
 
   process.on('SIGTERM', () => {
-    console.log('[Main] 收到 SIGTERM 信号，退出应用')
-    app.quit()
-    process.exit(0)
+    quitFromSignal('SIGTERM')
   })
+}
+
+/**
+ * 将开发服务器的终止信号转为完整退出，避免 process.exit 跳过异步保存与监听清理。
+ * @param signal 收到的终止信号名称。
+ * @returns 无返回值。
+ */
+function quitFromSignal(signal: string): void {
+  console.log('[Main] 收到终止信号，清理后退出:', signal)
+  windowManager.setQuitting(true)
+  app.quit()
 }

@@ -2,57 +2,86 @@
   "$schema": "node_modules/@ztools-center/ztools-api-types/resource/ztools.schema.json",
   "name": "system",
   "title": "工具",
-  "description": "截图、剪贴板与常用工具",
+  "description": "剪贴板、识别、重命名、解散文件夹、扫码、录屏、网页快开与文件搜索",
   "author": "Zing",
   "version": "1.0.0",
-  "logo": "clear.png",
+  "logo": "icons/tools.png",
   "features": [
     {
       "code": "clear",
       "explain": "停止所有插件",
-      "icon": "clear.png",
-      "cmds": ["Clear", "停止所有插件"]
+      "icon": "icons/clear.png",
+      "mainHide": true,
+      "cmds": [
+        "停止所有插件"
+      ],
+      "group": "插件管理"
     },
     {
       "code": "clear-history",
       "explain": "清除使用记录",
-      "icon": "clear.png",
-      "cmds": ["清除使用记录", "Clear History"]
+      "icon": "icons/clear-history.png",
+      "mainHide": true,
+      "cmds": [
+        "清除使用记录"
+      ],
+      "group": "插件管理"
     },
     {
       "code": "reboot",
       "explain": "重启",
-      "icon": "reboot.png",
-      "cmds": ["Reboot", "重启"]
+      "icon": "icons/reboot.png",
+      "mainHide": true,
+      "cmds": [
+        "重启"
+      ],
+      "group": "电源"
     },
     {
       "code": "shutdown",
       "explain": "关机",
-      "icon": "shutdown.png",
-      "cmds": ["Shutdown", "关机"]
+      "icon": "icons/shutdown.png",
+      "mainHide": true,
+      "cmds": [
+        "关机"
+      ],
+      "group": "电源"
     },
     {
       "code": "logoff",
       "explain": "注销",
-      "icon": "logoff.png",
-      "cmds": ["Log Off", "Sign Out", "注销", "退出登录"]
+      "icon": "icons/logoff.png",
+      "mainHide": true,
+      "cmds": [
+        "注销"
+      ],
+      "group": "电源"
     },
     {
       "code": "sleep",
       "explain": "睡眠",
-      "icon": "sleep.png",
-      "cmds": ["Sleep", "睡眠"]
+      "icon": "icons/sleep.png",
+      "mainHide": true,
+      "cmds": [
+        "睡眠"
+      ],
+      "group": "电源"
     },
     {
       "code": "lock-screen",
       "explain": "锁屏",
-      "icon": "lock.png",
-      "cmds": ["Lock Screen", "锁屏", "锁定屏幕"]
+      "icon": "icons/lock-screen.png",
+      "mainHide": true,
+      "cmds": [
+        "锁屏"
+      ],
+      "group": "电源"
     },
     {
       "code": "open-url",
       "explain": "打开网址",
-      "icon": "openurl.png",
+      "icon": "icons/open-url.png",
+      "mainHide": true,
       "cmds": [
         {
           "type": "regex",
@@ -60,38 +89,52 @@
           "label": "打开网址",
           "minLength": 3
         }
-      ]
+      ],
+      "group": "网页快开"
     },
     {
       "code": "open-folder",
-      "explain": "前往文件夹",
-      "icon": "folder.png",
+      "explain": "打开文件夹",
+      "icon": "icons/open-folder.png",
+      "mainHide": true,
       "cmds": [
         {
           "type": "regex",
           "match": "/^(?:(?:~?\\/[^/\\n\\r\\f\\v]+)+\\/?|[A-Za-z]:\\\\(?:[^\\\\/:*?\"<>|\\n\\r\\f\\v]+\\\\?)*)$/",
-          "label": "前往文件夹",
+          "label": "打开文件夹",
           "minLength": 2
         }
-      ]
+      ],
+      "group": "文件操作"
     },
     {
       "code": "window-info",
       "explain": "窗口信息",
-      "icon": "window-info.png",
-      "cmds": ["窗口信息", "Window Info"]
+      "icon": "icons/window-info.png",
+      "mainHide": true,
+      "cmds": [
+        "窗口信息"
+      ],
+      "group": "窗口工具"
     },
     {
       "code": "copy-path",
       "explain": "复制路径",
-      "icon": "folder.png",
+      "icon": "icons/copy-path.png",
+      "mainHide": true,
       "cmds": [
         {
           "type": "window",
           "label": "复制路径",
           "match": {
-            "app": ["Finder.app", "explorer.exe"],
-            "className": ["", "CabinetWClass"]
+            "app": [
+              "Finder.app",
+              "explorer.exe"
+            ],
+            "className": [
+              "",
+              "CabinetWClass"
+            ]
           }
         },
         {
@@ -100,53 +143,504 @@
           "minLength": 1,
           "maxLength": 1
         }
-      ]
+      ],
+      "group": "文件操作"
     },
     {
-      "code": "open-terminal",
-      "explain": "在终端打开",
-      "icon": "terminal.png",
+      "code": "copy-name",
+      "explain": "复制名称",
+      "icon": "icons/copy-name.png",
+      "mainHide": true,
       "cmds": [
         {
           "type": "window",
-          "label": "在终端打开",
+          "label": "复制名称",
           "match": {
-            "app": ["Finder.app", "explorer.exe"],
-            "className": ["", "CabinetWClass"]
+            "app": [
+              "Finder.app",
+              "explorer.exe"
+            ],
+            "className": [
+              "",
+              "CabinetWClass"
+            ]
           }
         },
         {
           "type": "files",
-          "label": "在终端打开",
+          "label": "复制名称",
+          "minLength": 1,
+          "maxLength": 1
+        }
+      ],
+      "group": "文件操作"
+    },
+    {
+      "code": "open-terminal",
+      "explain": "打开终端",
+      "icon": "icons/open-terminal.png",
+      "mainHide": true,
+      "cmds": [
+        {
+          "type": "window",
+          "label": "打开终端",
+          "match": {
+            "app": [
+              "Finder.app",
+              "explorer.exe"
+            ],
+            "className": [
+              "",
+              "CabinetWClass"
+            ]
+          }
+        },
+        {
+          "type": "files",
+          "label": "打开终端",
           "fileType": "directory",
           "minLength": 1,
           "maxLength": 1
         }
-      ]
-    },
-    {
-      "code": "add-to-wakeup-blacklist",
-      "explain": "将当前活动窗口的应用添加到唤醒黑名单",
-      "icon": "wakeup-blacklist.png",
-      "cmds": ["添加到唤醒黑名单", "Wakeup Blacklist"]
+      ],
+      "group": "文件操作"
     },
     {
       "code": "color-picker",
       "explain": "屏幕取色",
-      "icon": "color-picker.png",
-      "cmds": ["取色", "Color Picker", "屏幕取色"]
+      "icon": "icons/color-picker.png",
+      "mainHide": true,
+      "cmds": [
+        "屏幕取色"
+      ],
+      "group": "屏幕工具"
     },
     {
       "code": "screenshot",
       "explain": "截图",
-      "icon": "screenshot.png",
-      "cmds": ["截图"]
+      "icon": "icons/screenshot.png",
+      "cmds": [
+        "截图"
+      ],
+      "group": "屏幕工具"
     },
     {
       "code": "clipboard",
       "explain": "剪贴板",
-      "icon": "clipboard.png",
-      "cmds": ["剪贴板"]
+      "icon": "icons/clipboard.png",
+      "cmds": [
+        "剪贴板"
+      ],
+      "group": "剪贴板"
+    },
+    {
+      "code": "file-renamer",
+      "explain": "重命名",
+      "icon": "icons/file-renamer.png",
+      "cmds": [
+        "重命名",
+        {
+          "type": "files",
+          "label": "重命名",
+          "minLength": 1
+        }
+      ],
+      "group": "文件操作"
+    },
+    {
+      "code": "folder-break",
+      "explain": "解散文件夹",
+      "icon": "icons/folder-break.png",
+      "cmds": [
+        "解散文件夹",
+        {
+          "type": "files",
+          "label": "解散文件夹",
+          "fileType": "directory",
+          "minLength": 1,
+          "maxLength": 1
+        }
+      ],
+      "group": "文件操作"
+    },
+    {
+      "code": "qrcode-scan",
+      "explain": "扫码",
+      "icon": "icons/qrcode-scan.png",
+      "cmds": [
+        "扫码",
+        {
+          "type": "img",
+          "label": "扫码"
+        },
+        {
+          "type": "files",
+          "extensions": [
+            "png",
+            "jpg",
+            "jpeg",
+            "gif",
+            "bmp",
+            "webp"
+          ],
+          "minLength": 1,
+          "maxLength": 1,
+          "label": "扫码"
+        }
+      ],
+      "group": "图片识别"
+    },
+    {
+      "code": "image-annotate",
+      "explain": "图片标记",
+      "icon": "icons/image-annotate.png",
+      "mainHide": true,
+      "cmds": [
+        "图片标记",
+        {
+          "type": "img",
+          "label": "图片标记"
+        },
+        {
+          "type": "files",
+          "extensions": [
+            "png",
+            "jpg",
+            "jpeg",
+            "gif",
+            "bmp",
+            "webp"
+          ],
+          "minLength": 1,
+          "maxLength": 1,
+          "label": "图片标记"
+        }
+      ],
+      "group": "图片处理"
+    },
+    {
+      "code": "float-content",
+      "explain": "悬浮内容",
+      "icon": "icons/float-content.png",
+      "mainHide": true,
+      "cmds": [
+        "悬浮内容",
+        {
+          "type": "over",
+          "label": "悬浮文字",
+          "minLength": 1
+        },
+        {
+          "type": "img",
+          "label": "悬浮图片"
+        },
+        {
+          "type": "files",
+          "extensions": [
+            "png",
+            "jpg",
+            "jpeg",
+            "gif",
+            "bmp",
+            "webp"
+          ],
+          "minLength": 1,
+          "maxLength": 1,
+          "label": "悬浮图片"
+        }
+      ],
+      "group": "悬浮与便签"
+    },
+    {
+      "code": "sticky-note",
+      "explain": "便签",
+      "icon": "icons/sticky-note.png",
+      "mainHide": true,
+      "cmds": [
+        "便签"
+      ],
+      "group": "悬浮与便签"
+    },
+    {
+      "code": "local-search",
+      "explain": "文件搜索",
+      "icon": "icons/local-search.png",
+      "platform": [
+        "win32"
+      ],
+      "cmds": [
+        "文件搜索",
+        {
+          "type": "over",
+          "label": "文件搜索",
+          "minLength": 1
+        }
+      ],
+      "group": "文件搜索"
+    },
+    {
+      "code": "screen-recorder",
+      "explain": "录屏",
+      "icon": "icons/screen-recorder.png",
+      "platform": [
+        "win32"
+      ],
+      "cmds": [
+        "录屏"
+      ],
+      "group": "录屏"
+    },
+    {
+      "code": "screen-recorder-region",
+      "explain": "区域录屏",
+      "icon": "icons/screen-recorder-region.png",
+      "platform": [
+        "win32"
+      ],
+      "mainHide": true,
+      "cmds": [
+        "区域录屏"
+      ],
+      "group": "录屏"
+    },
+    {
+      "code": "screen-recorder-stop",
+      "explain": "停止录屏",
+      "icon": "icons/screen-recorder-stop.png",
+      "platform": [
+        "win32"
+      ],
+      "mainHide": true,
+      "cmds": [
+        "停止录屏"
+      ],
+      "group": "录屏"
+    },
+    {
+      "code": "image-batch",
+      "explain": "图片处理",
+      "icon": "icons/image-batch.png",
+      "cmds": [
+        "图片处理",
+        {
+          "type": "img",
+          "label": "图片处理"
+        },
+        {
+          "type": "files",
+          "fileType": "file",
+          "extensions": [
+            "png",
+            "jpg",
+            "jpeg",
+            "webp",
+            "gif",
+            "svg",
+            "tiff",
+            "avif",
+            "heic",
+            "bmp",
+            "ico"
+          ],
+          "label": "图片处理"
+        }
+      ],
+      "group": "图片处理"
+    },
+    {
+      "code": "image-batch-folder",
+      "explain": "读取图片文件夹",
+      "icon": "icons/image-batch-folder.png",
+      "cmds": [
+        {
+          "type": "files",
+          "fileType": "directory",
+          "maxLength": 1,
+          "label": "读取图片文件夹"
+        }
+      ],
+      "group": "图片处理"
+    },
+    {
+      "code": "image-manual-crop",
+      "explain": "裁剪图片",
+      "icon": "icons/image-manual-crop.png",
+      "cmds": [
+        "裁剪图片",
+        {
+          "type": "img",
+          "label": "裁剪图片"
+        },
+        {
+          "type": "files",
+          "fileType": "file",
+          "extensions": [
+            "png",
+            "jpg",
+            "jpeg",
+            "webp",
+            "bmp",
+            "avif",
+            "tiff"
+          ],
+          "label": "裁剪图片"
+        }
+      ],
+      "group": "图片处理"
+    },
+    {
+      "code": "image-merge",
+      "explain": "合并图片",
+      "icon": "icons/image-merge.png",
+      "cmds": [
+        "合并图片",
+        {
+          "type": "files",
+          "fileType": "file",
+          "minLength": 2,
+          "extensions": [
+            "png",
+            "jpg",
+            "jpeg",
+            "webp",
+            "bmp",
+            "tiff",
+            "avif"
+          ],
+          "label": "合并图片"
+        }
+      ],
+      "group": "图片处理"
+    },
+    {
+      "code": "video-batch",
+      "explain": "视频处理",
+      "icon": "icons/video-batch.png",
+      "cmds": [
+        "视频处理",
+        {
+          "type": "files",
+          "fileType": "file",
+          "extensions": [
+            "mp4",
+            "mkv",
+            "mov",
+            "webm",
+            "avi",
+            "flv",
+            "wmv",
+            "m4v",
+            "mpeg",
+            "mpg",
+            "ts"
+          ],
+          "label": "视频处理"
+        }
+      ],
+      "group": "视频处理"
+    },
+    {
+      "code": "web-quick-open",
+      "explain": "网页快开",
+      "icon": "icons/web-quick-open.png",
+      "cmds": [
+        "网页快开"
+      ],
+      "group": "网页快开"
+    },
+    {
+      "code": "web-search-text",
+      "explain": "网页搜索",
+      "icon": "icons/web-search-text.png",
+      "mainHide": true,
+      "cmds": [
+        {
+          "type": "over",
+          "label": "网页搜索",
+          "minLength": 1,
+          "maxLength": 10000
+        }
+      ],
+      "group": "网页快开"
+    },
+    {
+      "code": "web-search-image",
+      "explain": "以图搜图",
+      "icon": "icons/web-search-image.png",
+      "mainHide": true,
+      "cmds": [
+        {
+          "type": "img",
+          "label": "以图搜图"
+        },
+        {
+          "type": "files",
+          "label": "以图搜图",
+          "extensions": [
+            "png",
+            "jpg",
+            "jpeg",
+            "gif",
+            "bmp",
+            "webp"
+          ],
+          "minLength": 1,
+          "maxLength": 1
+        }
+      ],
+      "group": "网页快开"
+    },
+    {
+      "code": "recognize",
+      "explain": "文字识别",
+      "icon": "icons/recognize.png",
+      "cmds": [
+        "文字识别",
+        {
+          "type": "img",
+          "label": "文字识别"
+        },
+        {
+          "type": "files",
+          "extensions": [
+            "png",
+            "jpg",
+            "jpeg",
+            "gif",
+            "bmp",
+            "webp"
+          ],
+          "maxLength": 1,
+          "label": "文字识别"
+        }
+      ],
+      "group": "图片识别"
+    },
+    {
+      "code": "latex-recognize",
+      "explain": "公式识别",
+      "icon": "icons/latex-recognize.png",
+      "cmds": [
+        "公式识别",
+        {
+          "type": "img",
+          "label": "公式识别"
+        },
+        {
+          "type": "files",
+          "extensions": [
+            "png",
+            "jpg",
+            "jpeg",
+            "gif",
+            "bmp",
+            "webp"
+          ],
+          "maxLength": 1,
+          "label": "公式识别"
+        }
+      ],
+      "group": "图片识别"
     }
   ],
   "main": "index.html",

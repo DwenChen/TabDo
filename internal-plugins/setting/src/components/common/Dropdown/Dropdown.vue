@@ -159,11 +159,9 @@ onBeforeUnmount(() => {
   top: calc(100% + 4px);
   left: 0;
   right: 0;
-  background: rgba(255, 255, 255, 0.98);
+  background: var(--dialog-bg);
   border: 2px solid var(--control-border);
   border-radius: 6px;
-  backdrop-filter: blur(100px) saturate(200%) brightness(110%);
-  -webkit-backdrop-filter: blur(100px) saturate(200%) brightness(110%);
   overflow: hidden;
   z-index: 1000;
   max-height: 300px;
@@ -171,11 +169,6 @@ onBeforeUnmount(() => {
 }
 
 /* 暗色模式 */
-@media (prefers-color-scheme: dark) {
-  .dropdown-menu {
-    background: rgba(48, 48, 48, 0.98);
-  }
-}
 
 .dropdown-item {
   display: flex;

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
-  decodeZToolsIconPath,
+  decodeTabDoIconPath,
   hasStaleUwpIconCache,
   hasUwpPackageSnapshotChanged
 } from '../../src/main/core/commandScanner/uwpCache'
@@ -10,7 +10,7 @@ describe('UWP 应用缓存校验', () => {
     const iconPath =
       'C:\\Program Files\\WindowsApps\\HillsLite_2.0.0.0_x64__publisher\\Assets\\Logo.png'
 
-    expect(decodeZToolsIconPath(`ztools-icon://${encodeURIComponent(iconPath)}`)).toBe(iconPath)
+    expect(decodeTabDoIconPath(`ztools-icon://${encodeURIComponent(iconPath)}`)).toBe(iconPath)
   })
 
   it('缓存图标仍存在时保持缓存有效', () => {

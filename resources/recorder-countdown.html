@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'"
+    />
+    <title>录屏倒计时</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: transparent;
+        display: grid;
+        place-items: center;
+        font-family: system-ui, 'Microsoft YaHei', sans-serif;
+        color: #059669;
+      }
+      #number {
+        font-size: 140px;
+        font-weight: 700;
+        animation: scale-fade 1s ease-in-out forwards;
+      }
+      @keyframes scale-fade {
+        0% {
+          opacity: 0;
+          transform: scale(2);
+        }
+        30% {
+          opacity: 1;
+          transform: scale(1);
+        }
+        100% {
+          opacity: 0;
+          transform: scale(0.4);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #number {
+          animation: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="container" aria-live="assertive"></div>
+    <script src="recorder-countdown.js"></script>
+  </body>
+</html>

@@ -6,10 +6,10 @@ import { applyInitialAppearance } from './applyInitialAppearance'
 onMounted(() => {
   // 页面挂载后立即应用已持久化的外观配置。
   void applyInitialAppearance({
-    dbGet: (key) => window.ztools.internal.dbGet(key),
-    setTheme: (theme) => window.ztools.internal.setTheme(theme),
-    setWindowMaterial: (material) => window.ztools.internal.setWindowMaterial(material),
-    isWindows: window.ztools.isWindows()
+    dbGet: (key) => window.tabdo.internal.dbGet(key),
+    setTheme: (theme) => window.tabdo.internal.setTheme(theme),
+    setWindowMaterial: (material) => window.tabdo.internal.setWindowMaterial(material),
+    isWindows: window.tabdo.isWindows()
   }).catch((error) => {
     console.error('初始化设置页外观失败:', error)
   })

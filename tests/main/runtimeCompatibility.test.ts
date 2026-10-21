@@ -7,7 +7,7 @@ import {
 
 describe('checkRuntimeCompatibility', () => {
   it('uses the GitHub latest Release page for blocked runtime migration', () => {
-    expect(FULL_INSTALL_RELEASE_URL).toBe('https://github.com/DwenChen/ZTools/releases/latest')
+    expect(FULL_INSTALL_RELEASE_URL).toBe('https://github.com/DwenChen/TabDo/releases/latest')
   })
 
   it.each(['win32', 'darwin'] as const)(

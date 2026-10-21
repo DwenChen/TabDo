@@ -2,7 +2,7 @@ import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import type { CSSProperties, ComputedRef, Ref } from 'vue'
 
 // setting 插件没有独立 Popover 组件，这里就地定义 Select/useOverlayPosition 共用的
-// 定位相关类型联合；保留与 ZTools-UI 相同的命名，便于将来与上游同步。
+// 定位相关类型联合；保留与 TabDo-UI 相同的命名，便于将来与上游同步。
 export type PopoverPlacement =
   | 'top-start'
   | 'top'

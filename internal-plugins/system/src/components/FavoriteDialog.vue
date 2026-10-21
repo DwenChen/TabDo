@@ -158,19 +158,11 @@ const handleConfirm = () => {
 }
 
 .dialog-content {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: var(--bg-elevated);
   border-radius: 12px;
   width: 90%;
   max-width: 500px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-}
-
-@media (prefers-color-scheme: dark) {
-  .dialog-content {
-    background: rgba(30, 30, 50, 0.95);
-  }
 }
 
 .dialog-header {

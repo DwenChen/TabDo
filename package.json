@@ -1,16 +1,16 @@
 {
-  "name": "ZTools",
-  "version": "1.1.0",
-  "description": "ZTools 本地精简版：超级面板、插件与完整数据备份",
+  "name": "TabDo",
+  "version": "2.0.0",
+  "description": "TabDo：鼠标驱动的本地工具箱、超级面板与按需插件",
   "main": "./out/main/index.js",
   "author": "DwenChen",
-  "homepage": "https://github.com/DwenChen/ZTools",
+  "homepage": "https://github.com/DwenChen/TabDo",
   "repository": {
     "type": "git",
-    "url": "https://github.com/DwenChen/ZTools.git"
+    "url": "https://github.com/DwenChen/TabDo.git"
   },
   "bugs": {
-    "url": "https://github.com/DwenChen/ZTools/issues"
+    "url": "https://github.com/DwenChen/TabDo/issues"
   },
   "license": "MIT",
   "scripts": {
@@ -29,14 +29,14 @@
     "build": "pnpm typecheck && pnpm build:setting && pnpm build:tools && electron-vite build",
     "build:setting": "cd internal-plugins/setting && pnpm build",
     "build:unpack": "pnpm build && electron-builder --dir",
-    "build:win": "cross-env ZTOOLS_TARGET_PLATFORM=win32 pnpm build && electron-builder --win --publish never",
-    "build:mac": "cross-env ZTOOLS_TARGET_PLATFORM=darwin pnpm build && electron-builder --mac --publish never",
-    "build:mac:x64": "cross-env ZTOOLS_TARGET_PLATFORM=darwin pnpm build && electron-builder --mac --x64 --publish never",
-    "build:mac:arm64": "cross-env ZTOOLS_TARGET_PLATFORM=darwin pnpm build && electron-builder --mac --arm64 --publish never",
-    "build:mac:update": "cross-env ZTOOLS_TARGET_PLATFORM=darwin pnpm build && electron-builder --mac --dir",
-    "build:linux": "cross-env ZTOOLS_TARGET_PLATFORM=linux pnpm build && electron-builder --linux",
-    "build:linux:x64": "cross-env ZTOOLS_TARGET_PLATFORM=linux pnpm build && electron-builder --linux --x64",
-    "build:linux:arm64": "cross-env ZTOOLS_TARGET_PLATFORM=linux pnpm build && electron-builder --linux --arm64",
+    "build:win": "cross-env TABDO_TARGET_PLATFORM=win32 pnpm build && electron-builder --win --publish never",
+    "build:mac": "cross-env TABDO_TARGET_PLATFORM=darwin pnpm build && electron-builder --mac --publish never",
+    "build:mac:x64": "cross-env TABDO_TARGET_PLATFORM=darwin pnpm build && electron-builder --mac --x64 --publish never",
+    "build:mac:arm64": "cross-env TABDO_TARGET_PLATFORM=darwin pnpm build && electron-builder --mac --arm64 --publish never",
+    "build:mac:update": "cross-env TABDO_TARGET_PLATFORM=darwin pnpm build && electron-builder --mac --dir",
+    "build:linux": "cross-env TABDO_TARGET_PLATFORM=linux pnpm build && electron-builder --linux",
+    "build:linux:x64": "cross-env TABDO_TARGET_PLATFORM=linux pnpm build && electron-builder --linux --x64",
+    "build:linux:arm64": "cross-env TABDO_TARGET_PLATFORM=linux pnpm build && electron-builder --linux --arm64",
     "updater": "node scripts/updater.mjs",
     "test": "node scripts/run-tests.cjs unit",
     "test:e2e": "node scripts/run-tests.cjs e2e",
@@ -49,8 +49,6 @@
     "test:windows-scanner": "electron scripts/compare-windows-scanner.cjs",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "sync-api-types": "node scripts/sync-api-types.js",
-    "check-api-types": "node -p \"require('./ztools-api-types/package.json')['utools-version']\"",
     "hooks:install": "git config core.hooksPath .githooks",
     "postinstall": "pnpm run hooks:install || true",
     "typecheck:setting": "vue-tsc --noEmit -p internal-plugins/setting/tsconfig.web.json --composite false",
@@ -58,6 +56,9 @@
     "build:tools": "vite build internal-plugins/system --config internal-plugins/system/vite.config.mjs"
   },
   "dependencies": {
+    "sharp": "0.35.5",
+    "pdfkit": "0.20.2",
+    "ffmpeg-static": "5.3.0",
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
     "@electron/asar": "^4.1.0",
@@ -67,6 +68,8 @@
     "electron-log": "^5.4.3",
     "electron-updater": "6.8.9",
     "fuse.js": "^7.0.0",
+    "jsqr": "1.4.0",
+    "katex": "0.16.22",
     "lmdb": "^3.4.4",
     "marked": "^17.0.1",
     "minimatch": "10.1.1",
@@ -119,7 +122,9 @@
       "esbuild",
       "lmdb",
       "msgpackr-extract",
-      "uiohook-napi"
+      "uiohook-napi",
+      "sharp",
+      "ffmpeg-static"
     ]
   },
   "packageManager": "pnpm@9.15.9"

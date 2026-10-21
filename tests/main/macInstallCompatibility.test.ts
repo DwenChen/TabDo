@@ -17,7 +17,7 @@ const validInstallInfo: MacInstallInfo = {
 
 describe('validateMacInstall', () => {
   it('uses the GitHub latest Release page for complete-install migration', () => {
-    expect(MAC_RELEASE_URL).toBe('https://github.com/DwenChen/ZTools/releases/latest')
+    expect(MAC_RELEASE_URL).toBe('https://github.com/DwenChen/TabDo/releases/latest')
   })
 
   it('accepts a complete signed installation with update configuration', () => {
@@ -45,7 +45,7 @@ describe('validateMacInstall', () => {
   it('requires migration for incompatible identity or updater configuration', () => {
     const result = validateMacInstall(
       MAC_ELECTRON_VERSION,
-      { ...validInstallInfo, appId: 'legacy.ztools', updater: 'legacy-asar' },
+      { ...validInstallInfo, appId: 'legacy.tabdo', updater: 'legacy-asar' },
       false
     )
 

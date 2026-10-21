@@ -16,18 +16,14 @@ export function useContextMenu() {
    * 限制菜单位置并显示目标条目的操作。
    * @param event event 参数。
    * @param item item 参数。
-   * @param activeTab activeTab 参数。
    * @returns 处理结果；仅更新状态的操作无返回值。
    */
-  const showContextMenu = (event, item, activeTab) => {
-    // 收藏Tab不支持右键菜单
-    if (activeTab === 'favorite') return
-
+  const showContextMenu = (event, item) => {
     event.preventDefault()
     contextMenu.value = {
       show: true,
-      x: event.clientX,
-      y: event.clientY,
+      x: Math.max(4, Math.min(event.clientX, window.innerWidth - 160)),
+      y: Math.max(4, Math.min(event.clientY, window.innerHeight - 180)),
       item: item
     }
   }

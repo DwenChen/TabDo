@@ -1,1 +1,1 @@
-declare const __ZTOOLS_TARGET_ELECTRON_VERSION__: string
+declare const __TABDO_TARGET_ELECTRON_VERSION__: string

@@ -107,6 +107,33 @@ describe('startupDataMigrations', () => {
     ])
   })
 
+  it('preserves current text and image search pins and usage across startup cleanup', () => {
+    const current = [
+      { type: 'plugin', featureCode: 'web-search-text', useCount: 5 },
+      { type: 'plugin', featureCode: 'web-search-image', useCount: 2 }
+    ]
+    const stores = Object.fromEntries(
+      ['command-history', 'pinned-commands', 'command-usage-stats', 'cached-commands'].map(
+        (key) => [key, [...current, { featureCode: 'web-search-legacy-id' }]]
+      )
+    )
+    stores['super-panel-pinned'] = [
+      { isFolder: true, items: [...current, { featureCode: 'web-search-legacy-id' }] }
+    ] as any
+    mockDbGet.mockImplementation((key) => stores[key] || [])
+    cleanupLegacyWebSearchReferences()
+    for (const key of [
+      'command-history',
+      'pinned-commands',
+      'command-usage-stats',
+      'cached-commands'
+    ])
+      expect(mockDbPut).toHaveBeenCalledWith(key, current)
+    expect(mockDbPut).toHaveBeenCalledWith('super-panel-pinned', [
+      { isFolder: true, items: current }
+    ])
+  })
+
   it('renames camel-case host keys and preserves canonical values', () => {
     const stores: Record<string, any> = {
       autoStartPlugin: ['legacy', 'shared'],
@@ -127,6 +154,22 @@ describe('startupDataMigrations', () => {
     expect(mockDbRemove).toHaveBeenCalledWith('detachedWindowSizes')
   })
 
+  it('removes retired system blacklist entries and preserves third-party commands and preferences', () => {
+    const retired = { pluginName: 'system', featureCode: 'add-to-wakeup-blacklist' }
+    const thirdParty = { pluginName: 'other', featureCode: 'add-to-wakeup-blacklist' }
+    const preferences = { wakeupBlacklist: [{ app: 'example.exe' }] }
+    const stores: Record<string, any> = {
+      'settings-general': preferences,
+      'command-history': [retired, thirdParty],
+      'super-panel-pinned': [{ isFolder: true, items: [retired, thirdParty] }]
+    }
+    mockDbGet.mockImplementation((key) => stores[key] || [])
+    cleanupLegacyWebSearchReferences()
+    expect(mockDbPut).toHaveBeenCalledWith('command-history', [thirdParty])
+    expect(mockDbPut).toHaveBeenCalledWith('super-panel-pinned', [thirdParty])
+    expect(mockDbPut).not.toHaveBeenCalledWith('settings-general', expect.anything())
+  })
+
   it('converts the legacy mainPush denylist into the 3.0 allowlist', () => {
     const stores: Record<string, any> = {
       disabledMainPushPlugin: ['blocked'],
@@ -142,18 +185,18 @@ describe('startupDataMigrations', () => {
 
   it('repairs migrated plugin, history, and avatar file URLs idempotently', () => {
     const homeDir = path.join(path.sep, 'Users', 'tester')
-    const legacyUserDataPath = path.join(homeDir, 'Library', 'Application Support', 'ZTools')
+    const legacyUserDataPath = path.join(homeDir, 'Library', 'Application Support', 'TabDo')
     const oldPluginLogo = pathToFileURL(
       path.join(legacyUserDataPath, 'plugins', 'demo', 'logo.png')
     ).href
     const currentPluginLogo = pathToFileURL(
-      path.join(homeDir, '.ztools', 'plugins', 'current', 'logo.png')
+      path.join(homeDir, '.tabdo', 'plugins', 'current', 'logo.png')
     ).href
     const stores: Record<string, any> = {
       plugins: [
         {
           name: 'demo',
-          path: path.join(homeDir, '.ztools', 'plugins', 'demo'),
+          path: path.join(homeDir, '.tabdo', 'plugins', 'demo'),
           logo: oldPluginLogo,
           features: [{ code: 'demo', icon: oldPluginLogo }]
         },
@@ -170,15 +213,15 @@ describe('startupDataMigrations', () => {
       stores[key] = value
     })
 
-    migrateLegacyFileUrls({ homeDir, legacyUserDataPath, dataRoot: path.join(homeDir, '.ztools') })
+    migrateLegacyFileUrls({ homeDir, legacyUserDataPath, dataRoot: path.join(homeDir, '.tabdo') })
 
     const migratedPluginLogo = pathToFileURL(
-      path.join(homeDir, '.ztools', 'plugins', 'demo', 'logo.png')
+      path.join(homeDir, '.tabdo', 'plugins', 'demo', 'logo.png')
     ).href
     expect(mockDbPut).toHaveBeenCalledWith('plugins', [
       {
         name: 'demo',
-        path: path.join(homeDir, '.ztools', 'plugins', 'demo'),
+        path: path.join(homeDir, '.tabdo', 'plugins', 'demo'),
         logo: migratedPluginLogo,
         features: [{ code: 'demo', icon: migratedPluginLogo }]
       },
@@ -188,7 +231,7 @@ describe('startupDataMigrations', () => {
       { name: 'Demo', type: 'plugin', icon: migratedPluginLogo }
     ])
     expect(mockDbPut).toHaveBeenCalledWith('settings-general', {
-      avatar: pathToFileURL(path.join(homeDir, '.ztools', 'avatar', 'avatar.png')).href,
+      avatar: pathToFileURL(path.join(homeDir, '.tabdo', 'avatar', 'avatar.png')).href,
       homepage: 'https://example.com/image.png'
     })
 

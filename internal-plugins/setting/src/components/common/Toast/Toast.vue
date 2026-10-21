@@ -88,28 +88,30 @@ watch(
   font-size: 14px;
   font-weight: 500;
   user-select: none;
+  /* 语义色在深色主题下含透明度，先铺不透明底色再叠加色调。 */
+  background: linear-gradient(var(--toast-tint), var(--toast-tint)), var(--dialog-bg);
 }
 
 .toast-success {
-  background: var(--success-light-bg);
+  --toast-tint: var(--success-light-bg);
   color: var(--success-color);
   border-color: color-mix(in srgb, var(--success-color), black 15%);
 }
 
 .toast-error {
-  background: var(--danger-light-bg);
+  --toast-tint: var(--danger-light-bg);
   color: var(--danger-color);
   border-color: color-mix(in srgb, var(--danger-color), black 15%);
 }
 
 .toast-warning {
-  background: var(--warning-light-bg);
+  --toast-tint: var(--warning-light-bg);
   color: var(--warning-color);
   border-color: color-mix(in srgb, var(--warning-color), black 15%);
 }
 
 .toast-info {
-  background: var(--control-bg);
+  --toast-tint: var(--control-bg);
   color: var(--text-color);
   border-color: var(--control-border);
 }

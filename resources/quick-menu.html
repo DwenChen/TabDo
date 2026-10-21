@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>选择搜索网站</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #fff;
+        --text: #333;
+        --muted: #777;
+        --border: #ddd;
+        --hover: #e6f4ee;
+        --accent: #059669;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #27272a;
+          --text: #e0e0e0;
+          --muted: #aaa;
+          --border: #444;
+          --hover: #164e3e;
+          --accent: #34d399;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font:
+          13px/1.6 -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          Roboto,
+          Arial,
+          sans-serif;
+      }
+      main {
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        border: 1px solid var(--border);
+        padding: 6px;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        color: var(--muted);
+        padding: 0 6px 4px;
+        font-size: 12px;
+      }
+      button {
+        font: inherit;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+        border-radius: 5px;
+      }
+      header button {
+        width: 24px;
+        height: 24px;
+      }
+      #sites {
+        overflow: auto;
+        min-height: 0;
+      }
+      #sites button {
+        display: block;
+        text-align: left;
+        width: 100%;
+        height: 36px;
+        padding: 5px 10px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      button:hover,
+      button:focus {
+        outline: none;
+        color: var(--accent);
+        background: var(--hover);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>选择搜索网站<button id="cancel" aria-label="取消搜索">×</button></header>
+      <div id="sites" role="menu" aria-label="搜索网站"></div>
+    </main>
+    <script src="quick-menu.js"></script>
+  </body>
+</html>

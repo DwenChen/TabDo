@@ -2,6 +2,8 @@ import { net, session } from 'electron'
 import { IncomingMessage } from 'electron'
 
 export interface HttpRequestOptions {
+  maxResponseBytes?: number
+  timeoutMs?: number
   method?: 'GET' | 'POST' | 'HEAD' | 'PUT' | 'DELETE'
   headers?: Record<string, string>
   body?: string | URLSearchParams
@@ -27,7 +29,8 @@ export interface HttpResponse {
  * 默认禁用缓存，确保每次都获取最新数据
  */
 export function httpRequest(url: string, options: HttpRequestOptions = {}): Promise<HttpResponse> {
-  return new Promise((resolve, reject) => {
+  let timeout: ReturnType<typeof setTimeout> | undefined
+  return new Promise<HttpResponse>((resolve, reject) => {
     const {
       method = 'GET',
       headers = {},
@@ -53,6 +56,14 @@ export function httpRequest(url: string, options: HttpRequestOptions = {}): Prom
         session: session.defaultSession // 显式指定使用 defaultSession（确保代理配置生效）
       })
 
+      // 市场等元数据请求可声明大小和时限，不让异常响应长期持有缓冲。
+      if (options.timeoutMs) {
+        timeout = setTimeout(() => {
+          reject(new Error('HTTP request timed out'))
+          request.abort()
+        }, options.timeoutMs)
+      }
+
       // 设置请求头（包含默认的禁用缓存头）
       Object.entries(defaultHeaders).forEach(([key, value]) => {
         request.setHeader(key, value)
@@ -61,6 +72,8 @@ export function httpRequest(url: string, options: HttpRequestOptions = {}): Prom
       // 处理响应
       request.on('response', (response: IncomingMessage) => {
         const chunks: Buffer[] = []
+        let received = 0
+        let exceeded = false
         const responseHeaders: Record<string, string | string[]> = {}
 
         // 收集响应头
@@ -70,10 +83,20 @@ export function httpRequest(url: string, options: HttpRequestOptions = {}): Prom
 
         // 收集响应数据
         response.on('data', (chunk: Buffer) => {
+          if (exceeded) return
+          received += chunk.byteLength
+          if (options.maxResponseBytes && received > options.maxResponseBytes) {
+            exceeded = true
+            chunks.length = 0
+            reject(new Error('HTTP response exceeds size limit'))
+            request.abort()
+            return
+          }
           chunks.push(chunk)
         })
 
         response.on('end', () => {
+          if (exceeded) return
           const buffer = Buffer.concat(chunks)
           let data: any
 
@@ -139,7 +162,7 @@ export function httpRequest(url: string, options: HttpRequestOptions = {}): Prom
     }
 
     makeRequest(url)
-  })
+  }).finally(() => clearTimeout(timeout))
 }
 
 /**

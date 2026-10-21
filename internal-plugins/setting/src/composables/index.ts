@@ -1,6 +1,6 @@
 export * from './useColorScheme'
 export * from './useHistoryState'
-export * from './useZtoolsSubInput'
+export * from './useTabDoSubInput'
 export * from './useJumpFunction'
 export * from './usePluginCommandActions'
 export * from './useEscapeStack'

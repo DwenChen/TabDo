@@ -7,7 +7,7 @@ import {
   ensure3Layout,
   hasLegacyLmdb,
   type AppDataPathOptions,
-  type ZToolsDataLayout
+  type TabDoDataLayout
 } from '../appData/appDataPaths'
 import { readDataVersion, writeDataVersion } from '../appData/appDataVersion'
 import { StorageRouter } from './storageRouter'
@@ -19,7 +19,7 @@ export interface StorageInitState {
   firstRun: boolean
   legacyLmdbFound: boolean
   importedFromLegacy: boolean
-  layout: ZToolsDataLayout
+  layout: TabDoDataLayout
 }
 
 export interface StorageManagerOptions extends AppDataPathOptions {
@@ -89,7 +89,7 @@ export class StorageManager extends EventEmitter {
     return this.init()
   }
 
-  getLayout(): ZToolsDataLayout {
+  getLayout(): TabDoDataLayout {
     return this.init().layout
   }
 

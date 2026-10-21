@@ -5,7 +5,7 @@ import { registerPluginApiServices } from './pluginApiDispatcher'
 /**
  * 消费方入口：让任意插件能够主动查询、调用其它 provider（翻译 / OCR）。
  *
- * 与 `ztools.registerProvider`（提供方）和 `ztools.internal.providers.*`（管理方）互补：
+ * 与 `tabdo.registerProvider`（提供方）和 `tabdo.internal.providers.*`（管理方）互补：
  * 这里注册的 handler 面向所有插件，走统一 `plugin.api` 分发器，转发到 providerManager。
  */
 class PluginProvidersAPI {

@@ -1,0 +1,26 @@
+{
+  "id": "panel-ranking-and-tool-switch",
+  "date": "2026-10-20",
+  "summary": "恢复窄版面板、上次使用置首、切换退役旧页面，重命名取消二次确认并修复图标",
+  "changes": [
+    "根据用户确认隐藏匹配指令的描述，仅显示名称并收紧图标和行间距；恢复初始 250×400 默认尺寸，内容高度限于 250–400，宽度不大于高度。每次调整或复用均显式使用逻辑宽度，不继承异常旧宽度。",
+    "匹配候选中最近使用的一项固定首位，其余按真实频次降序，同频次按最近时间再保持稳定顺序；不再以频次封顶和近期权重竞争首位。插件统计按路径与功能码识别，显示别名不丢失使用记录。超级面板先等待最新统计，并对合并后的结果统一排序。",
+    "重命名执行按钮使用 SVG 圆与三角形，三角形几何中心与圆心重合，不依赖字体三角字符的基线和字面框。",
+    "确认同工具插件路径的子组件切换此前复用同一 WebContents，绕过整页退役；现于占位/显示前移除旧工具，撤销可见性、退出缓存、释放前台，必要任务收尾后关闭旧 WebContents。保留同一文本指令的无操作重入及第三方插件缓存/分离单例行为。",
+    "按用户后续要求取消重命名二次确认：点击时锁定计划快照，在同一必要任务中校验并直接执行；防重复提交，冲突阻止、失败回滚及本次撤销保留。删除确认状态、暂存计划和弹层样式。",
+    "保留本轮开始时已有未提交工作，未 push、未云端构建、未发布 release，未重置配置或插件。"
+  ],
+  "checks": [
+    "排序与生命周期单测 34 项通过，归档 .artifacts/runs/2026-10-20T11-59-55-442Z-unit。首次类型检查发现持久化功能码可为 null，补齐参数后 pnpm typecheck 通过。",
+    "pnpm test 全量单测：82 文件 591 项通过，归档 .artifacts/runs/2026-10-20T12-07-44-778Z-unit。",
+    "源码专项：plugin-host-regressions 通过；super-panel-selection 在 .artifacts/runs/2026-10-20T12-04-35-290Z-e2e 中通过；最终 tools-expanded（单击、冲突与撤销）及 tools-lifecycle（直接切换、有保存任务）2 项通过，归档 .artifacts/runs/2026-10-20T12-07-32-481Z-e2e。",
+    "保留失败证据：.artifacts/runs/2026-10-20T12-01-02-722Z-e2e 初次窗口断言只容忍 1px，但实际 Windows 客户区为 252px；改为 2px 并继续验证 20 次请求完全稳定。生命周期用例原先只按共享 URL 选页，曾误选尚在导航或退役的扫码页；改为等待本次剪贴板正文，不以额外延时掩盖。相关失败记录均保留。",
+    "最终 pnpm test:e2e 完整源码回归：16 项通过、1 项因缺少真实离线模型归档跳过，归档 .artifacts/runs/2026-10-20T12-09-31-887Z-e2e。未为 E2E 打包，测试结束无隔离 Electron 进程遗留。",
+    "pnpm build 编译交付资源成功，包含宿主、preload、设置与工具；未运行 electron-builder 或 build:unpack。保留设置循环重导出、工具静态 highlight 脚本的既有构建提示。修改范围 ESLint 无错误，git diff --check 通过。",
+    "用户从托盘退出预览后，pnpm preview:sync 成功替换 64 个程序文件（含 package.json）；450 个 data/legacy 文件前后 SHA-256 相同。pnpm test:preview:resources 只读核验 63 个运行时文件和 150 个内置插件文件一致。实际截图已查看并留存 .artifacts/reviews/panel-switch-2026-10-20。"
+  ],
+  "pending": [
+    "跨显示器/DPI 和逐帧视觉手感仍需人工确认。"
+  ],
+  "preview": "已同步 .local/portable-preview 1.1.0，使用 PreviewPortable.cmd 打开。450 个配置、插件与旧数据文件保持一致，证据 .artifacts/backups/preview-sync/update-1792498467901/preservation.json；旧程序位于同目录 previous-resources。未启动成品替用户操作，跨 DPI 与最终观感保留人工验收。"
+}

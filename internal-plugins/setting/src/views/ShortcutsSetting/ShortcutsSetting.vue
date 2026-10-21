@@ -2,7 +2,7 @@
 import { computed, nextTick, onMounted, ref } from 'vue'
 import { useToast, ShortcutEditor, AdaptiveIcon } from '@/components'
 import { weightedSearch } from '@/utils'
-import { useJumpFunction, useZtoolsSubInput } from '@/composables'
+import { useJumpFunction, useTabDoSubInput } from '@/composables'
 import type {
   ShortcutsSettingAliasCommandOption,
   ShortcutsSettingAliasDialogState,
@@ -24,6 +24,13 @@ import {
 } from '@shared/commandShared'
 import type { CommandAliasEntry, CommandAliasStore } from '@shared/commandShared'
 import AliasMappingDialog from './components/AliasMappingDialog.vue'
+import BuiltinWakeupSetting from './BuiltinWakeupSetting.vue'
+import {
+  BUILTIN_SHORTCUT_DEFAULTS,
+  readBuiltinShortcuts,
+  type BuiltinShortcutKey,
+  type BuiltinShortcutConfig
+} from '@shared/shortcutSettings'
 
 const { success, error, warning, confirm } = useToast()
 
@@ -38,9 +45,9 @@ interface GlobalShortcut {
   preScreenshotOptimization?: boolean
 }
 
-type BuiltInShortcutKey = 'search' | 'closePlugin' | 'killPlugin' | 'esc'
+type BuiltInShortcutKey = BuiltinShortcutKey
 
-type BuiltInShortcutConfig = Record<BuiltInShortcutKey, boolean>
+type BuiltInShortcutConfig = BuiltinShortcutConfig
 
 interface AliasRow {
   id: string
@@ -52,12 +59,7 @@ interface AliasRow {
   missingTarget: boolean
 }
 
-const DEFAULT_BUILTIN_SHORTCUTS_ENABLED: BuiltInShortcutConfig = {
-  search: true,
-  closePlugin: true,
-  killPlugin: true,
-  esc: true
-}
+const DEFAULT_BUILTIN_SHORTCUTS_ENABLED: BuiltInShortcutConfig = { ...BUILTIN_SHORTCUT_DEFAULTS }
 
 // 获取平台信息
 const isMac = ref(false)
@@ -66,22 +68,42 @@ const isWindows = ref(false)
 // 基础内置快捷键配置（使用 MOD 占位符表示 Cmd/Ctrl）
 const baseBuiltInShortcuts: GlobalShortcut[] = [
   {
+    id: 'builtin-search',
+    shortcut: 'MOD+F',
+    target: '聚焦插件搜索框',
+    enabled: false,
+    configurable: true,
+    configKey: 'search'
+  },
+  {
+    id: 'builtin-recorder-stop',
+    shortcut: 'F10',
+    target: '停止录屏并保存',
+    enabled: false,
+    configurable: true,
+    configKey: 'recorderStop'
+  },
+  {
     id: 'builtin-detach',
     shortcut: 'MOD+D',
     target: '分离插件到独立窗口',
-    enabled: true
+    enabled: false,
+    configurable: true,
+    configKey: 'detach'
   },
   {
     id: 'builtin-settings',
     shortcut: 'MOD+,',
     target: '打开设置',
-    enabled: true
+    enabled: false,
+    configurable: true,
+    configKey: 'settings'
   },
   {
     id: 'builtin-kill-plugin',
     shortcut: 'MOD+Q',
     target: '终止当前插件运行',
-    enabled: true,
+    enabled: false,
     configurable: true,
     configKey: 'killPlugin'
   },
@@ -89,7 +111,7 @@ const baseBuiltInShortcuts: GlobalShortcut[] = [
     id: 'builtin-close-plugin',
     shortcut: 'MOD+W',
     target: '关闭插件/隐藏窗口',
-    enabled: true,
+    enabled: false,
     configurable: true,
     configKey: 'closePlugin'
   },
@@ -97,7 +119,7 @@ const baseBuiltInShortcuts: GlobalShortcut[] = [
     id: 'builtin-esc',
     shortcut: 'ESC',
     target: '清空输入/退出插件/隐藏窗口',
-    enabled: true,
+    enabled: false,
     configurable: true,
     configKey: 'esc'
   },
@@ -105,7 +127,9 @@ const baseBuiltInShortcuts: GlobalShortcut[] = [
     id: 'builtin-devtools',
     shortcut: 'DEVTOOLS',
     target: '打开/关闭开发者工具',
-    enabled: true
+    enabled: false,
+    configurable: true,
+    configKey: 'devTools'
   }
 ]
 
@@ -114,22 +138,24 @@ const builtInAppShortcuts = computed<GlobalShortcut[]>(() => {
   const modifier = isMac.value ? 'Command' : isWindows.value ? 'Ctrl' : ''
   if (!modifier) return []
 
-  return baseBuiltInShortcuts.map((item) => {
-    if (item.shortcut === 'DEVTOOLS') {
+  return baseBuiltInShortcuts
+    .filter((item) => isWindows.value || item.configKey !== 'recorderStop')
+    .map((item) => {
+      if (item.shortcut === 'DEVTOOLS') {
+        return {
+          ...item,
+          shortcut: isMac.value ? 'Option+Command+I' : 'Ctrl+Shift+I'
+        }
+      }
+
       return {
         ...item,
-        shortcut: isMac.value ? 'Option+Command+I' : 'Ctrl+Shift+I'
+        shortcut: item.shortcut.replace('MOD', modifier)
       }
-    }
-
-    return {
-      ...item,
-      shortcut: item.shortcut.replace('MOD', modifier)
-    }
-  })
+    })
 })
 
-const activeTab = ref<ShortcutsSettingTab>('global')
+const activeTab = ref<ShortcutsSettingTab>('builtin')
 const globalShortcuts = ref<GlobalShortcut[]>([])
 const appShortcuts = ref<GlobalShortcut[]>([])
 const isDeleting = ref(false)
@@ -156,7 +182,7 @@ const currentShortcuts = computed(() => {
   return []
 })
 
-const { value: searchQuery } = useZtoolsSubInput('', '搜索快捷键或别名...')
+const { value: searchQuery } = useTabDoSubInput('', '搜索快捷键或别名...')
 
 const filteredShortcuts = computed(() =>
   weightedSearch(currentShortcuts.value, searchQuery.value || '', [
@@ -319,7 +345,7 @@ async function saveAliasMappings(nextStore: CommandAliasStore): Promise<boolean>
   try {
     const normalized = normalizeCommandAliases(nextStore)
     // 保存前再次做一次归一化，并转成普通对象，避免把 Vue 响应式代理直接发给 IPC
-    await window.ztools.internal.updateCommandAliases(JSON.parse(JSON.stringify(normalized)))
+    await window.tabdo.internal.updateCommandAliases(JSON.parse(JSON.stringify(normalized)))
     aliasMappings.value = normalized
     return true
   } catch (err: any) {
@@ -331,7 +357,7 @@ async function saveAliasMappings(nextStore: CommandAliasStore): Promise<boolean>
 
 async function loadGlobalShortcuts(): Promise<void> {
   try {
-    const data = await window.ztools.internal.dbGet('global-shortcuts')
+    const data = await window.tabdo.internal.dbGet('global-shortcuts')
     globalShortcuts.value = (data || []).map((shortcut: any) => ({
       ...shortcut,
       autoCopy: shortcut.autoCopy ?? false,
@@ -344,21 +370,21 @@ async function loadGlobalShortcuts(): Promise<void> {
 
 async function loadAppShortcuts(): Promise<void> {
   try {
-    const data = await window.ztools.internal.dbGet('app-shortcuts')
+    const data = await window.tabdo.internal.dbGet('app-shortcuts')
     appShortcuts.value = data || []
   } catch (err) {
     console.error('加载应用快捷键失败:', err)
   }
 }
 
+/**
+ * 读取内置快捷键开关，未显式启用的项目保持关闭。
+ * @returns 开关加载完成后的 Promise。
+ */
 async function loadBuiltInShortcutSettings(): Promise<void> {
   try {
-    const settings = (await window.ztools.internal.dbGet('settings-general')) || {}
-    const config = settings.builtinAppShortcutsEnabled || {}
-    builtInShortcutsEnabled.value = {
-      ...DEFAULT_BUILTIN_SHORTCUTS_ENABLED,
-      ...config
-    }
+    const settings = (await window.tabdo.internal.dbGet('settings-general')) || {}
+    builtInShortcutsEnabled.value = readBuiltinShortcuts(settings)
   } catch (err) {
     console.error('加载内置快捷键开关失败:', err)
   }
@@ -366,7 +392,7 @@ async function loadBuiltInShortcutSettings(): Promise<void> {
 
 async function loadAliasMappings(): Promise<void> {
   try {
-    const data = await window.ztools.internal.dbGet(COMMAND_ALIASES_KEY)
+    const data = await window.tabdo.internal.dbGet(COMMAND_ALIASES_KEY)
     // 设置页统一读取归一化后的 alias store，兼容旧版 string[] 结构
     aliasMappings.value = normalizeCommandAliases(data)
   } catch (err) {
@@ -376,7 +402,7 @@ async function loadAliasMappings(): Promise<void> {
 
 async function loadAliasTargets(): Promise<void> {
   try {
-    const result = await window.ztools.internal.getCommands()
+    const result = await window.tabdo.internal.getCommands()
     const pluginMap = new Map((result.plugins || []).map((plugin: any) => [plugin.name, plugin]))
     const targetMap = new Map<string, ShortcutsSettingAliasCommandOption>()
 
@@ -551,19 +577,24 @@ function switchToTab(tab: ShortcutsSettingTab): void {
   closeAliasDialog()
 }
 
+/**
+ * 持久化单项开关并立即通知宿主和已有窗口。
+ * @param key 内置快捷键的稳定标识。
+ * @param enabled 是否启用该项。
+ * @returns 更新完成后的 Promise。
+ */
 async function handleToggleBuiltInShortcut(
   key: BuiltInShortcutKey,
   enabled: boolean
 ): Promise<void> {
   try {
-    const settings = (await window.ztools.internal.dbGet('settings-general')) || {}
+    const settings = (await window.tabdo.internal.dbGet('settings-general')) || {}
     const nextConfig = {
-      ...DEFAULT_BUILTIN_SHORTCUTS_ENABLED,
-      ...(settings.builtinAppShortcutsEnabled || {}),
+      ...readBuiltinShortcuts(settings),
       [key]: enabled
     }
     settings.builtinAppShortcutsEnabled = nextConfig
-    await window.ztools.internal.dbPut('settings-general', settings)
+    await window.tabdo.internal.updateBuiltinShortcuts(nextConfig)
     builtInShortcutsEnabled.value = nextConfig
     success(enabled ? '已启用内置快捷键' : '已禁用内置快捷键')
   } catch (err: any) {
@@ -572,6 +603,12 @@ async function handleToggleBuiltInShortcut(
   }
 }
 
+/**
+ * 将开关事件转换为明确的布尔配置。
+ * @param key 内置快捷键标识。
+ * @param event 复选框变化事件。
+ * @returns 无返回值。
+ */
 function handleBuiltInToggleChange(key: BuiltInShortcutKey, event: Event): void {
   const target = event.target as HTMLInputElement | null
   if (!target) return
@@ -580,7 +617,7 @@ function handleBuiltInToggleChange(key: BuiltInShortcutKey, event: Event): void 
 
 async function saveGlobalShortcuts(): Promise<void> {
   try {
-    await window.ztools.internal.dbPut(
+    await window.tabdo.internal.dbPut(
       'global-shortcuts',
       JSON.parse(JSON.stringify(globalShortcuts.value))
     )
@@ -591,7 +628,7 @@ async function saveGlobalShortcuts(): Promise<void> {
 
 async function saveAppShortcuts(): Promise<void> {
   try {
-    await window.ztools.internal.dbPut(
+    await window.tabdo.internal.dbPut(
       'app-shortcuts',
       JSON.parse(JSON.stringify(appShortcuts.value))
     )
@@ -744,10 +781,10 @@ async function handleSaveGlobalShortcut(
 
     try {
       if (oldShortcut !== recordedShortcut) {
-        await window.ztools.internal.unregisterGlobalShortcut(oldShortcut)
+        await window.tabdo.internal.unregisterGlobalShortcut(oldShortcut)
       }
 
-      const result = await window.ztools.internal.registerGlobalShortcut(
+      const result = await window.tabdo.internal.registerGlobalShortcut(
         recordedShortcut,
         targetCommand,
         autoCopy,
@@ -767,7 +804,7 @@ async function handleSaveGlobalShortcut(
         closeEditor()
       } else {
         if (shouldRestorePreviousRegistration) {
-          await window.ztools.internal.registerGlobalShortcut(
+          await window.tabdo.internal.registerGlobalShortcut(
             oldShortcut,
             oldTarget,
             autoCopy,
@@ -778,7 +815,7 @@ async function handleSaveGlobalShortcut(
       }
     } catch (err: any) {
       if (shouldRestorePreviousRegistration) {
-        await window.ztools.internal.registerGlobalShortcut(
+        await window.tabdo.internal.registerGlobalShortcut(
           oldShortcut,
           oldTarget,
           autoCopy,
@@ -810,7 +847,7 @@ async function handleSaveGlobalShortcut(
   await saveGlobalShortcuts()
 
   try {
-    const result = await window.ztools.internal.registerGlobalShortcut(
+    const result = await window.tabdo.internal.registerGlobalShortcut(
       recordedShortcut,
       targetCommand,
       false,
@@ -849,10 +886,10 @@ async function handleSaveAppShortcut(
 
     try {
       if (oldShortcut !== recordedShortcut) {
-        await window.ztools.internal.unregisterAppShortcut(oldShortcut)
+        await window.tabdo.internal.unregisterAppShortcut(oldShortcut)
       }
 
-      const result = await window.ztools.internal.registerAppShortcut(
+      const result = await window.tabdo.internal.registerAppShortcut(
         recordedShortcut,
         targetCommand
       )
@@ -869,16 +906,13 @@ async function handleSaveAppShortcut(
         closeEditor()
       } else {
         if (oldShortcut !== recordedShortcut) {
-          await window.ztools.internal.registerAppShortcut(
-            oldShortcut,
-            editingShortcut.value.target
-          )
+          await window.tabdo.internal.registerAppShortcut(oldShortcut, editingShortcut.value.target)
         }
         error(`应用快捷键注册失败: ${result.error}`)
       }
     } catch (err: any) {
       if (oldShortcut !== recordedShortcut) {
-        await window.ztools.internal.registerAppShortcut(oldShortcut, editingShortcut.value.target)
+        await window.tabdo.internal.registerAppShortcut(oldShortcut, editingShortcut.value.target)
       }
       console.error('更新应用快捷键失败:', err)
       error(`更新应用快捷键失败: ${err.message || '未知错误'}`)
@@ -903,7 +937,7 @@ async function handleSaveAppShortcut(
   await saveAppShortcuts()
 
   try {
-    const result = await window.ztools.internal.registerAppShortcut(recordedShortcut, targetCommand)
+    const result = await window.tabdo.internal.registerAppShortcut(recordedShortcut, targetCommand)
     if (result.success) {
       success('应用快捷键添加成功!')
       closeEditor()
@@ -938,7 +972,7 @@ async function handleDelete(id: string): Promise<void> {
   isDeleting.value = true
   try {
     if (isGlobal) {
-      const result = await window.ztools.internal.unregisterGlobalShortcut(shortcut.shortcut)
+      const result = await window.tabdo.internal.unregisterGlobalShortcut(shortcut.shortcut)
       if (result.success) {
         globalShortcuts.value = globalShortcuts.value.filter((s) => s.id !== id)
         await saveGlobalShortcuts()
@@ -946,7 +980,7 @@ async function handleDelete(id: string): Promise<void> {
         error(`快捷键删除失败: ${result.error}`)
       }
     } else {
-      const result = await window.ztools.internal.unregisterAppShortcut(shortcut.shortcut)
+      const result = await window.tabdo.internal.unregisterAppShortcut(shortcut.shortcut)
       if (result.success) {
         appShortcuts.value = appShortcuts.value.filter((s) => s.id !== id)
         await saveAppShortcuts()
@@ -997,7 +1031,7 @@ async function handleAutoCopyToggle(shortcut: any, event: Event): Promise<void> 
       ...(s.configurable !== undefined && { configurable: s.configurable }),
       ...(s.configKey !== undefined && { configKey: s.configKey })
     }))
-    await window.ztools.internal.dbPut('global-shortcuts', dataToSave)
+    await window.tabdo.internal.dbPut('global-shortcuts', dataToSave)
     console.log('[AutoCopy] 数据库保存成功')
 
     // 3. 通知主进程更新配置
@@ -1006,7 +1040,7 @@ async function handleAutoCopyToggle(shortcut: any, event: Event): Promise<void> 
       autoCopy: newAutoCopy,
       preScreenshotOptimization: shortcut.preScreenshotOptimization ?? false
     })
-    const result = await window.ztools.internal.updateGlobalShortcutConfig(shortcut.shortcut, {
+    const result = await window.tabdo.internal.updateGlobalShortcutConfig(shortcut.shortcut, {
       autoCopy: newAutoCopy,
       preScreenshotOptimization: shortcut.preScreenshotOptimization ?? false
     })
@@ -1039,22 +1073,22 @@ onMounted(() => {
   void loadShortcuts()
 
   // 监听本地启动项变化，实时更新可选目标列表
-  if (window.ztools.internal.onLocalShortcutsChanged) {
-    window.ztools.internal.onLocalShortcutsChanged(() => {
+  if (window.tabdo.internal.onLocalShortcutsChanged) {
+    window.tabdo.internal.onLocalShortcutsChanged(() => {
       void loadAliasTargets()
     })
   }
 
   // 监听系统应用变化，实时更新可选目标列表
-  if (window.ztools.internal.onAppsChanged) {
-    window.ztools.internal.onAppsChanged(() => {
+  if (window.tabdo.internal.onAppsChanged) {
+    window.tabdo.internal.onAppsChanged(() => {
       void loadAliasTargets()
     })
   }
 
   // 监听指令别名变化，实时更新别名列表
-  if (window.ztools.internal.onCommandAliasesChanged) {
-    window.ztools.internal.onCommandAliasesChanged(() => {
+  if (window.tabdo.internal.onCommandAliasesChanged) {
+    window.tabdo.internal.onCommandAliasesChanged(() => {
       void loadAliasMappings()
     })
   }
@@ -1086,10 +1120,16 @@ useJumpFunction<ShortcutsSettingJumpFunction>(async (state) => {
 <template>
   <div class="h-full content-panel">
     <Transition name="list-slide">
-      <div v-show="!showDetailPanel" class="scrollable-content">
+      <div v-show="!showDetailPanel" class="shortcuts-list-panel">
         <!-- tab 切换区 -->
         <div class="tabs-container">
           <div class="tab-group">
+            <button
+              :class="['tab-btn', { active: activeTab === 'builtin' }]"
+              @click="switchToTab('builtin')"
+            >
+              内置快捷键
+            </button>
             <button
               :class="['tab-btn', { active: activeTab === 'global' }]"
               @click="switchToTab('global')"
@@ -1111,199 +1151,211 @@ useJumpFunction<ShortcutsSettingJumpFunction>(async (state) => {
           </div>
         </div>
 
-        <div class="panel-header">
-          <button class="btn" @click="showAddEditor">{{ addButtonLabel }}</button>
-        </div>
+        <!-- 列表独立滚动，不经过页签背后，透明材质也不会让正文叠透。 -->
+        <div class="scrollable-content">
+          <div v-if="activeTab !== 'builtin'" class="panel-header">
+            <button class="btn" @click="showAddEditor">{{ addButtonLabel }}</button>
+          </div>
 
-        <!-- alias 列表区 -->
-        <div v-if="activeTab === 'alias'" class="shortcut-list">
-          <div v-if="filteredAliasRows.length > 0" class="alias-table">
-            <div v-for="row in filteredAliasRows" :key="row.id" class="card alias-table-row">
-              <div class="alias-icon-cell">
-                <AdaptiveIcon
-                  v-if="getAliasDisplayIcon(row)"
-                  :src="getAliasDisplayIcon(row)!"
-                  class="alias-command-icon"
-                  alt="指令图标"
-                  draggable="false"
-                />
-                <div v-else class="alias-icon-placeholder">
-                  <div class="i-z-command font-size-18px" />
+          <!-- alias 列表区 -->
+          <div v-if="activeTab === 'alias'" class="shortcut-list">
+            <div v-if="filteredAliasRows.length > 0" class="alias-table">
+              <div v-for="row in filteredAliasRows" :key="row.id" class="card alias-table-row">
+                <div class="alias-icon-cell">
+                  <AdaptiveIcon
+                    v-if="getAliasDisplayIcon(row)"
+                    :src="getAliasDisplayIcon(row)!"
+                    class="alias-command-icon"
+                    alt="指令图标"
+                    draggable="false"
+                  />
+                  <div v-else class="alias-icon-placeholder">
+                    <div class="i-z-command font-size-18px" />
+                  </div>
+                </div>
+
+                <div class="alias-value-cell">
+                  <div class="alias-display-text">{{ row.alias }}</div>
+                </div>
+
+                <div class="alias-target-cell">
+                  <div :class="['alias-target-title', { invalid: row.missingTarget }]">
+                    {{ row.targetLabel }}
+                  </div>
+                  <div class="alias-target-subtitle">
+                    {{ row.missingTarget ? row.commandId : row.target?.subtitle }}
+                  </div>
+                </div>
+
+                <div class="alias-actions-cell">
+                  <button
+                    class="icon-btn edit-btn"
+                    title="编辑"
+                    @click.stop="openEditAliasDialog(row)"
+                  >
+                    <div class="i-z-settings font-size-14px" />
+                  </button>
+                  <button
+                    class="icon-btn delete-btn"
+                    title="删除"
+                    @click.stop="deleteAliasRow(row)"
+                  >
+                    <div class="i-z-trash font-size-14px" />
+                  </button>
                 </div>
               </div>
+            </div>
 
-              <div class="alias-value-cell">
-                <div class="alias-display-text">{{ row.alias }}</div>
-              </div>
+            <div v-else-if="showAliasEmptyState" class="empty-state alias-empty-state">
+              <div class="i-z-command empty-icon" style="font-size: 64px" />
+              <div class="empty-text">暂无指令别名</div>
+              <div class="empty-hint">点击右上角“添加映射”，或从所有指令中直接创建</div>
+            </div>
 
-              <div class="alias-target-cell">
-                <div :class="['alias-target-title', { invalid: row.missingTarget }]">
-                  {{ row.targetLabel }}
-                </div>
-                <div class="alias-target-subtitle">
-                  {{ row.missingTarget ? row.commandId : row.target?.subtitle }}
-                </div>
-              </div>
-
-              <div class="alias-actions-cell">
-                <button
-                  class="icon-btn edit-btn"
-                  title="编辑"
-                  @click.stop="openEditAliasDialog(row)"
-                >
-                  <div class="i-z-settings font-size-14px" />
-                </button>
-                <button class="icon-btn delete-btn" title="删除" @click.stop="deleteAliasRow(row)">
-                  <div class="i-z-trash font-size-14px" />
-                </button>
-              </div>
+            <!-- alias 空态区 -->
+            <div v-else-if="showAliasSearchEmptyState" class="empty-state alias-empty-state">
+              <div class="i-z-search empty-icon" style="font-size: 64px" />
+              <div class="empty-text">未找到匹配映射</div>
+              <div class="empty-hint">换个关键词试试</div>
             </div>
           </div>
 
-          <div v-else-if="showAliasEmptyState" class="empty-state alias-empty-state">
-            <div class="i-z-command empty-icon" style="font-size: 64px" />
-            <div class="empty-text">暂无指令别名</div>
-            <div class="empty-hint">点击右上角“添加映射”，或从所有指令中直接创建</div>
-          </div>
+          <div v-else class="shortcut-list">
+            <template v-if="activeTab === 'app' || activeTab === 'builtin'">
+              <div v-if="activeTab === 'app'" class="shortcut-section">
+                <div class="category-label">自定义快捷键</div>
+                <!-- 有自定义快捷键时显示列表 -->
+                <div v-if="filteredShortcuts.length > 0">
+                  <div
+                    v-for="shortcut in filteredShortcuts"
+                    :key="shortcut.id"
+                    class="card shortcut-item"
+                  >
+                    <div class="shortcut-info">
+                      <div class="shortcut-key-display">{{ shortcut.shortcut }}</div>
+                      <div class="shortcut-desc">{{ shortcut.target }}</div>
+                    </div>
 
-          <!-- alias 空态区 -->
-          <div v-else-if="showAliasSearchEmptyState" class="empty-state alias-empty-state">
-            <div class="i-z-search empty-icon" style="font-size: 64px" />
-            <div class="empty-text">未找到匹配映射</div>
-            <div class="empty-hint">换个关键词试试</div>
-          </div>
-        </div>
+                    <div class="shortcut-meta">
+                      <button
+                        class="icon-btn edit-btn"
+                        title="编辑"
+                        :disabled="isDeleting"
+                        @click="handleEdit(shortcut)"
+                      >
+                        <div class="i-z-settings font-size-14px" />
+                      </button>
+                      <button
+                        class="icon-btn delete-btn"
+                        title="删除"
+                        :disabled="isDeleting"
+                        @click="handleDelete(shortcut.id)"
+                      >
+                        <div class="i-z-trash font-size-14px" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div v-else-if="!loading" class="empty-state-inline">
+                  <div class="i-z-keyboard empty-icon" style="font-size: 48px" />
+                  <div class="empty-text-inline">暂无自定义快捷键</div>
+                  <div class="empty-hint-inline">点击上方“添加快捷键”按钮创建</div>
+                </div>
+              </div>
 
-        <div v-else class="shortcut-list">
-          <template v-if="activeTab === 'app'">
-            <div class="shortcut-section">
-              <div class="category-label">自定义快捷键</div>
-              <!-- 有自定义快捷键时显示列表 -->
-              <div v-if="filteredShortcuts.length > 0">
+              <div
+                v-if="activeTab === 'builtin' && builtInAppShortcuts.length > 0"
+                class="shortcut-section"
+              >
+                <BuiltinWakeupSetting />
+                <div class="category-label">内置快捷键</div>
                 <div
-                  v-for="shortcut in filteredShortcuts"
+                  v-for="shortcut in builtInAppShortcuts"
                   :key="shortcut.id"
-                  class="card shortcut-item"
+                  class="card shortcut-item built-in"
                 >
                   <div class="shortcut-info">
                     <div class="shortcut-key-display">{{ shortcut.shortcut }}</div>
                     <div class="shortcut-desc">{{ shortcut.target }}</div>
                   </div>
-
                   <div class="shortcut-meta">
-                    <button
-                      class="icon-btn edit-btn"
-                      title="编辑"
-                      :disabled="isDeleting"
-                      @click="handleEdit(shortcut)"
+                    <label
+                      v-if="shortcut.configurable && shortcut.configKey"
+                      class="toggle built-in-toggle"
+                      :title="
+                        builtInShortcutsEnabled[shortcut.configKey]
+                          ? '点击禁用该内置快捷键'
+                          : '点击启用该内置快捷键'
+                      "
                     >
-                      <div class="i-z-settings font-size-14px" />
-                    </button>
-                    <button
-                      class="icon-btn delete-btn"
-                      title="删除"
-                      :disabled="isDeleting"
-                      @click="handleDelete(shortcut.id)"
-                    >
-                      <div class="i-z-trash font-size-14px" />
-                    </button>
+                      <input
+                        :checked="builtInShortcutsEnabled[shortcut.configKey]"
+                        :aria-label="shortcut.target"
+                        type="checkbox"
+                        @change="handleBuiltInToggleChange(shortcut.configKey, $event)"
+                      />
+                      <span class="toggle-slider"></span>
+                    </label>
                   </div>
                 </div>
               </div>
-              <div v-else-if="!loading" class="empty-state-inline">
-                <div class="i-z-keyboard empty-icon" style="font-size: 48px" />
-                <div class="empty-text-inline">暂无自定义快捷键</div>
-                <div class="empty-hint-inline">点击上方“添加快捷键”按钮创建</div>
-              </div>
-            </div>
+            </template>
 
-            <div v-if="builtInAppShortcuts.length > 0" class="shortcut-section">
-              <div class="category-label">内置快捷键</div>
+            <template v-else>
               <div
-                v-for="shortcut in builtInAppShortcuts"
+                v-for="shortcut in filteredShortcuts"
                 :key="shortcut.id"
-                class="card shortcut-item built-in"
+                class="card shortcut-item"
               >
                 <div class="shortcut-info">
                   <div class="shortcut-key-display">{{ shortcut.shortcut }}</div>
                   <div class="shortcut-desc">{{ shortcut.target }}</div>
                 </div>
+
                 <div class="shortcut-meta">
-                  <label
-                    v-if="shortcut.configurable && shortcut.configKey"
-                    class="toggle built-in-toggle"
-                    :title="
-                      builtInShortcutsEnabled[shortcut.configKey]
-                        ? '点击禁用该内置快捷键'
-                        : '点击启用该内置快捷键'
-                    "
+                  <!-- 自动复制开关（仅全局快捷键） -->
+                  <div
+                    v-if="activeTab === 'global'"
+                    class="auto-copy-control"
+                    :title="(shortcut.autoCopy ?? false) ? '已启用自动复制' : '已禁用自动复制'"
                   >
-                    <input
-                      :checked="builtInShortcutsEnabled[shortcut.configKey]"
-                      type="checkbox"
-                      @change="handleBuiltInToggleChange(shortcut.configKey, $event)"
-                    />
-                    <span class="toggle-slider"></span>
-                  </label>
+                    <span class="auto-copy-label">自动复制</span>
+                    <label class="toggle auto-copy-toggle">
+                      <input
+                        type="checkbox"
+                        :checked="shortcut.autoCopy ?? false"
+                        @change="handleAutoCopyToggle(shortcut, $event)"
+                      />
+                      <span class="toggle-slider"></span>
+                    </label>
+                  </div>
+
+                  <button
+                    class="icon-btn edit-btn"
+                    title="编辑"
+                    :disabled="isDeleting"
+                    @click="handleEdit(shortcut)"
+                  >
+                    <div class="i-z-settings font-size-14px" />
+                  </button>
+                  <button
+                    class="icon-btn delete-btn"
+                    title="删除"
+                    :disabled="isDeleting"
+                    @click="handleDelete(shortcut.id)"
+                  >
+                    <div class="i-z-trash font-size-14px" />
+                  </button>
                 </div>
               </div>
-            </div>
-          </template>
 
-          <template v-else>
-            <div
-              v-for="shortcut in filteredShortcuts"
-              :key="shortcut.id"
-              class="card shortcut-item"
-            >
-              <div class="shortcut-info">
-                <div class="shortcut-key-display">{{ shortcut.shortcut }}</div>
-                <div class="shortcut-desc">{{ shortcut.target }}</div>
+              <div v-if="!loading && currentShortcuts.length === 0" class="empty-state">
+                <div class="i-z-keyboard empty-icon" style="font-size: 64px" />
+                <div class="empty-text">暂无全局快捷键</div>
+                <div class="empty-hint">点击“添加快捷键”来创建你的第一个全局快捷键</div>
               </div>
-
-              <div class="shortcut-meta">
-                <!-- 自动复制开关（仅全局快捷键） -->
-                <div
-                  v-if="activeTab === 'global'"
-                  class="auto-copy-control"
-                  :title="(shortcut.autoCopy ?? false) ? '已启用自动复制' : '已禁用自动复制'"
-                >
-                  <span class="auto-copy-label">自动复制</span>
-                  <label class="toggle auto-copy-toggle">
-                    <input
-                      type="checkbox"
-                      :checked="shortcut.autoCopy ?? false"
-                      @change="handleAutoCopyToggle(shortcut, $event)"
-                    />
-                    <span class="toggle-slider"></span>
-                  </label>
-                </div>
-
-                <button
-                  class="icon-btn edit-btn"
-                  title="编辑"
-                  :disabled="isDeleting"
-                  @click="handleEdit(shortcut)"
-                >
-                  <div class="i-z-settings font-size-14px" />
-                </button>
-                <button
-                  class="icon-btn delete-btn"
-                  title="删除"
-                  :disabled="isDeleting"
-                  @click="handleDelete(shortcut.id)"
-                >
-                  <div class="i-z-trash font-size-14px" />
-                </button>
-              </div>
-            </div>
-
-            <div v-if="!loading && currentShortcuts.length === 0" class="empty-state">
-              <div class="i-z-keyboard empty-icon" style="font-size: 64px" />
-              <div class="empty-text">暂无全局快捷键</div>
-              <div class="empty-hint">点击“添加快捷键”来创建你的第一个全局快捷键</div>
-            </div>
-          </template>
+            </template>
+          </div>
         </div>
       </div>
     </Transition>
@@ -1379,19 +1431,26 @@ useJumpFunction<ShortcutsSettingJumpFunction>(async (state) => {
   background: var(--bg-color);
 }
 
-.scrollable-content {
+.shortcuts-list-panel {
   position: absolute;
   inset: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.scrollable-content {
+  position: relative;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 20px;
+  padding: 0 20px 20px;
 }
 
 .tabs-container {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  padding-bottom: 16px;
+  flex-shrink: 0;
+  padding: 20px 20px 16px;
 }
 
 .tab-group {

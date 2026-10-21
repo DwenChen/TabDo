@@ -10,7 +10,7 @@ import { storageManager } from '../storage/storageManager'
 const initState = storageManager.init()
 const lmdbInstance = storageManager.getRouter()
 
-console.log('[LMDB] ZTools local storage initialized', {
+console.log('[LMDB] TabDo local storage initialized', {
   firstRun: initState.firstRun,
   legacyLmdbFound: initState.legacyLmdbFound,
   device: initState.layout.deviceLmdbPath,
@@ -27,7 +27,7 @@ export { storageManager }
 export function closeLmdb(): void {
   try {
     storageManager.close()
-    console.log('[LMDB] ZTools storage closed successfully')
+    console.log('[LMDB] TabDo storage closed successfully')
   } catch (e) {
     console.error('[LMDB] Error closing LMDB:', e)
   }

@@ -115,7 +115,7 @@ export class UpdaterAPI {
       return
     }
     // 自动检查独立请求更新目录，E2E 不启动后台网络请求。
-    if (process.env.ZTOOLS_E2E === '1' || this.autoCheckTimer) return
+    if (process.env.TABDO_E2E === '1' || this.autoCheckTimer) return
     void this.checkAutomatically()
     this.autoCheckTimer = setInterval(() => {
       void this.checkAutomatically()
@@ -318,7 +318,7 @@ export class UpdaterAPI {
     const error = '开发环境不支持升级'
     const options: Electron.MessageBoxOptions = {
       type: 'info',
-      title: 'ZTools',
+      title: 'TabDo',
       message: error,
       buttons: ['知道了'],
       defaultId: 0,

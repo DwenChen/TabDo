@@ -31,7 +31,7 @@ describe('repository release catalog', () => {
       releaseNotes: 'fix'
     })
     expect(vi.mocked(httpRequest).mock.calls[0][0]).toBe(
-      'https://api.github.com/repos/DwenChen/ZTools/releases?per_page=100'
+      'https://api.github.com/repos/DwenChen/TabDo/releases?per_page=100'
     )
   })
   it('returns null for a repository without releases', async () => {
@@ -49,9 +49,7 @@ describe('repository release catalog', () => {
   it('offers only this repository as an update/download source', async () => {
     const sources = await fetchServerUpdateSources('1.0.1')
     expect(
-      sources.every((source) =>
-        source.downloadUrl.startsWith('https://github.com/DwenChen/ZTools/')
-      )
+      sources.every((source) => source.downloadUrl.startsWith('https://github.com/DwenChen/TabDo/'))
     ).toBe(true)
   })
 })

@@ -7,23 +7,47 @@ test('local edition settings, backup bridge, providers and complete panel matchi
   browserName: _browserName
 }, testInfo) => {
   const root = path.resolve(__dirname, '../..')
-  const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'ztools-local-e2e-'))
+  const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'tabdo-local-e2e-'))
   let app: ElectronApplication | undefined
   try {
     const environment = {
       ...process.env,
-      ZTOOLS_E2E: '1',
-      ZTOOLS_SOURCE_PREVIEW: '1',
-      ZTOOLS_DATA_ROOT: path.join(temporary, 'data'),
-      ZTOOLS_LEGACY_USER_DATA_PATH: path.join(temporary, 'legacy'),
+      TABDO_E2E: '1',
+      TABDO_SOURCE_PREVIEW: '1',
+      TABDO_PREVIEW_OPEN_SETTINGS: '0',
+      TABDO_DATA_ROOT: path.join(temporary, 'data'),
+      TABDO_LEGACY_USER_DATA_PATH: path.join(temporary, 'legacy'),
       ELECTRON_RENDERER_URL: 'http://127.0.0.1:5174',
-      ZTOOLS_SETTING_DEV_SERVER_URL: 'http://127.0.0.1:15177'
+      TABDO_SETTING_DEV_SERVER_URL: 'http://127.0.0.1:15177'
     }
     delete environment.ELECTRON_RUN_AS_NODE
     app = await electron.launch({
       args: [path.join(root, 'scripts/preview-main.cjs')],
       cwd: root,
       env: environment
+    })
+    // 本组验证嵌入式设置宿主；新默认独立窗口由 builtin-providers 专项覆盖。
+    await expect((await app.firstWindow()).locator('.plugin-host')).toBeAttached()
+    await expect
+      .poll(() =>
+        app!.evaluate(({ app }) =>
+          process
+            .mainModule!.require(app.getAppPath() + '/src/main/api/shared/database.ts')
+            .default.dbGet('plugins')
+            ?.some((plugin: any) => plugin.name === 'setting')
+        )
+      )
+      .toBe(true)
+    await app.evaluate(async ({ app }) => {
+      process
+        .mainModule!.require(app.getAppPath() + '/src/main/api/shared/database.ts')
+        .default.dbPut('auto-detach-plugin', [])
+      process
+        .mainModule!.require(app.getAppPath() + '/src/main/api/shared/database.ts')
+        .default.dbPut('out-kill-plugin', [])
+      await process
+        .mainModule!.require(app.getAppPath() + '/src/main/managers/windowManager.ts')
+        .default.showSettings()
     })
     const main = await app.firstWindow()
     await expect(main.locator('.plugin-host')).toBeVisible()
@@ -40,17 +64,25 @@ test('local edition settings, backup bridge, providers and complete panel matchi
         { timeout: 30000 }
       )
       .toContain('开机自动启动')
+    await expect
+      .poll(() =>
+        app!
+          .context()
+          .pages()
+          .some((page) => page.url().startsWith('http://127.0.0.1:15177'))
+      )
+      .toBe(true)
     const setting = app
       .context()
       .pages()
       .find((p) => p.url().startsWith('http://127.0.0.1:15177'))!
-    await expect(setting.getByText('启用超级面板', { exact: true })).toBeVisible()
+    await expect(setting.getByText('鼠标按键弹出', { exact: true })).toBeVisible()
     await expect(setting.getByText('显示悬浮球', { exact: true })).toHaveCount(0)
     await expect(setting.getByRole('heading', { name: '搜索', exact: true })).toHaveCount(0)
-    for (const text of ['注册/登录 ZTools', 'MCP 服务', '数据同步'])
+    for (const text of ['注册/登录 TabDo', 'MCP 服务', '数据同步'])
       await expect(setting.getByText(text, { exact: true })).toHaveCount(0)
     await expect(
-      setting.locator('.settings-sidebar').getByText('ZTools 本地版 · 第一版')
+      setting.locator('.settings-sidebar').getByText('TabDo 本地版 · 第一版')
     ).toHaveCount(0)
     await expect(
       main.getByRole('button', { name: '插件操作', exact: true }).locator('img')
@@ -61,12 +93,12 @@ test('local edition settings, backup bridge, providers and complete panel matchi
     await expect(setting.getByRole('button', { name: '导出完整备份' })).toBeVisible()
     expect(
       await setting.evaluate(() => ({
-        backup: typeof window.ztools.internal.backupRun,
-        account: typeof (window.ztools.internal as any).accountSaveSession,
-        sync: typeof (window.ztools.internal as any).syncConnect,
-        floatingBall: typeof (window.ztools.internal as any).setFloatingBallEnabled,
-        mcp: typeof (window.ztools.internal as any).mcpServerStatus,
-        toolRegistration: typeof (window.ztools as any).registerTool
+        backup: typeof window.tabdo.internal.backupRun,
+        account: typeof (window.tabdo.internal as any).accountSaveSession,
+        sync: typeof (window.tabdo.internal as any).syncConnect,
+        floatingBall: typeof (window.tabdo.internal as any).setFloatingBallEnabled,
+        mcp: typeof (window.tabdo.internal as any).mcpServerStatus,
+        toolRegistration: typeof (window.tabdo as any).registerTool
       }))
     ).toEqual({
       backup: 'function',
@@ -100,21 +132,18 @@ test('local edition settings, backup bridge, providers and complete panel matchi
     )
     await setting.getByRole('button', { name: '关于', exact: true }).click()
     const appVersion = await app.evaluate(({ app }) => app.getVersion())
-    await expect(setting.getByText(`第一版 · v${appVersion}`)).toBeVisible()
+    await expect(setting.getByText(`v${appVersion}`)).toBeVisible()
     await expect(setting.getByText('致谢', { exact: true })).toBeVisible()
     await setting.getByRole('button', { name: '已安装插件', exact: true }).click()
     for (const title of ['设置', '工具']) {
-      const builtin = setting
-        .locator('.plugin-item')
-        .filter({ has: setting.locator('.plugin-name', { hasText: title }) })
-      await expect(builtin.getByText('内置', { exact: true })).toBeVisible()
-      await expect(builtin.getByText('DEV', { exact: true })).toHaveCount(0)
-      await builtin.click()
-      await expect(setting.getByRole('button', { name: '卸载', exact: true })).toHaveCount(0)
-      await setting.getByRole('button', { name: '返回', exact: true }).click()
+      await expect(
+        setting
+          .locator('.plugin-item')
+          .filter({ has: setting.locator('.plugin-name', { hasText: title }) })
+      ).toHaveCount(0)
     }
     await setting.getByRole('button', { name: '提供商', exact: true }).click()
-    await expect(setting.getByText('ZTools 官方模型')).toHaveCount(0)
+    await expect(setting.getByText('TabDo 官方模型')).toHaveCount(0)
     await expect(main.locator('.search-input')).toHaveCount(0)
 
     // Inject a real development plugin so every panel payload modality is exercised.
@@ -141,7 +170,7 @@ test('local edition settings, backup bridge, providers and complete panel matchi
     )
     await fs.writeFile(
       path.join(pluginPath, 'index.html'),
-      '<h1>Panel plugin launched</h1><script>ztools.onPluginEnter(action => document.body.dataset.payload = JSON.stringify(action));</script>'
+      '<h1>Panel plugin launched</h1><script>tabdo.onPluginEnter(action => document.body.dataset.payload = JSON.stringify(action));</script>'
     )
 
     await app.evaluate(
@@ -166,7 +195,7 @@ test('local edition settings, backup bridge, providers and complete panel matchi
     await expect
       .poll(() =>
         main.evaluate(async () =>
-          (await window.ztools.getAllPlugins()).some((p) => p.name === 'local-panel-fixture')
+          (await window.tabdo.getAllPlugins()).some((p) => p.name === 'local-panel-fixture')
         )
       )
       .toBe(true)

@@ -15,7 +15,7 @@ declare module '*.vue' {
   export default component
 }
 
-// 类型定义文件：定义 ZTools 设置插件可用的 API
+// 类型定义文件：定义 TabDo 设置插件可用的 API
 
 // Preload services 类型声明（对应 public/preload/services.js）
 interface Services {
@@ -25,9 +25,10 @@ interface Services {
 }
 
 declare global {
+  const tabdo: Window['tabdo']
   interface Window {
     services: Services
-    ztools: {
+    tabdo: typeof ztools & {
       // 获取拖放文件的路径（Electron webUtils）
       getPathForFile: (file: File) => string
       hideMainWindow: (isRestorePreWindow?: boolean) => boolean | Promise<boolean>
@@ -356,6 +357,13 @@ declare global {
         // 快捷键相关
         startHotkeyRecording: () => Promise<{ success: boolean; error?: string }>
         updateShortcut: (shortcut: string) => Promise<{ success: boolean; error?: string }>
+        updateBuiltinShortcuts: (config: Record<string, boolean>) => Promise<{ success: boolean }>
+        dataLocationGet: () => Promise<{
+          root: string
+          result: { success: boolean; previousRoot?: string; error?: string } | null
+        }>
+        dataLocationChoose: () => Promise<string | null>
+        dataLocationMove: (target: string) => Promise<{ success?: boolean; cancelled?: boolean }>
         getCurrentShortcut: () => Promise<string>
         registerGlobalShortcut: (
           shortcut: string,
@@ -526,6 +534,14 @@ declare global {
 
         // Provider（翻译 / OCR 等）管理
         providers: {
+          getBuiltinState: () => Promise<any>
+          removeModel: (id: string) => Promise<{ success: boolean }>
+          invokeBuiltin: (
+            id: string,
+            input: Record<string, unknown>,
+            requestId: string
+          ) => Promise<any>
+          cancelBuiltin: (requestId: string) => Promise<boolean>
           getAll: (type?: 'translation' | 'ocr') => Promise<{
             success: boolean
             data?: Array<{
@@ -623,11 +639,6 @@ declare global {
           hwnd?: number
         } | null>
 
-        // 唤醒黑名单
-        updateWakeupBlacklist: (
-          blacklist: Array<{ app: string; bundleId?: string; label?: string }>
-        ) => Promise<{ success: boolean }>
-
         // 超级面板翻译
         updateSuperPanelTranslate: (enabled: boolean) => Promise<{ success: boolean }>
         getTranslationStatus: () => Promise<{
@@ -682,33 +693,6 @@ declare global {
           running?: boolean
           error?: string
         }>
-
-        // 调试日志
-        logEnable: () => Promise<{ success: boolean }>
-        logDisable: () => Promise<{ success: boolean }>
-        logGetBuffer: () => Promise<
-          Array<{
-            id: number
-            timestamp: number
-            level: string
-            source: string
-            message: string
-          }>
-        >
-        logIsEnabled: () => Promise<boolean>
-        logSubscribe: () => Promise<{ success: boolean }>
-        onLogEntries: (
-          callback: (
-            entries: Array<{
-              id: number
-              timestamp: number
-              level: string
-              source: string
-              message: string
-            }>
-          ) => void
-        ) => void
-        offLogEntries: (callback: (...args: any[]) => void) => void
       }
     }
   }

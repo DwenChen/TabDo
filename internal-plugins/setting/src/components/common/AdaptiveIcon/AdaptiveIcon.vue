@@ -53,7 +53,7 @@ async function analyzeImage(): Promise<void> {
   isAnalyzing.value = true
   try {
     // 调用主进程的图片分析 API（内置插件专用）
-    const result = await window.ztools.internal.analyzeImage(props.src)
+    const result = await window.tabdo.internal.analyzeImage(props.src)
     analysisResult.value = result
   } catch {
     analysisResult.value = null

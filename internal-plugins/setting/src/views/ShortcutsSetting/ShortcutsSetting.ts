@@ -1,7 +1,7 @@
 import { router } from '@/router'
 import type { HistoryState } from 'vue-router'
 
-export type ShortcutsSettingTab = 'global' | 'app' | 'alias'
+export type ShortcutsSettingTab = 'builtin' | 'global' | 'app' | 'alias'
 
 export type ShortcutsSettingCommandCmdType = 'text' | 'regex' | 'over' | 'img' | 'files' | 'window'
 

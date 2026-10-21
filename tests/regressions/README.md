@@ -4,6 +4,18 @@
 
 ## 运行入口
 
+`performance` 覆盖本轮性能回归：TX-62（Session preload/代理幂等、切换关闭身份、RPC 超时清理、索引不生成深层代理），TX-63（首帧与复制并行、请求过期、隐藏清空与真实 30 秒闲置回收、网页文本菜单直达），TX-64（剪贴板/图标缓存及文件 I/O 预算、媒体最新请求取消收束）。性能数字仅作为同机源码对照，详见 [性能审查](../../docs/performance-audit.md)。
+
+- TX-62：`pluginRuntimeResources`、`proxySessionReuse`、`commandSearchResources` 和宿主源码回归核对 Session 注册、通信收束、视图切换与索引更新。
+- TX-63：`performance-budget` 对照首帧、二级菜单与闲置释放；`super-panel-selection` 保留真实 Windows 选区、文件及取消链。
+- TX-64：`asyncPool`、`iconProtocol`、历史分类压力检查和 `media-batch` 快速换图核对并发、缓存与过期取消；`settingsSubInputResources` 验证 20 次设置页面生命周期及失败重试计时器回收。
+
+本轮新增 `tools-expanded` 回归组：TX-01（规则工作流、交换改名、冲突/变化检测、取消与失败回滚）；TX-02（二维码真实解码与 HTTP(S) 点击）；TX-03（图片文件分类及原文件载荷）；TX-04（无边框窄窗口、原插件工具栏、独立色板和五档笔触、标注复制与窗口释放）；TX-05（文字条目快捷悬浮、纸张配色与折角、关闭不持久化、匹配文本优先、多窗口追加路由及独立/快捷新建）；TX-06（Everything 中文 IPC、分页/参数及查询进程释放）；TX-07（完整译文滚动）；TX-08（进入、换图与切换模式后自动识别，由 `builtin-providers` 覆盖）。新增 `tools-polish` 专项组：TX-09（黄色小便签、轮换新窗口颜色、独立置顶和边缘缩放）；TX-10（图片贴合、文字焦点、荧光笔颜色隔离、五档笔触）；TX-11（原搜索布局、连接指引与分类预览）；TX-12（自动翻译关闭与语言设置、双栏识别及 LaTeX 预览）。该组仅运行相关两个源码 E2E 文件和提供商单测，不运行全量回归。跨应用选区、多屏/DPI 与视觉手感保留人工验收。
+
+`settings-defaults` 专项覆盖快捷键集中归类与默认全关、开发者折叠、黑名单和调试日志完整删除、托盘菜单与游戏模式、设置指令默认禁用和五个默认固定工具、目录迁移的失败边界及真实退出重启资料保留（TX-53～55）。相邻宿主、录屏和退出流程纳入同组。
+
+`clipboard-trigger` 是复制后匹配的专项单测组（TX-57）：通过登记给原生监视器的回调进入宿主触发链，覆盖七种按键配置、切换、选区优先、过期/0 秒、图片文件、屏蔽和取消；同组运行剪贴板时效和免打扰既有测试。UI 控件按 TX-56 视觉验收，本轮未运行 E2E。
+
 清单来源为 [suites.json](suites.json)。分组允许组合，共用测试文件自动去重。以下命令在项目根目录执行：
 
 ```powershell
@@ -17,6 +29,7 @@ pnpm test:regressions host --e2e
 pnpm test:regressions screenshot --e2e
 pnpm test:regressions clipboard panel --unit
 pnpm test:regressions preview --unit
+pnpm test:regressions clipboard-trigger --unit
 
 # 已同步的免安装预览：只读比较当前编译产物与预览资源，不构建、不启动应用
 pnpm test:preview:resources
@@ -27,7 +40,7 @@ pnpm test:regressions
 
 日常修复优先选择相关分组，不默认运行整个历史集或项目全量回归。`--unit` 只运行单测，`--e2e` 只运行 E2E；同时传两者等同于均运行。
 
-E2E 继续使用 `playwright.e2e.config.ts`，等价于通过 `pnpm test:e2e <文件>` 筛选已有测试。由 `scripts/preview-local.cjs --servers-only` 自动准备源码服务，使用 `scripts/preview-main.cjs` 启动隔离 Electron。不得为 E2E 打包、生成 out/dist、使用免安装成品或下载另一份 Chromium。每个实例同时隔离 `ZTOOLS_DATA_ROOT` 与 `ZTOOLS_LEGACY_USER_DATA_PATH`，不读写真实配置和插件。Windows 原生输入及截图用例需要可交互的 Windows 桌面，会移动鼠标并操作测试窗口；非 Windows 跳过不视为通过。
+E2E 继续使用 `playwright.e2e.config.ts`，等价于通过 `pnpm test:e2e <文件>` 筛选已有测试。由 `scripts/preview-local.cjs --servers-only` 自动准备源码服务，使用 `scripts/preview-main.cjs` 启动隔离 Electron。不得为 E2E 打包、生成 out/dist、使用免安装成品或下载另一份 Chromium。每个实例同时隔离 `TABDO_DATA_ROOT` 与 `TABDO_LEGACY_USER_DATA_PATH`，不读写真实配置和插件。Windows 原生输入及截图用例需要可交互的 Windows 桌面，会移动鼠标并操作测试窗口；非 Windows 跳过不视为通过。
 
 ## 自动化场景索引
 
@@ -39,7 +52,7 @@ E2E 继续使用 `playwright.e2e.config.ts`，等价于通过 `pnpm test:e2e <�
 | CL-02 | 分类缓存导致内容修改后仍归入旧分类                          | U `main/clipboardTypeDetection.test.ts`：同一记录由代码改为链接后分类立即更新                                                                                                    |
 | CL-03 | 代码未高亮、链接点击不能调用默认浏览器                      | E `e2e/tools-clipboard.spec.ts`：代码 token 渲染；拦截并验证 `shell.openExternal` 地址。U `main/clipboardCategory.test.ts` 补充分类样本                                          |
 | CL-04 | 首次进入、重新进入或分类刷新时自动选中最新条目              | E `e2e/tools-clipboard.spec.ts`：初始零选中、再次进入复制按钮禁用；U `main/clipboardSelectionState.test.ts`：刷新清空选择，首次向下导航才选第一项                                |
-| CL-05 | 多选后 Ctrl+C 无效，或被旧 ZTools 版本检测拦截              | E `e2e/tools-clipboard.spec.ts`：在当前本地版本中，宿主搜索框获焦后 Ctrl+C 复制两个条目，无升级提示                                                                              |
+| CL-05 | 多选后 Ctrl+C 无效，或被旧 TabDo 版本检测拦截              | E `e2e/tools-clipboard.spec.ts`：在当前本地版本中，宿主搜索框获焦后 Ctrl+C 复制两个条目，无升级提示                                                                              |
 | CL-06 | 多选复制按钮或右键操作丢失已选条目                          | E `e2e/tools-clipboard.spec.ts`：两个条目经侧栏按钮复制；U `main/clipboardSelectionState.test.ts`：右键已有选中项保留整组                                                        |
 | CL-07 | 文件多选复制退化、失败后仍自动粘贴                          | U `main/clipboardTypeDetection.test.ts`、`main/clipboardWriteContentApi.test.ts`：过滤无效路径，多文件写入成功才自动粘贴；文本和图片不接受数组                                   |
 | CL-08 | Office 文本被伴随的截图错误分类为图片                       | U `main/clipboardTypeDetection.test.ts`：真实图片、Office 文本、纯文本及空白文本边界                                                                                             |
@@ -57,18 +70,34 @@ E2E 继续使用 `playwright.e2e.config.ts`，等价于通过 `pnpm test:e2e <�
 | HS-05 | 设置重复打开/焦点通知导致闪退、重载或关闭后自行重开         | E `e2e/settings-window-stability.spec.ts`：并发请求合并、页面保留、菜单失焦、关闭后的迟到通知、过期启动结果；E `e2e/plugin-cleanup-tray.spec.ts`：托盘恢复设置                   |
 | HS-06 | 运行中的插件移除不完整，遗留 ASAR/sidecar/数据或窗口状态    | E `e2e/plugin-cleanup-tray.spec.ts`；U `main/pluginRemovalCleanup.test.ts`、`main/pluginCleanupWorker.test.ts`、`main/pluginStorage.test.ts`                                     |
 | SC-01 | 截图编辑未确认就结束，确认后弹“已复制”提示                  | E `e2e/tools-screenshot.spec.ts`：编辑时结果未完成，确认后剪贴板得到有效图像，通知计数为 0                                                                                       |
-| SC-02 | 长截图滚动后不拼接或只得到第一屏                            | E `e2e/tools-screenshot.spec.ts`：不发送原始 wheel，模拟滚动条/触控板路径滚动五次；长截图高度比第一屏至少增加 200px，确认仍无通知                                                |
+| SC-02 | 长截图滚动后不拼接或只得到第一屏                            | E `e2e/tools-screenshot.spec.ts`：不发送原始 wheel，连续滚动固定长度页面；长图超过三万像素，身份色带逐行连续，确认无通知且进程回收                                               |
 | SC-03 | 工具名称、截图名称和重复别名回退                            | E `e2e/tools-clipboard.spec.ts`：内置名称为“工具”，截图说明为“截图”，指令数组严格为 `["截图"]`                                                                                   |
+| SC-04 | 长图回传重复读取、编码和解码造成额外内存占用                | U `screenCaptureResult`：原生 PNG 直传；E `tools-screenshot`：持续拼接数万像素并输出完整图像                                                                                     |
+| SC-05 | 原生保存后误用旧剪贴板，取消后改写剪贴板                    | U `screenCaptureResult`：保存结果、旧模块回退与取消                                                                                                                              |
 | PV-01 | 源码正常，免安装仍使用旧 preload，分类与中键设置失效        | U `scripts/portablePreviewResources.test.ts`：主程序一致但 preload 过旧必须失败；`pnpm test:preview:resources` 对实际预览逐文件比较                                              |
 | PV-02 | 同步遗漏运行时 worker/原生模块/内置页面，或模块没有物理展开 | U `scripts/portablePreviewResources.test.ts`：遗漏 worker、缺失展开文件、原生模块仅在归档内、设置/工具旧页面均失败；实际预览核验覆盖 out、Windows resources 和两份内置 dist      |
 | PV-03 | 隐藏暂存目录使原生依赖展开规则失效                          | U `scripts/portablePreviewResources.test.ts`：在 `.artifacts` 下实际生成归档，单个和多个展开项都必须保留标记及物理文件                                                           |
+| PV-04 | 重新编译更改原生模块哈希，旧展开清单使同步校验失败          | U `scripts/portablePreviewResources.test.ts`：新归档排除旧 out 哈希并展开新模块与既有依赖；缺失外部依赖仍须中止                                                                  |
 | LC-01 | 工具后台残留界面、监听、查询和模型资源                      | U `main/toolsLifecycle.test.ts`、`main/toolsHostLifecycle.test.ts`；E `e2e/tools-lifecycle.spec.ts`：旧界面销毁，后台复制仍能被宿主记录                                          |
 | LC-02 | 保存未完成被退出截断、旧任务关闭新会话或写入错误命名空间    | E `e2e/tools-lifecycle.spec.ts`：保留完整保存链，旧任务结束仅销毁旧视图；U 生命周期的失败、超时和迟到模型清理                                                                    |
 | LC-03 | 截图/取色或未使用的预抓帧留下原生进程                       | E `e2e/tools-screenshot.spec.ts`：完成后进程不存在，预抓帧超期退出，取色取消收束回调和 active 状态                                                                               |
 
-PV-01/PV-02/PV-03 的单测只在临时目录创建微型资源夹具，不是为 E2E 打包应用。实际预览核验是独立只读命令，要求已有编译产物和已同步预览；它不会生成产物，也不能替代下面的数据保留与成品交互检查。
+PV-01/PV-02/PV-03/PV-04 的单测只在临时目录创建微型资源夹具，不是为 E2E 打包应用。实际预览核验是独立只读命令，要求已有编译产物和已同步预览；它不会生成产物，也不能替代下面的数据保留与成品交互检查。
 
 ## 人工验收与尚未自动覆盖的边界
+
+### 提供商与默认行为（providers）
+
+| 编号  | 场景                                                              | 覆盖位置                                                         |
+| ----- | ----------------------------------------------------------------- | ---------------------------------------------------------------- |
+| PR-01 | 默认提供商已失效、全部关闭时不再静默调用首项                      | U `providerConsumption`；E `builtin-providers`                   |
+| PR-02 | 启用自动下载，损坏拒绝发布，取消清理、重试、删除不触碰配置        | U `modelAssets`、`builtinProviderService`；E `builtin-providers` |
+| PR-03 | AI OCR 只复用当前宿主视觉模型，取消不能跨页面，删除与重启下载串行 | U `builtinProviderService`；E `builtin-providers`                |
+| PR-04 | 隐藏内置插件、默认中键、设置独立/工具嵌入、工具进程树完成后退出   | E `builtin-providers`；旧嵌入式路径仍由原宿主用例覆盖            |
+| PR-05 | OCR 原图坐标、缩放对齐、明细联动、图上整行与片段选择及复制        | E `builtin-providers`                                            |
+| PR-06 | 移除翻译/代码入口，识别后选文及全文翻译，换图取消抑制迟到响应     | E `builtin-providers`                                            |
+
+`builtin-models.spec.ts` 需显式 `TABDO_MODEL_TEST_ASSETS` 指向私有归档，以真实资源验证安装、OCR、公式推理和删除。常规跳过不计为通过。该测试记录公式期望与实际输出；当前系统字体公式样例出现误识别，仍需人工核对精度。真实在线翻译账号额度、Google/Microsoft 网络可达性和实际用户模型质量尚未通过外部服务验收。
 
 这些场景也属于后续回归集，执行时应逐项记录结果，不能用上一节通过数替代。截图工具栏是原生窗口，无 DOM；当前 E2E 会输出工具栏和长截图供检查，但没有对翻译图标、间距或拼接像素连续性作自动断言。
 
@@ -85,8 +114,64 @@ PV-01/PV-02/PV-03 的单测只在临时目录创建微型资源夹具，不是�
 | PV-M01 | 同步前退出预览；执行已有 `scripts/sync-portable-preview.cjs` 同步程序；核验该次 `preservation.json`；运行只读资源核验                  | 同步器逐文件比较 data/legacy 的前后 SHA-256，已有配置、插件和旧数据完全不变；资源核验通过。只读核验本身不证明同步前后数据保留                                                                             |
 | PV-M02 | 用根目录 `PreviewPortable.cmd`（指向 `.local/portable-preview/Start-Preview.cmd`）打开已同步成品，复测分类、中键、首次启动、截图和分离 | 成品与源码专项结果一致，启动沿用隔离预览数据目录。不得直接双击 exe 导致读到真实用户目录；人工使用带来的正常数据变化不应与同步破坏混为一谈                                                                 |
 
+PV-M03：修改免安装启动器后，从无关目录以绝对路径、从父目录以相对路径调用根入口，再直接相对调用内部入口；覆盖含空格和中文的目录。三种方式均应定位同一份 `TabDo.exe`，不得重复拼接目录；工作目录及 `data/legacy` 必须在对应预览内，`ELECTRON_RUN_AS_NODE` 必须清除。可在私有夹具中用探针可执行文件验证，避免启动真实预览污染用户数据。本轮三个场景已验证，证据见变更记录。
+
 ## 留存结果
+
+`recorder-web` 专项：TX-38 重命名按钮为“执行重命名”，预览直接标出既有目标、非法名称和重复目标，刷新后解除外部冲突；事务仍复验、无二次确认并可撤销。模型未配置提示不透明、处于列表之后，不覆盖预览。TX-39 文件搜索侧栏设置入口实际渲染齿轮，设置抽屉只有一个关闭按钮，连接选项和分类在窄窗口中可用。TX-40 网页快开配置保存、特殊字符编码、二级网站实际点击与销毁、文本/图片匹配入口、合成图片 multipart 上传和浏览器跳转，以及旧工具页面退出；启动迁移保留两个新固定指令的统计和固定项。TX-41 录屏使用本测试创建的纯色窗口，经真实原生引擎输出包含 ftyp/moov/mdat 的 MP4，等待编码器开始写入后才进入录制状态，旧入口销毁后控制条继续工作，停止后捕获进程及工作进程均不存在，倒计时取消不覆盖已有视频，区域选择 Esc 取消后入口和选区窗口都销毁。实际区域录制、多屏 DPI、声音设备及外网账号/风控保留人工边界；自动化网络替身不计作外部服务验收。本轮另用隔离 Electron 的生产上传函数和 32×32 合成图真实验证 Bing / Google Lens 返回结果地址，不能以普通 Node fetch 探测替代 Electron 网络行为。
 
 E2E 截图与失败 trace 保存在 `test-results/playwright`，不提交。插件页面截图直接截取 WebContentsView，等待正文稳定特征后只截当前可见区域；原生截图编辑器使用屏幕捕获单独留证，不与宿主拼接。
 
+`recorder-web` 补充 TX-42 / TX-43：TX-42 不再把 Lens 返回跳转地址算作识图成功。`lensBrowserUpload` 单测覆盖随机回环入口、仅 GET 领取、JPEG 字节、无同源权限的 CSP sandbox、取消、浏览器失败、60 秒超时与端口释放；`lens-browser-upload` 源码 E2E 在独立浏览器中执行真实表单导航及 JPEG 解码，网络替身不代替外网验收。另以 640×400 合成图执行生产交接函数，实际 Google 结果页出现原图预览及识图内容，保留结果截图；用户默认浏览器、账号与网络限制仍需人工验收。TX-43 的 `recorderLayout` 单测覆盖区域下方、底边、负坐标显示器和全屏；`recorder-overlay` 源码 E2E 实际框选录区并把洋红控制条移入绿色录区，解码 MP4 核对底图、无洋红像素，不只检查保护 API。当前桌面区域录制已自动覆盖，多屏/DPI 和旧系统保护效果仍需人工验收。
+
 复查记录至少包含：日期、修改版本/工作区状态、执行命令、场景编号、自动化通过/失败/跳过、人工项结果、源码或免安装预览、Windows 缩放与显示器信息。资源同步另保留该次 `preservation.json` 路径和 `test:preview:resources` 文件数。没有执行的场景标记“未执行”，待补自动化标记不随测试通过自动关闭。
+
+NT-01 / NT-02（原 TX-M01）：已确认剪贴板与窗口原生线程未停止导致 `tabdo_native.node` / `0xc0000409`。`native-shutdown` 专项验证在途记录保存、停止幂等、初始化迟到，以及三个源码 Electron 退出路径的真实退出码和隔离数据重启留存；`tools-lifecycle` 验证工具隐藏后采集继续。修复后仍须检查系统事件与进程遗留，不能只凭页面断言判定退出正常。其他平台和外部强制终止保留人工边界。
+
+本轮 `tools-followup` 专项只包含 `main/localSearchQuery.test.ts`、`main/everythingBridge.test.ts` 和 `e2e/tools-polish.spec.ts`。TX-13：图片悬浮隐藏绘图工具栏且标记仍可用；TX-14：多选文本全部悬浮、关闭最后一张后编号/黄色重置；TX-15：便签贴边释放收起、悬停不展开、点击或拖离解除与编辑保留；TX-16：原十类在空关键词时立即枚举、宿主搜索、排序和分栏调整、真实文件预览与桥接进程退出。多屏、原生标题栏拖动手感及真实 Everything 内容仍需人工检查。
+
+`floating-pointer` 专项：TX-17 使用系统鼠标按下/移动/松开实际拖动便签标题栏，实际覆盖左边缘拖动、沿边移动、点击解除、尺寸和正文保留；其余三边使用真实窗口定位和释放 IPC 验证，边缘识别由单测逐边覆盖；TX-18 验证图片正文进入后按钮完整显示并通过真实鼠标点击关闭。`floatingPointer` 单测补充四边无 moved 事件场景和共享观察器回收。旧 `tools-polish` 的手工 emit moved / dock-hover 已删除，不能用注入贴靠事件替代实际交互验收。多屏、触摸和其他缩放仍需人工检查。
+
+本轮新增 `tools-commands` 回归组：TX-19 便签拖动释放后立即贴靠、释放位置仍在色签上时不弹回、指针重新进入仍不展开，点击或拖离边缘解除，`floatingPointer` 单测覆盖指针已在别处与仍在色签两种情况；TX-20 便签贴靠开关关闭后鼠标离开不再收起、重新开启恢复贴靠，并验证竖排色签文字 text-orientation 为 upright；TX-21 复制路径与复制名称把路径或名称按文本写入并登记，宿主窗口不 `show()`、两条指令声明 `mainHide`；TX-22 解散文件夹在单层模式下把文件与子目录移到父目录、删除空目录、保留历史并可撤销回原结构。同时 TX-05 与 TX-14 补充入口页面不再闪出：只开独立窗口的子组件声明 `mainHide` 并在转交后隐藏宿主窗口。该组只运行 `tools-copy-commands`、`tools-folder-break`、`tools-expanded` 三个源码 E2E 与两个重命名/文件单测，不运行全量回归；超级面板自适应高度与拖动由 TX-30 补充，真实多屏缩放保留人工验收。
+
+便签贴靠交互重做后新增 TX-24 / TX-25 / TX-26：TX-24 用系统鼠标把便签拖到左边缘后释放即收起，其他三边用真实窗口定位及释放 IPC 验证、指针停在色签上不再展开、色签可沿边缘拖动改变位置、点击色签解除贴靠并保留纸张与正文，`floatingPointer` 单测逐边覆盖登记、收起、点击解除与拖离解除；TX-25 图片悬浮按原图比例锁定尺寸、西侧拖动固定对侧边缘、拖动保持当前尺寸且放大不超过原图；TX-26 便签字号 16/22 切换与贴靠开关关闭/恢复。TX-27 由 `commandUtils` 单测覆盖匹配指令的使用频次与最近使用加分（封顶、衰减、未使用不加分），排序接入主搜索与超级面板的图片/文件/文本/窗口匹配列表；TX-28 在 `super-panel-selection` 上补断言：面板头部拖动区不能吞掉左上角返回固定列表按钮的点击。
+
+TX-29：源码 E2E 与源码预览必须在启动被测 Electron 前清掉宿主终端残留的 `ELECTRON_FORCE_IS_PACKAGED`，否则 `app.isPackaged` 被强制为真，内置插件与原生资源按 `app.asar.unpacked` 解析而全部缺失。该场景由 `playwright.e2e.config.ts` 与 `scripts/preview-local.cjs` 的启动环境清理保证，不依赖用例内断言；验证方式是同一终端下全量 `e2e` 的通过数（修复前 13 失败 2 通过，修复后 15 通过 1 跳过），以及探针确认内置插件路径回到 `internal-plugins/<name>/public`。
+
+`tools-review` 复查组补充：TX-30 在同一个超级面板中由 15 个固定项缩为 1 个，验证窗口内容高度增长及缩小，并用真实系统鼠标拖动头部核对位置；继续验证返回按钮和外部点击关闭。TX-31 实际关闭源码 Electron 的 stdout/stderr 管道读端，随后写入 info/warn 日志，验证控制台停用、文件日志继续可用、无未捕获异常；单测同时覆盖同步和异步 EPIPE，非 EPIPE 保持抛出。TX-25 增加图片手柄连续缩小、画布铺满窗口以及移动后尺寸完全相同的实际页面断言。TX-32 在重命名原生复用界面中切换编号（含中文）、替换、清理、插入、手动及智能页，验证双列预览、执行与撤销、无效手动名称禁止执行，直接捕获插件视图；解散目录栏与模式栏分别限制小于 54/42 CSS px，禁止恢复重复标题和目录选择块。
+
+`tools-visual` 界面专项：TX-33 核对重命名文件名、编号输入、手动编辑与剪贴板使用同一系统字体，默认绿色选中态和执行按钮、深色正文可读；TX-34 在二维码空态与识别完成后保持左图右结果，真实二维码图片展示宽度占左栏超过 85%，无横向溢出，宿主宽高比低于 1.35，实际复制与 HTTP(S) 打开仍正常。两者均直接截取明暗主题的插件 WebContentsView，另回归 OCR、剪贴板和退出清理。截图只证明对应机器的实际结果，多 DPI 与用户最终视觉偏好保留人工验收。
+
+`panel-switch` 专项：TX-35 恢复默认 250×400、宽度固定 250、高度 250–400，匹配指令隐藏描述；给旧面板注入 500px 宽度后必须恢复，连续 20 次请求不能累积尺寸，Windows 客户区实测允许 2px 舍入。验证真实头部拖动、返回及外部关闭。TX-27 当前以“候选中上次使用固定首位、其余真实频次降序”为准，覆盖 1000 次高频不压过上次使用、别名统计关联、面板读新统计；不再使用加权分数作首位保证。TX-36 必须直接从可见工具切换，验证旧视图不可见、未挂载、不在缓存且最终关闭；有必要保存任务时先停前台、后完成保存，只关闭旧页。TX-37 检查 SVG 播放图标，并用一次点击直接执行重命名，无确认弹层；目标占用时保留源和目标内容，成功后仍可撤销。完整源码 E2E、失败记录及人工视觉检查见本轮历史条目。
+
+`media-tools` 专项：TX-44 用真实 Sharp 像素与几何、PDF 头、GIF 帧验证图片变换与有序合并，保留原文件且独占发布同名结果；TX-45 用实际 FFmpeg 验证视频尺寸、时长、音轨、动图、提帧和合并，并验证取消后工作目录清理；TX-46 更新 2.1.0 六参数录屏引擎、质量设置和透明四角的 12px 圆角控制条，区域视频解码继续检查排除捕获；TX-47 新子组件必须通过真实宿主入口、正文三栏与明暗主题，不能遗漏系统视图白名单。媒体依赖单测验证完整间接版本树物理展开，预览逐文件检查原生和 JS 资源。测试纯色底图置顶，避免无关桌面窗口遮挡导致像素误判。实际用户图片/视频、HEIC、特殊编码、多屏/DPI、声音设备与非硬链接文件系统仍需人工验收。
+
+`recorder-reference` 专项：TX-48 对照用户 2.1.0 原界面的全屏大图/窗口列表/横排选项、3–9 秒分段与中心倒计时、区域直接打开后可调整尺寸且确认才录制、五种键帽及九位置、左右键 Emoji/颜色/取色保存、自动命名和停止定位；区域实际 MP4 解码核对控制条排除，键帽退场后再测纯色底图。TX-49 图片与视频默认同级目录，多个目录分别输出、合并归首项，切换自定义保持独立设置，暂存区清理及非硬链接排他复制。TX-50 文件搜索安装指引不含搜索复选框、命名实例字段消失，搜索方式有说明并保存；常用实例自动连接、旧配置只读兼容。多显示器测试须先用真实 Win32 光标定位指定屏幕，不能用页面模拟鼠标推断屏幕选择；界面专项可抑制外部桌面失焦，生命周期专项仍实际验证隐藏与退出。用户最终观感、真实音频设备、复杂编解码和非 NTFS 文件系统保留人工验收。
+
+## 工具指令与任务栏（tools-catalog）
+
+- TX-51：36 功能唯一中文入口、13 类聚合、录屏同组与图标；分组后禁用只作用于成员、图片/文件匹配仍保留，第三方不误合并（toolFeatureGroups、tools-catalog）。设置精简移除唤醒黑名单后普通入口为 28 个。
+- TX-52：14 个嵌入正文及媒体直达入口、手动与直接分离、便签/悬浮/标记/窗口信息和真实录屏控制条有任务栏与原生图标，返回搜索撤回任务栏、旧页面与隐藏独立窗口销毁（tools-catalog、tools-recorder-web、tools-lifecycle、plugin-host-regressions）。Windows 使用 WM_GETICON 核对句柄；任务栏合并策略、多屏/DPI 与最终视觉保留人工项。
+- TX-53：通用设置面板优先、开发者闭合、无快捷键/黑名单/调试日志入口；快捷键集中且初始全关，真实 Ctrl+D 关闭时不分离、启用后立即分离；托盘无重复入口、游戏模式暂停并恢复。调试日志 SDK 与黑名单指令/内部 API 均不存在（settings-cleanup、dndManager）。
+- TX-54：“设置”普通及匹配指令初始禁用，五个常用工具按顺序默认固定；已保存空列表与用户选择重启不覆盖，删除黑名单旧固定/统计但保留其他插件及原配置（localEditionDefaults、startupDataMigrations、settings-cleanup）。
+- TX-55：目录迁移拒绝非空/相互包含/联接/复制失败；源资料、目标内容与原配置保留，仅清理本任务暂存树；二次迁移保留插件私有同名文件。源码 E2E 真实退出、校验并重启，验证 userData/sessionData、插件版本、私有字节及宿主根路径重定位（dataLocation、settings-cleanup）。跨卷、受限权限、掉电恢复与大资料量保留设备验收。
+- TX-56（视觉验收）：默认设置窗口及较窄视口中，翻译按钮保持单行、描述不挤压开关；复制后匹配说明精简且不指定中键，秒数框宽 96 CSS 像素；插件正文默认与重置高度为 540。截图直接来自隔离源码设置插件当前可见区域；用户随后要求触发键逻辑另做专项，见 TX-57。本轮不运行 E2E，特殊 DPI 与其他显示器保留设备验收。
+- TX-57（U `main/superPanelClipboardTrigger.test.ts`、`main/clipboardTypeDetection.test.ts`、`main/dndManager.test.ts`）：七种鼠标键/长按配置均可回退到有效复制内容；当前选区优先，关闭/过期时无选区显示固定项，有选区仍正常匹配。配置切换、非文本载荷、屏蔽和关闭后的异步结果均覆盖。窗口发布边界与原生监视器由替身隔离，宿主注册和异步匹配流程保持真实；不同应用的原生长按、选区和多 DPI 手感保留人工验收。
+
+## 覆盖层与透字（overlay-surfaces）
+
+`pnpm test:regressions overlay-surfaces --e2e` 从源码启动隔离 Electron，不构建成品用于测试。
+
+- TX-58：明暗主题 × none/Mica/Acrylic 下，快捷键固定页签与正文分区，越界绘制由滚动区裁剪；设置下拉菜单和四类 Toast 不透字。通过实际 WebContents 像素比较底图变化，菜单透明反例须失败。
+- TX-59：工具剪贴板右键、收藏、清空确认，以及文件预览吸顶表头/固定确认条在明暗主题下保持遮挡；取消后文件和剪贴板夹具保留。
+- TX-60：实际便签入口创建独立窗口，纸张透明度降为 35% 时选项菜单仍不透明，关闭选项保留文字，关闭窗口释放会话。
+- TX-61：真实切换窗口聚焦/失焦 × 明暗 × 三种材质，三个滚动位置中页签固定且与正文边界不交叉，Mica/Acrylic 留白透明、普通材质不透明。快捷键编辑、安装面板、数据二/三级详情继承材质且旧页/导航隐藏；记录显示器与 DPI。WebContents 不含 DWM 的最终合成，原生观感仍需预览验收。
+
+静态审查范围及有意透明的区域见 [覆盖层审查](../../docs/interaction-surfaces.md)。共享 Select、TagDropdown、图片标记窗口及市场分类等未逐项运行全部业务流程；其他 DPI、显示器、第三方插件及最终观感保留人工验收。
+
+## TabDo 最终交付（tabdo-release）
+
+- TX-65：第三方与工具统一会话退出；8次32MiB实际分配后页面关闭/缓存归零；后台保存重进、任务超时、独立窗口和并发Provider释放。
+- TX-66：独立TabDo-plugins来源与隔离缓存；索引/实际包协议一致，拒绝原市场地址，合并请求及2MiB/15秒预算；旧资料根与位置指针不丢失。
+
+`tabdo-release` 分组给出相关测试，完整发布还需全量单测、源码E2E、类型/维护检查及免安装资源核验。真实离线大模型测试需显式准备模型，跳过必须单独报告；设备/DPI、默认浏览器与网络条件保留人工边界。

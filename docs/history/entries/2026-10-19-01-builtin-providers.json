@@ -1,0 +1,30 @@
+{
+  "id": "builtin-providers-and-tools",
+  "date": "2026-10-19",
+  "summary": "提供商内置、工具子组件与本地版默认行为优化",
+  "changes": [
+    "研究并固定 f-provider 源码 ae2bd2cc678b743f7683c3fb40b6606940acc3d1，将翻译、OCR、公式识别及图床配置内置到提供商页。",
+    "在线翻译四个服务共用下拉栏目；AI OCR 直接复用宿主视觉模型。离线资源启用即下载，支持校验、取消、重试与删除。",
+    "将文本翻译、文字/公式识别、图片识别并翻译、九种代码命名和处理记录整合为工具子组件；移除重复截图入口。",
+    "默认路由只调用仍存在且已启用的提供商；保留旧 f-provider 安装与私有数据，兼容旧参数、默认标识和快捷入口。",
+    "原生能力按次独立进程执行，结果交付前结束进程树；ONNX 显式 release，Bergamot 按次释放 Worker 并改用隔离数据根。",
+    "超级面板始终启用，缺省按下中键触发，保留已有按键设置；已安装列表隐藏内置插件，首次应用其默认分离与退出结束配置。"
+  ],
+  "checks": [
+    "pnpm test --maxWorkers=2：73 个单测文件、526 项通过；之后增加的旧提供商显式标识兼容用例随 providerConsumption/pluginPreloadInternalApi 专项 15 项通过。",
+    "源码 Electron E2E 全量运行 10 项：9 项通过，托盘用例因 Playwright 尚未登记插件 Page 引用失败；补充正文/页面等待后专项复测通过。",
+    "最终 pnpm test:e2e builtin-models、builtin-providers、plugin-cleanup-tray 专项 3 项通过；其余 7 项已在全量运行通过。所有 E2E 仅加载源码并使用隔离数据。",
+    "真实微信 OCR 识别 HELLO 123 通过；真实 ONNX 公式模型完成推理、逐项 release 与资源删除，实际文本记录在 real-offline-results.json，精度不作为本次通过结论。",
+    "初次全量单测 520 项通过、1 项窗口测试超时；该文件单独 7 项通过，随后完整 526 项通过。初期界面语法、测试控件及旧默认假设失败与修正日志均保留。",
+    "pnpm typecheck、pnpm typecheck:setting、全仓 eslint --no-cache --max-warnings=0 及 pnpm build 均通过；编译仅用于本地交付，E2E 未使用编译或打包产物。",
+    "日志和截图证据：.artifacts/runs/2026-10-19T10-51-58-470Z-unit、2026-10-19T10-54-41-602Z-unit、2026-10-19T10-49-06-766Z-e2e、2026-10-19T10-54-12-021Z-e2e。",
+    "pnpm preview:sync：57 份含版本元数据的程序文件通过核验；241 个 data/legacy 文件同步前后 SHA-256 一致。回退资源与 preservation.json 位于 .artifacts/backups/preview-sync/update-1792407479668。",
+    "pnpm test:preview:resources：56 份运行资源、67 份内置插件资源一致；公式适配脚本采用 .cjs 确保免安装预览物理展开，独立进程的两个 CommonJS 适配模块导入通过。",
+    "pnpm maintain 与 pnpm maintain:check 通过，改动索引、Bug 台账和回归分组已同步；既有启动器修复及维护记录未撤销。"
+  ],
+  "pending": [
+    "真实外部翻译账号额度与网络可达性未验收；AI 请求使用本机 HTTP 夹具验证，未调用用户付费模型。",
+    "离线公式模型对系统字体样例出现误识别，需人工检查精度；多屏/DPI 与截图像素质量仍保留既有人工项。"
+  ],
+  "preview": "已同步 .local/portable-preview，版本保持 1.1.0；使用 PreviewPortable.cmd 手动测试。未重置数据、未移除已安装插件、未 push、未云端构建、未发布 release。"
+}

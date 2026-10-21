@@ -1,10 +1,10 @@
-# ZTools 本地版 HTTP API
+# TabDo 本地版 HTTP API
 
-ZTools 内置 HTTP 服务，允许第三方应用通过本地 HTTP 接口控制 ZTools。
+TabDo 内置 HTTP 服务，允许第三方应用通过本地 HTTP 接口控制 TabDo。
 
 ## 快速开始
 
-1. 打开 ZTools → 设置 → HTTP 服务
+1. 打开 TabDo → 设置 → HTTP 服务
 2. 开启「启用 HTTP 服务」
 3. 复制 API 访问密钥
 4. 使用任意 HTTP 客户端调用接口
@@ -81,7 +81,7 @@ GET /
 ```json
 {
   "code": 0,
-  "message": "Hello ZTools"
+  "message": "Hello TabDo"
 }
 ```
 
@@ -144,7 +144,7 @@ curl -X POST http://127.0.0.1:36578/api/window/show \
 
 ### POST /api/window/hide — 隐藏主窗口
 
-隐藏 ZTools 主窗口。
+隐藏 TabDo 主窗口。
 
 **请求**
 
@@ -240,7 +240,7 @@ Content-Type: application/json
 }
 ```
 
-文件类型插件也可以传文件路径数组，ZTools 会转换为手动启动插件时一致的文件对象数组。
+文件类型插件也可以传文件路径数组，TabDo 会转换为手动启动插件时一致的文件对象数组。
 
 ```json
 {

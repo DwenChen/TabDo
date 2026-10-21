@@ -11,14 +11,20 @@ export default defineConfig(
       '**/dist',
       '**/out',
       'build/**',
-      'resources/**',
+      'resources/**/*',
+      '!resources/media/',
+      '!resources/media/*.cjs',
+      '!resources/media-worker.cjs',
+      '!resources/recorder-effects.js',
+      '!resources/recorder-effects-preload.cjs',
+      '!resources/recorder-countdown.js',
+      '!resources/recorder-region.js',
+      '!resources/recorder-preload.cjs',
       '.local/**',
       '.artifacts/**',
       'internal-plugins/system/public/vendor/**',
-      'ztools-api-types/**',
       '_*',
-      '_*/**',
-      'ztools-plugin-cli/templates/**'
+      '_*/**'
     ]
   },
   tseslint.configs.recommended,
@@ -69,6 +75,13 @@ export default defineConfig(
     }
   },
   {
+    files: ['internal-plugins/system/src/components/rename/*.vue'],
+    rules: {
+      // batch-rename 复用组件保留上游 TypeScript 属性与事件类型。
+      'vue/block-lang': ['error', { script: { lang: 'ts' } }]
+    }
+  },
+  {
     files: ['internal-plugins/system/public/*.{js,cjs}'],
     rules: {
       // Electron 预加载与生命周期模块直接使用 CommonJS，类型签名由 JSDoc 描述。
@@ -76,7 +89,13 @@ export default defineConfig(
     }
   },
   {
-    files: ['scripts/*.cjs', 'resources/backup-worker.cjs'],
+    files: [
+      'scripts/*.cjs',
+      'resources/backup-worker.cjs',
+      'resources/media/*.cjs',
+      'resources/media-worker.cjs',
+      'resources/recorder-*.{js,cjs}'
+    ],
     rules: {
       // These files execute directly in Node/Electron CommonJS; their signatures use JSDoc.
       '@typescript-eslint/no-require-imports': 'off',

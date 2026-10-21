@@ -1,0 +1,28 @@
+{
+  "id": "ocr-selection-and-translation",
+  "date": "2026-10-19",
+  "summary": "精简识别指令并恢复图片选文、坐标标注与识别后翻译",
+  "changes": [
+    "移除独立文本翻译、代码翻译及图片识别并翻译功能入口；旧快捷键返回已移除说明，保留翻译提供商供结果翻译与公共 API 使用。",
+    "保留 OCR 完整行框，恢复原图坐标、逐行高亮、缩放对齐与图上整行和部分文字选择。",
+    "识别后手动翻译英文，优先选文否则全文；原文、坐标与译文分别展示，换图/取消/退出阻止迟到回填。",
+    "离线翻译沿用引擎单次 1000 字符限制，结果页明确拒绝超长输入并提示选文或改用在线/AI，避免静默截断。"
+  ],
+  "checks": [
+    "提供商与指令相关 6 个单测文件、64 项通过。",
+    "源码 Electron E2E：builtin-providers、tools-clipboard、tools-lifecycle、tools-screenshot 共 4 项通过；补充翻译失败重试、无坐标说明与公式识别后 builtin-providers 专项通过。",
+    "pnpm typecheck、全仓 eslint --no-cache --max-warnings=0、pnpm build 通过；构建仅用于交付，E2E 直接加载源码。",
+    "失败过程包括旧控件名称、模板多语句格式化及纯中文夹具仍含 AI 英文；均修正并保留自动归档。",
+    "日志：.artifacts/runs/2026-10-19T11-24-00-535Z-unit、2026-10-19T11-25-36-101Z-e2e、2026-10-19T11-28-08-865Z-e2e；成功截图分别记录原图标注与译文。",
+    "最终全量 pnpm test --maxWorkers=2：74 个文件、531 项通过；日志 .artifacts/runs/2026-10-19T11-41-25-266Z-unit。",
+    "最终源码 Electron E2E builtin-providers 与 tools-screenshot 2 项通过，归档 .artifacts/runs/2026-10-19T11-40-55-149Z-e2e；pnpm typecheck、全仓 eslint 通过。",
+    "最终补充离线翻译长度提示与拒绝截断的源码 E2E 通过，归档 .artifacts/runs/2026-10-19T11-45-37-571Z-e2e。",
+    "最终 pnpm build 通过；pnpm preview:sync 核验 57 份程序文件，527 个 data/legacy 文件同步前后 SHA-256 一致，未重置数据或插件。",
+    "预览回退资源和 preservation.json：.artifacts/backups/preview-sync/update-1792410460157；程序版本保持 1.1.0。",
+    "pnpm test:preview:resources：56 份运行资源、67 份内置插件资源通过；pnpm maintain、pnpm maintain:check 与 git diff --check 通过。"
+  ],
+  "pending": [
+    "真实翻译账号及网络可达性沿用上一轮人工项；AI 翻译使用本机 HTTP 夹具。"
+  ],
+  "preview": "已同步 .local/portable-preview，通过 PreviewPortable.cmd 手动测试；保留配置、离线资源、记录与已安装插件。未 push、未云端构建、未发布 release。"
+}

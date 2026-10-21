@@ -793,9 +793,9 @@ export class PluginDevProjectsAPI {
       // 定位开发者插件的安装目录（优先使用开发版本，因为正式安装版可能不含模板）
       const installedPlugins = this.deps.readInstalledPlugins()
       const devVersionPlugin = installedPlugins.find(
-        (p) => p?.name === 'ztools-developer-plugin__dev'
+        (p) => p?.name === 'tabdo-developer-plugin__dev'
       )
-      const prodVersionPlugin = installedPlugins.find((p) => p?.name === 'ztools-developer-plugin')
+      const prodVersionPlugin = installedPlugins.find((p) => p?.name === 'tabdo-developer-plugin')
       const devPlugin = devVersionPlugin || prodVersionPlugin
       if (!devPlugin?.path) {
         return { success: false, error: '开发者工具插件未安装' }
@@ -823,7 +823,7 @@ export class PluginDevProjectsAPI {
       await fs.cp(templateDir, projectDir, { recursive: true })
 
       // 替换 plugin.json 占位符
-      const pluginJsonPath = path.join(projectDir, 'src-ztools', 'plugin.json')
+      const pluginJsonPath = path.join(projectDir, 'src-tabdo', 'plugin.json')
       try {
         let pluginJson = await fs.readFile(pluginJsonPath, 'utf-8')
         pluginJson = pluginJson
@@ -966,7 +966,7 @@ export class PluginDevProjectsAPI {
           const safeProjectName = projectName.replace(/[^a-zA-Z0-9_-]/g, '-')
           const temporaryPackagePath = path.join(
             os.tmpdir(),
-            `ztools-plugin-upload-${safeProjectName}-${randomUUID()}.zpx`
+            `tabdo-plugin-upload-${safeProjectName}-${randomUUID()}.zpx`
           )
           try {
             await packZpx(targetPackagePath, temporaryPackagePath)

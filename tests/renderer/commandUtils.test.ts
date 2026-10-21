@@ -2,8 +2,101 @@ import { describe, it, expect } from 'vitest'
 import {
   getCommandId,
   applySpecialConfig,
-  calculateMatchScore
+  calculateMatchScore,
+  calculateUsageBoost,
+  sortCommandsByUsage,
+  getUsageStatsKey
 } from '../../src/renderer/src/stores/commandUtils'
+
+// ========== 使用热度排序 ==========
+
+describe('getUsageStatsKey', () => {
+  it('应按路径、功能码与名称拼出与主进程记录一致的键', () => {
+    expect(
+      getUsageStatsKey({
+        name: '复制路径',
+        path: 'C:/plugins/system',
+        featureCode: 'copy-path'
+      } as any)
+    ).toBe('C:/plugins/system|copy-path')
+    expect(getUsageStatsKey({ name: 'App', path: 'C:\\app.exe' } as any)).toBe('C:\\app.exe||App')
+  })
+})
+
+describe('strict matching command order', () => {
+  const commands = [
+    { name: '常用', path: '/tools', featureCode: 'frequent' },
+    { name: '较近但低频', path: '/tools', featureCode: 'recent' },
+    { name: '上次使用', path: '/tools', featureCode: 'last' },
+    { name: '次常用', path: '/tools', featureCode: 'second' }
+  ]
+
+  it('上次使用必须超过任意高频，其余严格按真实频次排序，不封顶', () => {
+    const result = sortCommandsByUsage(commands, {
+      '/tools|frequent': { useCount: 1000, lastUsed: 10 },
+      '/tools|recent': { useCount: 2, lastUsed: 99 },
+      '/tools|last': { useCount: 1, lastUsed: 100 },
+      '/tools|second': { useCount: 500, lastUsed: 20 }
+    })
+    expect(result.map((command) => command.featureCode)).toEqual([
+      'last',
+      'frequent',
+      'second',
+      'recent'
+    ])
+    expect(commands[0].featureCode).toBe('frequent')
+  })
+
+  it('同频次按最近时间排序，未使用时保持既有顺序', () => {
+    expect(sortCommandsByUsage(commands, {})).toEqual(commands)
+    expect(
+      sortCommandsByUsage(commands, {
+        '/tools|frequent': { useCount: 5, lastUsed: 10 },
+        '/tools|second': { useCount: 5, lastUsed: 20 },
+        '/tools|last': { useCount: 1, lastUsed: 100 }
+      }).map((command) => command.featureCode)
+    ).toEqual(['last', 'second', 'frequent', 'recent'])
+  })
+
+  it('同一插件功能的显示别名变化仍命中原有统计', () => {
+    expect(getUsageStatsKey({ ...commands[0], name: '新别名' })).toBe(getUsageStatsKey(commands[0]))
+  })
+})
+
+describe('calculateUsageBoost', () => {
+  const now = Date.parse('2026-10-20T12:00:00Z')
+  const day = 24 * 60 * 60 * 1000
+
+  it('从未使用过的指令不加分', () => {
+    expect(calculateUsageBoost(undefined, now)).toBe(0)
+    expect(calculateUsageBoost({ useCount: 0, lastUsed: 0 }, now)).toBe(0)
+  })
+
+  it('使用频次加分封顶，常用指令优先', () => {
+    expect(calculateUsageBoost({ useCount: 3, lastUsed: 0 }, now)).toBe(36)
+    expect(calculateUsageBoost({ useCount: 10, lastUsed: 0 }, now)).toBe(120)
+    expect(calculateUsageBoost({ useCount: 50, lastUsed: 0 }, now)).toBe(120)
+  })
+
+  it('最近使用从本次使用开始连续衰减，超过一周不再加分', () => {
+    expect(calculateUsageBoost({ useCount: 10, lastUsed: now - 1000 }, now)).toBeCloseTo(300, 2)
+    expect(calculateUsageBoost({ useCount: 10, lastUsed: now - 4 * day }, now)).toBeCloseTo(
+      197.142857
+    )
+    expect(calculateUsageBoost({ useCount: 10, lastUsed: now - 7 * day }, now)).toBe(120)
+    expect(calculateUsageBoost({ useCount: 10, lastUsed: now - 30 * day }, now)).toBe(120)
+  })
+
+  it('同频次时刚使用的指令优先于同一天更早使用的指令', () => {
+    expect(calculateUsageBoost({ useCount: 3, lastUsed: now - 1000 }, now)).toBeGreaterThan(
+      calculateUsageBoost({ useCount: 3, lastUsed: now - 60000 }, now)
+    )
+  })
+
+  it('加分总额不超过文本匹配的类型权重，仍以匹配度为主', () => {
+    expect(calculateUsageBoost({ useCount: 999, lastUsed: now }, now)).toBeLessThanOrEqual(300)
+  })
+})
 
 // ========== getCommandId ==========
 

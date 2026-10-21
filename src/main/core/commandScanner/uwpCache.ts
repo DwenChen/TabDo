@@ -1,6 +1,6 @@
 import { existsSync } from 'fs'
 
-const ZTOOLS_ICON_PREFIX = 'ztools-icon://'
+const TABDO_ICON_PREFIX = 'ztools-icon://'
 
 interface CachedAppCommand {
   path?: unknown
@@ -8,16 +8,16 @@ interface CachedAppCommand {
 }
 
 /**
- * 从 ZTools 图标协议 URL 中还原本地文件路径。
+ * 从 TabDo 图标协议 URL 中还原本地文件路径。
  *
  * @param iconUrl 待解析的图标 URL。
  * @returns 解码后的本地路径；协议或编码无效时返回 null。
  */
-export function decodeZToolsIconPath(iconUrl: string): string | null {
-  if (!iconUrl.startsWith(ZTOOLS_ICON_PREFIX)) return null
+export function decodeTabDoIconPath(iconUrl: string): string | null {
+  if (!iconUrl.startsWith(TABDO_ICON_PREFIX)) return null
 
   try {
-    return decodeURIComponent(iconUrl.slice(ZTOOLS_ICON_PREFIX.length))
+    return decodeURIComponent(iconUrl.slice(TABDO_ICON_PREFIX.length))
   } catch {
     return null
   }
@@ -39,7 +39,7 @@ export function hasStaleUwpIconCache(
     if (typeof command.icon !== 'string') return true
 
     // UWP 缓存应指向扫描时解析出的本地图标，其他格式无法保证更新后仍有效。
-    const iconPath = decodeZToolsIconPath(command.icon)
+    const iconPath = decodeTabDoIconPath(command.icon)
     return iconPath === null || !fileExists(iconPath)
   })
 }

@@ -1,0 +1,27 @@
+{
+  "id": "native-monitor-shutdown",
+  "date": "2026-10-20",
+  "summary": "定位并修复原生剪贴板及窗口监听未停止导致的退出崩溃",
+  "changes": [
+    "独立进程复现：仅加载正常；启动剪贴板或窗口监听后直接退出均返回 0xc0000409；先停止监听均返回 0。未替换原生二进制。",
+    "真正退出前停止原生提供商桥接、全局剪贴板及窗口监听；先封闭回调入口并等待已接收记录保存，再继续窗口和数据库关闭。",
+    "退出清理幂等，取消复制等待计时器；目录初始化迟到时不再启动原生线程。工具隐藏/关闭不停止全局采集。",
+    "开发终止信号走同一清理链，移除会跳过异步保存的 process.exit。"
+  ],
+  "checks": [
+    "只运行相关验证，没有全量回归。",
+    "独立进程对照证据 .artifacts/runs/native-exit-reproduction.json。",
+    "pnpm test tests/main/clipboardShutdown.test.ts tests/main/clipboardTypeDetection.test.ts tests/main/clipboardCategory.test.ts：3 文件 27 项通过，归档 .artifacts/runs/2026-10-20T01-29-03-397Z-unit。覆盖在途保存等待、停止幂等、迟到初始化、原有采集分类与写入行为。",
+    "pnpm test:e2e tests/e2e/native-shutdown.spec.ts tests/e2e/tools-lifecycle.spec.ts：2 项源码 Electron E2E 通过，归档 .artifacts/runs/2026-10-20T01-28-47-078Z-e2e。自动化关闭、app.quit、SIGTERM 三个真实进程退出码均为 0，重启读取隔离哨兵记录验证留存；工具隐藏后仍采集新内容和必要任务收尾也通过。",
+    "修复后的专项期间 Windows Application Error 未新增 ztools_native.node 事件；无本轮源码测试进程遗留。检查证据 .artifacts/runs/native-exit-after-fix-events.json。",
+    "pnpm typecheck:node 及变更文件 eslint --no-cache --max-warnings=0 通过。",
+    "pnpm build 通过，仅用于本地预览交付；没有为 E2E 构建应用，没有调用 electron-builder 或 build:unpack。原有 Rollup 分块及 highlight 脚本提示保留。",
+    "pnpm preview:sync：64 份程序文件核验，267 个 data/legacy 文件内容保持一致，版本 1.1.0；回滚资源 .artifacts/backups/preview-sync/update-1792459918748/previous-resources。",
+    "pnpm test:preview:resources 通过：63 份运行资源及 134 份内置插件资源一致。"
+  ],
+  "pending": [
+    "Windows 当前环境的已复现退出崩溃已修复；其他平台的原生实现与外部强制结束进程不在本轮自动验收范围。",
+    "用户先前所述弹窗未取得精确堆栈，因此不能断言所有 main process 弹窗都来自此问题；本轮确认解决系统日志中已复现的原生退出崩溃。"
+  ],
+  "preview": "已同步 .local/portable-preview；使用 PreviewPortable.cmd 测试，267 个原有数据文件保持一致，配置及插件保留。未 push、未云端构建、未发布 release。"
+}

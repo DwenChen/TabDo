@@ -23,7 +23,7 @@ interface ApiEndpoint {
 }
 
 const apiEndpoints: ApiEndpoint[] = [
-  { method: 'GET', path: '/', desc: '服务状态检测，返回 Hello ZTools（无需认证）', auth: false },
+  { method: 'GET', path: '/', desc: '服务状态检测，返回 Hello TabDo（无需认证）', auth: false },
   {
     method: 'POST',
     path: '/api/window/show',
@@ -31,11 +31,11 @@ const apiEndpoints: ApiEndpoint[] = [
     auth: true,
     body: {}
   },
-  { method: 'POST', path: '/api/window/hide', desc: '隐藏 ZTools 主窗口', auth: true },
+  { method: 'POST', path: '/api/window/hide', desc: '隐藏 TabDo 主窗口', auth: true },
   {
     method: 'POST',
     path: '/api/window/toggle',
-    desc: '切换 ZTools 主窗口显示/隐藏状态',
+    desc: '切换 TabDo 主窗口显示/隐藏状态',
     auth: true
   },
   {
@@ -75,13 +75,13 @@ async function copyCurl(item: ApiEndpoint): Promise<void> {
 
 async function loadConfig(): Promise<void> {
   try {
-    const result = await window.ztools.internal.httpServerGetConfig()
+    const result = await window.tabdo.internal.httpServerGetConfig()
     if (result.success && result.config) {
       enabled.value = result.config.enabled
       port.value = result.config.port
       apiKey.value = result.config.apiKey
     }
-    const statusResult = await window.ztools.internal.httpServerStatus()
+    const statusResult = await window.tabdo.internal.httpServerStatus()
     if (statusResult.success) {
       running.value = statusResult.running ?? false
     }
@@ -92,7 +92,7 @@ async function loadConfig(): Promise<void> {
 
 async function saveConfig(): Promise<void> {
   try {
-    const result = await window.ztools.internal.httpServerSaveConfig({
+    const result = await window.tabdo.internal.httpServerSaveConfig({
       enabled: enabled.value,
       port: port.value,
       apiKey: apiKey.value
@@ -101,7 +101,7 @@ async function saveConfig(): Promise<void> {
       if (result.config) {
         apiKey.value = result.config.apiKey
       }
-      const statusResult = await window.ztools.internal.httpServerStatus()
+      const statusResult = await window.tabdo.internal.httpServerStatus()
       running.value = statusResult.success ? (statusResult.running ?? false) : false
     } else {
       error(`保存失败：${result.error}`)
@@ -158,7 +158,7 @@ async function regenerateKey(): Promise<void> {
   if (!confirmed) return
 
   try {
-    const result = await window.ztools.internal.httpServerRegenerateKey()
+    const result = await window.tabdo.internal.httpServerRegenerateKey()
     if (result.success && result.apiKey) {
       apiKey.value = result.apiKey
       success('密钥已重新生成')
@@ -177,13 +177,13 @@ onMounted(() => {
 <template>
   <div class="content-panel">
     <h2 class="section-title">HTTP 服务</h2>
-    <p class="section-desc">为第三方应用提供 HTTP API，可远程控制 ZTools</p>
+    <p class="section-desc">为第三方应用提供 HTTP API，可远程控制 TabDo</p>
 
     <!-- 启用开关 -->
     <div class="setting-item">
       <div class="setting-label">
         <span>启用 HTTP 服务</span>
-        <span class="setting-desc">开启后第三方应用可通过 HTTP 接口调用 ZTools 功能</span>
+        <span class="setting-desc">开启后第三方应用可通过 HTTP 接口调用 TabDo 功能</span>
       </div>
       <label class="toggle">
         <input v-model="enabled" type="checkbox" @change="handleToggle" />

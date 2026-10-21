@@ -1,0 +1,25 @@
+{
+  "id": "tools-visual-consistency",
+  "date": "2026-10-20",
+  "summary": "对齐剪贴板与 OCR 的系统字体和绿色主题，重命名界面统一配色，二维码改为方正双栏并固化开发要求",
+  "changes": [
+    "抽出工具共用系统字体变量，剪贴板、OCR、utility 页面与重命名复用；文件名和手动编辑不再使用上游等宽字体。",
+    "重命名主题接入工具现有强调色、文本、背景与边框变量，默认绿色，移除上游蓝色主题、焦点及阴影；保留用户宿主主题注入和错误/警告语义色。",
+    "二维码空态、扫描中与结果态均为左图右结果等宽双栏；图片充分占用左栏并保持比例，右栏结果独立滚动，主窗口按宽度计算有界高度尽量方正，首帧同步更新。窄窗可堆叠，宽度监听随会话释放。",
+    "工具子组件开发要求补充字体、默认绿色、语义色、明暗模式、紧凑间距、图片双栏、稳定窗口与可访问性要求，并明确实际正文截图和视觉验收。",
+    "保留本轮开始时已有未提交工作；不 push、不云端构建、不发布 release，不修改用户配置与已安装插件。"
+  ],
+  "checks": [
+    "pnpm test:e2e tests/e2e/tools-expanded.spec.ts tests/e2e/builtin-providers.spec.ts tests/e2e/tools-clipboard.spec.ts tests/e2e/tools-lifecycle.spec.ts：4 项通过，归档 .artifacts/runs/2026-10-20T10-45-23-898Z-e2e。全部直接运行源码且使用隔离数据，未为 E2E 打包。",
+    "真实二维码 Worker 解码、完整文本复制、HTTP(S) 打开通过；图像实际展示宽度超过左栏 85%，双栏对齐且无横向溢出，宿主宽高比小于 1.35。空态与结果态均截取实际插件视图，明暗截图已人工查看。",
+    "重命名文件名、编号输入和手动编辑的计算字体与剪贴板一致，默认选中及执行按钮为绿色；深色正文可读，实际规则预览、执行、撤销及无效名称阻止继续通过。",
+    "pnpm typecheck、本轮改动范围 ESLint 及 git diff --check 通过。",
+    "pnpm build 交付资源编译成功（含类型检查、设置/工具及宿主），未执行 electron-builder 或 build:unpack。设置页原有循环重导出和工具静态 highlight 脚本构建提示仍存在，本轮未改其实现。",
+    "pnpm test:regressions tools-visual --list 正确选择 4 个源码 E2E 文件；审阅截图留存 .artifacts/reviews/tools-visual-2026-10-20。",
+    "用户从托盘退出预览后，pnpm preview:sync 成功替换 64 个程序文件（含 package.json）；436 个 data/legacy 文件前后 SHA-256 完全一致。只读 pnpm test:preview:resources 验证 63 个运行时资源与 150 个内置插件文件一致。测试结束无隔离 Electron 实例遗留。"
+  ],
+  "pending": [
+    "不同 DPI、显示器及最终视觉偏好保留人工验收。"
+  ],
+  "preview": "已同步 .local/portable-preview 1.1.0，使用 PreviewPortable.cmd 打开；保留全部配置、插件和旧数据。证据 .artifacts/backups/preview-sync/update-1792493375604/preservation.json，旧资源备份位于同目录 previous-resources；未启动成品替用户操作，实际成品视觉偏好保留人工验收。"
+}

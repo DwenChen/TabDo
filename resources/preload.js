@@ -1,4 +1,10 @@
 const electron = require('electron')
+const runtimePath = require('node:path')
+const runtimeFile = require('node:fs').existsSync(runtimePath.join(__dirname, 'plugin-lifecycle.cjs'))
+  ? runtimePath.join(__dirname, 'plugin-lifecycle.cjs')
+  : runtimePath.join(process.resourcesPath, 'app.asar.unpacked/resources/plugin-lifecycle.cjs')
+const { ToolLifecycle } = require(runtimeFile)
+const pluginLifecycle = new ToolLifecycle()
 
 // ── plugin.api 统一 IPC 公共方法（与 utools 写法一致）──
 
@@ -104,7 +110,6 @@ let mainPushCallback = null // { callback, selectCallback }
 let hotkeyRecordedCallback = null
 let windowMaterialChangeCallback = null
 let themeChangeCallback = null
-let logEntriesCallback = null
 let foundInPageCallback = null
 // 插件侧注册的 provider 处理器，按 type 存放，由主进程聚合后调用。
 const registeredProviders = new Map()
@@ -228,11 +233,6 @@ const lazyThemeChange = lazyListen('update-theme-info', (_e, themeInfo) => {
   if (themeChangeCallback) themeChangeCallback(themeInfo)
 })
 
-// 调试日志推送事件（由 internal.onLogEntries 触发注册）
-const lazyLogEntries = lazyListen('log-entries', (_e, entries) => {
-  if (logEntriesCallback) logEntriesCallback(entries)
-})
-
 // 页面内查找结果事件（由 onFindInPageResult 触发注册）
 const lazyFoundInPage = lazyListen('found-in-page-result', (_e, result) => {
   if (foundInPageCallback) foundInPageCallback(result)
@@ -280,7 +280,7 @@ const osType = electron.ipcRenderer.sendSync('get-os-type')
  * @returns {object} ZBrowserClient 实例（带 run 方法）
  */
 function createZBrowserClient() {
-  const { ZBrowserClient } = require('./zbrowser/client')
+  const { ZBrowserClient } = require(runtimePath.join(runtimePath.dirname(runtimeFile), 'zbrowser/client'))
   const client = new ZBrowserClient()
   client.run = async function (ubrowserIdOrOptions, options) {
     if (this._queue.length === 0) throw new Error('no actions run')
@@ -373,10 +373,11 @@ async function requestPluginPayment(input, callback) {
   }
 }
 
-window.ztools = {
+window.tabdo = {
+  lifecycle: pluginLifecycle,
   requestPayment: requestPluginPayment,
   getPaymentRecords: (query = {}) => ipcInvoke('getPaymentRecords', toIpcCloneable(query)),
-  getAppName: () => 'ZTools',
+  getAppName: () => 'TabDo',
   // 获取拖放文件的路径（Electron webUtils）
   getPathForFile: (file) => electron.webUtils.getPathForFile(file),
   // 平台检测
@@ -394,7 +395,7 @@ window.ztools = {
   isDarkColors: () => electron.ipcRenderer.sendSync('is-dark-colors'),
   // 获取当前登录用户的公开资料
   getUser: () => ipcSendSync('getUser'),
-  // 获取当前插件访问 ZTools 服务端的短期鉴权令牌
+  // 获取当前插件访问 TabDo 服务端的短期鉴权令牌
   getUserTempToken: () => ipcInvoke('getUserTempToken'),
   // 获取当前主题信息（isDark, primaryColor, customColor, windowMaterial）
   getThemeInfo: () => ipcSendSync('getThemeInfo'),
@@ -676,8 +677,8 @@ window.ztools = {
   createBrowserWindow: (url, options, callback) => {
     // 注册 callback（子窗口 dom-ready 时由主进程在父窗口触发）
     if (typeof callback === 'function') {
-      window.ztools.__event__ = window.ztools.__event__ || {}
-      window.ztools.__event__.createBrowserWindowCallback = callback
+      window.tabdo.__event__ = window.tabdo.__event__ || {}
+      window.tabdo.__event__.createBrowserWindowCallback = callback
     }
 
     // 同步创建窗口，返回 { id, methods[], invokes[], webContents: { id, methods[], invokes[] } }
@@ -774,12 +775,12 @@ window.ztools = {
   getFileIcon: (filePath) => electron.ipcRenderer.sendSync('get-file-icon', filePath),
   // 插件跳转
   redirect: (label, payload) =>
-    electron.ipcRenderer.sendSync('ztools-redirect', { label, payload }),
+    electron.ipcRenderer.sendSync('tabdo-redirect', { label, payload }),
   // 跳转到快捷键设置
   redirectHotKeySetting: (cmdLabel) =>
-    electron.ipcRenderer.sendSync('ztools-redirect-hotkey-setting', cmdLabel),
+    electron.ipcRenderer.sendSync('tabdo-redirect-hotkey-setting', cmdLabel),
   // 跳转到 AI 模型设置
-  redirectAiModelsSetting: () => electron.ipcRenderer.sendSync('ztools-redirect-ai-models-setting'),
+  redirectAiModelsSetting: () => electron.ipcRenderer.sendSync('tabdo-redirect-ai-models-setting'),
   // HTTP 请求头设置
   http: {
     // 设置请求头
@@ -837,7 +838,7 @@ window.ztools = {
     }
   },
 
-  // 翻译便捷封装：ztools.translate(text, { from?, to?, providerId? }) → { text, detectedFrom? }
+  // 翻译便捷封装：tabdo.translate(text, { from?, to?, providerId? }) → { text, detectedFrom? }
   translate: async (text, options = {}) => {
     const { from, to, providerId } = options || {}
     return await ipcInvoke('providersInvoke', {
@@ -847,7 +848,7 @@ window.ztools = {
     })
   },
 
-  // OCR 便捷封装：ztools.ocr(image, { lang?, providerId? }) → { text, blocks?, confidence? }
+  // OCR 便捷封装：tabdo.ocr(image, { lang?, providerId? }) → { text, blocks?, confidence? }
   ocr: async (image, options = {}) => {
     const { lang, providerId } = options || {}
     return await ipcInvoke('providersInvoke', {
@@ -938,7 +939,7 @@ window.ztools = {
       deliveryTimer = setTimeout(resolve, 1_000)
     })
     const listener = (_event, payload) => {
-      if (payload?.type === '__ztools_ai_chat_delivery_end__') {
+      if (payload?.type === '__tabdo_ai_chat_delivery_end__') {
         clearTimeout(deliveryTimer)
         finishEventDelivery()
         return
@@ -988,6 +989,12 @@ window.ztools = {
     dbPut: async (key, value) => await electron.ipcRenderer.invoke('internal:db-put', key, value),
     backupRun: async (action) => electron.ipcRenderer.invoke('internal:backup-run', action),
     backupResult: async () => electron.ipcRenderer.invoke('internal:backup-result'),
+    dataLocationGet: async () => electron.ipcRenderer.invoke('internal:data-location-get'),
+    dataLocationChoose: async () => electron.ipcRenderer.invoke('internal:data-location-choose'),
+    dataLocationMove: async (target) =>
+      electron.ipcRenderer.invoke('internal:data-location-move', target),
+    updateBuiltinShortcuts: async (config) =>
+      electron.ipcRenderer.invoke('update-builtin-shortcuts', config),
     dbGet: async (key) => await electron.ipcRenderer.invoke('internal:db-get', key),
 
     // ==================== 应用启动 API ====================
@@ -1357,10 +1364,6 @@ window.ztools = {
     getCurrentWindowInfo: async () =>
       await electron.ipcRenderer.invoke('internal:get-current-window-info'),
 
-    // ==================== 唤醒黑名单 API ====================
-    updateWakeupBlacklist: async (blacklist) =>
-      await electron.ipcRenderer.invoke('internal:update-wakeup-blacklist', blacklist),
-
     setGameMode: async (v) => await electron.ipcRenderer.invoke('internal:set-game-mode', v),
 
     setIgnoreHotkeysOnFullscreen: async (v) =>
@@ -1377,6 +1380,8 @@ window.ztools = {
     unpinSuperPanelCommand: async (path, featureCode) =>
       await electron.ipcRenderer.invoke('super-panel:unpin-command', path, featureCode),
     getSuperPanelPinned: async () => await electron.ipcRenderer.invoke('super-panel:get-pinned'),
+    // 面板按内容实测高度请求宿主收紧窗口（仅超级面板自身页面生效）
+    superPanelResize: (height) => electron.ipcRenderer.send('super-panel:resize', height),
 
     // ==================== AI 供应商管理 API ====================
     aiProviders: {
@@ -1427,7 +1432,24 @@ window.ztools = {
     },
 
     // ==================== Provider（翻译 / OCR 等）管理 API ====================
+    tools: {
+      openFloating: async (content) =>
+        await electron.ipcRenderer.invoke('internal:tools-float', toIpcCloneable(content))
+    },
     providers: {
+      getBuiltinState: async () =>
+        await electron.ipcRenderer.invoke('internal:providers-builtin-state'),
+      removeModel: async (id) =>
+        await electron.ipcRenderer.invoke('internal:providers-remove-model', id),
+      invokeBuiltin: async (id, input, requestId) =>
+        await electron.ipcRenderer.invoke(
+          'internal:providers-builtin-invoke',
+          id,
+          toIpcCloneable(input),
+          requestId
+        ),
+      cancelBuiltin: async (requestId) =>
+        await electron.ipcRenderer.invoke('internal:providers-builtin-cancel', requestId),
       getAll: async (type) => await electron.ipcRenderer.invoke('internal:providers-get-all', type),
       getSettings: async () => await electron.ipcRenderer.invoke('internal:providers-get-settings'),
       setEnabled: async (providerId, enabled) =>
@@ -1464,26 +1486,7 @@ window.ztools = {
       await electron.ipcRenderer.invoke('internal:http-server-save-config', config),
     httpServerRegenerateKey: async () =>
       await electron.ipcRenderer.invoke('internal:http-server-regenerate-key'),
-    httpServerStatus: async () => await electron.ipcRenderer.invoke('internal:http-server-status'),
-
-    // ==================== 调试日志 API ====================
-    logEnable: async () => await electron.ipcRenderer.invoke('internal:log-enable'),
-    logDisable: async () => await electron.ipcRenderer.invoke('internal:log-disable'),
-    logGetBuffer: async () => await electron.ipcRenderer.invoke('internal:log-get-buffer'),
-    logIsEnabled: async () => await electron.ipcRenderer.invoke('internal:log-is-enabled'),
-    logSubscribe: async () => await electron.ipcRenderer.invoke('internal:log-subscribe'),
-    onLogEntries: (callback) => {
-      if (callback && typeof callback === 'function') {
-        logEntriesCallback = callback
-        lazyLogEntries.attach()
-      }
-    },
-    offLogEntries: (callback) => {
-      if (logEntriesCallback === callback) {
-        logEntriesCallback = null
-        lazyLogEntries.detach()
-      }
-    }
+    httpServerStatus: async () => await electron.ipcRenderer.invoke('internal:http-server-status')
   },
 
   // ── zbrowser / ubrowser 浏览器自动化 API ──
@@ -1500,15 +1503,15 @@ window.ztools = {
   getIdleUBrowsers: () => ipcSendSync('getIdleZBrowsers'),
   /**
    * 设置 zbrowser Session 代理
-   * ⚠️ 破坏性变更：uTools 为同步 API，ZTools 改为异步（返回 Promise<boolean>）
+   * ⚠️ 破坏性变更：uTools 为同步 API，TabDo 改为异步（返回 Promise<boolean>）
    */
   setUBrowserProxy: (config) => ipcInvoke('setZBrowserProxy', config),
   /**
    * 清除 zbrowser Session 缓存
-   * ⚠️ 破坏性变更：uTools 为同步 API，ZTools 改为异步（返回 Promise<boolean>）
+   * ⚠️ 破坏性变更：uTools 为同步 API，TabDo 改为异步（返回 Promise<boolean>）
    */
   clearUBrowserCache: () => ipcInvoke('clearZBrowserCache'),
-  /** ubrowserLogin 兼容桩（ZTools 暂不支持，返回 null） */
+  /** ubrowserLogin 兼容桩（TabDo 暂不支持，返回 null） */
   ubrowserLogin: () => ipcInvoke('ubrowserLogin'),
   // ── FFmpeg API ──
   // 注意：runFFmpeg 在 preload 端直接 spawn 子进程，而非走 IPC 转发到主进程。
@@ -1779,22 +1782,22 @@ electron.ipcRenderer.on('get-plugin-mode', (event, { featureCode, callId }) => {
   var LIST_CSS = [
     '* { margin:0; padding:0; box-sizing:border-box; }',
     'body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; overflow:hidden;}',
-    '.ztools-list { max-height:100vh; overflow-y:auto; overflow-x:hidden; padding:0 0 2px 0; }',
-    '.ztools-li { display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:6px; cursor:pointer; transition:background-color .15s; user-select:none; }',
-    '.ztools-li:hover { background:rgba(0,0,0,.05); }',
-    '.ztools-li.selected { background:rgba(0,0,0,.05); }',
-    '.ztools-list.ignore-mouse-hover .ztools-li:hover { background:transparent; }',
-    '.ztools-li-icon { flex-shrink:0; width:32px; height:32px; display:flex; align-items:center; justify-content:center; }',
-    '.ztools-li-icon img { width:100%; height:100%; object-fit:contain; }',
-    '.ztools-li-body { flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }',
-    '.ztools-li-title { font-size:14px; font-weight:500; color:#1a1a1a; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }',
-    '.ztools-li-desc { font-size:12px; color:#666; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }',
+    '.tabdo-list { max-height:100vh; overflow-y:auto; overflow-x:hidden; padding:0 0 2px 0; }',
+    '.tabdo-li { display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius:6px; cursor:pointer; transition:background-color .15s; user-select:none; }',
+    '.tabdo-li:hover { background:rgba(0,0,0,.05); }',
+    '.tabdo-li.selected { background:rgba(0,0,0,.05); }',
+    '.tabdo-list.ignore-mouse-hover .tabdo-li:hover { background:transparent; }',
+    '.tabdo-li-icon { flex-shrink:0; width:32px; height:32px; display:flex; align-items:center; justify-content:center; }',
+    '.tabdo-li-icon img { width:100%; height:100%; object-fit:contain; }',
+    '.tabdo-li-body { flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }',
+    '.tabdo-li-title { font-size:14px; font-weight:500; color:#1a1a1a; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }',
+    '.tabdo-li-desc { font-size:12px; color:#666; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }',
     '@media(prefers-color-scheme:dark){',
-    '  .ztools-li:hover { background:rgba(255,255,255,.08); }',
-    '  .ztools-li.selected { background:rgba(255,255,255,.08); }',
-    '  .ztools-list.ignore-mouse-hover .ztools-li:hover { background:transparent; }',
-    '  .ztools-li-title { color:#e5e5e5; }',
-    '  .ztools-li-desc { color:#999; }',
+    '  .tabdo-li:hover { background:rgba(255,255,255,.08); }',
+    '  .tabdo-li.selected { background:rgba(255,255,255,.08); }',
+    '  .tabdo-list.ignore-mouse-hover .tabdo-li:hover { background:transparent; }',
+    '  .tabdo-li-title { color:#e5e5e5; }',
+    '  .tabdo-li-desc { color:#999; }',
     '}'
   ].join('\n')
 
@@ -1806,7 +1809,7 @@ electron.ipcRenderer.on('get-plugin-mode', (event, { featureCode, callId }) => {
     style.textContent = LIST_CSS
     document.head.appendChild(style)
     var container = document.createElement('div')
-    container.className = 'ztools-list'
+    container.className = 'tabdo-list'
     document.body.appendChild(container)
     listState.container = container
   }
@@ -1826,11 +1829,11 @@ electron.ipcRenderer.on('get-plugin-mode', (event, { featureCode, callId }) => {
     for (var i = 0; i < listState.items.length; i++) {
       var item = listState.items[i]
       var div = document.createElement('div')
-      div.className = 'ztools-li' + (i === 0 ? ' selected' : '')
+      div.className = 'tabdo-li' + (i === 0 ? ' selected' : '')
       div.dataset.index = i
 
       var iconDiv = document.createElement('div')
-      iconDiv.className = 'ztools-li-icon'
+      iconDiv.className = 'tabdo-li-icon'
       if (item.icon) {
         var img = document.createElement('img')
         // 解析图标路径
@@ -1854,14 +1857,14 @@ electron.ipcRenderer.on('get-plugin-mode', (event, { featureCode, callId }) => {
       div.appendChild(iconDiv)
 
       var bodyDiv = document.createElement('div')
-      bodyDiv.className = 'ztools-li-body'
+      bodyDiv.className = 'tabdo-li-body'
       var titleDiv = document.createElement('div')
-      titleDiv.className = 'ztools-li-title'
+      titleDiv.className = 'tabdo-li-title'
       titleDiv.textContent = item.title || ''
       bodyDiv.appendChild(titleDiv)
       if (item.description) {
         var descDiv = document.createElement('div')
-        descDiv.className = 'ztools-li-desc'
+        descDiv.className = 'tabdo-li-desc'
         descDiv.textContent = item.description
         bodyDiv.appendChild(descDiv)
       }
@@ -1898,7 +1901,7 @@ electron.ipcRenderer.on('get-plugin-mode', (event, { featureCode, callId }) => {
   }
 
   function updateSelection() {
-    var nodes = listState.container ? listState.container.querySelectorAll('.ztools-li') : []
+    var nodes = listState.container ? listState.container.querySelectorAll('.tabdo-li') : []
     for (var i = 0; i < nodes.length; i++) {
       if (i === listState.selectedIndex) {
         nodes[i].classList.add('selected')
@@ -1906,18 +1909,18 @@ electron.ipcRenderer.on('get-plugin-mode', (event, { featureCode, callId }) => {
         nodes[i].classList.remove('selected')
       }
     }
-    var sel = listState.container && listState.container.querySelector('.ztools-li.selected')
+    var sel = listState.container && listState.container.querySelector('.tabdo-li.selected')
     if (sel) sel.scrollIntoView({ block: 'nearest' })
   }
 
   function updateHeight() {
     var container = listState.container
     if (!container || container.children.length === 0) {
-      window.ztools.setExpendHeight(0)
+      window.tabdo.setExpendHeight(0)
       return
     }
     var height = Math.min(container.scrollHeight, 541)
-    window.ztools.setExpendHeight(height)
+    window.tabdo.setExpendHeight(height)
   }
 
   function doSelect() {
@@ -1990,7 +1993,7 @@ electron.ipcRenderer.on('get-plugin-mode', (event, { featureCode, callId }) => {
     // 设置子输入框（搜索）
     if (feature.args && typeof feature.args.search === 'function') {
       var searchFn = feature.args.search
-      window.ztools.setSubInput(
+      window.tabdo.setSubInput(
         function (details) {
           searchFn(action, details.text, callbackSetList)
         },
@@ -2005,3 +2008,6 @@ electron.ipcRenderer.on('get-plugin-mode', (event, { featureCode, callId }) => {
     }
   })
 })()
+
+// 旧插件桥接只作为迁移兼容入口，产品界面统一使用 TabDo。
+window.ztools = window.tabdo

@@ -8,13 +8,13 @@ import { onBeforeRouteUpdate, useRoute } from 'vue-router'
  */
 export function useJumpFunction<T = any>(handler: (data: Partial<T>) => void): void {
   const route = useRoute()
-  // 处理对应 ztools code 进来的功能
-  const handleJumpZtoolsCode = (): void => {
+  // 处理对应 tabdo code 进来的功能
+  const handleJumpTabDoCode = (): void => {
     const state = useHistoryState<T>()
     handler(state)
   }
   onMounted(() => {
-    handleJumpZtoolsCode()
+    handleJumpTabDoCode()
   })
 
   watch(
@@ -24,10 +24,10 @@ export function useJumpFunction<T = any>(handler: (data: Partial<T>) => void): v
         return
       }
       await nextTick()
-      handleJumpZtoolsCode()
+      handleJumpTabDoCode()
     }
   )
   onBeforeRouteUpdate(() => {
-    handleJumpZtoolsCode()
+    handleJumpTabDoCode()
   })
 }

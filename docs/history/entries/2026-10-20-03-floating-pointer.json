@@ -1,0 +1,27 @@
+{
+  "id": "floating-edge-and-pointer-input",
+  "date": "2026-10-20",
+  "summary": "修复便签贴边漏触发与悬浮图片关闭按钮难以显示",
+  "changes": [
+    "贴边识别覆盖接近和越过工作区边缘，使用实际窗口位置和系统鼠标坐标；不再依赖 moved 或页面悬停消息。",
+    "便签标题栏及普通图片使用受控指针拖动，避免原生 app-region 拦截移动/悬停；图片关闭按钮保持淡显，鼠标进入图片后完整显示。",
+    "共享鼠标观察器仅属于存活的独立窗口，最后一个窗口关闭后立即释放；标记窗口不运行此观察器。",
+    "更正旧专项里手工 emit moved 和调用 dock-hover 的验证，新增系统鼠标按下、拖动、松开及真实关闭点击验收。",
+    "拖动和展开恢复使用正常纸张尺寸，便签最小纸张尺寸由受限缩放入口保证，避免频繁切换原生最小尺寸及移动时累积 DPI 舍入。"
+  ],
+  "checks": [
+    "仅验证相关改动，没有全量回归。",
+    "pnpm test tests/main/floatingPointer.test.ts：最终 5 项通过，覆盖四边越界贴靠、展开及解除、鼠标状态发布和观察器回收；归档 .artifacts/runs/2026-10-20T01-58-47-411Z-unit。",
+    "pnpm test:e2e tests/e2e/floating-pointer.spec.ts tests/e2e/tools-polish.spec.ts：2 项源码 Electron E2E 通过，归档 .artifacts/runs/2026-10-20T01-57-52-141Z-e2e。真实系统鼠标按下/移动/松开拖动标题栏；四边接近/越界后收起、系统鼠标进入展开、拖离解除、正文及纸张尺寸保留；鼠标进入图片正文使按钮完整显示，真实系统点击关闭按钮成功。",
+    "旧人工 emit moved / 调用 dock-hover 的专项已改为系统鼠标输入。真实系统拖动复现旧方案失败，并发现展开与移动的 DPI 尺寸累积；修复后专项通过，所有中间失败 trace 和拖动诊断均保留。",
+    "pnpm typecheck:node、变更文件 eslint --no-cache --max-warnings=0、node --check resources/tools-floating.js 通过。源码测试结束后无 preview-main Electron 进程遗留。",
+    "pnpm test:e2e tests/e2e/floating-pointer.spec.ts --repeat-each=2：针对用户报告的交互可靠性，系统鼠标专项连续两次通过，归档 .artifacts/runs/2026-10-20T02-02-00-641Z-e2e；未扩大到全量回归。",
+    "pnpm build 通过，仅为预览交付编译，没有为 E2E 构建或使用打包应用；未调用 electron-builder/build:unpack。原有 Rollup 分块及 highlight 脚本提示保留。",
+    "pnpm preview:sync：64 份程序文件核验，268 个 data/legacy 文件内容指纹保持一致，版本 1.1.0；回滚资源 .artifacts/backups/preview-sync/update-1792461684701/previous-resources。",
+    "pnpm test:preview:resources 通过：63 份运行资源及 134 份内置插件资源一致。"
+  ],
+  "pending": [
+    "多显示器跨屏、不同缩放与触摸输入的手感保留人工验收；已验证当前 Windows 系统鼠标与缩放环境。"
+  ],
+  "preview": "已同步 .local/portable-preview；重新通过 PreviewPortable.cmd 启动后测试。268 个原数据文件保持一致，配置及插件保留。未 push、未云端构建、未发布 release。"
+}

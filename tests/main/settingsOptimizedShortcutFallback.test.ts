@@ -4,6 +4,7 @@ vi.mock('../../src/main/appMain', () => ({
 }))
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const originalPlatform = process.platform
+vi.mock('../../src/main/utils/devToolsShortcut', () => ({ default: { refresh: vi.fn() } }))
 vi.mock('../../src/main/core/detachedWindowManager', () => ({ default: {} }))
 
 const mocks = vi.hoisted(() => ({

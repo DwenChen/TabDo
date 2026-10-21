@@ -195,7 +195,9 @@
       <!-- 翻译结果 -->
       <div v-if="translationText" class="translation-bar">
         <span class="translation-label">译</span>
-        <span class="translation-text">{{ translationText }}</span>
+        <span class="translation-text" tabindex="0" aria-label="翻译结果">{{
+          translationText
+        }}</span>
       </div>
 
       <!-- 搜索结果列表 -->
@@ -220,7 +222,6 @@
           </div>
           <div class="list-info">
             <span class="list-name">{{ result.name }}</span>
-            <span v-if="result.pluginExplain" class="list-desc">{{ result.pluginExplain }}</span>
           </div>
         </div>
         <!-- 空状态 -->
@@ -391,7 +392,6 @@
                 </div>
                 <div class="list-info">
                   <span class="list-name">{{ item.name }}</span>
-                  <span v-if="item.pluginExplain" class="list-desc">{{ item.pluginExplain }}</span>
                 </div>
               </div>
             </div>
@@ -413,7 +413,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useSuperPanelDrag } from '../composables/useSuperPanelDrag'
 import defaultAvatar from '../assets/image/default.png'
 
@@ -658,7 +658,7 @@ const clipboardDescription = computed(() => {
 async function savePinnedCommands(): Promise<void> {
   try {
     const plainCommands = JSON.parse(JSON.stringify(pinnedCommands.value))
-    await window.ztools.updateSuperPanelPinnedOrder(plainCommands)
+    await window.tabdo.updateSuperPanelPinnedOrder(plainCommands)
   } catch (error) {
     console.error('保存固定列表顺序失败:', error)
   }
@@ -808,7 +808,7 @@ async function handleContextMenu(cmd: GridItem): Promise<void> {
       { id: `ungroup-folder:${folderIndex}`, label: '解散文件夹' },
       { id: `delete-folder:${folderIndex}`, label: '删除文件夹' }
     ]
-    await window.ztools.showContextMenu(menuItems)
+    await window.tabdo.showContextMenu(menuItems)
   } else {
     const itemIndex = pinnedCommands.value.indexOf(cmd)
 
@@ -836,7 +836,7 @@ async function handleContextMenu(cmd: GridItem): Promise<void> {
         label: '取消固定'
       }
     ]
-    await window.ztools.showContextMenu(menuItems)
+    await window.tabdo.showContextMenu(menuItems)
   }
 }
 
@@ -846,6 +846,7 @@ function openFolderPopup(folder: FolderItem, index: number): void {
   currentFolderIndex.value = index
   showFolderPopup.value = true
   isRenamingFolder.value = false
+  reportPanelSize()
 }
 
 function closeFolderPopup(): void {
@@ -853,6 +854,7 @@ function closeFolderPopup(): void {
   currentFolder.value = null
   currentFolderIndex.value = -1
   isRenamingFolder.value = false
+  reportPanelSize()
 }
 
 function launchFromFolder(cmd: CommandItem): void {
@@ -900,23 +902,23 @@ async function handleFolderItemContextMenu(
       label: '取消固定'
     }
   ]
-  await window.ztools.showContextMenu(menuItems)
+  await window.tabdo.showContextMenu(menuItems)
 }
 
 // 返回固定列表
 function showPinned(): void {
-  window.ztools.superPanelShowPinned()
+  window.tabdo.superPanelShowPinned()
 }
 
 // 点击头像：隐藏超级面板，打开设置
 function showMainWindow(): void {
-  window.ztools.superPanelShowMainWindow()
+  window.tabdo.superPanelShowMainWindow()
 }
 
 // 添加当前窗口到屏蔽列表
 async function addBlockedApp(): Promise<void> {
   if (!currentWindowInfo.value) return
-  await window.ztools.superPanelAddBlockedApp()
+  await window.tabdo.superPanelAddBlockedApp()
 }
 
 // 打开窗口匹配面板
@@ -925,12 +927,11 @@ function openWindowMatch(): void {
   windowMatchBlink.value = false
   windowMatchSelectedIndex.value = 0
   fileLocationJumpTargets.value = []
+  reportPanelSize()
   loadFileLocationJumpTargets()
   // 如果已有结果（自动搜索过），直接使用；否则发起搜索
   if (windowMatchResults.value.length === 0 && currentWindowInfo.value) {
-    window.ztools.superPanelSearchWindowCommands(
-      JSON.parse(JSON.stringify(currentWindowInfo.value))
-    )
+    window.tabdo.superPanelSearchWindowCommands(JSON.parse(JSON.stringify(currentWindowInfo.value)))
   }
 }
 
@@ -938,6 +939,7 @@ function openWindowMatch(): void {
 function closeWindowMatch(): void {
   showWindowMatch.value = false
   fileLocationJumpRequestId++
+  reportPanelSize()
 }
 
 // 判断当前触发窗口是否为可精确定位的文件位置窗口
@@ -946,7 +948,7 @@ async function getCurrentFileLocationWindowKind(): Promise<CurrentWindowInfo['ki
   console.log('object', info)
   if (!info) return null
 
-  const platform = window.ztools.getPlatform()
+  const platform = window.tabdo.getPlatform()
   if (info.preciseTarget && info.kind) {
     if (
       info.kind === 'windows-explorer' &&
@@ -987,7 +989,7 @@ async function isWindowsFileDialogWindow(info: CurrentWindowInfo): Promise<boole
   if (info.className !== '#32770' || !info.hwnd) return false
 
   try {
-    const result = await window.ztools.superPanelIsFileLocationWindow(info.hwnd)
+    const result = await window.tabdo.superPanelIsFileLocationWindow(info.hwnd)
     return result.supported
   } catch (error) {
     console.error('[SuperPanel] 判断 Windows 文件对话框失败:', error)
@@ -1034,7 +1036,7 @@ function normalizeFileLocation(value?: string): string | null {
   }
 
   normalized = normalized.replace(/\\/g, '/')
-  if (window.ztools.getPlatform() === 'win32') {
+  if (window.tabdo.getPlatform() === 'win32') {
     normalized = normalized.toLowerCase()
   }
   return normalized.replace(/\/+$/, '')
@@ -1096,7 +1098,7 @@ async function loadFileLocationJumpTargets(): Promise<void> {
   fileLocationJumpLoading.value = true
 
   try {
-    const rawWindows = (await window.ztools.superPanelGetFileLocationWindows()) as Array<
+    const rawWindows = (await window.tabdo.superPanelGetFileLocationWindows()) as Array<
       FileLocationJumpTarget | string
     >
     const windows = (rawWindows || []).map((item) =>
@@ -1140,7 +1142,7 @@ function formatFileLocationJumpPath(target: FileLocationJumpTarget): string {
 function toFileLocationAddressBarTarget(
   windowInfo: CurrentWindowInfo
 ): FileLocationAddressBarTarget | null {
-  const platform = window.ztools.getPlatform()
+  const platform = window.tabdo.getPlatform()
   if (platform === 'win32') {
     return hasWindowsAddressBarTarget(windowInfo) ? { hwnd: windowInfo.hwnd } : null
   }
@@ -1175,7 +1177,7 @@ async function jumpToFileLocationTarget(target: FileLocationJumpTarget): Promise
       target,
       address
     })
-    const success = await window.ztools.superPanelSetFileLocationAddressBar(
+    const success = await window.tabdo.superPanelSetFileLocationAddressBar(
       addressBarTarget,
       address
     )
@@ -1239,7 +1241,7 @@ async function launch(cmd: CommandItem): Promise<void> {
         windowInfo: currentWindowInfo.value
       })
     )
-    await window.ztools.superPanelLaunch(launchData)
+    await window.tabdo.superPanelLaunch(launchData)
   } catch (error) {
     console.error('超级面板启动失败:', error)
   }
@@ -1384,11 +1386,93 @@ function scrollToTop(): void {
   })
 }
 
+let sizeReportPending = false
+/**
+ * 按正文、翻译条与列表实测高度请求宿主收紧面板，去掉固定尺寸留下的大块留白。
+ * @returns {void} 无返回值。
+ */
+function reportPanelSize(): void {
+  if (sizeReportPending) return
+  sizeReportPending = true
+  void nextTick(() => {
+    sizeReportPending = false
+    if (!panelActive) return
+    const panel = document.querySelector('.super-panel') as HTMLElement | null
+    if (!panel) return
+    // 弹层需要用更大的可用区域展示列表，展开期间先撑到上限。
+    if (showWindowMatch.value || showFolderPopup.value) {
+      window.tabdo.superPanelResize?.(400)
+      return
+    }
+    const headerHeight =
+      (panel.querySelector('.search-header') as HTMLElement | null)?.offsetHeight ?? 0
+    const translationHeight =
+      (panel.querySelector('.translation-bar') as HTMLElement | null)?.offsetHeight ?? 0
+    const body = (panel.querySelector('.search-list') ||
+      panel.querySelector('.pinned-grid')) as HTMLElement | null
+    // 列表自身可滚动时 scrollHeight 仍是完整内容高度，用它才能得到真实需求高度。
+    let bodyHeight = 64
+    if (body) {
+      // flex:1 会把少量内容撑到旧窗口高度；临时按自然高度测量才能在列表变短时收起。
+      const previous = body.style.cssText
+      body.style.flex = 'none'
+      body.style.height = 'auto'
+      body.style.maxHeight = 'none'
+      bodyHeight = body.scrollHeight
+      body.style.cssText = previous
+    }
+    window.tabdo.superPanelResize?.(Math.round(headerHeight + translationHeight + bodyHeight + 1))
+  })
+}
+
 let cleanupContextMenuListener: (() => void) | null = null
+let panelActive = false
+
+/**
+ * 隐藏时清除会话内容，复用页面不持有上一选文、图片或窗口匹配结果。
+ * @returns 无返回值。
+ */
+function releasePanelSession(): void {
+  panelActive = false
+  cancelDrag()
+  closeFolderPopup()
+  mode.value = 'loading'
+  pinnedCommands.value = []
+  searchResults.value = []
+  currentClipboardContent.value = null
+  currentWindowInfo.value = null
+  translationText.value = ''
+  pendingTranslation.value = null
+  windowMatchResults.value = []
+  fileLocationJumpTargets.value = []
+  fileLocationJumpLoading.value = false
+  fileLocationJumpRequestId++
+  showWindowMatch.value = false
+  windowMatchBlink.value = false
+  iconErrors.value.clear()
+}
+
+// 模式、结果数量与翻译变化都会改变正文高度，统一在渲染完成后重新请求窗口尺寸。
+watch(
+  [
+    mode,
+    translationText,
+    () => searchResults.value.length,
+    () => pinnedCommands.value.length,
+    showWindowMatch,
+    showFolderPopup
+  ],
+  reportPanelSize
+)
 
 onMounted(() => {
   // 监听超级面板数据（从主进程发送）
-  window.ztools.onSuperPanelData((data) => {
+  window.tabdo.onSuperPanelData((data) => {
+    if (data.type === 'hidden') {
+      releasePanelSession()
+      return
+    }
+    panelActive = true
     // 新数据可能替换整个视图，先取消手势，避免旧身份写回新列表。
     cancelDrag()
     closeFolderPopup()
@@ -1410,7 +1494,7 @@ onMounted(() => {
 
     // 自动发起窗口匹配搜索（用于判断是否需要闪动图标）
     if (data.windowInfo) {
-      window.ztools.superPanelSearchWindowCommands(JSON.parse(JSON.stringify(data.windowInfo)))
+      window.tabdo.superPanelSearchWindowCommands(JSON.parse(JSON.stringify(data.windowInfo)))
     }
 
     if (data.type === 'pinned') {
@@ -1430,10 +1514,12 @@ onMounted(() => {
       syncTranslationForClipboardContent(currentClipboardContent.value)
       scrollToTop()
     }
+    reportPanelSize()
   })
 
   // 监听窗口匹配搜索结果
-  window.ztools.onSuperPanelWindowCommandsData((data: { results: any[] }) => {
+  window.tabdo.onSuperPanelWindowCommandsData((data: { results: any[] }) => {
+    if (!panelActive) return
     windowMatchResults.value = data.results || []
     windowMatchSelectedIndex.value = 0
     // 有匹配结果且面板未打开时，触发图标闪动
@@ -1443,7 +1529,7 @@ onMounted(() => {
   })
 
   // 加载设置（头像、亚克力透明度、主题色）
-  window.ztools
+  window.tabdo
     .dbGet('settings-general')
     .then((settings) => {
       if (settings?.avatar) {
@@ -1466,8 +1552,8 @@ onMounted(() => {
     })
 
   // 初始化时获取当前窗口材质
-  if (window.ztools?.getWindowMaterial) {
-    window.ztools
+  if (window.tabdo?.getWindowMaterial) {
+    window.tabdo
       .getWindowMaterial()
       .then((material: string) => {
         document.documentElement.setAttribute('data-material', material)
@@ -1479,16 +1565,16 @@ onMounted(() => {
   }
 
   // 监听窗口材质更新
-  if (window.ztools?.onUpdateWindowMaterial) {
-    window.ztools.onUpdateWindowMaterial((material: 'mica' | 'acrylic' | 'none') => {
+  if (window.tabdo?.onUpdateWindowMaterial) {
+    window.tabdo.onUpdateWindowMaterial((material: 'mica' | 'acrylic' | 'none') => {
       document.documentElement.setAttribute('data-material', material)
       applyAcrylicOverlay()
     })
   }
 
   // 监听亚克力透明度更新事件
-  if (window.ztools?.onUpdateAcrylicOpacity) {
-    window.ztools.onUpdateAcrylicOpacity((data: { lightOpacity: number; darkOpacity: number }) => {
+  if (window.tabdo?.onUpdateAcrylicOpacity) {
+    window.tabdo.onUpdateAcrylicOpacity((data: { lightOpacity: number; darkOpacity: number }) => {
       acrylicLightOpacity.value = data.lightOpacity
       acrylicDarkOpacity.value = data.darkOpacity
       applyAcrylicOverlay()
@@ -1496,8 +1582,8 @@ onMounted(() => {
   }
 
   // 监听主题色更新
-  if (window.ztools?.onUpdatePrimaryColor) {
-    window.ztools.onUpdatePrimaryColor((data: { primaryColor: string; customColor?: string }) => {
+  if (window.tabdo?.onUpdatePrimaryColor) {
+    window.tabdo.onUpdatePrimaryColor((data: { primaryColor: string; customColor?: string }) => {
       primaryColor.value = data.primaryColor
       if (data.customColor) {
         customColor.value = data.customColor
@@ -1513,13 +1599,14 @@ onMounted(() => {
   })
 
   // 监听头像更新事件
-  window.ztools.onUpdateAvatar((newAvatar: string) => {
+  window.tabdo.onUpdateAvatar((newAvatar: string) => {
     console.log('[SuperPanel] 收到头像更新:', newAvatar)
     avatar.value = newAvatar || defaultAvatar
   })
 
   // 监听翻译结果
-  window.ztools.onSuperPanelTranslation((data: { text: string; sourceText?: string }) => {
+  window.tabdo.onSuperPanelTranslation((data: { text: string; sourceText?: string }) => {
+    if (!panelActive) return
     if (data.text) {
       pendingTranslation.value = data
 
@@ -1530,19 +1617,20 @@ onMounted(() => {
       ) {
         translationText.value = data.text
       }
+      reportPanelSize()
     }
   })
 
   // 监听右键菜单命令
   cleanupContextMenuListener?.()
-  cleanupContextMenuListener = window.ztools.onContextMenuCommand(async (command: string) => {
+  cleanupContextMenuListener = window.tabdo.onContextMenuCommand(async (command: string) => {
     console.log('[SuperPanel] 收到右键菜单命令:', command)
     if (command.startsWith('unpin:')) {
       const jsonStr = command.replace('unpin:', '')
       try {
         const { path, featureCode } = JSON.parse(jsonStr)
         console.log('[SuperPanel] 准备取消固定:', { path, featureCode })
-        await window.ztools.unpinSuperPanelCommand(path, featureCode)
+        await window.tabdo.unpinSuperPanelCommand(path, featureCode)
         console.log('[SuperPanel] 取消固定成功')
       } catch (error) {
         console.error('[SuperPanel] 取消固定失败:', error)
@@ -1613,7 +1701,8 @@ onMounted(() => {
   }
 
   // 通知主进程窗口已准备好
-  window.ztools.superPanelReady()
+  window.tabdo.superPanelReady()
+  reportPanelSize()
 })
 
 // 键盘焦点保持
@@ -1658,6 +1747,17 @@ onUnmounted(() => {
   padding: 8px 12px;
   border-bottom: 1px solid var(--divider-color);
   flex-shrink: 0;
+  /* 头部同时作为窗口拖动区，面板可随手拖到任意位置。 */
+  -webkit-app-region: drag;
+}
+
+/* 头部内的头像、标题按钮保持可点击，不参与拖动。 */
+.search-header .header-avatar,
+.search-header .header-menu-btn,
+.search-header .header-actions,
+.search-header button,
+.search-header input {
+  -webkit-app-region: no-drag;
 }
 
 .header-menu-btn {
@@ -1867,12 +1967,15 @@ onUnmounted(() => {
   font-size: 12px;
   color: var(--text-color);
   line-height: 16px;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
-  overflow: hidden;
-  word-break: break-all;
+  display: block;
+  min-width: 0;
+  max-height: min(192px, 36vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+  cursor: text;
 }
 
 /* ========== 列表模式 ========== */
@@ -1888,8 +1991,8 @@ onUnmounted(() => {
 .list-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
+  gap: 8px;
+  padding: 6px 8px;
   border-radius: 6px;
   cursor: pointer;
   transition: background-color 0.15s;
@@ -1906,16 +2009,16 @@ onUnmounted(() => {
 }
 
 .list-icon {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   border-radius: 6px;
   flex-shrink: 0;
   object-fit: contain;
 }
 
 .list-icon-placeholder {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   border-radius: 6px;
   background: var(--primary-gradient);
   display: flex;

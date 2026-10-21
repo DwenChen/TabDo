@@ -7,7 +7,7 @@ test('reopening settings and focus notifications do not hide or reload the activ
   browserName: _browserName
 }, testInfo) => {
   const root = path.resolve(__dirname, '../..')
-  const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'ztools-settings-stability-'))
+  const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'tabdo-settings-stability-'))
   if (!path.resolve(temporary).startsWith(path.resolve(os.tmpdir()) + path.sep)) {
     throw new Error('Unexpected test data path')
   }
@@ -15,18 +15,42 @@ test('reopening settings and focus notifications do not hide or reload the activ
   try {
     const environment = {
       ...process.env,
-      ZTOOLS_E2E: '1',
-      ZTOOLS_SOURCE_PREVIEW: '1',
-      ZTOOLS_DATA_ROOT: path.join(temporary, 'data'),
-      ZTOOLS_LEGACY_USER_DATA_PATH: path.join(temporary, 'legacy'),
+      TABDO_E2E: '1',
+      TABDO_SOURCE_PREVIEW: '1',
+      TABDO_PREVIEW_OPEN_SETTINGS: '0',
+      TABDO_DATA_ROOT: path.join(temporary, 'data'),
+      TABDO_LEGACY_USER_DATA_PATH: path.join(temporary, 'legacy'),
       ELECTRON_RENDERER_URL: 'http://127.0.0.1:5174',
-      ZTOOLS_SETTING_DEV_SERVER_URL: 'http://127.0.0.1:15177'
+      TABDO_SETTING_DEV_SERVER_URL: 'http://127.0.0.1:15177'
     }
     delete environment.ELECTRON_RUN_AS_NODE
     app = await electron.launch({
       args: [path.join(root, 'scripts/preview-main.cjs')],
       cwd: root,
       env: environment
+    })
+    // 本组验证嵌入式设置宿主；新默认独立窗口由 builtin-providers 专项覆盖。
+    await expect((await app.firstWindow()).locator('.plugin-host')).toBeAttached()
+    await expect
+      .poll(() =>
+        app!.evaluate(({ app }) =>
+          process
+            .mainModule!.require(app.getAppPath() + '/src/main/api/shared/database.ts')
+            .default.dbGet('plugins')
+            ?.some((plugin: any) => plugin.name === 'setting')
+        )
+      )
+      .toBe(true)
+    await app.evaluate(async ({ app }) => {
+      process
+        .mainModule!.require(app.getAppPath() + '/src/main/api/shared/database.ts')
+        .default.dbPut('auto-detach-plugin', [])
+      process
+        .mainModule!.require(app.getAppPath() + '/src/main/api/shared/database.ts')
+        .default.dbPut('out-kill-plugin', [])
+      await process
+        .mainModule!.require(app.getAppPath() + '/src/main/managers/windowManager.ts')
+        .default.showSettings()
     })
     await expect
       .poll(
@@ -40,11 +64,19 @@ test('reopening settings and focus notifications do not hide or reload the activ
         { timeout: 30000 }
       )
       .toBe(1)
+    await expect
+      .poll(() =>
+        app!
+          .context()
+          .pages()
+          .some((page) => page.url().startsWith('http://127.0.0.1:15177'))
+      )
+      .toBe(true)
     const settings = app
       .context()
       .pages()
       .find((page) => page.url().startsWith('http://127.0.0.1:15177'))!
-    await expect(settings.getByText('启用超级面板', { exact: true })).toBeVisible()
+    await expect(settings.getByText('鼠标按键弹出', { exact: true })).toBeVisible()
     await settings.getByRole('button', { name: '我的数据', exact: true }).click()
     await settings.getByRole('tab', { name: '数据备份与迁移', exact: true }).click()
     await expect(settings.getByRole('button', { name: '导出完整备份' })).toBeVisible()
@@ -119,7 +151,7 @@ test('reopening settings and focus notifications do not hide or reload the activ
     expect(snapshot.currentView).toBe(snapshot.initialView)
     await expect(settings.getByRole('button', { name: '导出完整备份' })).toBeVisible()
 
-    // Verify the restored original action menu against a real native popup and its IPC commands.
+    // Verify the builtin header without a behavior-settings entry.
     const main = await app.firstWindow()
     await expect(main.getByRole('button', { name: '设置', exact: true })).toHaveCount(0)
     await fs.writeFile(
@@ -136,27 +168,9 @@ test('reopening settings and focus notifications do not hide or reload the activ
         'base64'
       )
     )
-    await main.getByRole('button', { name: '插件操作', exact: true }).click()
-    await expect
-      .poll(() =>
-        app!.evaluate(() => {
-          const template = (globalThis as any).settingsMenuTemplate
-          return template?.map((item: any) => item.label) || []
-        })
-      )
-      .toEqual(['分离到独立窗口 (Ctrl+D)', '打开开发者工具', '插件设置', '结束运行 (Ctrl+Q)'])
-    await app.evaluate(({ BrowserWindow }) => {
-      const win = BrowserWindow.getAllWindows().find((window) =>
-        window.webContents.getURL().startsWith('http://127.0.0.1:5174')
-      )!
-      // Native popup focus must not trigger the host's blur-to-hide path.
-      win.emit('blur')
-      ;(globalThis as any).settingsMenuTemplate[2].submenu[2].click()
-      ;(globalThis as any).settingsActionMenu.closePopup()
-    })
-    await expect
-      .poll(() => main.evaluate(() => window.ztools.dbGet('auto-start-plugin')))
-      .toEqual(['setting'])
+    // 内置设置不再暴露通用插件行为菜单，右上角入口应完全移除。
+    await expect(main.getByRole('button', { name: '插件操作', exact: true })).toHaveCount(0)
+    expect(await main.evaluate(() => window.tabdo.dbGet('auto-start-plugin'))).toBeFalsy()
     expect(await app.evaluate(() => (globalThis as any).settingsStability.hides)).toBe(0)
 
     // A user close stays closed even when delayed focus notifications arrive afterwards.
@@ -189,7 +203,7 @@ test('reopening settings and focus notifications do not hide or reload the activ
       const manager = process.mainModule!.require(
         app.getAppPath() + '/src/main/managers/windowManager.ts'
       ).default
-      // Hold only the launch result, after the real cached view has been restored.
+      // 新会话创建后只阻塞启动返回，验证关闭动作能使迟到结果失效。
       const api = process.mainModule!.require(app.getAppPath() + '/src/main/api/index.ts').default
       const launch = api.launchPlugin.bind(api)
       const gate = new Promise<void>((resolve) => {
@@ -212,7 +226,16 @@ test('reopening settings and focus notifications do not hide or reload the activ
               .default.pluginView?.webContents.id
         )
       )
-      .toBe(snapshot.initialView)
+      .not.toBe(snapshot.initialView)
+    await expect
+      .poll(() =>
+        app!.evaluate(
+          ({ app }) =>
+            !!process.mainModule!.require(app.getAppPath() + '/src/main/managers/pluginManager.ts')
+              .default.pluginView
+        )
+      )
+      .toBe(true)
     expect(await app.evaluate(() => (globalThis as any).settingsStability.assemblies)).toBe(1)
     await main.getByRole('button', { name: '关闭插件', exact: true }).click()
     await app.evaluate(async () => {

@@ -358,13 +358,13 @@ export class DatabaseAPI {
     })
 
     // ============ 主程序渲染进程专用API（直接操作 ZTOOLS 命名空间） ============
-    ipcMain.handle('ztools:db-put', (_event, key: string, data: any) => {
-      // console.log('[Database] ztools:db-put', key, data)
+    ipcMain.handle('tabdo:db-put', (_event, key: string, data: any) => {
+      // console.log('[Database] tabdo:db-put', key, data)
       return this.dbPut(key, data)
     })
 
-    ipcMain.handle('ztools:db-get', (_event, key: string) => {
-      console.log('[Database] ztools:db-get', key)
+    ipcMain.handle('tabdo:db-get', (_event, key: string) => {
+      console.log('[Database] tabdo:db-get', key)
       return this.dbGet(key)
     })
 
@@ -514,28 +514,28 @@ export class DatabaseAPI {
       })
 
       // 添加 ZTOOLS/ 主程序数据统计
-      const ztoolsDocs = lmdbInstance.allDocs('ZTOOLS/')
-      const ztoolsDocCount = ztoolsDocs.length
+      const tabdoDocs = lmdbInstance.allDocs('ZTOOLS/')
+      const tabdoDocCount = tabdoDocs.length
 
       // 统计 ZTOOLS/ 的附件
-      let ztoolsAttachmentCount = 0
-      const ztoolsAttachmentPrefix = 'attachment-ext:ZTOOLS/'
+      let tabdoAttachmentCount = 0
+      const tabdoAttachmentPrefix = 'attachment-ext:ZTOOLS/'
       for (const { key } of attachmentDb.getRange({
-        start: ztoolsAttachmentPrefix,
-        end: this.getNextPrefix(ztoolsAttachmentPrefix)
+        start: tabdoAttachmentPrefix,
+        end: this.getNextPrefix(tabdoAttachmentPrefix)
       })) {
-        if (key.startsWith(ztoolsAttachmentPrefix)) {
-          ztoolsAttachmentCount++
+        if (key.startsWith(tabdoAttachmentPrefix)) {
+          tabdoAttachmentCount++
         }
       }
 
       // 将主程序数据插入到列表最前面
-      if (ztoolsDocCount > 0 || ztoolsAttachmentCount > 0) {
+      if (tabdoDocCount > 0 || tabdoAttachmentCount > 0) {
         data.unshift({
           pluginName: 'ZTOOLS',
           pluginTitle: '主程序',
-          docCount: ztoolsDocCount,
-          attachmentCount: ztoolsAttachmentCount,
+          docCount: tabdoDocCount,
+          attachmentCount: tabdoAttachmentCount,
           logo: null,
           isDevelopment: false
         })
@@ -744,7 +744,7 @@ export class DatabaseAPI {
         deletedCount++
       }
 
-      // 3. 清理插件专属文件系统数据目录（ztools.getPath('pluginData')），与「清除数据」语义保持一致。
+      // 3. 清理插件专属文件系统数据目录（tabdo.getPath('pluginData')），与「清除数据」语义保持一致。
       // 短暂占用允许重试，持续失败必须告知调用方，避免将残留误报为成功。
       await physicalFs.promises.rm(getPluginDataPath(pluginName), {
         recursive: true,
@@ -803,7 +803,7 @@ export class DatabaseAPI {
   }
 
   /**
-   * 公共方法：清空指定插件的所有数据（LMDB 文档、附件与 ztools.getPath('pluginData') 数据目录）。
+   * 公共方法：清空指定插件的所有数据（LMDB 文档、附件与 tabdo.getPath('pluginData') 数据目录）。
    */
   public async clearPluginData(
     pluginName: string

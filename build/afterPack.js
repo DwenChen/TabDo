@@ -43,7 +43,7 @@ async function writeFullInstallInfo(context) {
 
   // 标记必须位于最终 Resources 目录中，并在正式签名前完成写入。
   const packageJson = require('../package.json')
-  const appId = 'io.github.dwenchen.ztools'
+  const appId = 'io.github.dwenchen.tabdo'
   let resourcesPath = ''
   let updater = ''
 
@@ -62,7 +62,7 @@ async function writeFullInstallInfo(context) {
     electronVersion: packageJson.devDependencies.electron,
     updater
   }
-  const installInfoPath = path.join(resourcesPath, 'ztools-install-info.json')
+  const installInfoPath = path.join(resourcesPath, 'tabdo-install-info.json')
 
   // 确保非标准框架输出也能创建标记目录。
   await ensureDir(resourcesPath)
@@ -104,7 +104,7 @@ async function prunePlatformSpecificRuntimeFiles(context) {
       : path.join(context.appOutDir, 'resources')
   const unpackedPath = path.join(resourcesPath, 'app.asar.unpacked')
 
-  // ZTools 原生模块目前只提供 macOS 和 Windows 版本，Linux 不保留任何一个。
+  // TabDo 原生模块目前只提供 macOS 和 Windows 版本，Linux 不保留任何一个。
   const nativePlatformDir = context.electronPlatformName === 'darwin' ? 'mac' : 'win'
   for (const platformDir of ['mac', 'win']) {
     if (context.electronPlatformName === 'linux' || platformDir !== nativePlatformDir) {

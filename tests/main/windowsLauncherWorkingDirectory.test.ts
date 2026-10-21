@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
-// 回归测试：ZToolsCenter/ZTools#603
-// 通过 ZTools 本地启动的程序应以其所在目录作为工作目录（对齐资源管理器双击行为），
-// 否则子进程会继承 ZTools 主进程的 CWD（开机自启/提权时通常为 system32），
+// 回归测试：TabDoCenter/TabDo#603
+// 通过 TabDo 本地启动的程序应以其所在目录作为工作目录（对齐资源管理器双击行为），
+// 否则子进程会继承 TabDo 主进程的 CWD（开机自启/提权时通常为 system32），
 // 导致程序把相对路径解析到 C:\WINDOWS\system32 下而报权限错误。
 
 const { mockLaunch, mockUwpLaunch, mockOpenPath, mockOpenExternal } = vi.hoisted(() => ({

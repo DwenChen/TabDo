@@ -1,0 +1,35 @@
+{
+  "id": "note-dock-interaction-and-command-ranking",
+  "date": "2026-10-20",
+  "summary": "便签字号与贴靠交互重做、图片悬浮尺寸跟随、重命名预览重做、指令使用热度排序",
+  "changes": [
+    "便签选项新增字号设置（12–32 像素），只影响当前窗口正文，不写入用户配置。",
+    "图片悬浮窗口尺寸按原图比例锁定：缩小高度跟随图片、放大不超过原图，拖动只保留原点不再还原旧尺寸；悬浮窗口禁用原生边缘缩放，缩放统一走页面手柄。",
+    "便签贴靠改为拖动释放即收起，指针停在色签上不再自动展开；点击色签或把色签拖离边缘才解除贴靠，解除后需再次拖动才会重新贴边。",
+    "收起后的色签可以沿所属边缘自由拖动，位置不再由宿主固定分配；标签在垂直边缘使用 18×80、水平边缘使用 88×18。",
+    "贴靠与解除改为分帧缓出过渡（150ms），色签与正文增加淡入动画，贴靠过程更顺滑。",
+    "竖排色签去掉“便签 1”里的空格并把字距收紧到 1 像素，标签与编号之间不再出现大间距。",
+    "匹配指令列表按使用频次与最近使用排序：新增 calculateUsageBoost（频次最多 120、最近使用最多 180 并按天衰减），接入文本搜索排序与图片/文件/文本/窗口匹配列表，启动指令后强制刷新统计。",
+    "文件批量重命名预览区按上游 batch-rename 重做：卡片式“原名 → 新名”行、状态徽标（待改名/无变化/错误）、行内改名、还原与移除、全选与已选计数、筛选框、有界滚动提示，底部按左右分组排列操作。",
+    "重命名、二维码扫描、解散文件夹三个子组件不再自带标题与说明文字，正文直接进入控件。",
+    "修复超级面板头部拖动区域吞掉左上角“返回固定列表”按钮点击：标题按钮补 no-drag。",
+    "修复源码 E2E 与源码预览在 Electron 系 IDE 终端下误判打包环境：启动被测 Electron 前清除宿主残留的 ELECTRON_FORCE_IS_PACKAGED（连同 ELECTRON_RUN_AS_NODE），避免内置插件与原生资源按 app.asar.unpacked 解析。"
+  ],
+  "checks": [
+    "仅验证本轮改动与相关回归，没有为验证打包应用。",
+    "node scripts/run-tests.cjs unit：81 个文件 580 项通过（含 calculateUsageBoost 与指令使用统计键、贴合与图片比例、贴靠状态机用例）；归档 .artifacts/runs/2026-10-20T07-22-36-036Z-unit。",
+    "node scripts/run-tests.cjs e2e：全量源码 E2E 15 通过 1 跳过（4.9 分钟），覆盖 floating-pointer、super-panel-selection、tools-polish、tools-expanded、tools-folder-break、tools-copy-commands、tools-clipboard、tools-screenshot、tools-lifecycle、builtin-providers、local-edition、plugin-host-regressions 等；归档 .artifacts/runs/2026-10-20T07-17-29-909Z-e2e。",
+    "floatingPointer 单测 9 项通过：四边识别与拖动释放收起、指针停留不展开、点击解除贴靠、色签沿边缘拖动与拖离解除、图片窗口比例锁定与拖动保持尺寸、贴靠开关。",
+    "floating-pointer 源码 E2E 通过：系统鼠标把便签拖到边缘后释放即收起、指针停在色签不展开、拖动色签改变位置、点击色签解除贴靠并保留纸张尺寸与正文，图片正文进入后按钮显示并真实点击关闭。",
+    "tools-expanded 源码 E2E 通过：二维码、重命名插入规则→检查并重命名→确认执行→撤销、便签与悬浮窗口、mainHide 与入口退役、本地搜索；tools-polish 通过贴靠登记与解除、便签字号 16/22、本地搜索 Finder 布局；super-panel-selection 通过返回按钮可点击断言。",
+    "node_modules/.bin/tsc --noEmit -p tsconfig.node.json 与 node_modules/.bin/vue-tsc --noEmit -p tsconfig.web.json 通过；vite build internal-plugins/system 与 electron-vite build 成功。",
+    "宿主环境修复前后对比：同一终端下全量 E2E 从 13 失败 2 通过变为 15 通过 1 跳过；探针确认内置插件路径回到 internal-plugins/<name>/public。"
+  ],
+  "pending": [
+    "多显示器跨屏、非整数缩放与触控板下的贴靠手感、色签拖动阻尼保留人工验收。",
+    "贴靠动画的观感只验证当前 Windows 环境，不同 DPI 下过渡平滑度仍需人工确认。",
+    "指令使用热度排序的权重（120/180、七天衰减）按当前体验取值，长期使用后的排序偏好保留人工调整。",
+    "重命名“智能重命名”沿用宿主 AI 链路，未启用模型时给出条目级提示。"
+  ],
+  "preview": "已同步 .local/portable-preview（保留原有 data 与 legacy、共保留 432 个文件，同步前备份 .artifacts/backups/preview-sync/update-1792481133783/previous-resources），verify-portable-preview 校验通过（程序 72 个文件、内置资源 134 个文件）；请重新通过 PreviewPortable.cmd 启动测试。未 push、未云端构建、未发布 release。"
+}

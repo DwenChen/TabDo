@@ -72,7 +72,7 @@ jobs:
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           target_commitish: ${{ github.sha }}
-          name: ZTools 本地版 ${{ steps.version.outputs.tag }}
+          name: TabDo 本地版 ${{ steps.version.outputs.tag }}
           body_path: changelog.md
           make_latest: true
           files: |

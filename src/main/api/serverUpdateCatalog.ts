@@ -4,7 +4,7 @@ import type { PlatformUpdateInfo, UpdateDownloadSource } from './platformUpdater
 import databaseAPI from './shared/database'
 import { resolveUpdateChannel, type UpdateChannel } from '../../shared/updateChannel'
 import { GITHUB_REPOSITORY_URL, getGitHubReleaseUrl } from '../../shared/updateSource'
-const RELEASE_API = 'https://api.github.com/repos/DwenChen/ZTools/releases'
+const RELEASE_API = 'https://api.github.com/repos/DwenChen/TabDo/releases'
 export interface ServerUpdateInfo {
   available: boolean
   latestVersion: string

@@ -82,7 +82,12 @@
       </div>
 
       <!-- 插件设置按钮 -->
-      <button class="toolbar-btn" title="插件设置" @click="showPluginSettings">
+      <button
+        v-if="!isBuiltinPlugin"
+        class="toolbar-btn"
+        title="插件设置"
+        @click="showPluginSettings"
+      >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
           <!-- 设置图标 -->
           <path
@@ -181,6 +186,7 @@ import type { AiRequestStatus, AiRequestStatusChange } from '@shared/aiRequestSt
 const platform = ref<'darwin' | 'win32'>('darwin')
 const pluginName = ref('Plugin')
 const pluginId = ref('') // 插件的实际 name（用于数据库操作，与未分离状态保持一致）
+const isBuiltinPlugin = computed(() => ['system', 'setting'].includes(pluginId.value))
 const pluginPath = ref('')
 const pluginLogo = ref<string | undefined>(undefined)
 const searchQuery = ref('')
@@ -194,6 +200,7 @@ const aiRequestStatus = ref<AiRequestStatus>('idle') // AI 请求状态
 const primaryColor = ref('green')
 const customColor = ref('#db2777')
 const compactWindowHeader = ref(false)
+const escShortcutEnabled = ref(false)
 
 type PluginUpdateStatus = 'idle' | 'available' | 'upgrading' | 'error'
 
@@ -258,7 +265,7 @@ async function checkCurrentPluginUpdate(): Promise<void> {
   if (!currentPluginName || !currentPluginPath) return
 
   try {
-    const result = await window.ztools.pluginUpdates.check(currentPluginName, currentPluginPath)
+    const result = await window.tabdo.pluginUpdates.check(currentPluginName, currentPluginPath)
     // 标题栏重载或插件上下文变化后，不允许旧响应覆盖当前状态。
     if (
       requestSequence !== pluginUpdateRequestSequence ||
@@ -288,7 +295,7 @@ async function handleOpenPluginMarket(): Promise<void> {
   if (!currentPluginName || pluginUpdateStatus.value === 'upgrading') return
 
   try {
-    const result = await window.ztools.pluginUpdates.openMarket(currentPluginName)
+    const result = await window.tabdo.pluginUpdates.openMarket(currentPluginName)
     if (!result.success) {
       alert(`打开插件市场失败: ${result.error || '未知错误'}`)
     }
@@ -313,7 +320,7 @@ async function handleUpgradePlugin(): Promise<void> {
   pluginUpgradeProgress.value = null
   pluginUpgradeError.value = ''
   try {
-    const result = await window.ztools.pluginUpdates.upgrade(currentPluginName, currentPluginPath)
+    const result = await window.tabdo.pluginUpdates.upgrade(currentPluginName, currentPluginPath)
     if (!result.success) {
       pluginUpdateStatus.value = 'error'
       pluginUpgradeError.value = result.error || '升级失败'
@@ -427,11 +434,14 @@ function applyAcrylicOverlay(): void {
 
 // 初始化
 onMounted(() => {
+  window.electron.ipcRenderer.on('builtin-shortcuts-changed', (config: any) => {
+    escShortcutEnabled.value = config?.esc === true
+  })
   // 仅监听当前独立标题栏发起的市场升级进度。
-  cleanupPluginUpdateProgressListener = window.ztools.pluginUpdates.onProgress(
+  cleanupPluginUpdateProgressListener = window.tabdo.pluginUpdates.onProgress(
     handlePluginUpgradeProgress
   )
-  cleanupCompactWindowHeaderListener = window.ztools.onUpdateCompactMainWindowHeader((enabled) => {
+  cleanupCompactWindowHeaderListener = window.tabdo.onUpdateCompactMainWindowHeader((enabled) => {
     compactWindowHeader.value = enabled
   })
 
@@ -447,9 +457,10 @@ onMounted(() => {
 
   // 从数据库加载亚克力透明度设置
   // 外观读取不能阻塞 init-titlebar 的订阅，否则迁移后的标题栏丢失插件身份。
-  void window.ztools
+  void window.tabdo
     .dbGet('settings-general')
     .then((settings) => {
+      escShortcutEnabled.value = settings?.builtinAppShortcutsEnabled?.esc === true
       if (settings) {
         acrylicLightOpacity.value = settings.acrylicLightOpacity ?? 78
         acrylicDarkOpacity.value = settings.acrylicDarkOpacity ?? 50
@@ -472,8 +483,8 @@ onMounted(() => {
     })
 
   // 初始化时获取当前窗口材质
-  if (window.ztools?.getWindowMaterial) {
-    window.ztools
+  if (window.tabdo?.getWindowMaterial) {
+    window.tabdo
       .getWindowMaterial()
       .then((material: string) => {
         console.log('标题栏初始化材质:', material)
@@ -487,8 +498,8 @@ onMounted(() => {
   }
 
   // 监听窗口材质更新
-  if (window.ztools?.onUpdateWindowMaterial) {
-    window.ztools.onUpdateWindowMaterial((material: 'mica' | 'acrylic' | 'none') => {
+  if (window.tabdo?.onUpdateWindowMaterial) {
+    window.tabdo.onUpdateWindowMaterial((material: 'mica' | 'acrylic' | 'none') => {
       console.log('标题栏收到材质更新:', material)
       document.documentElement.setAttribute('data-material', material)
       // 应用亚克力背景色叠加效果
@@ -497,8 +508,8 @@ onMounted(() => {
   }
 
   // 监听亚克力透明度更新事件
-  if (window.ztools?.onUpdateAcrylicOpacity) {
-    window.ztools.onUpdateAcrylicOpacity((data: { lightOpacity: number; darkOpacity: number }) => {
+  if (window.tabdo?.onUpdateAcrylicOpacity) {
+    window.tabdo.onUpdateAcrylicOpacity((data: { lightOpacity: number; darkOpacity: number }) => {
       console.log('标题栏更新亚克力透明度:', data)
       acrylicLightOpacity.value = data.lightOpacity
       acrylicDarkOpacity.value = data.darkOpacity
@@ -508,8 +519,8 @@ onMounted(() => {
   }
 
   // 监听主题色更新
-  if (window.ztools?.onUpdatePrimaryColor) {
-    window.ztools.onUpdatePrimaryColor((data: { primaryColor: string; customColor?: string }) => {
+  if (window.tabdo?.onUpdatePrimaryColor) {
+    window.tabdo.onUpdatePrimaryColor((data: { primaryColor: string; customColor?: string }) => {
       console.log('标题栏更新主题色:', data)
       primaryColor.value = data.primaryColor
       if (data.customColor) {
@@ -607,8 +618,8 @@ onMounted(() => {
   })
 
   // 监听 AI 状态变化
-  if (window.ztools?.onAiStatusChanged) {
-    window.ztools.onAiStatusChanged((change: AiRequestStatusChange) => {
+  if (window.tabdo?.onAiStatusChanged) {
+    window.tabdo.onAiStatusChanged((change: AiRequestStatusChange) => {
       // 独立标题栏只消费自身插件的状态，避免其他窗口请求串扰。
       if (change.pluginPath === pluginPath.value) {
         aiRequestStatus.value = change.status
@@ -649,14 +660,18 @@ function openDevTools(): void {
   window.electron.ipcRenderer.send('titlebar-action', 'open-devtools')
 }
 
-// 显示插件设置菜单
+/**
+ * 展示第三方插件行为菜单，随包内置插件使用固定的宿主运行策略。
+ * @returns 菜单操作完成后的 Promise。
+ */
 async function showPluginSettings(): Promise<void> {
+  if (isBuiltinPlugin.value) return
   try {
     console.log('当前插件名称:', pluginName.value)
 
     // 读取当前插件的配置状态
-    const outKillPluginData = await window.ztools.dbGet('out-kill-plugin')
-    const autoDetachPluginData = await window.ztools.dbGet('auto-detach-plugin')
+    const outKillPluginData = await window.tabdo.dbGet('out-kill-plugin')
+    const autoDetachPluginData = await window.tabdo.dbGet('auto-detach-plugin')
 
     console.log('读取到的配置数据:', { outKillPluginData, autoDetachPluginData })
 
@@ -716,7 +731,7 @@ async function showPluginSettings(): Promise<void> {
       const updatedList = outKillPluginList.includes(currentName)
         ? outKillPluginList.filter((n) => n !== currentName)
         : [...outKillPluginList, currentName]
-      await window.ztools.dbPut('out-kill-plugin', updatedList)
+      await window.tabdo.dbPut('out-kill-plugin', updatedList)
       console.log('已更新“退出到后台立即结束运行”配置:', updatedList)
     } else if (result?.id === 'toggle-auto-detach') {
       // 切换“自动分离为独立窗口”
@@ -726,7 +741,7 @@ async function showPluginSettings(): Promise<void> {
       const updatedList = autoDetachPluginList.includes(currentName)
         ? autoDetachPluginList.filter((n) => n !== currentName)
         : [...autoDetachPluginList, currentName]
-      await window.ztools.dbPut('auto-detach-plugin', updatedList)
+      await window.tabdo.dbPut('auto-detach-plugin', updatedList)
       console.log('已更新"自动分离为独立窗口"配置:', updatedList)
     } else if (result?.id === 'toggle-main-push') {
       await toggleMainPushSetting(currentName)
@@ -765,7 +780,7 @@ function handleKeydown(event: KeyboardEvent): void {
     return
   }
   // ESC 键清空输入
-  if (event.key === 'Escape') {
+  if (event.key === 'Escape' && escShortcutEnabled.value) {
     event.preventDefault()
     if (searchQuery.value.trim()) {
       searchQuery.value = ''

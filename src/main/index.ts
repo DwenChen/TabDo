@@ -6,7 +6,7 @@ import {
   FULL_INSTALL_RELEASE_URL
 } from './runtimeCompatibility'
 
-if (process.platform === 'win32') app.setAppUserModelId('io.github.dwenchen.ztools')
+if (process.platform === 'win32') app.setAppUserModelId('io.github.dwenchen.tabdo')
 
 const gotTheLock = app.requestSingleInstanceLock()
 const runtimeCompatibility = checkRuntimeCompatibility({
@@ -20,10 +20,10 @@ async function showBlockingRuntimePrompt(): Promise<void> {
     await app.whenReady()
     const result = await dialog.showMessageBox({
       type: 'warning',
-      title: '需要更新 ZTools',
+      title: '需要更新 TabDo',
       message: '当前版本需要升级后才能继续使用',
       detail:
-        'ZTools 的基础组件已经升级，当前版本无法直接完成更新。请安装最新完整版本，您的数据、设置和插件都会保留。',
+        'TabDo 的基础组件已经升级，当前版本无法直接完成更新。请安装最新完整版本，您的数据、设置和插件都会保留。',
       buttons: ['下载最新版本', '退出应用'],
       defaultId: 0,
       cancelId: 1,

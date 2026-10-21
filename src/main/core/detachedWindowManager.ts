@@ -13,6 +13,7 @@ import { getDetachedWindowSizeKey } from '../../shared/pluginRuntimeNamespace'
 import { getPreloadPath, getRendererPath } from '../utils/appBundlePath'
 import type { AiRequestStatus } from '../../shared/aiRequestStatus'
 import { isToolsPluginPath, releaseToolsView } from './toolsLifecycle'
+import { applyToolsWindowIdentity, getToolsWindowIcon } from './toolsWindowIdentity'
 import {
   STANDARD_DETACHED_WINDOW_TITLEBAR_HEIGHT,
   normalizeCompactMainWindowHeader,
@@ -207,6 +208,7 @@ class DetachedWindowManager {
       height: number
       title: string
       logo?: string
+      toolFeatureCode?: string
       searchQuery?: string // 搜索框当前值
       searchPlaceholder?: string // 搜索框占位符
       subInputVisible?: boolean // 子输入框是否可见
@@ -234,6 +236,10 @@ class DetachedWindowManager {
         width: options.width,
         height: options.height + titlebarHeight,
         title: options.title,
+        ...(isToolsPluginPath(pluginPath) && {
+          icon: getToolsWindowIcon(options.toolFeatureCode),
+          skipTaskbar: false
+        }),
         frame: false, // 两个平台都无边框
         titleBarStyle: isMac ? 'hiddenInset' : undefined, // macOS 保留交通灯按钮
         ...(isMac && {
@@ -245,7 +251,7 @@ class DetachedWindowManager {
         hasShadow: true, // 启用窗口阴影（可调整为 false 来移除阴影）
         webPreferences: {
           preload: getPreloadPath(),
-          sandbox: process.env.ZTOOLS_SOURCE_PREVIEW !== '1',
+          sandbox: process.env.TABDO_SOURCE_PREVIEW !== '1',
           backgroundThrottling: false, // 窗口最小化时是否继续动画和定时器
           contextIsolation: true, // 启用上下文隔离
           nodeIntegration: false, // 渲染进程禁止直接使用 Node
@@ -263,7 +269,7 @@ class DetachedWindowManager {
       else if (isWindows) {
         windowConfig.backgroundColor = '#00000000' // 完全透明，让 Mica 材质显示
         // 设置插件窗口独立图标
-        if (options.logo) {
+        if (options.logo && !isToolsPluginPath(pluginPath)) {
           try {
             windowConfig.icon = options.logo.startsWith('file:')
               ? fileURLToPath(options.logo)
@@ -275,14 +281,16 @@ class DetachedWindowManager {
       }
 
       const win = new BrowserWindow(windowConfig)
+      if (isToolsPluginPath(pluginPath))
+        applyToolsWindowIdentity(win, options.toolFeatureCode || 'tools')
 
       // Windows 11 应用窗口材质（与主窗口保持一致）
       if (isWindows) {
         this.applyWindowMaterial(win)
         // 设置插件窗口ID，避免任务栏窗口合并
-        win.setAppDetails({
-          appId: 'ZTools.' + pluginName
-        })
+        if (!isToolsPluginPath(pluginPath)) {
+          win.setAppDetails({ appId: 'TabDo.' + pluginName })
+        }
       }
 
       // 正文迁移独立于标题栏加载；标题栏初始化较慢时也不能出现整个空白窗口。
@@ -391,14 +399,13 @@ class DetachedWindowManager {
       this.detachedWindowMap.set(windowId, windowInfo)
 
       /**
-       * 工具独立窗口隐藏或最小化时退役旧会话；必要任务结束后销毁空窗口。
+       * 插件独立窗口隐藏或最小化时退役旧会话；必要任务结束后销毁空窗口。
        * @returns 无返回值。
        */
       const releaseHiddenTools = (): void => {
-        if (!isToolsPluginPath(pluginPath)) return
         // 立即从可复用窗口中移除，旧任务不能污染随后新打开的工具。
         this.detachedWindowMap.delete(windowId)
-        pluginWindowManager.closeByPlugin(pluginPath)
+        pluginWindowManager.releaseParent(pluginView.webContents)
         if (!win.isDestroyed()) win.contentView.removeChildView(pluginView)
         releaseToolsView(
           pluginView.webContents,
@@ -424,11 +431,9 @@ class DetachedWindowManager {
           this.resizeSaveTimers.delete(windowId)
         }
         // 工具子窗口已在退役时关闭；迟到的旧窗口销毁不能按路径关闭新会话的子窗口。
-        if (!isToolsPluginPath(pluginPath)) pluginWindowManager.closeByPlugin(pluginPath)
+        // 子窗口已经在退役时关闭，迟到回调不再按路径影响新会话。
         // 销毁插件视图的 webContents
-        if (!isToolsPluginPath(pluginPath) && !pluginView.webContents.isDestroyed()) {
-          pluginView.webContents.close()
-        }
+
         console.log(`[DetachedWindow] 分离窗口已关闭: ${pluginName}`)
         // 更新 Dock 图标显示状态
         this.updateDockVisibility()

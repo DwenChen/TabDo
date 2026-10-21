@@ -17,7 +17,7 @@ const { archivePlaywrightArtifacts } = require('../../scripts/run-tests.cjs')
 let root: string
 
 beforeEach(() => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), 'ztools-maintenance-'))
+  root = fs.mkdtempSync(path.join(os.tmpdir(), 'tabdo-maintenance-'))
 })
 afterEach(() => {
   vi.restoreAllMocks()
@@ -122,7 +122,7 @@ describe('explicit portable profile reset', () => {
     const preview = path.join(root, '.local/portable-preview')
     fs.mkdirSync(path.join(preview, 'data/plugins'), { recursive: true })
     fs.mkdirSync(path.join(preview, 'legacy'))
-    fs.writeFileSync(path.join(preview, 'ZTools.exe'), 'latest program')
+    fs.writeFileSync(path.join(preview, 'TabDo.exe'), 'latest program')
     fs.writeFileSync(path.join(preview, 'data/config'), 'settings')
     fs.writeFileSync(path.join(preview, 'data/plugins/plugin.asar'), 'installed plugin')
     const checkStopped = vi.fn()
@@ -133,12 +133,12 @@ describe('explicit portable profile reset', () => {
     expect(fs.readFileSync(path.join(result.backup, 'data/plugins/plugin.asar'), 'utf8')).toBe(
       'installed plugin'
     )
-    expect(fs.readFileSync(path.join(preview, 'ZTools.exe'), 'utf8')).toBe('latest program')
+    expect(fs.readFileSync(path.join(preview, 'TabDo.exe'), 'utf8')).toBe('latest program')
   })
   it('does not move profile data when the preview is still running', () => {
     const preview = path.join(root, '.local/portable-preview')
     fs.mkdirSync(path.join(preview, 'data'), { recursive: true })
-    fs.writeFileSync(path.join(preview, 'ZTools.exe'), 'program')
+    fs.writeFileSync(path.join(preview, 'TabDo.exe'), 'program')
     fs.writeFileSync(path.join(preview, 'data/config'), 'settings')
     expect(() =>
       resetProfile(root, preview, () => {

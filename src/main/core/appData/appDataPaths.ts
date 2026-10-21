@@ -10,7 +10,7 @@ export interface AppDataPathOptions {
   legacyUserDataPath?: string
 }
 
-export interface ZToolsDataLayout {
+export interface TabDoDataLayout {
   root: string
   lmdbRoot: string
   deviceLmdbPath: string
@@ -27,21 +27,43 @@ export interface ZToolsDataLayout {
 }
 
 /**
- * 获取 ZTools 数据根目录，测试进程可通过显式配置隔离真实用户数据。
+ * 获取启动位置记录的锚点，测试和免安装预览可通过显式配置隔离真实资料。
  *
  * @param options 数据目录解析选项。
- * @returns ZTools 数据根目录绝对路径。
+ * @returns 存放位置记录的初始数据目录绝对路径。
  */
-export function getZToolsRoot(options: AppDataPathOptions = {}): string {
-  return (
-    options.dataRoot ||
-    process.env.ZTOOLS_DATA_ROOT ||
-    path.join(options.homeDir || os.homedir(), '.ztools')
+export function getTabDoBootstrapRoot(options: AppDataPathOptions = {}): string {
+  // 显式隔离根优先；已有旧资料原地继续使用，不在线迁移数据库。
+  const explicit = options.dataRoot || process.env.TABDO_DATA_ROOT || process.env.ZTOOLS_DATA_ROOT
+  if (explicit) return explicit
+  const home = options.homeDir || os.homedir()
+  const current = path.join(home, '.tabdo')
+  const previous = path.join(home, '.ztools')
+  return fs.existsSync(current) || !fs.existsSync(previous) ? current : previous
+}
+
+/**
+ * 解析数据目录位置记录；显式隔离根同时作为位置记录锚点，不访问真实用户目录。
+ * @param options 数据目录解析与测试隔离选项。
+ * @returns 当前有效的数据根目录。
+ * @throws 位置记录损坏或迁移目标丢失时抛错，避免误建空白资料。
+ */
+export function getTabDoRoot(options: AppDataPathOptions = {}): string {
+  const anchor = getTabDoBootstrapRoot(options)
+  const configuration = path.join(anchor, '.data-location.json')
+  if (!fs.existsSync(configuration)) return anchor
+  const value = JSON.parse(fs.readFileSync(configuration, 'utf8'))
+  if (
+    typeof value.root !== 'string' ||
+    !path.isAbsolute(value.root) ||
+    !fs.statSync(value.root).isDirectory()
   )
+    throw new Error('数据与缓存目录不可用，请恢复原目录或修复 .data-location.json')
+  return value.root
 }
 
 export function getLmdbRoot(options: AppDataPathOptions = {}): string {
-  return path.join(getZToolsRoot(options), 'lmdb')
+  return path.join(getTabDoRoot(options), 'lmdb')
 }
 
 export function getDeviceLmdbPath(options: AppDataPathOptions = {}): string {
@@ -57,7 +79,7 @@ export function getDefaultAccountLmdbPath(options: AppDataPathOptions = {}): str
 }
 
 export function getPluginsPath(options: AppDataPathOptions = {}): string {
-  return path.join(getZToolsRoot(options), 'plugins')
+  return path.join(getTabDoRoot(options), 'plugins')
 }
 
 /**
@@ -67,11 +89,11 @@ export function getPluginsPath(options: AppDataPathOptions = {}): string {
  * @returns 插件数据根目录绝对路径
  */
 export function getPluginDataRoot(options: AppDataPathOptions = {}): string {
-  return path.join(getZToolsRoot(options), 'plugins-data')
+  return path.join(getTabDoRoot(options), 'plugins-data')
 }
 
 /**
- * 获取指定插件的专属数据目录（`ztools.getPath('pluginData')` 指向的目录）。
+ * 获取指定插件的专属数据目录（`tabdo.getPath('pluginData')` 指向的目录）。
  * 该目录随插件卸载且勾选「同时删除插件数据」时一并删除，禁止存放插件实体。
  *
  * @param pluginName 插件名，用作数据根下的子目录名
@@ -85,23 +107,23 @@ export function getPluginDataPath(pluginName: string, options: AppDataPathOption
 }
 
 export function getAvatarPath(options: AppDataPathOptions = {}): string {
-  return path.join(getZToolsRoot(options), 'avatar')
+  return path.join(getTabDoRoot(options), 'avatar')
 }
 
 export function getClipboardPath(options: AppDataPathOptions = {}): string {
-  return path.join(getZToolsRoot(options), 'clipboard')
+  return path.join(getTabDoRoot(options), 'clipboard')
 }
 
 export function getExtendsPath(options: AppDataPathOptions = {}): string {
-  return path.join(getZToolsRoot(options), 'extends')
+  return path.join(getTabDoRoot(options), 'extends')
 }
 
 export function getTempPath(options: AppDataPathOptions = {}): string {
-  return path.join(getZToolsRoot(options), 'temp')
+  return path.join(getTabDoRoot(options), 'temp')
 }
 
 export function getLogsPath(options: AppDataPathOptions = {}): string {
-  return path.join(getZToolsRoot(options), 'logs')
+  return path.join(getTabDoRoot(options), 'logs')
 }
 
 export function getLegacyUserDataPath(options: AppDataPathOptions = {}): string {
@@ -112,9 +134,9 @@ export function getLegacyLmdbPath(options: AppDataPathOptions = {}): string {
   return path.join(getLegacyUserDataPath(options), 'lmdb')
 }
 
-export function getZToolsDataLayout(options: AppDataPathOptions = {}): ZToolsDataLayout {
+export function getTabDoDataLayout(options: AppDataPathOptions = {}): TabDoDataLayout {
   return {
-    root: getZToolsRoot(options),
+    root: getTabDoRoot(options),
     lmdbRoot: getLmdbRoot(options),
     deviceLmdbPath: getDeviceLmdbPath(options),
     accountsRoot: getAccountsRoot(options),
@@ -130,16 +152,16 @@ export function getZToolsDataLayout(options: AppDataPathOptions = {}): ZToolsDat
   }
 }
 
-export function hasZToolsRoot(options: AppDataPathOptions = {}): boolean {
-  return fs.existsSync(getZToolsRoot(options))
+export function hasTabDoRoot(options: AppDataPathOptions = {}): boolean {
+  return fs.existsSync(getTabDoRoot(options))
 }
 
 export function hasLegacyLmdb(options: AppDataPathOptions = {}): boolean {
   return fs.existsSync(getLegacyLmdbPath(options))
 }
 
-export function ensure3Layout(options: AppDataPathOptions = {}): ZToolsDataLayout {
-  const layout = getZToolsDataLayout(options)
+export function ensure3Layout(options: AppDataPathOptions = {}): TabDoDataLayout {
+  const layout = getTabDoDataLayout(options)
   fs.mkdirSync(layout.deviceLmdbPath, { recursive: true })
   fs.mkdirSync(layout.defaultAccountLmdbPath, { recursive: true })
   fs.mkdirSync(layout.pluginsPath, { recursive: true })
@@ -152,8 +174,8 @@ export function ensure3Layout(options: AppDataPathOptions = {}): ZToolsDataLayou
 }
 
 function getDefaultLegacyUserDataPath(options: AppDataPathOptions): string {
-  if (process.env.ZTOOLS_LEGACY_USER_DATA_PATH) {
-    return process.env.ZTOOLS_LEGACY_USER_DATA_PATH
+  if (process.env.TABDO_LEGACY_USER_DATA_PATH) {
+    return process.env.TABDO_LEGACY_USER_DATA_PATH
   }
   try {
     const userData = app?.getPath?.('userData')
@@ -163,13 +185,13 @@ function getDefaultLegacyUserDataPath(options: AppDataPathOptions): string {
   }
 
   if (process.platform === 'darwin') {
-    return path.join(options.homeDir || os.homedir(), 'Library', 'Application Support', 'ZTools')
+    return path.join(options.homeDir || os.homedir(), 'Library', 'Application Support', 'TabDo')
   }
   if (process.platform === 'win32') {
     return path.join(
       process.env.APPDATA || path.join(options.homeDir || os.homedir(), 'AppData', 'Roaming'),
-      'ZTools'
+      'TabDo'
     )
   }
-  return path.join(options.homeDir || os.homedir(), '.config', 'ZTools')
+  return path.join(options.homeDir || os.homedir(), '.config', 'TabDo')
 }

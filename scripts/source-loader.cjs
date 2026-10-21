@@ -58,4 +58,4 @@ require.extensions['.ts'] = (module, filename) => {
   })
   module._compile(result.outputText, filename)
 }
-global.__ZTOOLS_TARGET_ELECTRON_VERSION__ = require('../package.json').devDependencies.electron
+global.__TABDO_TARGET_ELECTRON_VERSION__ = require('../package.json').devDependencies.electron

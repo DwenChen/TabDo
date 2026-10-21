@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   type MouseButtonType,
@@ -8,8 +8,10 @@ import {
   type ThemeType,
   type WindowPositionStrategy
 } from '@/constants'
-import { Dropdown, HotkeyInput, Slider, useToast } from '@/components'
+import { Dropdown, Slider, useToast } from '@/components'
 import { applyCustomColor, applyPrimaryColor } from '@/utils'
+import { DEFAULT_PLUGIN_HEIGHT } from '@shared/mainWindowLayout'
+import DataLocationSetting from './DataLocationSetting.vue'
 
 const { success, error, info, confirm } = useToast()
 
@@ -50,7 +52,7 @@ const superPanelMouseButtonOptions = [
   { label: '长按鼠标前进键', value: 'forward-long' }
 ]
 
-// 当前平台（与 window.ztools.getPlatform 返回类型保持一致）
+// 当前平台（与 window.tabdo.getPlatform 返回类型保持一致）
 const platform = ref<'darwin' | 'win32' | 'linux'>('darwin')
 
 // 终端打开设置
@@ -85,26 +87,6 @@ const terminalOptions = computed(() => {
   ]
 })
 
-// 默认快捷键（根据平台区分文案）
-const defaultHotkey = computed(() => {
-  return platform.value === 'win32' ? 'Alt+Z' : 'Option+Z'
-})
-
-// 快捷键预设选项（根据平台）
-const hotkeyPresets = computed(() => {
-  if (platform.value === 'win32') {
-    return [
-      { label: 'Alt + Space', value: 'Alt+Space' },
-      { label: 'Ctrl + Space', value: 'Ctrl+Space' }
-    ]
-  }
-  return [
-    { label: 'Command + Space', value: 'Command+Space' },
-    { label: 'Option + Space', value: 'Option+Space' }
-  ]
-})
-
-const showHotkeyQuickActions = ref(false)
 const settingsLoaded = ref(false)
 
 // 本地状态（替代 windowStore）
@@ -115,7 +97,7 @@ const clipboardRetentionDays = ref(180)
 const clipboardQuickMatchSeconds = ref(5)
 
 /**
- * 保存复制后中键匹配的有效时长，并立即更新全局监听。
+ * 保存最近复制内容的匹配时限，并立即同步宿主策略。
  * @returns 设置保存和运行时更新完成后的 Promise。
  */
 async function handleClipboardQuickMatchChange(): Promise<void> {
@@ -125,13 +107,13 @@ async function handleClipboardQuickMatchChange(): Promise<void> {
     ? Math.max(0, Math.min(300, Math.round(value)))
     : 5
   await saveSettings()
-  await window.ztools.internal.updateClipboardQuickMatch(clipboardQuickMatchSeconds.value)
+  await window.tabdo.internal.updateClipboardQuickMatch(clipboardQuickMatchSeconds.value)
 }
 
 // 超级面板设置
-const superPanelEnabled = ref(false)
+const superPanelEnabled = ref(true)
 const superPanelMouseButton = ref<MouseButtonType>('middle')
-const superPanelLongPressMs = ref(500)
+const superPanelLongPressMs = ref(0)
 const superPanelBlockedApps = ref<Array<{ app: string; bundleId?: string; label?: string }>>([])
 
 const router = useRouter()
@@ -141,14 +123,9 @@ function goToTranslationProviders(): void {
   router.push({ name: 'Providers', query: { tab: 'translation' } })
 }
 
-// 唤醒黑名单
-const wakeupBlacklist = ref<Array<{ app: string; bundleId?: string; label?: string }>>([])
-
-// 全屏模式下忽略热键
-const ignoreHotkeysOnFullscreen = ref(false)
-
 // 超级面板翻译设置（开关已迁移到「提供商 → 翻译」，这里仅保留字段以兼容历史持久化数据）
 const superPanelTranslateEnabled = ref(false)
+const superPanelAutoTranslate = ref(true)
 // 超级面板触发模式（计算属性）
 const superPanelTriggerMode = computed({
   get: () => {
@@ -182,9 +159,6 @@ function normalizePluginNameList(value: unknown): string[] {
   )
 }
 
-// 实际快捷键字符串
-const hotkey = ref('')
-
 // 不透明度设置
 const opacity = ref(1)
 
@@ -192,7 +166,7 @@ const opacity = ref(1)
 const compactMainWindowHeader = ref(false)
 
 // 插件默认高度设置
-const windowDefaultHeight = ref(541)
+const windowDefaultHeight = ref(DEFAULT_PLUGIN_HEIGHT)
 
 // 托盘图标显示设置
 const showTrayIcon = ref(true)
@@ -239,87 +213,10 @@ const themeColors = [
 // 自定义颜色
 const customColor = ref('#db2777')
 
-// 处理快捷键变化
-async function handleHotkeyChange(newHotkey: string): Promise<void> {
-  const previousHotkey = hotkey.value
-  try {
-    // 调用 IPC 更新全局快捷键
-    const result = await window.ztools.internal.updateShortcut(newHotkey)
-    if (result.success) {
-      // 保存到数据库
-      await saveSettings()
-      console.log('新快捷键设置成功:', hotkey.value)
-    } else {
-      // 设置失败（被占用等），还原为之前的快捷键
-      hotkey.value = previousHotkey
-      error(`快捷键设置失败: ${result.error || '未知错误'}`)
-    }
-  } catch (err: any) {
-    hotkey.value = previousHotkey
-    console.error('设置快捷键失败:', err)
-    error(`设置快捷键失败: ${err.message || '未知错误'}`)
-  }
-}
-
-// 应用快捷键预设
-async function applyHotkeyPreset(preset: string): Promise<void> {
-  const previousHotkey = hotkey.value
-  try {
-    const result = await window.ztools.internal.updateShortcut(preset)
-    if (result.success) {
-      hotkey.value = preset
-      await saveSettings()
-      console.log('快捷键预设已应用:', preset)
-    } else {
-      hotkey.value = previousHotkey
-      error(`快捷键设置失败: ${result.error || '未知错误'}`)
-    }
-  } catch (err: any) {
-    hotkey.value = previousHotkey
-    console.error('应用快捷键预设失败:', err)
-    error(`应用快捷键预设失败: ${err.message || '未知错误'}`)
-  }
-}
-
-// 重置快捷键
-async function resetHotkey(): Promise<void> {
-  try {
-    const result = await window.ztools.internal.updateShortcut(defaultHotkey.value)
-    if (result.success) {
-      hotkey.value = defaultHotkey.value
-      await saveSettings()
-      console.log('重置快捷键成功:', hotkey.value)
-    } else {
-      error(`重置快捷键失败: ${result.error || '未知错误'}`)
-    }
-  } catch (err: any) {
-    console.error('重置快捷键失败:', err)
-    error(`重置快捷键失败: ${err.message || '未知错误'}`)
-  }
-}
-
-function handleQuickActionsClickOutside(): void {
-  showHotkeyQuickActions.value = false
-}
-
-function toggleHotkeyQuickActions(): void {
-  showHotkeyQuickActions.value = !showHotkeyQuickActions.value
-}
-
-async function handleHotkeyPresetSelect(preset: string): Promise<void> {
-  await applyHotkeyPreset(preset)
-  showHotkeyQuickActions.value = false
-}
-
-async function handleHotkeyResetClick(): Promise<void> {
-  await resetHotkey()
-  showHotkeyQuickActions.value = false
-}
-
 // 处理不透明度变化
 async function handleOpacityChange(): Promise<void> {
   try {
-    await window.ztools.internal.setWindowOpacity(opacity.value)
+    await window.tabdo.internal.setWindowOpacity(opacity.value)
     // 保存到数据库
     await saveSettings()
   } catch (error) {
@@ -335,7 +232,7 @@ async function handleCompactMainWindowHeaderChange(): Promise<void> {
   try {
     // 先持久化用户选择，确保后续启动直接使用相同布局。
     await saveSettings()
-    const result = await window.ztools.internal.setCompactMainWindowHeader(
+    const result = await window.tabdo.internal.setCompactMainWindowHeader(
       compactMainWindowHeader.value
     )
     if (!result.success) {
@@ -346,28 +243,35 @@ async function handleCompactMainWindowHeaderChange(): Promise<void> {
   }
 }
 
-// 处理窗口默认高度变化
+/**
+ * 保存插件正文默认高度，无效输入恢复为统一默认值。
+ * @returns 保存并同步宿主完成后的 Promise。
+ */
 async function handleWindowDefaultHeightChange(): Promise<void> {
   try {
     // 验证输入值
     if (!windowDefaultHeight.value || windowDefaultHeight.value < 200) {
-      windowDefaultHeight.value = 541
+      windowDefaultHeight.value = DEFAULT_PLUGIN_HEIGHT
     }
     await saveSettings()
     // 通知主进程更新
-    await window.ztools.internal.setWindowDefaultHeight(windowDefaultHeight.value)
+    await window.tabdo.internal.setWindowDefaultHeight(windowDefaultHeight.value)
     console.log('插件默认高度已更新:', windowDefaultHeight.value)
   } catch (error) {
     console.error('设置插件默认高度失败:', error)
   }
 }
 
-// 重置窗口默认高度
+/**
+ * 将插件正文高度恢复为默认的 540 像素并同步宿主。
+ * @returns 默认高度保存完成后的 Promise。
+ */
 async function resetWindowDefaultHeight(): Promise<void> {
   try {
-    windowDefaultHeight.value = 541
+    // 只在用户主动重置时替换已保存的自定义高度。
+    windowDefaultHeight.value = DEFAULT_PLUGIN_HEIGHT
     await saveSettings()
-    await window.ztools.internal.setWindowDefaultHeight(541)
+    await window.tabdo.internal.setWindowDefaultHeight(DEFAULT_PLUGIN_HEIGHT)
     console.log('插件默认高度已重置')
   } catch (error) {
     console.error('重置插件默认高度失败:', error)
@@ -382,7 +286,7 @@ async function handleClipboardRetentionDaysChange(): Promise<void> {
     }
     await saveSettings()
     // 通知主进程更新剪贴板配置
-    await window.ztools.internal.updateClipboardConfig({
+    await window.tabdo.internal.updateClipboardConfig({
       retentionDays: clipboardRetentionDays.value
     })
     console.log('剪贴板历史保存天数已更新:', clipboardRetentionDays.value)
@@ -405,7 +309,7 @@ async function resetClipboardRetentionDays(): Promise<void> {
 async function handleWindowPositionStrategyChange(): Promise<void> {
   try {
     await saveSettings()
-    await window.ztools.internal.updateWindowPositionStrategy(windowPositionStrategy.value)
+    await window.tabdo.internal.updateWindowPositionStrategy(windowPositionStrategy.value)
     console.log('窗口呼出位置策略已更新:', windowPositionStrategy.value)
   } catch (error) {
     console.error('保存窗口呼出位置策略失败:', error)
@@ -416,25 +320,10 @@ async function handleWindowPositionStrategyChange(): Promise<void> {
 async function handleThemeChange(): Promise<void> {
   try {
     await saveSettings()
-    await window.ztools.internal.setTheme(theme.value)
+    await window.tabdo.internal.setTheme(theme.value)
     console.log('主题配置已更新:', theme.value)
   } catch (error) {
     console.error('更新主题配置失败:', error)
-  }
-}
-
-// 处理超级面板开关变化
-async function handleSuperPanelEnabledChange(): Promise<void> {
-  try {
-    await saveSettings()
-    await window.ztools.internal.updateSuperPanelConfig({
-      enabled: superPanelEnabled.value,
-      mouseButton: superPanelMouseButton.value,
-      longPressMs: superPanelLongPressMs.value
-    })
-    console.log('超级面板开关已更新:', superPanelEnabled.value)
-  } catch (err) {
-    console.error('更新超级面板开关失败:', err)
   }
 }
 
@@ -464,7 +353,7 @@ async function handleSuperPanelTriggerModeChange(mode: string | number): Promise
     superPanelLongPressMs.value = longPressMs
 
     await saveSettings()
-    await window.ztools.internal.updateSuperPanelConfig({
+    await window.tabdo.internal.updateSuperPanelConfig({
       enabled: superPanelEnabled.value,
       mouseButton: superPanelMouseButton.value,
       longPressMs: superPanelLongPressMs.value
@@ -485,7 +374,7 @@ async function handleSuperPanelLongPressMsChange(): Promise<void> {
       superPanelLongPressMs.value = 3000
     }
     await saveSettings()
-    await window.ztools.internal.updateSuperPanelConfig({
+    await window.tabdo.internal.updateSuperPanelConfig({
       enabled: superPanelEnabled.value,
       mouseButton: superPanelMouseButton.value,
       longPressMs: superPanelLongPressMs.value
@@ -500,7 +389,7 @@ async function handleSuperPanelLongPressMsChange(): Promise<void> {
 async function handleAddBlockedApp(): Promise<void> {
   try {
     console.log('[Setting] handleAddBlockedApp 开始')
-    const windowInfo = await window.ztools.internal.getCurrentWindowInfo()
+    const windowInfo = await window.tabdo.internal.getCurrentWindowInfo()
     console.log('[Setting] getCurrentWindowInfo 返回:', JSON.stringify(windowInfo))
     if (!windowInfo) {
       error('无法获取当前窗口信息')
@@ -531,7 +420,7 @@ async function handleAddBlockedApp(): Promise<void> {
     )
     await saveSettings()
     console.log('[Setting] saveSettings 完成, 开始调用 updateSuperPanelBlockedApps')
-    await window.ztools.internal.updateSuperPanelBlockedApps(
+    await window.tabdo.internal.updateSuperPanelBlockedApps(
       superPanelBlockedApps.value.map((item) => ({ ...item }))
     )
     console.log('[Setting] updateSuperPanelBlockedApps 完成')
@@ -545,71 +434,11 @@ async function handleRemoveBlockedApp(index: number): Promise<void> {
   try {
     superPanelBlockedApps.value.splice(index, 1)
     await saveSettings()
-    await window.ztools.internal.updateSuperPanelBlockedApps(
+    await window.tabdo.internal.updateSuperPanelBlockedApps(
       superPanelBlockedApps.value.map((item) => ({ ...item }))
     )
   } catch (err) {
     console.error('移除屏蔽应用失败:', err)
-  }
-}
-
-// 添加到唤醒黑名单
-async function handleAddWakeupBlacklistApp(): Promise<void> {
-  try {
-    const windowInfo = await window.ztools.internal.getCurrentWindowInfo()
-    if (!windowInfo) {
-      error('无法获取当前窗口信息')
-      return
-    }
-
-    const isDuplicate =
-      platform.value === 'darwin' && windowInfo.bundleId
-        ? wakeupBlacklist.value.some((item) => item.bundleId === windowInfo.bundleId)
-        : wakeupBlacklist.value.some(
-            (item) => item.app.toLowerCase() === windowInfo.app.toLowerCase()
-          )
-
-    if (isDuplicate) {
-      info('该应用已在唤醒黑名单中')
-      return
-    }
-
-    const label = windowInfo.app.replace(/\.(exe|app)$/i, '')
-    wakeupBlacklist.value.push({
-      app: windowInfo.app,
-      bundleId: windowInfo.bundleId,
-      label
-    })
-
-    await saveSettings()
-    await window.ztools.internal.updateWakeupBlacklist(
-      wakeupBlacklist.value.map((item) => ({ ...item }))
-    )
-  } catch (err) {
-    console.error('添加唤醒黑名单失败:', err)
-  }
-}
-
-// 移除唤醒黑名单应用
-async function handleRemoveWakeupBlacklistApp(index: number): Promise<void> {
-  try {
-    wakeupBlacklist.value.splice(index, 1)
-    await saveSettings()
-    await window.ztools.internal.updateWakeupBlacklist(
-      wakeupBlacklist.value.map((item) => ({ ...item }))
-    )
-  } catch (err) {
-    console.error('移除唤醒黑名单失败:', err)
-  }
-}
-
-// 全屏模式下忽略热键
-async function handleIgnoreHotkeysOnFullscreenChange(): Promise<void> {
-  try {
-    await saveSettings()
-    await window.ztools.internal.setIgnoreHotkeysOnFullscreen(ignoreHotkeysOnFullscreen.value)
-  } catch (err) {
-    console.error('更新全屏忽略热键设置失败:', err)
   }
 }
 
@@ -622,7 +451,7 @@ async function handlePrimaryColorChange(color: string): Promise<void> {
 
     await saveSettings()
     // 通知主渲染进程更新
-    await window.ztools.internal.updatePrimaryColor(color, customColor.value)
+    await window.tabdo.internal.updatePrimaryColor(color, customColor.value)
     console.log('主题色已更新:', color)
   } catch (error) {
     console.error('更新主题色失败:', error)
@@ -638,7 +467,7 @@ async function handleSelectCustomColor(): Promise<void> {
 
     await saveSettings()
     // 通知主渲染进程更新
-    await window.ztools.internal.updatePrimaryColor('custom', customColor.value)
+    await window.tabdo.internal.updatePrimaryColor('custom', customColor.value)
     console.log('已选择自定义主题色')
   } catch (error) {
     console.error('选择自定义主题色失败:', error)
@@ -664,7 +493,7 @@ async function handleCustomColorChange(event: Event): Promise<void> {
   try {
     await saveSettings()
     // 通知主渲染进程更新
-    await window.ztools.internal.updatePrimaryColor(primaryColor.value, color)
+    await window.tabdo.internal.updatePrimaryColor(primaryColor.value, color)
     console.log('自定义主题色已更新:', color)
   } catch (error) {
     console.error('更新自定义主题色失败:', error)
@@ -676,7 +505,7 @@ async function handleTrayIconChange(): Promise<void> {
   try {
     await saveSettings()
     // 通知主进程更新托盘图标显示状态
-    await window.ztools.internal.setTrayIconVisible(showTrayIcon.value)
+    await window.tabdo.internal.setTrayIconVisible(showTrayIcon.value)
     console.log('托盘图标显示状态已更新:', showTrayIcon.value)
   } catch (error) {
     console.error('更新托盘图标显示状态失败:', error)
@@ -688,7 +517,7 @@ async function handleWindowMaterialChange(): Promise<void> {
   try {
     await saveSettings()
     // 调用主进程更新材质（会广播到主渲染进程）
-    await window.ztools.internal.setWindowMaterial(windowMaterial.value)
+    await window.tabdo.internal.setWindowMaterial(windowMaterial.value)
     // 设置插件自己也需要更新 data-material 属性
     document.documentElement.setAttribute('data-material', windowMaterial.value)
   } catch (error) {
@@ -701,7 +530,7 @@ async function handleAcrylicLightOpacityChange(): Promise<void> {
   try {
     await saveSettings()
     // 通知主渲染进程更新（主渲染进程会应用 CSS 叠加效果）
-    await window.ztools.internal.updateAcrylicOpacity(
+    await window.tabdo.internal.updateAcrylicOpacity(
       acrylicLightOpacity.value,
       acrylicDarkOpacity.value
     )
@@ -715,7 +544,7 @@ async function handleAcrylicDarkOpacityChange(): Promise<void> {
   try {
     await saveSettings()
     // 通知主渲染进程更新（主渲染进程会应用 CSS 叠加效果）
-    await window.ztools.internal.updateAcrylicOpacity(
+    await window.tabdo.internal.updateAcrylicOpacity(
       acrylicLightOpacity.value,
       acrylicDarkOpacity.value
     )
@@ -727,7 +556,7 @@ async function handleAcrylicDarkOpacityChange(): Promise<void> {
 // 处理开机启动变化
 async function handleLaunchAtLoginChange(): Promise<void> {
   try {
-    await window.ztools.internal.setLaunchAtLogin(launchAtLogin.value)
+    await window.tabdo.internal.setLaunchAtLogin(launchAtLogin.value)
     console.log('开机启动设置已更新:', launchAtLogin.value)
   } catch (error) {
     console.error('更新开机启动设置失败:', error)
@@ -762,7 +591,7 @@ async function handleProxyEnabledChange(): Promise<void> {
   try {
     await saveSettings()
     // 通知主进程更新代理配置
-    await window.ztools.internal.setProxyConfig({
+    await window.tabdo.internal.setProxyConfig({
       enabled: proxyEnabled.value,
       url: proxyUrl.value
     })
@@ -786,7 +615,7 @@ async function handleProxyUrlChange(): Promise<void> {
 
     await saveSettings()
     // 通知主进程更新代理配置
-    await window.ztools.internal.setProxyConfig({
+    await window.tabdo.internal.setProxyConfig({
       enabled: proxyEnabled.value,
       url: proxyUrl.value
     })
@@ -812,7 +641,7 @@ async function handleAddCustomInternalApiPluginName(): Promise<void> {
 
   const confirmed = await confirm({
     title: '授权内部 API 风险提示',
-    message: `即将允许插件 "${pluginName}" 调用内部 API。\n\n内部 API 可以读写 ZTools 设置、管理插件、注册快捷键、访问窗口信息并执行其他高权限操作。请仅授权你完全信任的插件；恶意插件可能造成隐私泄露、数据损坏或执行非预期操作。`,
+    message: `即将允许插件 "${pluginName}" 调用内部 API。\n\n内部 API 可以读写 TabDo 设置、管理插件、注册快捷键、访问窗口信息并执行其他高权限操作。请仅授权你完全信任的插件；恶意插件可能造成隐私泄露、数据损坏或执行非预期操作。`,
     type: 'danger',
     confirmText: '已知风险，继续授权',
     cancelText: '取消'
@@ -850,10 +679,13 @@ function isValidProxyUrl(url: string): boolean {
 
 // ==================== 自定义颜色相关辅助函数 ====================
 
-// 获取平台信息（用于快捷键文案）
+/**
+ * 检测平台以筛选外观和终端选项。
+ * @returns 平台检测完成后的 Promise。
+ */
 async function getPlatformInfo(): Promise<void> {
   try {
-    const pf = await window.ztools.internal.getPlatform()
+    const pf = await window.tabdo.internal.getPlatform()
     if (pf === 'darwin' || pf === 'win32' || pf === 'linux') {
       platform.value = pf
     }
@@ -871,14 +703,13 @@ async function getPlatformInfo(): Promise<void> {
 async function loadSettings(): Promise<void> {
   try {
     // 加载数据库中的设置
-    const data = await window.ztools.internal.dbGet('settings-general')
+    const data = await window.tabdo.internal.dbGet('settings-general')
     console.log('加载到的设置:', data)
 
     if (data) {
       opacity.value = data.opacity ?? 1
       compactMainWindowHeader.value = data.compactMainWindowHeader === true
-      windowDefaultHeight.value = data.windowDefaultHeight ?? 541
-      hotkey.value = data.hotkey ?? defaultHotkey.value
+      windowDefaultHeight.value = data.windowDefaultHeight ?? DEFAULT_PLUGIN_HEIGHT
       showTrayIcon.value = data.showTrayIcon ?? true
       windowPositionStrategy.value = data.windowPositionStrategy ?? 'remember'
       theme.value = data.theme ?? 'system'
@@ -888,13 +719,12 @@ async function loadSettings(): Promise<void> {
       clipboardQuickMatchSeconds.value = data.clipboardQuickMatchSeconds ?? 5
 
       // 超级面板配置
-      superPanelEnabled.value = data.superPanelEnabled ?? false
+      superPanelEnabled.value = true
       superPanelMouseButton.value = data.superPanelMouseButton ?? 'middle'
-      superPanelLongPressMs.value = data.superPanelLongPressMs ?? 500
+      superPanelLongPressMs.value = data.superPanelLongPressMs ?? 0
       superPanelBlockedApps.value = data.superPanelBlockedApps ?? []
-      wakeupBlacklist.value = data.wakeupBlacklist ?? []
-      ignoreHotkeysOnFullscreen.value = data.ignoreHotkeysOnFullscreen ?? false
       superPanelTranslateEnabled.value = data.superPanelTranslateEnabled ?? false
+      superPanelAutoTranslate.value = data.superPanelAutoTranslate ?? true
       // 窗口材质由主进程启动时保证一定有值，无需兜底
       windowMaterial.value = data.windowMaterial
       acrylicLightOpacity.value = data.acrylicLightOpacity ?? 78
@@ -923,15 +753,11 @@ async function loadSettings(): Promise<void> {
       applyPrimaryColor(primaryColor.value, customColor.value)
     }
 
-    // 获取当前实际注册的快捷键
-    const currentShortcut = await window.ztools.internal.getCurrentShortcut()
-    hotkey.value = currentShortcut || defaultHotkey.value
-
     // 应用透明度设置
-    await window.ztools.internal.setWindowOpacity(opacity.value)
+    await window.tabdo.internal.setWindowOpacity(opacity.value)
 
     // 获取开机启动状态
-    launchAtLogin.value = await window.ztools.internal.getLaunchAtLogin()
+    launchAtLogin.value = await window.tabdo.internal.getLaunchAtLogin()
   } catch (error) {
     console.error('加载设置失败:', error)
   }
@@ -944,22 +770,20 @@ async function loadSettings(): Promise<void> {
 async function saveSettings(): Promise<void> {
   try {
     // 先读取现有设置，保留本页不管理的字段（如 builtinAppShortcutsEnabled）
-    const existing = (await window.ztools.internal.dbGet('settings-general')) || {}
+    const existing = (await window.tabdo.internal.dbGet('settings-general')) || {}
 
-    await window.ztools.internal.dbPut('settings-general', {
+    await window.tabdo.internal.dbPut('settings-general', {
       ...existing,
       opacity: opacity.value,
       compactMainWindowHeader: compactMainWindowHeader.value,
       windowDefaultHeight: windowDefaultHeight.value,
-      hotkey: hotkey.value,
       windowPositionStrategy: windowPositionStrategy.value,
       superPanelEnabled: superPanelEnabled.value,
       superPanelMouseButton: superPanelMouseButton.value,
       superPanelLongPressMs: superPanelLongPressMs.value,
       superPanelBlockedApps: superPanelBlockedApps.value.map((item) => ({ ...item })),
-      wakeupBlacklist: wakeupBlacklist.value.map((item) => ({ ...item })),
-      ignoreHotkeysOnFullscreen: ignoreHotkeysOnFullscreen.value,
       superPanelTranslateEnabled: superPanelTranslateEnabled.value,
+      superPanelAutoTranslate: superPanelAutoTranslate.value,
       theme: theme.value,
       primaryColor: primaryColor.value,
       customColor: customColor.value,
@@ -983,9 +807,13 @@ async function saveSettings(): Promise<void> {
   }
 }
 
+/**
+ * 按平台加载通用设置，避免表单出现错误的初始值。
+ * @returns 初始化完成后的 Promise。
+ */
 async function initializeSettings(): Promise<void> {
   try {
-    // 平台会影响快捷键默认值和平台专属选项，需在设置表单展示前确定。
+    // 平台影响外观和终端选项，先完成检测再显示表单。
     await getPlatformInfo()
     await loadSettings()
   } finally {
@@ -995,70 +823,123 @@ async function initializeSettings(): Promise<void> {
 
 // 初始化时加载设置
 onMounted(() => {
-  document.addEventListener('click', handleQuickActionsClickOutside)
   void initializeSettings()
-})
-
-onUnmounted(() => {
-  document.removeEventListener('click', handleQuickActionsClickOutside)
 })
 </script>
 
 <template>
   <div v-if="settingsLoaded" class="content-panel">
-    <!-- ==================== 基础 ==================== -->
+    <!-- ==================== 超级面板 ==================== -->
     <div class="setting-group">
-      <h3 class="setting-group-title">基础</h3>
+      <h3 class="setting-group-title">超级面板</h3>
 
       <div class="setting-item">
         <div class="setting-label">
-          <span>呼出快捷键</span>
-          <span class="setting-desc">设置全局快捷键来呼出应用</span>
+          <span>鼠标按键弹出</span>
+          <span class="setting-desc">选择触发超级面板的鼠标按键</span>
         </div>
         <div class="setting-control">
-          <HotkeyInput v-model="hotkey" :platform="platform" @change="handleHotkeyChange" />
-          <div class="quick-actions-wrapper">
-            <button
-              type="button"
-              class="icon-btn quick-actions-trigger"
-              :class="{ active: showHotkeyQuickActions }"
-              title="快捷设置"
-              @click.stop="toggleHotkeyQuickActions"
+          <Dropdown
+            v-model="superPanelTriggerMode"
+            :options="superPanelMouseButtonOptions"
+            @change="handleSuperPanelTriggerModeChange"
+          />
+        </div>
+      </div>
+
+      <div v-if="superPanelTriggerMode.endsWith('-long')" class="setting-item">
+        <div class="setting-label">
+          <span>长按响应时间</span>
+          <span class="setting-desc">长按鼠标按键多少毫秒后弹出超级面板</span>
+        </div>
+        <div class="setting-control">
+          <input
+            v-model.number="superPanelLongPressMs"
+            type="number"
+            class="input"
+            placeholder="500"
+            min="200"
+            max="3000"
+            @blur="handleSuperPanelLongPressMsChange"
+            @keyup.enter="handleSuperPanelLongPressMsChange"
+          />
+        </div>
+      </div>
+
+      <div class="setting-item">
+        <div class="setting-label">
+          <span>选中文本自动翻译</span>
+          <span class="setting-desc">使用默认翻译服务和语言，显示选中文本的译文</span>
+        </div>
+        <div class="setting-control">
+          <label class="toggle">
+            <input
+              v-model="superPanelAutoTranslate"
+              type="checkbox"
+              aria-label="选中文本自动翻译"
+              @change="saveSettings"
+            />
+            <span class="toggle-slider"></span>
+          </label>
+          <button class="btn translation-settings-btn" @click="goToTranslationProviders">
+            前往翻译
+          </button>
+        </div>
+      </div>
+
+      <div class="setting-item blocked-apps-setting">
+        <div class="blocked-apps-content">
+          <div class="blocked-apps-header">
+            <div class="setting-label">
+              <span>屏蔽弹出</span>
+              <span class="setting-desc">在指定应用窗口中不触发超级面板</span>
+            </div>
+            <div class="setting-control">
+              <button class="btn btn-sm" @click="handleAddBlockedApp">添加当前窗口</button>
+            </div>
+          </div>
+          <div v-if="superPanelBlockedApps.length > 0" class="blocked-apps-tags">
+            <span
+              v-for="(app, index) in superPanelBlockedApps"
+              :key="app.app"
+              class="blocked-app-tag"
             >
-              <div class="i-z-settings font-size-16px" />
-            </button>
-            <Transition name="dropdown">
-              <div v-if="showHotkeyQuickActions" class="quick-actions-dropdown" @click.stop>
-                <button
-                  v-for="preset in hotkeyPresets"
-                  :key="preset.value"
-                  type="button"
-                  class="quick-actions-item"
-                  :class="{ active: hotkey === preset.value }"
-                  @click="handleHotkeyPresetSelect(preset.value)"
-                >
-                  <div class="quick-actions-item-info">
-                    <span class="quick-actions-item-label">{{ preset.label }}</span>
-                    <span class="quick-actions-item-desc">快速应用该快捷键预设</span>
-                  </div>
-                </button>
-                <button
-                  type="button"
-                  class="quick-actions-item quick-actions-item-reset"
-                  @click="handleHotkeyResetClick"
-                >
-                  <div class="quick-actions-item-info">
-                    <span class="quick-actions-item-label">重置</span>
-                    <span class="quick-actions-item-desc"
-                      >恢复为默认快捷键 {{ defaultHotkey }}</span
-                    >
-                  </div>
-                </button>
-              </div>
-            </Transition>
+              {{ app.label || app.app }}
+              <button class="blocked-app-remove" @click="handleRemoveBlockedApp(index)">
+                &times;
+              </button>
+            </span>
           </div>
         </div>
       </div>
+    </div>
+
+    <div class="setting-group">
+      <h3 class="setting-group-title">剪贴板快捷匹配</h3>
+      <div class="setting-item">
+        <div class="setting-label">
+          <label for="clipboard-quick-match">复制后匹配时限（秒）</label>
+          <span class="setting-desc">无选区时匹配最近复制的内容；0 表示关闭</span>
+        </div>
+        <div class="setting-control">
+          <input
+            id="clipboard-quick-match"
+            v-model.number="clipboardQuickMatchSeconds"
+            type="number"
+            class="input compact-number-input"
+            min="0"
+            max="300"
+            @change="handleClipboardQuickMatchChange"
+          />
+        </div>
+      </div>
+    </div>
+
+    <DataLocationSetting />
+
+    <!-- ==================== 基础 ==================== -->
+    <div class="setting-group">
+      <h3 class="setting-group-title">基础</h3>
 
       <div class="setting-item">
         <div class="setting-label">
@@ -1081,46 +962,6 @@ onUnmounted(() => {
         <div class="setting-control">
           <label class="toggle">
             <input v-model="showTrayIcon" type="checkbox" @change="handleTrayIconChange" />
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-      </div>
-
-      <div class="setting-item blocked-apps-setting">
-        <div class="blocked-apps-content">
-          <div class="blocked-apps-header">
-            <div class="setting-label">
-              <span>唤醒黑名单</span>
-              <span class="setting-desc">在指定应用窗口中按快捷键不唤醒主窗口</span>
-            </div>
-            <div class="setting-control">
-              <button class="btn btn-sm" @click="handleAddWakeupBlacklistApp">添加当前窗口</button>
-            </div>
-          </div>
-          <div v-if="wakeupBlacklist.length > 0" class="blocked-apps-tags">
-            <span v-for="(app, index) in wakeupBlacklist" :key="app.app" class="blocked-app-tag">
-              {{ app.label || app.app }}
-              <button class="blocked-app-remove" @click="handleRemoveWakeupBlacklistApp(index)">
-                &times;
-              </button>
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div class="setting-item">
-        <div class="setting-label">
-          <span>全屏模式下忽略热键</span>
-          <span class="setting-desc">当全屏应用激活时禁用快捷键（建议游戏时打开）</span>
-        </div>
-        <div class="setting-control">
-          <label class="toggle">
-            <input
-              v-model="ignoreHotkeysOnFullscreen"
-              type="checkbox"
-              aria-label="全屏模式下忽略热键"
-              @change="handleIgnoreHotkeysOnFullscreenChange"
-            />
             <span class="toggle-slider"></span>
           </label>
         </div>
@@ -1300,8 +1141,8 @@ onUnmounted(() => {
 
       <div class="setting-item">
         <div class="setting-label">
-          <span>窗口呼出位置</span>
-          <span class="setting-desc">每次呼出主窗口时的定位策略</span>
+          <span>工具窗口位置</span>
+          <span class="setting-desc">打开工具窗口时的位置策略</span>
         </div>
         <div class="setting-control">
           <Dropdown
@@ -1314,21 +1155,22 @@ onUnmounted(() => {
 
       <div class="setting-item">
         <div class="setting-label">
-          <span>插件默认高度</span>
+          <label for="plugin-default-height">插件默认高度</label>
           <span class="setting-desc">设置进入插件时的默认高度（像素）</span>
         </div>
         <div class="setting-control">
           <input
+            id="plugin-default-height"
             v-model.number="windowDefaultHeight"
             type="number"
             class="input"
-            placeholder="600"
+            :placeholder="String(DEFAULT_PLUGIN_HEIGHT)"
             min="200"
             @blur="handleWindowDefaultHeightChange"
             @keyup.enter="handleWindowDefaultHeightChange"
           />
           <button
-            v-if="windowDefaultHeight !== 541"
+            v-if="windowDefaultHeight !== DEFAULT_PLUGIN_HEIGHT"
             class="btn btn-icon"
             title="重置"
             @click="resetWindowDefaultHeight"
@@ -1362,126 +1204,6 @@ onUnmounted(() => {
           >
             <div class="i-z-refresh font-size-20px" />
           </button>
-        </div>
-      </div>
-    </div>
-
-    <div class="setting-group">
-      <h3 class="setting-group-title">剪贴板快捷匹配</h3>
-      <div class="setting-item">
-        <div class="setting-label">
-          <label for="clipboard-quick-match">复制后中键匹配时限（秒）</label>
-          <span class="setting-desc"
-            >无选区时，在复制后的指定时间内短按中键匹配最新内容；此时限不影响已启用超级面板的选区匹配。0
-            表示关闭复制后快捷匹配，默认 5 秒。</span
-          >
-        </div>
-        <div class="setting-control">
-          <input
-            id="clipboard-quick-match"
-            v-model.number="clipboardQuickMatchSeconds"
-            type="number"
-            class="input"
-            min="0"
-            max="300"
-            @change="handleClipboardQuickMatchChange"
-          />
-        </div>
-      </div>
-    </div>
-
-    <!-- ==================== 超级面板 ==================== -->
-    <div class="setting-group">
-      <h3 class="setting-group-title">超级面板</h3>
-
-      <div class="setting-item">
-        <div class="setting-label">
-          <span>启用超级面板</span>
-          <span class="setting-desc">长按鼠标按键弹出超级面板，快速访问应用和插件</span>
-        </div>
-        <div class="setting-control">
-          <label class="toggle">
-            <input
-              v-model="superPanelEnabled"
-              type="checkbox"
-              @change="handleSuperPanelEnabledChange"
-            />
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-      </div>
-
-      <div v-if="superPanelEnabled" class="setting-item">
-        <div class="setting-label">
-          <span>鼠标按键弹出</span>
-          <span class="setting-desc">选择触发超级面板的鼠标按键</span>
-        </div>
-        <div class="setting-control">
-          <Dropdown
-            v-model="superPanelTriggerMode"
-            :options="superPanelMouseButtonOptions"
-            @change="handleSuperPanelTriggerModeChange"
-          />
-        </div>
-      </div>
-
-      <div v-if="superPanelEnabled && superPanelTriggerMode.endsWith('-long')" class="setting-item">
-        <div class="setting-label">
-          <span>长按响应时间</span>
-          <span class="setting-desc">长按鼠标按键多少毫秒后弹出超级面板</span>
-        </div>
-        <div class="setting-control">
-          <input
-            v-model.number="superPanelLongPressMs"
-            type="number"
-            class="input"
-            placeholder="500"
-            min="200"
-            max="3000"
-            @blur="handleSuperPanelLongPressMsChange"
-            @keyup.enter="handleSuperPanelLongPressMsChange"
-          />
-        </div>
-      </div>
-
-      <div v-if="superPanelEnabled" class="setting-item">
-        <div class="setting-label">
-          <span>翻译</span>
-          <span class="setting-desc"
-            >翻译能力已迁移至「提供商 → 翻译」，点击前往管理翻译引擎与提供商</span
-          >
-        </div>
-        <div class="setting-control">
-          <button class="btn" @click="goToTranslationProviders">前往翻译</button>
-        </div>
-      </div>
-
-      <div v-if="superPanelEnabled" class="setting-item blocked-apps-setting">
-        <div class="blocked-apps-content">
-          <div class="blocked-apps-header">
-            <div class="setting-label">
-              <span>屏蔽弹出</span>
-              <span class="setting-desc">在指定应用窗口中不触发超级面板</span>
-            </div>
-            <div class="setting-control">
-              <button class="btn btn-sm" @click="handleAddBlockedApp">添加当前窗口</button>
-            </div>
-          </div>
-          <div
-            v-if="superPanelEnabled && superPanelBlockedApps.length > 0"
-            class="blocked-apps-tags"
-          >
-            <span
-              v-for="(app, index) in superPanelBlockedApps"
-              :key="app.app"
-              class="blocked-app-tag"
-            >
-              {{ app.label || app.app }}
-              <button class="blocked-app-remove" @click="handleRemoveBlockedApp(index)">
-                &times;
-              </button>
-            </span>
-          </div>
         </div>
       </div>
     </div>
@@ -1522,8 +1244,8 @@ onUnmounted(() => {
     </div>
 
     <!-- ==================== 开发者 ==================== -->
-    <div class="setting-group">
-      <h3 class="setting-group-title">开发者</h3>
+    <details class="setting-group developer-settings">
+      <summary class="setting-group-title">开发者</summary>
 
       <div class="setting-item">
         <div class="setting-label">
@@ -1600,7 +1322,7 @@ onUnmounted(() => {
           </label>
         </div>
       </div>
-    </div>
+    </details>
   </div>
   <div v-else class="content-panel" aria-busy="true"></div>
 </template>
@@ -1636,6 +1358,7 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 24px;
   padding: 20px 0;
   border-bottom: 1px solid var(--divider-color);
 }
@@ -1646,11 +1369,13 @@ onUnmounted(() => {
 
 .setting-label {
   display: flex;
+  flex: 1;
+  min-width: 0;
   flex-direction: column;
   gap: 5px;
 }
 
-.setting-label > span:first-child {
+.setting-label > :is(span, label):first-child {
   font-size: 14px;
   font-weight: 500;
   color: var(--text-color);
@@ -1663,8 +1388,20 @@ onUnmounted(() => {
 
 .setting-control {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 10px;
+}
+
+.translation-settings-btn {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.input.compact-number-input {
+  width: 96px;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .quick-actions-wrapper {

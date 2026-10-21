@@ -2,12 +2,12 @@ import path from 'path'
 import { pathToFileURL } from 'url'
 
 /**
- * 将本地文件路径封装为 ZTools 动态图标协议 URL。
+ * 将本地文件路径封装为 TabDo 动态图标协议 URL。
  *
  * @param filePath 用于提取图标的本地文件路径。
  * @returns 编码后的 ztools-icon URL；空路径返回空字符串。
  */
-export function toZToolsIconUrl(filePath: string): string {
+export function toTabDoIconUrl(filePath: string): string {
   if (!filePath) return ''
   return `ztools-icon://${encodeURIComponent(filePath)}`
 }

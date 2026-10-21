@@ -5,10 +5,10 @@ import yaml from 'yaml'
 import { GITHUB_LATEST_RELEASE_URL } from '@shared/updateSource'
 import { EXPECTED_ELECTRON_VERSION } from '../runtimeCompatibility'
 
-export const MAC_APP_ID = 'io.github.dwenchen.ztools'
+export const MAC_APP_ID = 'io.github.dwenchen.tabdo'
 export const MAC_ELECTRON_VERSION = EXPECTED_ELECTRON_VERSION
 export const MAC_UPDATER_TYPE = 'electron-updater-mac'
-export const MAC_INSTALL_INFO_FILE = 'ztools-install-info.json'
+export const MAC_INSTALL_INFO_FILE = 'tabdo-install-info.json'
 export const MAC_RELEASE_URL = GITHUB_LATEST_RELEASE_URL
 
 export interface MacInstallInfo {
@@ -102,7 +102,7 @@ export async function getMacInstallCompatibility(): Promise<MacInstallCompatibil
     hasUpdateConfig =
       updateConfig?.provider === 'github' &&
       updateConfig?.owner === 'DwenChen' &&
-      updateConfig?.repo === 'ZTools'
+      updateConfig?.repo === 'TabDo'
   } catch {
     hasUpdateConfig = false
   }

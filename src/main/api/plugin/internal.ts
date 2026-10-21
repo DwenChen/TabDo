@@ -2,13 +2,22 @@ import { app, dialog, IpcMainInvokeEvent, ipcMain } from 'electron'
 import type { PluginManager } from '../../managers/pluginManager'
 import windowManager from '../../managers/windowManager.js'
 import dndManager from '../../core/dndManager.js'
-import logCollector from '../../core/logCollector.js'
-import { NativeLogger } from '../../core/native/index.js'
 import clipboardManager from '../../managers/clipboardManager.js'
 import detachedWindowManager from '../../core/detachedWindowManager.js'
 import httpServer from '../../core/httpServer.js'
 import superPanelManager from '../../core/superPanelManager.js'
 import translationManager from '../../core/translationManager.js'
+import { openFloating } from '../../core/toolsFloating'
+import { isToolsPluginPath } from '../../core/toolsLifecycle'
+import { launchWebQuickOpen, cancelWebQuickOpen } from '../../core/webQuickOpen'
+import {
+  recorderSources,
+  startRecorder,
+  cancelRecorderStart,
+  stopRecorder
+} from '../../core/screenRecorder'
+import { runMedia, cancelMedia } from '../../core/mediaProcessor'
+import builtinProviderService from '../../core/provider/builtinProviderService'
 import providerManager from '../../core/provider/providerManager.js'
 import aiModelsAPI from '../renderer/aiModels.js'
 import commandsAPI from '../renderer/commands.js'
@@ -85,6 +94,47 @@ export class InternalPluginAPI {
    * @returns 无返回值
    */
   private setupIPC(): void {
+    ipcMain.handle('internal:tools-media', (event, request) => {
+      this.requireTools(event)
+      return runMedia(event.sender.id, request, (value) => {
+        if (!event.sender.isDestroyed())
+          event.sender.send('internal:tools-media-progress', request.id, value)
+      })
+    })
+    ipcMain.handle('internal:tools-media-cancel', (event, id) => {
+      this.requireTools(event)
+      cancelMedia(event.sender.id, id)
+    })
+    // 新增能力只接受内置工具的当前或正在收尾的会话，普通页面不能调用。
+    ipcMain.handle('internal:tools-web-open', (event, request) => {
+      this.requireTools(event)
+      return launchWebQuickOpen(event.sender.id, request)
+    })
+    ipcMain.handle('internal:tools-web-cancel', (event, id) => {
+      this.requireTools(event)
+      cancelWebQuickOpen(event.sender.id, id)
+    })
+    ipcMain.handle('internal:tools-recorder-sources', (event, mode) => {
+      this.requireTools(event)
+      return recorderSources(mode)
+    })
+    ipcMain.handle('internal:tools-recorder-stop', (event) => {
+      this.requireTools(event)
+      return stopRecorder()
+    })
+    ipcMain.handle('internal:tools-recorder-start', (event, options) => {
+      this.requireTools(event)
+      return startRecorder(event.sender.id, options)
+    })
+    ipcMain.handle('internal:tools-recorder-cancel', (event, id) => {
+      this.requireTools(event)
+      cancelRecorderStart(event.sender.id, id)
+    })
+    ipcMain.handle('internal:tools-float', (event, content) => {
+      if (!requireInternalPlugin(this.pluginManager, event))
+        throw new PermissionDeniedError('internal:tools-float')
+      return openFloating(content)
+    })
     // ==================== 数据库 API (ZTOOLS/ 命名空间) ====================
     ipcMain.handle('internal:db-put', (event, key: string, value: any) => {
       if (!requireInternalPlugin(this.pluginManager, event)) {
@@ -682,7 +732,9 @@ export class InternalPluginAPI {
           throw new PermissionDeniedError('internal:providers-set-enabled')
         }
         try {
-          const data = providerManager.setEnabled(providerId, enabled)
+          const data = providerId.startsWith('builtin-')
+            ? await builtinProviderService.setEnabled(providerId, enabled)
+            : providerManager.setEnabled(providerId, enabled)
           return { success: true, data }
         } catch (error: unknown) {
           return {
@@ -700,6 +752,14 @@ export class InternalPluginAPI {
           throw new PermissionDeniedError('internal:providers-set-default')
         }
         try {
+          // 先验证类型归属，避免错误默认请求先启用另一种能力。
+          if (
+            !providerManager.getAllProviders(type as never).some((entry) => entry.id === providerId)
+          ) {
+            throw new Error(`未找到 ${type} 提供商`)
+          }
+          if (providerId.startsWith('builtin-'))
+            await builtinProviderService.setEnabled(providerId, true)
           const data = providerManager.setDefault(type as never, providerId)
           return { success: true, data }
         } catch (error: unknown) {
@@ -743,6 +803,32 @@ export class InternalPluginAPI {
       }
     )
 
+    // 内置配置与操作只开放给已验证的内部页面；取消必须匹配调用所有者。
+    ipcMain.handle('internal:providers-builtin-state', (event) => {
+      if (!requireInternalPlugin(this.pluginManager, event))
+        throw new PermissionDeniedError('internal:providers-builtin-state')
+      return builtinProviderService.getState()
+    })
+    ipcMain.handle('internal:providers-remove-model', async (event, id: string) => {
+      if (!requireInternalPlugin(this.pluginManager, event))
+        throw new PermissionDeniedError('internal:providers-remove-model')
+      await builtinProviderService.removeModel(id)
+      return { success: true }
+    })
+    ipcMain.handle(
+      'internal:providers-builtin-invoke',
+      async (event, id: string, input: any, requestId: string) => {
+        if (!requireInternalPlugin(this.pluginManager, event))
+          throw new PermissionDeniedError('internal:providers-builtin-invoke')
+        return builtinProviderService.invoke(id, input, event.sender, requestId)
+      }
+    )
+    ipcMain.handle('internal:providers-builtin-cancel', (event, requestId: string) => {
+      if (!requireInternalPlugin(this.pluginManager, event))
+        throw new PermissionDeniedError('internal:providers-builtin-cancel')
+      return builtinProviderService.cancel(requestId, event.sender)
+    })
+
     // 超级面板翻译状态（供翻译 tab 展示内置 Bergamot 引擎状态）
     ipcMain.handle('internal:providers-translation-status', async (event) => {
       if (!requireInternalPlugin(this.pluginManager, event)) {
@@ -757,7 +843,7 @@ export class InternalPluginAPI {
         if (!requireInternalPlugin(this.pluginManager, event)) {
           throw new PermissionDeniedError('internal:providers-translation-set-enabled')
         }
-        translationManager.updateEnabled(enabled)
+        await builtinProviderService.setEnabled('builtin-bergamot', enabled)
         return { success: true }
       }
     )
@@ -1282,17 +1368,6 @@ export class InternalPluginAPI {
       }
     )
 
-    ipcMain.handle(
-      'internal:update-wakeup-blacklist',
-      async (event, blacklist: Array<{ app: string; bundleId?: string; label?: string }>) => {
-        if (!requireInternalPlugin(this.pluginManager, event)) {
-          throw new PermissionDeniedError('internal:update-wakeup-blacklist')
-        }
-        windowManager.updateWakeupBlacklist(blacklist)
-        return { success: true }
-      }
-    )
-
     ipcMain.handle('internal:set-game-mode', async (event, v: boolean) => {
       if (!requireInternalPlugin(this.pluginManager, event)) {
         throw new PermissionDeniedError('internal:set-game-mode')
@@ -1322,7 +1397,7 @@ export class InternalPluginAPI {
       if (!requireInternalPlugin(this.pluginManager, event)) {
         throw new PermissionDeniedError('internal:update-super-panel-translate')
       }
-      translationManager.updateEnabled(enabled)
+      await builtinProviderService.setEnabled('builtin-bergamot', enabled)
       return { success: true }
     })
 
@@ -1339,49 +1414,6 @@ export class InternalPluginAPI {
         throw new PermissionDeniedError('internal:analyze-image')
       }
       return await analyzeImage(imagePath)
-    })
-
-    // ==================== 调试日志 API ====================
-    ipcMain.handle('internal:log-enable', async (event) => {
-      if (!requireInternalPlugin(this.pluginManager, event)) {
-        throw new PermissionDeniedError('internal:log-enable')
-      }
-      logCollector.enable(event.sender)
-      // 联动原生层日志：调试控制台开启后原生日志才写入临时目录
-      NativeLogger.setEnabled(true)
-      return { success: true }
-    })
-
-    ipcMain.handle('internal:log-disable', async (event) => {
-      if (!requireInternalPlugin(this.pluginManager, event)) {
-        throw new PermissionDeniedError('internal:log-disable')
-      }
-      logCollector.disable(event.sender)
-      // 联动原生层日志：调试控制台关闭后停止向临时目录写入
-      NativeLogger.setEnabled(false)
-      return { success: true }
-    })
-
-    ipcMain.handle('internal:log-get-buffer', async (event) => {
-      if (!requireInternalPlugin(this.pluginManager, event)) {
-        throw new PermissionDeniedError('internal:log-get-buffer')
-      }
-      return logCollector.getBufferedLogs()
-    })
-
-    ipcMain.handle('internal:log-is-enabled', async (event) => {
-      if (!requireInternalPlugin(this.pluginManager, event)) {
-        throw new PermissionDeniedError('internal:log-is-enabled')
-      }
-      return logCollector.isEnabled()
-    })
-
-    ipcMain.handle('internal:log-subscribe', async (event) => {
-      if (!requireInternalPlugin(this.pluginManager, event)) {
-        throw new PermissionDeniedError('internal:log-subscribe')
-      }
-      logCollector.addSubscriber(event.sender)
-      return { success: true }
     })
 
     // ==================== HTTP 服务 API ====================
@@ -1451,6 +1483,18 @@ export class InternalPluginAPI {
       }
       return { success: true, running: httpServer.isRunning() }
     })
+  }
+
+  /**
+   * 对工具专用能力校验调用页面身份，覆盖必要任务期间的旧会话。
+   * @param event 调用事件。
+   * @returns 无返回值。
+   * @throws 调用者不是内置工具时拒绝。
+   */
+  private requireTools(event: Electron.IpcMainEvent | IpcMainInvokeEvent): void {
+    const info = this.pluginManager?.getPluginInfoByWebContents(event.sender)
+    if (!info?.isBundledInternal || !isToolsPluginPath(info.path))
+      throw new PermissionDeniedError('tools')
   }
 }
 

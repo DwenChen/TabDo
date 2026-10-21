@@ -46,7 +46,7 @@ async function analyzeImage(): Promise<void> {
 
   isAnalyzing.value = true
   try {
-    const result = await window.ztools.analyzeImage(props.src)
+    const result = await window.tabdo.analyzeImage(props.src)
     analysisResult.value = result
   } catch (error) {
     console.error('[AdaptiveIcon] 图片分析失败:', error)

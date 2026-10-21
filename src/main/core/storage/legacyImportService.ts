@@ -3,7 +3,7 @@ import path from 'path'
 import LmdbDatabase from '../lmdb'
 import {
   ensure3Layout,
-  getZToolsDataLayout,
+  getTabDoDataLayout,
   hasLegacyLmdb,
   type AppDataPathOptions
 } from '../appData/appDataPaths'
@@ -87,7 +87,7 @@ export class LegacyImportService {
   ) {}
 
   detect(): LegacyImportDetection {
-    const layout = getZToolsDataLayout(this.pathOptions)
+    const layout = getTabDoDataLayout(this.pathOptions)
     const initialized = Boolean(readDataVersion(this.pathOptions))
     const legacyLmdbFound = !initialized && hasLegacyLmdb(this.pathOptions)
     return {
@@ -199,7 +199,7 @@ export class LegacyImportService {
  */
 function sanitizeLegacyDocForImport(
   doc: any,
-  layout: ReturnType<typeof getZToolsDataLayout>,
+  layout: ReturnType<typeof getTabDoDataLayout>,
   targetDocId: string,
   docsById: Map<string, any>
 ): any {
@@ -257,7 +257,7 @@ function normalizePluginNames(value: unknown): string[] {
     .filter(Boolean)
 }
 
-function copyLegacyDataDirs(layout: ReturnType<typeof getZToolsDataLayout>): string[] {
+function copyLegacyDataDirs(layout: ReturnType<typeof getTabDoDataLayout>): string[] {
   const copied: string[] = []
   const pairs = [
     ['plugins', layout.pluginsPath],

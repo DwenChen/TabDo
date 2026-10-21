@@ -1,0 +1,26 @@
+{
+  "id": "tools-command-catalog-and-window-icons",
+  "date": "2026-10-21",
+  "summary": "工具指令中文去重与分类，配备独立功能图标并补齐子组件任务栏入口",
+  "changes": [
+    "全面梳理 37 个功能：普通文字指令 57 → 29，清除同功能中英文重复名称；保留全部功能码及文本、图片、文件、窗口匹配约束。按 13 类整理，录屏、区域录屏和停止录屏同组，图片处理与网页快开等同样归类。",
+    "设置所有指令与插件详情共用分组函数，指令菜单仍传递原功能码；分类名参与搜索。每项功能采用独立 Lucide 图形与本地 128px PNG，固定来源提交，保留原始 SVG、完整许可及逐项配色清单。",
+    "可见工具正文打开时更新宿主任务栏图标、标题与身份，退出和分离后恢复搜索面板。补齐分离、自动分离、便签、悬浮图片、图片标记、窗口信息及录屏控制条图标；临时选区、倒计时和效果覆盖层继续不占任务栏。",
+    "同步工具开发原则、工具清单、Bug 台账和 tools-catalog 回归组；保留本来已有的未提交改动，未提交、push、云端构建或 release。",
+    "按用户补充要求，将语义去重、唯一中文命名、分类保留原指令身份、免费图标许可/来源/本地资源、专属图形、可见窗口任务栏及验证要求写入工具开发必读；根 AGENTS.md 和维护必读建立强制关联。"
+  ],
+  "checks": [
+    "tools-catalog 回归单测 6 文件 42 项通过，.artifacts/runs/2026-10-21T03-46-59-044Z-unit；覆盖分组保持原成员身份、筛选与第三方不误合并、指令排序、宿主启动和旧默认配置保留。",
+    "新增 E2E 夹具先修正 Windows PowerShell 编码与 UIntPtr 参数、Electron 没有 isSkipTaskbar getter（改为观察实际 setter）及测试误取退出中的旧页面；失败归档保留，不表述为首次全绿。",
+    "最终完整相关源码 E2E 4 项通过，.artifacts/runs/2026-10-21T03-47-12-840Z-e2e：宿主冷热启动/单例/分离、工具分类和全部正文/独立窗口、生命周期、实际原生录屏/网页快开。均使用 preview-main.cjs、源码服务器和隔离数据，无成品 E2E。",
+    "进一步补充实际 setIcon 像素比对后，tools-catalog 与 tools-recorder-web 两项再通过，.artifacts/runs/2026-10-21T03-50-47-592Z-e2e。20 个窗口全部通过对应功能图标、Windows WM_GETICON 原生句柄和真实任务栏 setter 检查；另验证实际录制控制条。分组内单条禁用/恢复不影响同组、图片和文件匹配保留；直接切换旧页关闭、宿主分离后恢复搜索任务栏、独立图片/便签隐藏后销毁。",
+    "38 张本地 PNG（37 功能及工具总图标）均为 128×128，像素哈希全部不同；固定 Lucide 提交 c29c276f16590cf017126671535ad8c792be64d8，保留原始 SVG 和完整许可。已查看图标总览及稳定插件正文截图；证据 .artifacts/reviews/tools-catalog-2026-10-21。",
+    "Node 与设置类型检查、修改范围 ESLint 零错误零警告、git diff --check 通过；pnpm build 完成 Node/Web/设置类型检查、设置/工具/宿主与 preload 编译。既有设置组件循环重导出、宿主静态/动态导入分块和 pnpm 配置兼容提示仍保留；未执行 electron-builder/build:unpack。",
+    "pnpm preview:sync 已同步 1.1.0，470 个配置及插件文件前后校验一致；回退资源 .artifacts/backups/preview-sync/update-1792554733856/previous-resources，数据校验在同目录 preservation.json。pnpm test:preview:resources 通过，核对 87 个程序资源、234 个内置插件文件和 1676 个媒体运行库文件。",
+    "收尾运行 pnpm maintain、pnpm maintain:check 和 git diff --check；不提交配置、插件、备份、截图、探针或日志。"
+  ],
+  "pending": [
+    "用户最终视觉、任务栏合并策略、多屏与不同 DPI 仍待手动验收；其他平台原生任务栏不计为本轮已验收。"
+  ],
+  "preview": "已同步 .local/portable-preview/（1.1.0），470 个原有配置及插件文件逐项校验保持一致；通过 PreviewPortable.cmd 供手动验收。未重置，未提交、push、云端构建或 release。"
+}

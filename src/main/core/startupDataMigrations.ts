@@ -2,7 +2,7 @@ import databaseAPI from '../api/shared/database.js'
 import { isDevelopmentPluginName, toDevPluginName } from '../../shared/pluginRuntimeNamespace.js'
 import { isBundledInternalPlugin } from './internalPlugins.js'
 import { HOST_STORAGE_KEYS, LEGACY_CAMEL_CASE_STORAGE_KEYS } from '../../shared/storageKeys.js'
-import { getZToolsDataLayout, type AppDataPathOptions } from './appData/appDataPaths.js'
+import { getTabDoDataLayout, type AppDataPathOptions } from './appData/appDataPaths.js'
 import { rewriteLegacyStoragePaths } from './storage/legacyPathRewriter.js'
 import aiProviderService from './aiProviderService.js'
 
@@ -115,7 +115,7 @@ export function runStartupDataMigrations(): void {
  * @returns 无返回值
  */
 export function migrateLegacyFileUrls(pathOptions: AppDataPathOptions = {}): void {
-  const layout = getZToolsDataLayout(pathOptions)
+  const layout = getTabDoDataLayout(pathOptions)
 
   // 只扫描可能持有文件或图标路径的主程序文档，避免无关数据产生写放大。
   for (const key of LEGACY_PATH_STORAGE_KEYS) {
@@ -247,17 +247,24 @@ function migrateDevPluginNames(): void {
   }
 }
 
-function isLegacyWebSearchCommand(item: any): boolean {
+/**
+ * 识别已移除的内置工具指令，保留网页搜索的两个固定匹配入口。
+ * @param item 历史、统计或固定列表条目。
+ * @returns 是否属于应清理的旧动态功能引用。
+ */
+function isRetiredToolCommand(item: any): boolean {
   return (
     item &&
     typeof item === 'object' &&
     typeof item.featureCode === 'string' &&
-    item.featureCode.startsWith(LEGACY_WEB_SEARCH_FEATURE_PREFIX)
+    ((item.pluginName === 'system' && item.featureCode === 'add-to-wakeup-blacklist') ||
+      (item.featureCode.startsWith(LEGACY_WEB_SEARCH_FEATURE_PREFIX) &&
+        !['web-search-text', 'web-search-image'].includes(item.featureCode)))
   )
 }
 
 function filterLegacyWebSearchCommandList(items: any[]): { items: any[]; changed: boolean } {
-  const filtered = items.filter((item) => !isLegacyWebSearchCommand(item))
+  const filtered = items.filter((item) => !isRetiredToolCommand(item))
   return {
     items: filtered,
     changed: filtered.length !== items.length
@@ -269,7 +276,7 @@ function filterLegacyWebSearchSuperPanelPinned(items: any[]): { items: any[]; ch
   const nextItems: any[] = []
 
   for (const item of items) {
-    if (isLegacyWebSearchCommand(item)) {
+    if (isRetiredToolCommand(item)) {
       changed = true
       continue
     }
@@ -300,10 +307,11 @@ function filterLegacyWebSearchSuperPanelPinned(items: any[]): { items: any[]; ch
 }
 
 /**
- * 清理已移除的旧内置网页快开功能引用。
+ * 清理已移除的旧内置网页快开与唤醒黑名单功能引用。
  *
  * 网页快开已迁移为插件实现，旧 system 插件动态 featureCode 形如 web-search-{id}。
- * 这里仅清理历史、固定、使用统计和缓存里的旧引用，不删除 web-search-engines 原始配置数据。
+ * 仅清理历史、固定、使用统计和缓存里的失效入口，原始配置数据保留。
+ * @returns 无返回值。
  */
 export function cleanupLegacyWebSearchReferences(): void {
   const commandListKeys = [

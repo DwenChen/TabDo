@@ -1,4 +1,3 @@
-import { httpGet } from '../../utils/httpRequest.js'
 import databaseAPI from '../shared/database'
 import type { PluginReleaseHistoryResult } from '../../../shared/pluginReleaseHistory'
 import {
@@ -10,7 +9,7 @@ import {
 
 // ━━━ Types ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-/** 插件市场中单个插件的描述信息（来自 ZTools 线上市场 API） */
+/** 插件市场中单个插件的描述信息（来自 TabDo 线上市场 API） */
 export type PluginMarketPlugin = {
   name: string
   version: string
@@ -190,9 +189,9 @@ type PluginMarketLatestCacheEntry = {
 // ━━━ Constants ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 /** storefront 视图数据在 LMDB 中的缓存键 */
-const PLUGIN_MARKET_STOREFRONT_CACHE_KEY = 'plugin-market-storefront'
+const PLUGIN_MARKET_STOREFRONT_CACHE_KEY = 'tabdo-market-storefront'
 /** storefront 指纹在 LMDB 中的缓存键，用于判断缓存是否失效 */
-const PLUGIN_MARKET_STOREFRONT_FINGERPRINT_CACHE_KEY = 'plugin-market-storefront-fingerprint'
+const PLUGIN_MARKET_STOREFRONT_FINGERPRINT_CACHE_KEY = 'tabdo-market-storefront-fingerprint'
 const PLUGIN_MARKET_RECOMMEND_LIMIT = 12
 const PLUGIN_MARKET_RANKING_LIMIT = 50
 const PLUGIN_MARKET_LATEST_CACHE_MS = 5 * 60 * 1000
@@ -202,7 +201,7 @@ const PLUGIN_MARKET_LATEST_UNAVAILABLE_CACHE_MS = 60 * 1000
 
 /**
  * 插件市场 API。
- * 负责从 ZTools 线上市场获取插件列表、缓存管理和首页 storefront 视图数据构建。
+ * 负责从 TabDo 线上市场获取插件列表、缓存管理和首页 storefront 视图数据构建。
  */
 export class PluginMarketAPI {
   private latestPluginCache = new Map<string, PluginMarketLatestCacheEntry>()
@@ -211,13 +210,13 @@ export class PluginMarketAPI {
   /**
    * 获取插件市场列表。
    * 缓存策略：
-   * 1. 优先请求线上聚合 API
-   * 2. 网络失败时降级使用本地缓存
+   * 1. 优先读取独立 TabDo-plugins 静态索引
+   * 2. 网络失败时只降级到当前市场的隔离缓存
    * @returns 插件列表和可选的 storefront 视图数据
    */
   public async fetchPluginMarket(): Promise<PluginMarketResult> {
     const getCachedResult = (): PluginMarketResult | null => {
-      const cachedData = databaseAPI.dbGet('plugin-market-data')
+      const cachedData = databaseAPI.dbGet('tabdo-market-data')
       if (!Array.isArray(cachedData)) {
         return null
       }
@@ -246,10 +245,10 @@ export class PluginMarketAPI {
       const timestamp = Date.now()
       const platform = process.platform
 
-      console.log('[Plugins] 从 ZTools 插件市场获取列表...', marketApiBase)
+      console.log('[Plugins] 从 TabDo 插件市场获取列表...', marketApiBase)
 
       const [marketResponse, recommendations, popularRanking, recentRanking] = await Promise.all([
-        httpGet(
+        requestPluginMarket(
           `${marketApiBase}/plugins?limit=${PLUGIN_MARKET_RECOMMEND_LIMIT}&platform=${encodeURIComponent(platform)}&t=${timestamp}`
         ),
         this.fetchPluginMarketRecommendations(PLUGIN_MARKET_RECOMMEND_LIMIT).catch((error) => {
@@ -276,8 +275,8 @@ export class PluginMarketAPI {
       const storefront = this.buildPluginMarketStorefront(marketData, recommendations, rankings)
       const pluginMarketFingerprint = this.getPluginMarketFingerprint(plugins)
 
-      databaseAPI.dbPut('plugin-market-version', String(timestamp))
-      databaseAPI.dbPut('plugin-market-data', plugins)
+      databaseAPI.dbPut('tabdo-market-version', String(timestamp))
+      databaseAPI.dbPut('tabdo-market-data', plugins)
       databaseAPI.dbPut(PLUGIN_MARKET_STOREFRONT_CACHE_KEY, storefront)
       databaseAPI.dbPut(PLUGIN_MARKET_STOREFRONT_FINGERPRINT_CACHE_KEY, pluginMarketFingerprint)
 
@@ -327,6 +326,11 @@ export class PluginMarketAPI {
       const ttl = result.available
         ? PLUGIN_MARKET_LATEST_CACHE_MS
         : PLUGIN_MARKET_LATEST_UNAVAILABLE_CACHE_MS
+      // 删除过期项并限制条数，避免插件名称扫描造成常驻元数据持续增长。
+      for (const [key, value] of this.latestPluginCache)
+        if (value.expiresAt <= Date.now()) this.latestPluginCache.delete(key)
+      while (this.latestPluginCache.size >= 128)
+        this.latestPluginCache.delete(this.latestPluginCache.keys().next().value!)
       this.latestPluginCache.set(cacheKey, { expiresAt: Date.now() + ttl, result })
       return result
     })
@@ -401,7 +405,7 @@ export class PluginMarketAPI {
     const marketApiBase = getPluginMarketApiBase()
     const timestamp = Date.now()
     const platform = process.platform
-    const response = await httpGet(
+    const response = await requestPluginMarket(
       `${marketApiBase}/plugins/recommendations?limit=${limit}&platform=${encodeURIComponent(platform)}&t=${timestamp}`
     )
     const data = typeof response.data === 'string' ? JSON.parse(response.data) : response.data
@@ -425,7 +429,7 @@ export class PluginMarketAPI {
       platform,
       t: String(Date.now())
     })
-    const response = await httpGet(
+    const response = await requestPluginMarket(
       `${getPluginMarketApiBase()}/plugins/rankings?${query.toString()}`
     )
     const data = (

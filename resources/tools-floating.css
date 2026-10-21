@@ -1,0 +1,549 @@
+/* 原图片插件的窗口、图标和工具栏基础样式，来源及 MIT 许可见 tools-floating-ui.md。 */
+@import './tools-floating-base.css';
+
+* {
+  box-sizing: border-box;
+}
+body {
+  font:
+    13px/1.5 'Segoe UI',
+    sans-serif;
+}
+[hidden] {
+  display: none !important;
+}
+button,
+select,
+input {
+  font: inherit;
+}
+button {
+  cursor: pointer;
+}
+button:focus-visible,
+select:focus-visible,
+input:focus-visible {
+  outline: 2px solid #69a8ff;
+  outline-offset: 2px;
+}
+.toolbar {
+  background: #1c1c1e;
+  height: auto;
+  min-height: 44px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  max-height: 65vh;
+  overflow-y: auto;
+}
+.editing-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1 1 460px;
+  min-width: 0;
+  -webkit-app-region: no-drag;
+}
+.size-dot {
+  border: 0;
+  padding: 0;
+  flex-shrink: 0;
+}
+.toolbar .divider {
+  display: none;
+}
+@media (max-width: 950px) {
+  .toolbar {
+    gap: 4px;
+  }
+  .editing-controls {
+    order: 5;
+    flex-basis: 100%;
+    border-top: 1px solid #ffffff14;
+    padding-top: 5px;
+  }
+  .toolbar .spacer {
+    flex: 1;
+  }
+}
+@media (max-width: 420px) {
+  .editing-controls {
+    column-gap: 10px;
+    row-gap: 5px;
+  }
+  #drawing-tools {
+    flex-basis: 100%;
+    justify-content: space-between;
+  }
+  .editing-controls > .group:last-child {
+    margin-left: auto;
+  }
+}
+.toolbar .group {
+  flex-shrink: 0;
+}
+.toolbar .drag-region {
+  height: 30px;
+  min-width: 0;
+  flex-shrink: 1;
+  gap: 6px;
+  color: #d4d4d4;
+}
+.annotation-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.annotation-title {
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.toolbar::-webkit-scrollbar {
+  width: 4px;
+}
+.toolbar::-webkit-scrollbar-thumb {
+  background: #ffffff30;
+  border-radius: 3px;
+}
+.toolbar .divider {
+  margin: 0 1px;
+}
+#drawing-tools {
+  flex-wrap: wrap;
+  min-width: 0;
+  max-width: 100%;
+}
+.toolbar select {
+  -webkit-app-region: no-drag;
+  color: #ddd;
+  background: #ffffff14;
+  border: 0;
+  border-radius: 5px;
+  width: 62px;
+  padding: 5px 0;
+}
+.toolbar select option {
+  background: #252527;
+}
+.color-control,
+.size-control {
+  -webkit-app-region: no-drag;
+}
+.color-preview {
+  width: 30px;
+  height: 30px;
+  background: transparent;
+  border: 0;
+  padding: 5px;
+  border-radius: 6px;
+}
+.color-preview:hover {
+  background: #ffffff18;
+}
+.color-preview span {
+  display: block;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ff3b30;
+  box-shadow: 0 0 0 1px #ffffff50 inset;
+}
+.color-palette {
+  position: fixed;
+  z-index: 8;
+  display: grid;
+  grid-template-columns: repeat(4, 24px);
+  gap: 8px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #252527;
+  box-shadow: 0 4px 20px #0006;
+  -webkit-app-region: no-drag;
+}
+.color-palette .swatch {
+  width: 24px;
+  height: 24px;
+  margin: 0;
+}
+.swatch[aria-pressed='true'] {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+.size-control {
+  gap: 5px !important;
+}
+.size-control svg {
+  width: 14px;
+  height: 14px;
+  color: #aaa;
+}
+.size-control input {
+  width: 82px;
+  cursor: pointer;
+  accent-color: #0a84ff;
+}
+.size-control output {
+  width: 18px;
+  color: #ccc;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.canvas-wrap {
+  display: block;
+  overflow: auto;
+  padding: 8px;
+}
+.stage {
+  width: fit-content;
+  margin: auto;
+}
+#canvas {
+  position: static;
+  display: block;
+  touch-action: none;
+}
+.text-input {
+  background: #202124;
+  display: block;
+  position: fixed;
+  z-index: 9;
+  max-width: 90vw;
+  width: 232px;
+  user-select: text;
+}
+.hint {
+  background: #202124;
+  position: fixed;
+  max-width: calc(100% - 24px);
+  white-space: normal;
+  pointer-events: none;
+  z-index: 3;
+}
+.hint.error {
+  opacity: 1;
+}
+.resize-grip {
+  z-index: 4;
+  touch-action: none;
+}
+
+/* 复用原便签的窄彩色标题栏、五种纸色与滚动正文；窗口为临时会话，不导入上游历史模块。 */
+body[data-kind='text'] {
+  --note-color: #f3f0bd;
+  --note-header: #e6de9c;
+  color: #303329;
+}
+body[data-kind='text'] .frame {
+  background: var(--note-color);
+  border-radius: 10px 10px 2px 10px;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 24px), calc(100% - 24px) 100%, 0 100%);
+  box-shadow: none;
+}
+/* 折角由纸张本身形成轮廓，透明区域不再露出系统边框。 */
+body[data-kind='text'] .frame::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 24px;
+  height: 24px;
+  background: var(--note-header);
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+  pointer-events: none;
+}
+.window-header {
+  height: 25px;
+  min-height: 25px;
+  width: 100%;
+  -webkit-app-region: no-drag;
+  touch-action: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 6px;
+  background: var(--note-header);
+  border-radius: 10px 10px 0 0;
+}
+.input-status {
+  font-size: 11px;
+  opacity: 0.5;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.btns {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+}
+.btn {
+  -webkit-app-region: no-drag;
+  border: 0;
+  background: transparent;
+  color: #333;
+  opacity: 0.6;
+  padding: 3px;
+  height: 22px;
+  width: 24px;
+  border-radius: 3px;
+}
+.btn:hover {
+  opacity: 1;
+  background: #0000000c;
+}
+.btn[aria-pressed='true'] {
+  opacity: 1;
+  background: #00000012;
+}
+.btn svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+.note-body {
+  height: 0;
+  flex: 1;
+  min-height: 0;
+  background: var(--note-color);
+}
+#note {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  outline: 0;
+  resize: none;
+  padding: 15px 18px 34px;
+  background: transparent;
+  color: inherit;
+  font:
+    16px/1.8 'Segoe UI',
+    sans-serif;
+  user-select: text;
+}
+#note::-webkit-scrollbar {
+  width: 6px;
+}
+#note::-webkit-scrollbar-thumb {
+  background: #0003;
+  border-radius: 3px;
+}
+.note-options {
+  position: absolute;
+  z-index: 6;
+  right: 7px;
+  top: 28px;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  background: #ffffff;
+  color: #333;
+  border-radius: 8px;
+  box-shadow: 0 4px 18px #0003;
+  -webkit-app-region: no-drag;
+}
+.note-options button:not(.swatch) {
+  border: 0;
+  border-radius: 4px;
+  padding: 5px 8px;
+  background: #00000008;
+  color: inherit;
+  text-align: left;
+}
+.note-options label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.note-options input {
+  width: 100px;
+  accent-color: #555;
+}
+/* 贴靠开关是单行复选项，不沿用滑块的固定宽度；缩进与滑块行对齐。 */
+.note-options input[type='checkbox'] {
+  width: 14px;
+  height: 14px;
+  margin: 0 0 0 14px;
+}
+/* 字号只需容纳两位数字，避免选项面板被拉宽。 */
+.note-options input[type='number'] {
+  width: 58px;
+}
+.dock-toggle {
+  white-space: nowrap;
+}
+.note-colors {
+  display: flex;
+  gap: 10px;
+  padding: 3px;
+}
+.note-colors .swatch[aria-pressed='true'] {
+  outline-color: #555;
+}
+body[data-kind='text'] .resize-grip {
+  right: 27px;
+  bottom: 3px;
+  opacity: 0.25;
+}
+.resize-edge,
+.resize-corner {
+  position: absolute;
+  z-index: 12;
+  -webkit-app-region: no-drag;
+  touch-action: none;
+}
+.float-controls {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  display: flex;
+  gap: 3px;
+  z-index: 10;
+  padding: 3px;
+  border-radius: 7px;
+  background: #202124;
+  opacity: 1;
+  transition: opacity 0.1s;
+  -webkit-app-region: no-drag;
+}
+body[data-mode='float'] .frame:hover .float-controls,
+body[data-mode='float'][data-pointer='inside'] .float-controls,
+.float-controls:focus-within {
+  opacity: 1;
+}
+body[data-mode='float'] .canvas-wrap {
+  padding: 0;
+  overflow: hidden;
+  background: transparent;
+  -webkit-app-region: no-drag;
+}
+body[data-mode='float'] #canvas {
+  width: 100%;
+  height: 100%;
+  -webkit-app-region: no-drag;
+}
+body[data-mode='float'] .stage {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+body[data-mode='float'] .hint {
+  display: none;
+}
+body[data-dock='collapsed'] .frame {
+  clip-path: none;
+  border-radius: 0 6px 6px 0;
+}
+body[data-dock='collapsed'] .frame::after,
+body[data-dock='collapsed'] #note-header,
+body[data-dock='collapsed'] #note-body,
+body[data-dock='collapsed'] #note-options,
+body[data-dock='collapsed'] [data-resize] {
+  display: none !important;
+}
+.note-dock-tab {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  color: #343529;
+  font:
+    11px/1.2 'Segoe UI',
+    sans-serif;
+  writing-mode: vertical-rl;
+  /* 竖排时数字与字母保持直立，避免“便签 1”中的编号横躺。 */
+  text-orientation: upright;
+  /* 竖排标签收紧字距，让“便签1”更紧凑。 */
+  letter-spacing: 0;
+  cursor: pointer;
+  border-left: 3px solid var(--note-header);
+  /* 收起后的色签淡入滑入，与宿主窗口的贴靠过渡一起形成顺滑动画。 */
+  animation: dockTabIn 0.16s ease-out;
+  user-select: none;
+}
+@keyframes dockTabIn {
+  from {
+    opacity: 0;
+    transform: translateX(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+/* 展开纸张时正文淡入，避免尺寸过渡期间突然出现大块内容。 */
+.note-body {
+  animation: dockBodyIn 0.18s ease-out;
+}
+@keyframes dockBodyIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+body[data-edge='right'][data-dock='collapsed'] .frame {
+  border-radius: 6px 0 0 6px;
+}
+body[data-edge='top'][data-dock='collapsed'] .frame {
+  border-radius: 0 0 6px 6px;
+}
+body[data-edge='bottom'][data-dock='collapsed'] .frame {
+  border-radius: 6px 6px 0 0;
+}
+body[data-edge='top'] .note-dock-tab,
+body[data-edge='bottom'] .note-dock-tab {
+  writing-mode: horizontal-tb;
+  letter-spacing: 1px;
+  border-left: 0;
+  border-top: 3px solid var(--note-header);
+}
+.north,
+.south {
+  left: 12px;
+  right: 28px;
+  height: 5px;
+  cursor: ns-resize;
+}
+.north {
+  top: 0;
+}
+.south {
+  bottom: 0;
+}
+.west,
+.east {
+  top: 12px;
+  bottom: 28px;
+  width: 5px;
+  cursor: ew-resize;
+}
+.west {
+  left: 0;
+}
+.east {
+  right: 0;
+}
+.resize-corner {
+  width: 12px;
+  height: 12px;
+}
+.northwest {
+  top: 0;
+  left: 0;
+  cursor: nwse-resize;
+}
+.northeast {
+  top: 0;
+  right: 0;
+  cursor: nesw-resize;
+}
+.southwest {
+  bottom: 0;
+  left: 0;
+  cursor: nesw-resize;
+}

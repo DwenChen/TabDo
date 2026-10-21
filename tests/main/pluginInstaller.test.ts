@@ -6,7 +6,7 @@ import AdmZip from 'adm-zip'
 import { packZpx } from '../../src/main/utils/zpxArchive'
 
 const state = vi.hoisted(() => ({
-  pluginDir: `/tmp/ztools-plugin-installer-${process.pid}`
+  pluginDir: `/tmp/tabdo-plugin-installer-${process.pid}`
 }))
 
 vi.mock('electron', () => ({
@@ -52,7 +52,7 @@ async function createPackage(
   version: string,
   options?: { zip?: boolean; files?: Record<string, string>; unpack?: string }
 ): Promise<string> {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'ztools-installer-package-'))
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'tabdo-installer-package-'))
   tempDirs.push(root)
   const sourceDir = path.join(root, 'source')
   await fs.mkdir(sourceDir)

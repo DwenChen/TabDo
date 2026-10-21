@@ -13,7 +13,7 @@ describe('匹配推荐置顶', () => {
     setActivePinia(createPinia())
     dbPut.mockClear()
     vi.stubGlobal('window', {
-      ztools: {
+      tabdo: {
         dbPut
       }
     })

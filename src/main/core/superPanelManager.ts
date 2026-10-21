@@ -22,9 +22,12 @@ import { decodeFileUrlToPath } from '../utils/common'
 import { shouldKeepMainWindowHiddenForLaunch } from '../../shared/pluginLaunch'
 import globalInputManager from './globalInputManager'
 
-// 超级面板窗口尺寸
+// 沿用最初的 250×400 默认窗口，内容可收紧为正方形，宽度始终使用逻辑常量。
 const SUPER_PANEL_WIDTH = 250
 const SUPER_PANEL_HEIGHT = 400
+const SUPER_PANEL_MIN_HEIGHT = SUPER_PANEL_WIDTH
+const SUPER_PANEL_MAX_HEIGHT = SUPER_PANEL_HEIGHT
+const PANEL_IDLE_RELEASE_MS = 30_000
 
 // 模拟复制后等待剪贴板更新的时间窗口
 const CLIPBOARD_WAIT_MS = 600
@@ -67,10 +70,15 @@ class SuperPanelManager {
   private triggerRevision = 0
   private capturePending = false
   private requestedVisible = false
+  private panelHeight = SUPER_PANEL_HEIGHT
+  private idleReleaseTimer: ReturnType<typeof setTimeout> | null = null
+  private searchRequestId = 0
+  private activeSearchRequestId: number | null = null
+  private translationController: AbortController | null = null
   private config: SuperPanelConfig = {
-    enabled: false,
+    enabled: true,
     mouseButton: 'middle',
-    longPressMs: 500,
+    longPressMs: 0,
     blockedApps: []
   }
 
@@ -101,13 +109,13 @@ class SuperPanelManager {
    */
   private loadConfig(): void {
     try {
-      const data = databaseAPI.dbGet('settings-general')
+      const data = databaseAPI.dbGet('settings-general') || {}
       this.clipboardQuickMatchSeconds = data?.clipboardQuickMatchSeconds ?? 5
       if (data) {
         this.config = {
-          enabled: data.superPanelEnabled ?? false,
+          enabled: true,
           mouseButton: data.superPanelMouseButton ?? 'middle',
-          longPressMs: data.superPanelLongPressMs ?? 500,
+          longPressMs: data.superPanelLongPressMs ?? 0,
           blockedApps: data.superPanelBlockedApps ?? []
         }
         if (this.config.enabled) {
@@ -127,7 +135,7 @@ class SuperPanelManager {
    */
   updateConfig(config: { enabled: boolean; mouseButton: string; longPressMs: number }): void {
     this.config = {
-      enabled: config.enabled,
+      enabled: true,
       mouseButton: config.mouseButton as SuperPanelConfig['mouseButton'],
       longPressMs: config.longPressMs,
       blockedApps: this.config.blockedApps
@@ -202,6 +210,11 @@ class SuperPanelManager {
       if (info?.app && this.isWindowBlocked({ ...info, app: info.app }))
         return { shouldBlock: false }
       this.currentWindowInfo = this.enrichFileLocationWindowInfo(info ?? null)
+      // 新的显式匹配取代旧选区捕获及翻译，不让旧计算继续占用资源或覆盖结果。
+      this.triggerRevision++
+      this.capturePending = false
+      this.translationController?.abort()
+      this.translationController = null
       this.currentClipboardContent = content
       const cursor = screen.getCursorScreenPoint()
       this.showWindow(cursor.x, cursor.y)
@@ -383,7 +396,7 @@ class SuperPanelManager {
   }
 
   /**
-   * 处理配置的鼠标触发，先保留选区复制，再补充有效的新复制。
+   * 处理用户配置的鼠标触发，优先当前选区，无选区时使用时限内的主动复制内容。
    * @returns 是否拦截原始鼠标事件。
    */
   private onMouseTrigger(): MouseMonitorResult {
@@ -414,11 +427,10 @@ class SuperPanelManager {
       }
 
       // 异步部分：模拟复制、读取剪贴板、显示面板
-      const recent =
-        this.config.mouseButton === 'middle' && this.config.longPressMs === 0
-          ? clipboardManager.getRecentCopiedContent(this.clipboardQuickMatchSeconds * 1000)
-          : null
+      // 无当前选区时，各种已配置的触发键都可回退到时限内的主动复制内容。
+      const recent = clipboardManager.getRecentCopiedContent(this.clipboardQuickMatchSeconds * 1000)
       const revision = ++this.triggerRevision
+      this.translationController?.abort()
       this.capturePending = true
       void this.onMouseTriggerAsync(cursorPoint, recent, revision)
 
@@ -454,6 +466,9 @@ class SuperPanelManager {
       // 3. 模拟复制（Cmd+C on macOS, Ctrl+C on Windows）
       const modifier = process.platform === 'darwin' ? 'meta' : 'ctrl'
       WindowManager.simulateKeyboardTap('c', modifier)
+
+      // 在等待系统复制期间准备首帧；保持隐藏，不抢走来源应用的选区和焦点。
+      this.prepareWindow(cursorPoint.x, cursorPoint.y)
 
       // 4. 等待剪贴板监听捕获本次复制事件
       const lastCopiedContent = await nextCopy
@@ -511,13 +526,14 @@ class SuperPanelManager {
       alwaysOnTop: true,
       skipTaskbar: true,
       resizable: false,
+      movable: true,
       show: false,
       hasShadow: true,
       type: 'panel',
       webPreferences: {
         preload: getPreloadPath(),
-        sandbox: process.env.ZTOOLS_SOURCE_PREVIEW !== '1',
-        backgroundThrottling: false,
+        sandbox: process.env.TABDO_SOURCE_PREVIEW !== '1',
+        backgroundThrottling: true,
         contextIsolation: true,
         nodeIntegration: false,
         spellcheck: false,
@@ -571,6 +587,9 @@ class SuperPanelManager {
 
     // 窗口关闭时清理引用
     win.on('closed', () => {
+      if (this.superPanelWindow !== win) return
+      if (this.idleReleaseTimer) clearTimeout(this.idleReleaseTimer)
+      this.idleReleaseTimer = null
       this.superPanelWindow = null
       this.windowReady = false
       this.pendingMessages = []
@@ -583,7 +602,10 @@ class SuperPanelManager {
   }
 
   /**
-   * 调整窗口位置，防止超出屏幕边界
+   * 按固定逻辑宽度和最近的内容高度定位，防止超出屏幕边界。
+   * @param x 触发横坐标。
+   * @param y 触发纵坐标。
+   * @returns 工作区内的窗口左上角。
    */
   private adjustPosition(x: number, y: number): { position: { x: number; y: number } } {
     const display = screen.getDisplayNearestPoint({ x, y })
@@ -601,8 +623,8 @@ class SuperPanelManager {
       adjustedX = workArea.x
     }
     // 下边溢出
-    if (adjustedY + SUPER_PANEL_HEIGHT > workArea.y + workArea.height) {
-      adjustedY = workArea.y + workArea.height - SUPER_PANEL_HEIGHT
+    if (adjustedY + this.panelHeight > workArea.y + workArea.height) {
+      adjustedY = workArea.y + workArea.height - this.panelHeight
     }
     // 上边溢出
     if (adjustedY < workArea.y) {
@@ -619,17 +641,49 @@ class SuperPanelManager {
    * @returns 无返回值。
    */
   private showWindow(x: number, y: number): void {
+    if (this.idleReleaseTimer) clearTimeout(this.idleReleaseTimer)
+    this.idleReleaseTimer = null
     this.requestedVisible = true
     if (this.superPanelWindow && !this.superPanelWindow.isDestroyed()) {
       // 复用已有窗口：更新位置并显示
       const { position } = this.adjustPosition(x, y)
-      this.superPanelWindow.setPosition(position.x, position.y)
+      // 不把 Windows 返回的舍入尺寸写回；复用时同时纠正旧窗口的异常宽度。
+      this.superPanelWindow.setBounds({
+        x: position.x,
+        y: position.y,
+        width: SUPER_PANEL_WIDTH,
+        height: this.panelHeight
+      })
       this.superPanelWindow.show()
       this.superPanelWindow.focus()
     } else {
       // 创建新窗口
       this.superPanelWindow = this.createWindow(x, y)
     }
+  }
+
+  /**
+   * 仅在一次真实触发期间提前装载隐藏面板，与复制等待并行。
+   * @param x 触发横坐标。
+   * @param y 触发纵坐标。
+   * @returns 无返回值。
+   */
+  private prepareWindow(x: number, y: number): void {
+    if (this.idleReleaseTimer) clearTimeout(this.idleReleaseTimer)
+    this.idleReleaseTimer = null
+    if (!this.superPanelWindow || this.superPanelWindow.isDestroyed())
+      this.superPanelWindow = this.createWindow(x, y)
+  }
+
+  /**
+   * 回收长期隐藏的面板页面；进行中的复制与可见面板不能被空闲回收。
+   * @returns 无返回值。
+   */
+  private releaseIdleWindow(): void {
+    if (this.requestedVisible || this.capturePending) return
+    if (this.idleReleaseTimer) clearTimeout(this.idleReleaseTimer)
+    this.idleReleaseTimer = null
+    this.superPanelWindow?.destroy()
   }
 
   /**
@@ -666,15 +720,52 @@ class SuperPanelManager {
   }
 
   /**
+   * 按渲染进程实测的正文高度调整面板，保持左上角锚点并约束在当前显示器工作区内。
+   * @param height 期望的面板高度（逻辑像素）。
+   * @returns 无返回值。
+   */
+  private resizePanel(height: number): void {
+    const win = this.superPanelWindow
+    if (!win || win.isDestroyed() || !Number.isFinite(height)) return
+    const bounds = win.getBounds()
+    const { workArea } = screen.getDisplayMatching(bounds)
+    const nextHeight = Math.min(
+      workArea.height,
+      Math.round(Math.max(SUPER_PANEL_MIN_HEIGHT, Math.min(SUPER_PANEL_MAX_HEIGHT, height)))
+    )
+    this.panelHeight = nextHeight
+    if (nextHeight === bounds.height && bounds.width === SUPER_PANEL_WIDTH) return
+    // 内容变高时优先向上收拢，避免面板下沿被屏幕边界裁掉。
+    const y = Math.max(workArea.y, Math.min(bounds.y, workArea.y + workArea.height - nextHeight))
+    const x = Math.max(
+      workArea.x,
+      Math.min(bounds.x, workArea.x + workArea.width - SUPER_PANEL_WIDTH)
+    )
+    win.setBounds({ x, y, width: SUPER_PANEL_WIDTH, height: nextHeight })
+  }
+
+  /**
    * 关闭面板并使尚未完成的复制与首次显示请求失效。
    * @returns 无返回值。
    */
   hideWindow(): void {
+    this.translationController?.abort()
+    this.translationController = null
     this.triggerRevision++
     this.capturePending = false
     this.requestedVisible = false
+    this.activeSearchRequestId = null
+    this.activeWindowCommandRequestId = null
+    this.pendingMessages = []
+    this.currentClipboardContent = null
+    this.currentWindowInfo = null
     if (this.superPanelWindow && !this.superPanelWindow.isDestroyed()) {
+      // 短期复用只保留空页面，清除图片、选文、翻译与搜索结果引用。
+      this.superPanelWindow.webContents.send('super-panel-data', { type: 'hidden' })
       this.superPanelWindow.hide()
+      if (this.idleReleaseTimer) clearTimeout(this.idleReleaseTimer)
+      this.idleReleaseTimer = setTimeout(() => this.releaseIdleWindow(), PANEL_IDLE_RELEASE_MS)
+      this.idleReleaseTimer.unref()
     }
   }
 
@@ -689,18 +780,36 @@ class SuperPanelManager {
     // 搜索文本：文本类型直接使用，文件/图片类型传空字符串（依赖匹配指令）
     const searchText = content.type === 'text' ? content.text || '' : ''
     this.mainWindow.webContents.send('super-panel-search', {
+      requestId: (this.activeSearchRequestId = ++this.searchRequestId),
       text: searchText,
       clipboardContent: content
     })
   }
 
   /**
-   * 请求翻译选中的文本
-   * 经 providerManager 按用户默认翻译提供商分发（内置 Bergamot 或插件翻译 provider）。
+   * 按独立开关请求选文翻译，关闭或切换选区后丢弃迟到结果。
+   * @param text 当前选中文字。
+   * @returns 请求完成后的 Promise。
    */
   private async requestTranslation(text: string): Promise<void> {
+    if (databaseAPI.dbGet('settings-general')?.superPanelAutoTranslate === false) return
+    this.translationController?.abort()
+    const controller = new AbortController()
+    this.translationController = controller
+    const revision = this.triggerRevision
     try {
-      const result = await providerManager.invoke('translation', { text })
+      const result = await providerManager.invoke(
+        'translation',
+        { text },
+        { signal: controller.signal }
+      )
+      // 翻译服务启用与面板自动翻译各自独立，配置关闭后在途结果也不再显示。
+      if (
+        revision !== this.triggerRevision ||
+        !this.requestedVisible ||
+        databaseAPI.dbGet('settings-general')?.superPanelAutoTranslate === false
+      )
+        return
       if (result?.text) {
         this.sendToSuperPanel('super-panel-translation', {
           text: result.text,
@@ -708,8 +817,11 @@ class SuperPanelManager {
         })
       }
     } catch (error) {
+      if (controller.signal.aborted) return
       // 没有可用的翻译提供商属于正常情形（用户未启用），静默处理
       console.error('[SuperPanel] 翻译请求失败:', error)
+    } finally {
+      if (this.translationController === controller) this.translationController = null
     }
   }
 
@@ -778,9 +890,12 @@ class SuperPanelManager {
    * 发送数据到超级面板窗口（窗口未就绪时缓存消息）
    */
   private sendToSuperPanel(channel: string, data: any): void {
+    if (!this.requestedVisible) return
     if (this.superPanelWindow && !this.superPanelWindow.isDestroyed() && this.windowReady) {
       this.superPanelWindow.webContents.send(channel, data)
     } else {
+      // 未就绪窗口只需要每个通道的最新结果，不累积旧选文和图片。
+      this.pendingMessages = this.pendingMessages.filter((message) => message.channel !== channel)
       this.pendingMessages.push({ channel, data })
     }
   }
@@ -793,7 +908,11 @@ class SuperPanelManager {
     // 主窗口返回搜索结果（携带剪贴板内容）
     ipcMain.on(
       'super-panel-search-result',
-      (_event, data: { results: any[]; clipboardContent?: ClipboardContent }) => {
+      (
+        _event,
+        data: { requestId?: number; results: any[]; clipboardContent?: ClipboardContent }
+      ) => {
+        if (!this.requestedVisible || data.requestId !== this.activeSearchRequestId) return
         this.sendToSuperPanel('super-panel-data', {
           type: 'search',
           results: data.results,
@@ -806,6 +925,9 @@ class SuperPanelManager {
     // 超级面板启动指令 → 转发给主渲染进程处理
     ipcMain.handle('super-panel:launch', async (_event, command: any) => {
       try {
+        // 启动负载归本次操作；面板隐藏可以立即释放自身持有的大对象。
+        const clipboardContent = this.currentClipboardContent
+        const windowInfo = this.currentWindowInfo
         // 隐藏超级面板
         this.hideWindow()
 
@@ -831,8 +953,8 @@ class SuperPanelManager {
           )
 
         // 先显示主窗口，确保普通插件命令的渲染进程能正常处理启动指令。
-        if (this.currentWindowInfo) {
-          windowManager.setPreviousActiveWindow(this.currentWindowInfo)
+        if (windowInfo) {
+          windowManager.setPreviousActiveWindow(windowInfo)
         }
         if (!shouldKeepMainWindowHidden) {
           this.mainWindow.show()
@@ -843,8 +965,8 @@ class SuperPanelManager {
         this.mainWindow.webContents.send('super-panel-launch', {
           command,
           launchSource: 'super-panel',
-          clipboardContent: this.currentClipboardContent,
-          windowInfo: command.windowInfo || this.currentWindowInfo
+          clipboardContent,
+          windowInfo: command.windowInfo || windowInfo
         })
 
         return { success: true }
@@ -857,8 +979,16 @@ class SuperPanelManager {
       }
     })
 
+    // 面板按内容自适应：渲染进程实测正文高度后请求收紧窗口，只接受面板自身页面。
+    ipcMain.on('super-panel:resize', (event, height: number) => {
+      if (!this.superPanelWindow || this.superPanelWindow.isDestroyed()) return
+      if (event.sender.id !== this.superPanelWindow.webContents.id) return
+      this.resizePanel(height)
+    })
+
     // 超级面板窗口准备好接收数据
-    ipcMain.on('super-panel:ready', () => {
+    ipcMain.on('super-panel:ready', (event) => {
+      if (event.sender !== this.superPanelWindow?.webContents) return
       this.windowReady = true
       // 发送所有缓存的消息
       for (const msg of this.pendingMessages) {
@@ -876,11 +1006,12 @@ class SuperPanelManager {
 
     // 超级面板头像点击：隐藏超级面板，显示主搜索窗口
     ipcMain.on('super-panel:show-main-window', () => {
+      const windowInfo = this.currentWindowInfo
       this.hideWindow()
       // 将超级面板触发前的窗口信息设置到主窗口管理器，
       // 否则 showWindow() 会获取到超级面板自身作为 previousActiveWindow
-      if (this.currentWindowInfo) {
-        windowManager.setPreviousActiveWindow(this.currentWindowInfo)
+      if (windowInfo) {
+        windowManager.setPreviousActiveWindow(windowInfo)
       }
       void windowManager.showSettings()
     })

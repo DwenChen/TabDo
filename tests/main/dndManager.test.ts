@@ -69,9 +69,9 @@ describe('isFullscreenWindow', () => {
     expect(isFullscreenWindow({ app: 'app', isFullscreen: true }, 'linux')).toBe(false)
   })
 
-  it('排除 ZTools 自身窗口', () => {
+  it('排除 TabDo 自身窗口', () => {
     expect(
-      isFullscreenWindow({ app: 'ZTools.app', pid: process.pid, isFullscreen: true }, 'darwin')
+      isFullscreenWindow({ app: 'TabDo.app', pid: process.pid, isFullscreen: true }, 'darwin')
     ).toBe(false)
   })
 })

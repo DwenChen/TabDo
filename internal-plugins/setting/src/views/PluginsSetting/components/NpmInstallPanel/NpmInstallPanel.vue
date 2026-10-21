@@ -60,7 +60,7 @@ defineExpose({
             v-model="packageName"
             type="text"
             class="input"
-            placeholder="例如：@ztools/example-plugin 或 ztools-example"
+            placeholder="例如：@tabdo/example-plugin 或 tabdo-example"
             @keyup.enter="handleInstall"
           />
           <p class="input-hint">请输入 npm 包名，支持作用域包（@scope/name）</p>

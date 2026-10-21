@@ -3,6 +3,7 @@ export interface PluginFeature {
   name?: string
   explain?: string
   icon?: string
+  group?: string
   cmds?: any[]
   mainPush?: boolean
 }

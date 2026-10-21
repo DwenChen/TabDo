@@ -104,7 +104,7 @@ const emit = defineEmits<{
   z-index: 10;
   display: flex;
   flex-direction: column;
-  background: var(--bg-color);
+  background: var(--bg-elevated);
 }
 
 .detail-topbar {

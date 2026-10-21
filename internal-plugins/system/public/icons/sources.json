@@ -1,0 +1,267 @@
+{
+  "repository": "https://github.com/lucide-icons/lucide",
+  "commit": "c29c276f16590cf017126671535ad8c792be64d8",
+  "license": "../LICENSE.lucide",
+  "adaptation": "128px PNG，白色线条与按类别配色的圆角背景；原始 SVG 保存在 lucide/。",
+  "entries": [
+    {
+      "code": "clear",
+      "name": "停止所有插件",
+      "group": "插件管理",
+      "icon": "blocks",
+      "color": "#64748b"
+    },
+    {
+      "code": "clear-history",
+      "name": "清除使用记录",
+      "group": "插件管理",
+      "icon": "rotate-ccw-clock",
+      "color": "#64748b"
+    },
+    {
+      "code": "reboot",
+      "name": "重启",
+      "group": "电源",
+      "icon": "rotate-cw",
+      "color": "#db7c26"
+    },
+    {
+      "code": "shutdown",
+      "name": "关机",
+      "group": "电源",
+      "icon": "power",
+      "color": "#dc4545"
+    },
+    {
+      "code": "logoff",
+      "name": "注销",
+      "group": "电源",
+      "icon": "log-out",
+      "color": "#c67526"
+    },
+    {
+      "code": "sleep",
+      "name": "睡眠",
+      "group": "电源",
+      "icon": "moon",
+      "color": "#6b60bb"
+    },
+    {
+      "code": "lock-screen",
+      "name": "锁屏",
+      "group": "电源",
+      "icon": "lock-keyhole",
+      "color": "#506caa"
+    },
+    {
+      "code": "open-url",
+      "name": "打开网址",
+      "group": "网页快开",
+      "icon": "external-link",
+      "color": "#2589ac"
+    },
+    {
+      "code": "open-folder",
+      "name": "打开文件夹",
+      "group": "文件操作",
+      "icon": "folder-open",
+      "color": "#ba8323"
+    },
+    {
+      "code": "window-info",
+      "name": "窗口信息",
+      "group": "窗口工具",
+      "icon": "panels-top-left",
+      "color": "#64748b"
+    },
+    {
+      "code": "copy-path",
+      "name": "复制路径",
+      "group": "文件操作",
+      "icon": "folder-symlink",
+      "color": "#ba8323"
+    },
+    {
+      "code": "copy-name",
+      "name": "复制名称",
+      "group": "文件操作",
+      "icon": "copy",
+      "color": "#ba8323"
+    },
+    {
+      "code": "open-terminal",
+      "name": "打开终端",
+      "group": "文件操作",
+      "icon": "terminal",
+      "color": "#536575"
+    },
+    {
+      "code": "color-picker",
+      "name": "屏幕取色",
+      "group": "屏幕工具",
+      "icon": "pipette",
+      "color": "#b24d99"
+    },
+    {
+      "code": "screenshot",
+      "name": "截图",
+      "group": "屏幕工具",
+      "icon": "scan-line",
+      "color": "#168d87"
+    },
+    {
+      "code": "clipboard",
+      "name": "剪贴板",
+      "group": "剪贴板",
+      "icon": "clipboard-list",
+      "color": "#149878"
+    },
+    {
+      "code": "file-renamer",
+      "name": "重命名",
+      "group": "文件操作",
+      "icon": "text-cursor-input",
+      "color": "#ba8323"
+    },
+    {
+      "code": "folder-break",
+      "name": "解散文件夹",
+      "group": "文件操作",
+      "icon": "folder-output",
+      "color": "#ba8323"
+    },
+    {
+      "code": "qrcode-scan",
+      "name": "扫码",
+      "group": "图片识别",
+      "icon": "qr-code",
+      "color": "#168d87"
+    },
+    {
+      "code": "image-annotate",
+      "name": "图片标记",
+      "group": "图片处理",
+      "icon": "pencil-line",
+      "color": "#8f63bd"
+    },
+    {
+      "code": "float-content",
+      "name": "悬浮内容",
+      "group": "悬浮与便签",
+      "icon": "picture-in-picture-2",
+      "color": "#149878"
+    },
+    {
+      "code": "sticky-note",
+      "name": "便签",
+      "group": "悬浮与便签",
+      "icon": "sticky-note",
+      "color": "#b88a24"
+    },
+    {
+      "code": "local-search",
+      "name": "文件搜索",
+      "group": "文件搜索",
+      "icon": "folder-search",
+      "color": "#ba8323"
+    },
+    {
+      "code": "screen-recorder",
+      "name": "录屏",
+      "group": "录屏",
+      "icon": "video",
+      "color": "#cf4b65"
+    },
+    {
+      "code": "screen-recorder-region",
+      "name": "区域录屏",
+      "group": "录屏",
+      "icon": "scan",
+      "color": "#cf4b65"
+    },
+    {
+      "code": "screen-recorder-stop",
+      "name": "停止录屏",
+      "group": "录屏",
+      "icon": "circle-stop",
+      "color": "#d14d42"
+    },
+    {
+      "code": "image-batch",
+      "name": "图片处理",
+      "group": "图片处理",
+      "icon": "images",
+      "color": "#8f63bd"
+    },
+    {
+      "code": "image-batch-folder",
+      "name": "读取图片文件夹",
+      "group": "图片处理",
+      "icon": "image-plus",
+      "color": "#8f63bd"
+    },
+    {
+      "code": "image-manual-crop",
+      "name": "裁剪图片",
+      "group": "图片处理",
+      "icon": "crop",
+      "color": "#8f63bd"
+    },
+    {
+      "code": "image-merge",
+      "name": "合并图片",
+      "group": "图片处理",
+      "icon": "combine",
+      "color": "#8f63bd"
+    },
+    {
+      "code": "video-batch",
+      "name": "视频处理",
+      "group": "视频处理",
+      "icon": "clapperboard",
+      "color": "#cf4b65"
+    },
+    {
+      "code": "web-quick-open",
+      "name": "网页快开",
+      "group": "网页快开",
+      "icon": "globe",
+      "color": "#2589ac"
+    },
+    {
+      "code": "web-search-text",
+      "name": "网页搜索",
+      "group": "网页快开",
+      "icon": "search",
+      "color": "#2589ac"
+    },
+    {
+      "code": "web-search-image",
+      "name": "以图搜图",
+      "group": "网页快开",
+      "icon": "scan-search",
+      "color": "#2589ac"
+    },
+    {
+      "code": "recognize",
+      "name": "文字识别",
+      "group": "图片识别",
+      "icon": "scan-text",
+      "color": "#168d87"
+    },
+    {
+      "code": "latex-recognize",
+      "name": "公式识别",
+      "group": "图片识别",
+      "icon": "sigma",
+      "color": "#168d87"
+    },
+    {
+      "code": "tools",
+      "name": "工具",
+      "group": "",
+      "icon": "wrench",
+      "color": "#149878"
+    }
+  ]
+}

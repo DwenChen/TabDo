@@ -17,7 +17,7 @@ afterEach(async () => {
 
 describe('deferred plugin artifact cleanup', () => {
   it('removes only queued ASAR packages, their sidecars and completed queue files', async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'ztools-cleanup-worker-'))
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'tabdo-cleanup-worker-'))
     temporary.push(root)
     const queue = path.join(root, '.pending-removals')
     await fs.mkdir(queue)
@@ -32,7 +32,7 @@ describe('deferred plugin artifact cleanup', () => {
   })
 
   it('rejects queue entries outside the plugin directory and leaves development folders intact', async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'ztools-cleanup-worker-'))
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'tabdo-cleanup-worker-'))
     temporary.push(root)
     const plugins = path.join(root, 'plugins')
     const queue = path.join(plugins, '.pending-removals')

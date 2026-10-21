@@ -6,7 +6,12 @@ import os from 'os'
 import { ScreenCapture, ScreenCaptureOptions } from './native'
 import windowManager from '../managers/windowManager'
 
-// 原生截图（Windows/macOS：覆盖层选区与编辑标注）
+/**
+ * 接收原生截图结果，直接复用已编码的 PNG，避免长图再次读取与编码。
+ * @param cb 截图完成回调，取消时图像为空串。
+ * @param options 原生覆盖层、标注及确认选项。
+ * @returns 无返回值。
+ */
 export const screenWindow = (
   cb: (image: string, bounds?: { x: number; y: number; width: number; height: number }) => void,
   options?: ScreenCaptureOptions
@@ -14,14 +19,18 @@ export const screenWindow = (
   // 透传 autoConfirm 选项；旧签名仅传 callback 时走默认 true 自动出图
   ScreenCapture.start(options ?? {}, (result) => {
     if (result.success) {
-      const image = clipboard.readImage()
       const bounds = {
         x: result.x!,
         y: result.y!,
         width: result.width!,
         height: result.height!
       }
-      cb && cb(image.isEmpty() ? '' : image.toDataURL(), bounds)
+      // 新版原生模块已编码并完成对应的复制或保存；仅旧模块缺失图像时回退。
+      if (result.base64) cb?.(result.base64, bounds)
+      else {
+        const image = clipboard.readImage()
+        cb?.(image.isEmpty() ? '' : image.toDataURL(), bounds)
+      }
     } else {
       cb && cb('')
     }

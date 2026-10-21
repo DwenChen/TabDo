@@ -32,10 +32,10 @@ function openLink() {
   const value = props.item.content.trim()
   const url = /^www\./i.test(value) ? 'https://' + value : value
   // 再次校验协议，收藏记录也不能通过伪造分类执行任意协议。
-  if (/^https?:\/\//i.test(url)) window.ztools.shellOpenExternal(url)
+  if (/^https?:\/\//i.test(url)) window.tabdo.shellOpenExternal(url)
 }
 
-const emit = defineEmits(['toggle-expand', 'delete-favorite'])
+const emit = defineEmits(['toggle-expand', 'delete-favorite', 'float-text'])
 </script>
 
 <template>
@@ -82,11 +82,34 @@ const emit = defineEmits(['toggle-expand', 'delete-favorite'])
         ✕
       </button>
       <span class="meta-count">{{ item.charCount }} 字符</span>
+      <button
+        class="float-btn"
+        title="悬浮文本"
+        aria-label="悬浮文本"
+        @click.stop="emit('float-text')"
+        @dblclick.stop
+      >
+        悬浮固定
+      </button>
     </div>
   </div>
 </template>
 
 <style scoped>
+.float-btn {
+  flex-shrink: 0;
+  border: 0;
+  background: transparent;
+  color: var(--primary-color);
+  border-radius: 4px;
+  padding: 4px 6px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.float-btn:hover {
+  background: var(--bg-accent-light);
+}
 .content-code :deep(.hljs-keyword),
 .content-code :deep(.hljs-selector-tag) {
   color: #c678dd;

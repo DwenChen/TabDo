@@ -6,8 +6,8 @@ import hideWindowHtml from '../../../resources/hideWindow.html?asset'
 
 import mainPreload from '../../../resources/preload.js?asset'
 import api from '../api'
-import { WINDOW_DEFAULT_HEIGHT, WINDOW_WIDTH } from '../common/constants'
-import { STANDARD_MAIN_WINDOW_HEADER_HEIGHT } from '../../shared/mainWindowLayout'
+import { WINDOW_WIDTH } from '../common/constants'
+import { DEFAULT_PLUGIN_HEIGHT } from '../../shared/mainWindowLayout'
 import detachedWindowManager, {
   DETACHED_TITLEBAR_HEIGHT,
   type DetachedPluginUpgradeSnapshot
@@ -25,6 +25,8 @@ import { registerIconProtocolForSession } from '../core/iconProtocol'
 import lmdbInstance from '../core/lmdb/lmdbInstance'
 import databaseAPI from '../api/shared/database'
 import proxyManager from './proxyManager'
+import { ensurePluginSessionPreload } from '../core/pluginSessionPreload'
+import { requestPluginResponse } from '../core/pluginRpc'
 import {
   EnterPayload,
   PluginAssemblyCoordinator,
@@ -38,6 +40,11 @@ import {
   getPluginSessionPartition
 } from '../../shared/pluginRuntimeNamespace'
 import aiRequestStatusTracker from '../core/aiRequestStatusTracker'
+import {
+  applyToolsWindowIdentity,
+  getToolsWindowTitle,
+  resetToolsWindowIdentity
+} from '../core/toolsWindowIdentity'
 import {
   isToolsPluginPath,
   releaseToolsView,
@@ -123,6 +130,41 @@ export interface PluginUpgradeRelaunchContext {
 }
 
 export class PluginManager {
+  private readonly runtimeUsers = new Map<string, number>()
+  private readonly pendingPreloads = new Map<string, Promise<void>>()
+
+  /**
+   * 为一次显式后台能力调用持有运行时，最后一个调用结束后退役隐藏页面。
+   * @param pluginPath 目标插件路径。
+   * @returns 必须在 finally 中调用的幂等释放器。
+   */
+  public retainPluginRuntime(pluginPath: string): () => void {
+    this.runtimeUsers.set(pluginPath, (this.runtimeUsers.get(pluginPath) || 0) + 1)
+    let released = false
+    return () => {
+      if (released) return
+      released = true
+      const remaining = (this.runtimeUsers.get(pluginPath) || 1) - 1
+      if (remaining > 0) {
+        this.runtimeUsers.set(pluginPath, remaining)
+        return
+      }
+      this.runtimeUsers.delete(pluginPath)
+      // 仍可见的当前页面由前台会话持有，不受一次后台调用结束影响。
+      if (this.currentPluginPath === pluginPath) return
+      const cached = this.pluginViews.find((entry) => entry.path === pluginPath)
+      if (!cached) return
+      this.pluginViews = this.pluginViews.filter((entry) => entry !== cached)
+      this.pluginLastEnterState.delete(pluginPath)
+      const id = cached.view.webContents.id
+      releaseToolsView(cached.view.webContents, () => this.assemblyCoordinator.clearDomReady(id), {
+        name: cached.name,
+        path: pluginPath,
+        logo: cached.logo
+      })
+    }
+  }
+
   // ==================== 插件配置/视图创建辅助方法 ====================
 
   /**
@@ -221,6 +263,34 @@ export class PluginManager {
   }
 
   /**
+   * 给固定内容工具使用紧凑的首帧高度，避免进入后先展开默认大页面。
+   * @param pluginPath 插件目录。
+   * @param featureCode 本次子组件指令。
+   * @returns 固定工具初始高度，其他插件返回 undefined 沿用缓存策略。
+   */
+  private initialToolsHeight(pluginPath: string, featureCode: string): number | undefined {
+    if (!isToolsPluginPath(pluginPath)) return undefined
+    return (
+      {
+        'qrcode-scan': 620,
+        'folder-break': 180,
+        'file-renamer': 580,
+        'screen-recorder': 440,
+        'screen-recorder-region': 0,
+        'screen-recorder-stop': 0,
+        'image-batch': 540,
+        'image-batch-folder': 540,
+        'image-manual-crop': 540,
+        'image-merge': 540,
+        'video-batch': 540,
+        'web-quick-open': 480,
+        'web-search-text': 0,
+        'web-search-image': 0
+      } as Record<string, number>
+    )[featureCode]
+  }
+
+  /**
    * 判断插件是否允许多开（pluginSetting.single 默认/true = 不可多开, false = 允许多开）
    */
   private isPluginMultiOpenAllowed(pluginPath: string): boolean {
@@ -262,9 +332,9 @@ export class PluginManager {
     if (isDevelopment) {
       // E2E 使用独立端口，避免占用日常设置插件开发服务器的 5177 端口。
       const developmentMain =
-        pluginConfig.name === 'setting' && process.env.ZTOOLS_SETTING_DEV_SERVER_URL
-          ? process.env.ZTOOLS_SETTING_DEV_SERVER_URL
-          : pluginConfig.name === 'system' && process.env.ZTOOLS_SOURCE_PREVIEW === '1'
+        pluginConfig.name === 'setting' && process.env.TABDO_SETTING_DEV_SERVER_URL
+          ? process.env.TABDO_SETTING_DEV_SERVER_URL
+          : pluginConfig.name === 'system' && process.env.TABDO_SOURCE_PREVIEW === '1'
             ? 'http://127.0.0.1:15178'
             : pluginConfig.development?.main
       if (developmentMain) {
@@ -283,7 +353,11 @@ export class PluginManager {
   }
 
   /**
-   * 创建并配置插件的 session（注册 preload、代理、图标协议）
+   * 复用插件 Session 并幂等配置公共 preload、代理和图标协议。
+   * @param pluginName 插件有效名称。
+   * @param pluginPath 插件路径。
+   * @returns 配置完成的插件 Session。
+   * @throws 代理或 Session 初始化失败时抛出。
    */
   private async setupPluginSession(
     pluginName: string,
@@ -296,7 +370,7 @@ export class PluginManager {
       partition
     })
     const sess = session.fromPartition(partition)
-    sess.registerPreloadScript({ type: 'frame', filePath: mainPreload })
+    ensurePluginSessionPreload(sess, mainPreload)
     await proxyManager.applyProxyToSession(sess, `插件 ${pluginName}`)
     if (isBundledInternalPlugin(pluginName)) {
       registerIconProtocolForSession(sess)
@@ -332,12 +406,13 @@ export class PluginManager {
   /**
    * 按插件后台运行策略设置 WebContents 节流
    * @param view 插件视图
-   * @param pluginPath 插件路径（用于读取缓存中的 backgroundRunning 配置）
-   * @param hidden true=视图处于后台/隐藏态；false=视图处于前台展示态
+   * @param _pluginPath 兼容调用位置的插件路径。
+   * @param hidden true=后台隐藏；false=前台展示。
+   * @returns 无返回值。
    */
   private applyBackgroundThrottlingByPolicy(
     view: WebContentsView,
-    pluginPath: string | null | undefined,
+    _pluginPath: string | null | undefined,
     hidden: boolean
   ): void {
     if (view.webContents.isDestroyed()) return
@@ -348,10 +423,8 @@ export class PluginManager {
       return
     }
 
-    // 后台态：仅当插件声明 backgroundRunning=true 时保持不节流
-    const backgroundRunning =
-      !!pluginPath && !!this.pluginViews.find((v) => v.path === pluginPath)?.backgroundRunning
-    view.webContents.backgroundThrottling = !backgroundRunning
+    // 后台页面只用于有限调用；退出后由统一作用域收束。
+    view.webContents.backgroundThrottling = hidden
   }
 
   /**
@@ -402,7 +475,7 @@ export class PluginManager {
   // 记录最近一次插件 ESC 触发的时间，用于短时间内抑制主窗口 hide
   private lastPluginEscTime: number | null = null
   // 插件默认高度（可配置）
-  private pluginDefaultHeight: number = WINDOW_DEFAULT_HEIGHT - STANDARD_MAIN_WINDOW_HEADER_HEIGHT
+  private pluginDefaultHeight: number = DEFAULT_PLUGIN_HEIGHT
   // 跟踪每个插件上次进入的状态（用于单例重入判断）
   private pluginLastEnterState: Map<string, PluginLastEnterState> = new Map()
 
@@ -494,7 +567,7 @@ export class PluginManager {
   }
 
   /**
-   * 绑定主窗口，并在工具界面隐藏或最小化时立即退役其运行时。
+   * 绑定主窗口，插件界面隐藏或最小化时立即退役所属会话。
    * @param mainWindow 当前宿主主窗口。
    * @returns 无返回值。
    */
@@ -506,7 +579,7 @@ export class PluginManager {
      * @returns 无返回值。
      */
     const releaseHiddenTools = (): void => {
-      if (!isToolsPluginPath(this.currentPluginPath)) return
+      if (!this.currentPluginPath) return
       this.hidePluginView()
       windowManager.notifyBackToSearch()
     }
@@ -537,6 +610,9 @@ export class PluginManager {
       return
     }
 
+    // 工具的不同子组件不能通过同一插件路径复用旧页面，直接入口也遵守该约束。
+    this.retireToolsViewForLaunch(pluginPath, featureCode)
+
     // 先处理当前视图切换，再开始新装配会话，避免 hidePluginView 误中断新会话
     if (this.currentPluginPath != null && this.currentPluginPath !== pluginPath) {
       this.assemblyCoordinator.trace('hide-current-plugin-before-switch', {
@@ -544,7 +620,7 @@ export class PluginManager {
         featureCode,
         currentPluginPath: this.currentPluginPath
       })
-      this.hidePluginView()
+      this.hidePluginView(true)
     }
 
     const assembly = this.assemblyCoordinator.beginAssembly(pluginPath, featureCode)
@@ -610,6 +686,19 @@ export class PluginManager {
   }
 
   /**
+   * 在新入口显示前移除旧插件页面；同一文本入口无操作重入保留当前前台。
+   * @param pluginPath 目标插件路径。
+   * @param featureCode 本次目标功能。
+   * @returns 无返回值。
+   */
+  public retireToolsViewForLaunch(pluginPath: string, featureCode: string): void {
+    if (!this.currentPluginPath) return
+    if (this.currentPluginPath === pluginPath && this.shouldSkipReEnter(pluginPath, featureCode))
+      return
+    this.hidePluginView(true)
+  }
+
+  /**
    * 恢复缓存的插件视图
    */
   private async restoreCachedPluginView(
@@ -665,7 +754,11 @@ export class PluginManager {
       // mainHide 的 feature 不需要展示主界面，高度设为 0 避免闪烁
       this.setExpendHeight(0, false)
     } else {
-      this.setExpendHeight(cached.height || this.pluginDefaultHeight, false)
+      this.setExpendHeight(
+        this.initialToolsHeight(pluginPath, featureCode) ??
+          (cached.height || this.pluginDefaultHeight),
+        false
+      )
     }
 
     // 读取插件配置并通知渲染进程
@@ -849,10 +942,29 @@ export class PluginManager {
 
     // Cmd+D / Ctrl+D 和 Cmd+Q / Ctrl+Q 快捷键
     view.webContents.on('before-input-event', (event, input) => {
+      // 未启用的按键留给插件处理，不因为宿主提供对应能力就默认拦截。
+      const shortcuts = databaseAPI.dbGet('settings-general')?.builtinAppShortcutsEnabled || {}
+      if (input.type === 'keyDown' && (input.meta || input.control) && !input.alt && !input.shift) {
+        const owner = detachedWindowManager.getWindowByPluginWebContents(view.webContents.id)
+        if (input.key === ',' && shortcuts.settings === true) {
+          event.preventDefault()
+          void windowManager.showSettings()
+        }
+        if (input.key.toLowerCase() === 'f' && shortcuts.search === true) {
+          event.preventDefault()
+          ;(owner || this.mainWindow)?.webContents.send('focus-sub-input')
+        }
+        if (input.key.toLowerCase() === 'w' && shortcuts.closePlugin === true) {
+          event.preventDefault()
+          if (owner) owner.close()
+          else this.mainWindow?.hide()
+        }
+      }
       if (
         input.type === 'keyDown' &&
         (input.key === 'd' || input.key === 'D') &&
-        (input.meta || input.control)
+        (input.meta || input.control) &&
+        databaseAPI.dbGet('settings-general')?.builtinAppShortcutsEnabled?.detach === true
       ) {
         event.preventDefault()
         console.log('[Plugin] 插件视图检测到 Cmd+D 快捷键')
@@ -865,7 +977,7 @@ export class PluginManager {
         (input.meta || input.control)
       ) {
         const settings = databaseAPI.dbGet('settings-general') || {}
-        const isEnabled = settings?.builtinAppShortcutsEnabled?.killPlugin !== false
+        const isEnabled = settings?.builtinAppShortcutsEnabled?.killPlugin === true
         if (!isEnabled) {
           // 禁用时不拦截，让按键正常传到渲染进程（供 HotkeyInput 录制）
           return
@@ -919,10 +1031,11 @@ export class PluginManager {
   }
 
   /**
-   * 移除当前视图；内置工具退出缓存并收束资源，其余插件沿用用户的缓存策略。
+   * 退出当前插件并立即释放前台资源，已登记的必要任务完成后销毁。
+   * @param switching 是否正在进入下一个插件，避免旧关闭通知隐藏新宿主。
    * @returns 无返回值。
    */
-  public hidePluginView(): void {
+  public hidePluginView(switching = false): void {
     if (this.pluginView && this.mainWindow) {
       const currentPath = this.currentPluginPath
       const pluginView = this.pluginView
@@ -940,11 +1053,13 @@ export class PluginManager {
       const cached = this.pluginViews.find((v) => v.path === currentPath)
       const pluginName = cached?.name
 
-      // 仅移除视图以达到隐藏效果，但保留实例以便复用
+      // 先撤销可见性再移除，避免合成器短暂保留旧内容；工具随后从缓存退役。
+      pluginView.setVisible(false)
+      if (isToolsPluginPath(currentPath)) resetToolsWindowIdentity(this.mainWindow)
       this.mainWindow.contentView.removeChildView(pluginView)
       // 隐藏时按策略决定是否启用节流
       this.applyBackgroundThrottlingByPolicy(pluginView, currentPath, true)
-      console.log('[Plugin] Plugin WebContentsView 已隐藏，缓存保留')
+      console.log('[Plugin] Plugin WebContentsView 已隐藏，准备退役')
 
       // 将当前引用清空，但缓存仍保留
       this.pluginView = null
@@ -953,13 +1068,13 @@ export class PluginManager {
       this.assemblyCoordinator.clearCurrentSession()
 
       // 通知渲染进程插件已关闭
-      this.mainWindow.webContents.send('plugin-closed')
+      this.mainWindow.webContents.send('plugin-closed', { switching })
 
-      // 工具不受用户的退出设置或子窗口缓存豁免影响；仅等待已登记的必要任务。
-      if (currentPath && isToolsPluginPath(currentPath)) {
+      // 所有插件退出后移出缓存，仅等待已登记的必要任务。
+      if (currentPath) {
         this.pluginViews = this.pluginViews.filter((entry) => entry.view !== pluginView)
         this.pluginLastEnterState.delete(currentPath)
-        pluginWindowManager.closeByPlugin(currentPath)
+        pluginWindowManager.releaseParent(pluginView.webContents)
         const contentsId = pluginView.webContents.id
         releaseToolsView(
           pluginView.webContents,
@@ -968,28 +1083,6 @@ export class PluginManager {
         )
         return
       }
-
-      // 检查是否需要终止插件
-      if (pluginName && currentPath) {
-        if (pluginWindowManager.hasWindowsByPlugin(currentPath)) {
-          console.log(`[Plugin] 插件 ${pluginName} 还有打开的子窗口，暂不终止进程`)
-        } else {
-          this.checkAndKillPlugin(pluginName, currentPath)
-        }
-      }
-    }
-  }
-
-  // 检查并终止插件
-  private checkAndKillPlugin(pluginName: string, pluginPath: string): void {
-    try {
-      const data = api.dbGet('out-kill-plugin')
-      if (Array.isArray(data) && data.includes(pluginName)) {
-        console.log(`插件 ${pluginName} 配置为退出后立即结束，销毁 view`)
-        this.killPlugin(pluginPath)
-      }
-    } catch (error) {
-      console.log('[Plugin] 读取 outKillPlugin 配置失败:', error)
     }
   }
 
@@ -1000,7 +1093,7 @@ export class PluginManager {
   public detachPluginViewOnRefresh(): void {
     if (!this.pluginView || !this.mainWindow) return
     // 刷新不能把工具会话留在无宿主的后台缓存中。
-    if (isToolsPluginPath(this.currentPluginPath)) {
+    if (this.currentPluginPath) {
       this.hidePluginView()
       return
     }
@@ -1190,10 +1283,28 @@ export class PluginManager {
   }
 
   /**
-   * 后台预加载插件（不显示在主窗口中，仅创建 WebContentsView 并缓存）
-   * 用于"跟随主程序同时启动运行"功能
+   * 为显式 provider 或动态指令调用按需创建隐藏会话。
+   * @param pluginPath 目标插件路径。
+   * @returns 隐藏会话创建完成后的 Promise。
    */
   public async preloadPlugin(pluginPath: string): Promise<void> {
+    const pending = this.pendingPreloads.get(pluginPath)
+    if (pending) return pending
+    const request = this.loadPluginRuntime(pluginPath)
+    this.pendingPreloads.set(pluginPath, request)
+    try {
+      await request
+    } finally {
+      this.pendingPreloads.delete(pluginPath)
+    }
+  }
+
+  /**
+   * 创建显式能力调用所需的隐藏页面，同一路径由 preloadPlugin 合并请求。
+   * @param pluginPath 目标插件目录。
+   * @returns 页面创建完成后的 Promise。
+   */
+  private async loadPluginRuntime(pluginPath: string): Promise<void> {
     if (!this.mainWindow) return
 
     // 如果已经在缓存中，跳过
@@ -1319,6 +1430,7 @@ export class PluginManager {
 
         // 如果是当前显示的插件，先隐藏
         if (this.currentPluginPath === pluginPath && this.mainWindow) {
+          if (isToolsPluginPath(pluginPath)) resetToolsWindowIdentity(this.mainWindow)
           this.mainWindow.contentView.removeChildView(view)
           this.pluginView = null
           this.currentPluginPath = null
@@ -1680,7 +1792,13 @@ export class PluginManager {
     this.setExpendHeight(height, false)
   }
 
-  // 获取插件模式
+  /**
+   * 查询插件模式，并在超时或销毁后解除本次响应监听。
+   * @param webContents 目标插件运行时。
+   * @param featureCode 目标功能代码。
+   * @returns 模式；插件未响应时返回 undefined。
+   * @throws IPC 发送失败时抛出。
+   */
   private getPluginMode(
     webContents: WebContents,
     featureCode: string
@@ -1688,21 +1806,27 @@ export class PluginManager {
     if (webContents.isDestroyed()) return Promise.resolve(undefined)
 
     const callId = Math.random().toString(36).substring(2, 11)
-    return new Promise((resolve) => {
-      const timeout = setTimeout(() => resolve(undefined), 1000) // 1s timeout
-
-      webContents.ipc.once(`plugin-mode-result-${callId}`, (_event, mode) => {
-        clearTimeout(timeout)
-        resolve(mode)
-      })
-
-      webContents.send('get-plugin-mode', { featureCode, callId })
-    })
+    return requestPluginResponse(
+      webContents,
+      'get-plugin-mode',
+      `plugin-mode-result-${callId}`,
+      { featureCode, callId },
+      1000
+    )
   }
 
   // ==================== 无界面插件相关方法 ====================
 
   // 处理插件模式
+  /**
+   * 按插件模式装配正文，并在可见工具进入时更新任务栏身份。
+   * @param pluginPath 插件物理路径。
+   * @param featureCode 当前功能码。
+   * @param view 本次装配的插件视图。
+   * @param assembly 可选的装配会话。
+   * @param resolvedMode 已解析的插件模式。
+   * @returns 模式装配结束后的 Promise。
+   */
   private async processPluginMode(
     pluginPath: string,
     featureCode: string,
@@ -1799,12 +1923,20 @@ export class PluginManager {
       } else {
         // 恢复高度: 优先使用缓存的高度，如果没有则使用默认高度
         const cached = this.pluginViews.find((v) => v.path === pluginPath)
-        targetHeight = cached?.height || this.pluginDefaultHeight
+        targetHeight =
+          this.initialToolsHeight(pluginPath, featureCode) ??
+          (cached?.height || this.pluginDefaultHeight)
 
         // 如果目标高度无效（可能被错误置为0），重置为默认值
         if (targetHeight <= 0) targetHeight = this.pluginDefaultHeight
 
         this.setExpendHeight(targetHeight, true)
+      }
+
+      // 工具正文可见时发布对应任务栏图标；只负责转交的隐藏入口不占任务栏。
+      if (this.mainWindow && isToolsPluginPath(pluginPath) && targetHeight > 0) {
+        applyToolsWindowIdentity(this.mainWindow, featureCode)
+        this.mainWindow.setTitle(getToolsWindowTitle(featureCode))
       }
 
       // 让插件视图获取焦点
@@ -1830,9 +1962,14 @@ export class PluginManager {
   }
 
   /**
-   * 调用无界面插件方法
+   * 调用无界面插件方法，完成、超时或销毁均释放响应监听。
+   * @param pluginPath 插件路径。
+   * @param featureCode 功能代码。
+   * @param action 操作负载。
+   * @returns 插件返回的操作结果。
+   * @throws 插件不可用、超时或操作失败时抛出。
    */
-  public callHeadlessPluginMethod(
+  public async callHeadlessPluginMethod(
     pluginPath: string,
     featureCode: string,
     action: any
@@ -1851,129 +1988,115 @@ export class PluginManager {
     // 生成唯一的调用 ID
     const callId = `${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
 
-    // 创建 Promise 等待结果
-    return new Promise((resolve, reject) => {
-      // 设置超时
-      const timeout = setTimeout(() => {
-        reject(new Error('Plugin method call timeout (30s)'))
-      }, 30000) // 30秒超时
-
-      // 监听一次性返回结果
-      plugin.view.webContents.ipc.once(`plugin-method-result-${callId}`, (_event, result) => {
-        clearTimeout(timeout)
-
-        if (result.success) {
-          resolve(result.result)
-        } else {
-          reject(new Error(result.error))
-        }
-      })
-
-      // 发送调用请求
-      plugin.view.webContents.send('call-plugin-method', {
-        featureCode,
-        action,
-        callId
-      })
-    })
+    const result = await requestPluginResponse<{ success: boolean; result?: any; error?: string }>(
+      plugin.view.webContents,
+      'call-plugin-method',
+      `plugin-method-result-${callId}`,
+      { featureCode, action, callId },
+      30000
+    )
+    if (!result) throw new Error('Plugin method call timeout (30s)')
+    if (!result.success) throw new Error(result.error)
+    return result.result
   }
 
   // ==================== mainPush 相关方法 ====================
 
   /**
-   * 查询插件的 mainPush 回调，获取动态搜索结果
-   * 如果插件尚未加载，会先预加载
+   * 查询动态搜索结果，首次按需装载插件，超时后不保留响应监听。
+   * @param pluginPath 插件路径。
+   * @param _featureCode 兼容的功能代码参数。
+   * @param queryData 搜索负载。
+   * @returns 插件动态结果；不可用或超时时返回空数组。
+   * @throws 预加载或 IPC 发送失败时抛出。
    */
   public async queryMainPush(
     pluginPath: string,
     _featureCode: string,
     queryData: { code: string; type: string; payload: string }
   ): Promise<any[]> {
-    console.log('[Plugin][MainPush] query start:', { pluginPath, queryData })
-    // 确保插件已加载
-    let plugin = this.pluginViews.find((v) => v.path === pluginPath)
-    if (!plugin) {
-      console.log('[Plugin][MainPush] plugin not loaded, preload first:', { pluginPath })
-      await this.preloadPlugin(pluginPath)
-      // 等待 dom-ready（最多 5 秒）
-      plugin = this.pluginViews.find((v) => v.path === pluginPath)
-      if (plugin && !plugin.view.webContents.isDestroyed()) {
-        console.log('[Plugin][MainPush] waiting dom-ready after preload:', { pluginPath })
-        await this.assemblyCoordinator.waitForDomReady(plugin.view, 5000)
-      }
-    }
-
-    if (!plugin || plugin.view.webContents.isDestroyed()) {
-      console.warn('[Plugin][MainPush] query aborted: plugin unavailable', { pluginPath })
-      return []
-    }
-
-    const callId = `mp_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
-
-    return new Promise((resolve) => {
-      const timeout = setTimeout(() => resolve([]), 3000) // 3 秒超时
-
-      plugin!.view.webContents.ipc.once(`main-push-result-${callId}`, (_event, result) => {
-        clearTimeout(timeout)
-        console.log('[Plugin][MainPush] result received:', {
-          pluginPath,
-          callId,
-          success: !!result?.success,
-          resultCount: Array.isArray(result?.results) ? result.results.length : 0
-        })
-        if (result.success && Array.isArray(result.results)) {
-          // 处理图标路径：将相对路径转为 file:// URL（保留原始 icon 不变，用 _resolvedIcon 展示）
-          const processed = result.results.map((item: any) => {
-            if (
-              item.icon &&
-              !item.icon.startsWith('http') &&
-              !item.icon.startsWith('file:') &&
-              !item.icon.startsWith('data:')
-            ) {
-              return {
-                ...item,
-                _resolvedIcon: pathToFileURL(path.join(pluginPath, item.icon)).href
-              }
-            }
-            return item
-          })
-          resolve(processed)
-        } else {
-          resolve([])
+    const releaseRuntime = this.retainPluginRuntime(pluginPath)
+    try {
+      console.log('[Plugin][MainPush] query start:', { pluginPath, queryData })
+      // 确保插件已加载
+      let plugin = this.pluginViews.find((v) => v.path === pluginPath)
+      if (!plugin) {
+        console.log('[Plugin][MainPush] plugin not loaded, preload first:', { pluginPath })
+        await this.preloadPlugin(pluginPath)
+        // 等待 dom-ready（最多 5 秒）
+        plugin = this.pluginViews.find((v) => v.path === pluginPath)
+        if (plugin && !plugin.view.webContents.isDestroyed()) {
+          console.log('[Plugin][MainPush] waiting dom-ready after preload:', { pluginPath })
+          await this.assemblyCoordinator.waitForDomReady(plugin.view, 5000)
         }
-      })
+      }
 
-      plugin!.view.webContents.send('main-push-query', { queryData, callId })
-      console.log('[Plugin][MainPush] query dispatched:', { pluginPath, callId })
-    })
+      if (!plugin || plugin.view.webContents.isDestroyed()) {
+        console.warn('[Plugin][MainPush] query aborted: plugin unavailable', { pluginPath })
+        return []
+      }
+
+      const callId = `mp_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
+
+      const result = await requestPluginResponse<{ success: boolean; results?: any[] }>(
+        plugin.view.webContents,
+        'main-push-query',
+        `main-push-result-${callId}`,
+        { queryData, callId },
+        3000
+      )
+      if (!result?.success || !Array.isArray(result.results)) return []
+      // 只派生展示图标地址，不修改插件返回的原始 icon。
+      return result.results.map((item: any) => {
+        if (
+          item.icon &&
+          !item.icon.startsWith('http') &&
+          !item.icon.startsWith('file:') &&
+          !item.icon.startsWith('data:')
+        )
+          return { ...item, _resolvedIcon: pathToFileURL(path.join(pluginPath, item.icon)).href }
+        return item
+      })
+    } finally {
+      releaseRuntime()
+    }
   }
 
   /**
-   * 通知插件用户选择了 mainPush 结果
+   * 通知插件选择动态结果，并在收束时释放监听。
+   * @param pluginPath 插件路径。
+   * @param _featureCode 兼容的功能代码参数。
+   * @param selectData 用户选择的结果。
    * @returns 是否需要进入插件界面
+   * @throws IPC 发送失败时抛出。
    */
-  public selectMainPush(
+  public async selectMainPush(
     pluginPath: string,
     _featureCode: string,
     selectData: { code: string; type: string; payload: string; option: any }
   ): Promise<boolean> {
-    const plugin = this.pluginViews.find((v) => v.path === pluginPath)
-    if (!plugin || plugin.view.webContents.isDestroyed()) {
-      return Promise.resolve(false)
+    const releaseRuntime = this.retainPluginRuntime(pluginPath)
+    try {
+      await this.preloadPlugin(pluginPath)
+      const plugin = this.pluginViews.find((v) => v.path === pluginPath)
+      if (plugin) await this.assemblyCoordinator.waitForDomReady(plugin.view, 5000)
+      if (!plugin || plugin.view.webContents.isDestroyed()) {
+        return Promise.resolve(false)
+      }
+
+      const callId = `mps_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
+
+      const result = await requestPluginResponse<{ success: boolean; shouldEnterPlugin?: boolean }>(
+        plugin.view.webContents,
+        'main-push-select',
+        `main-push-select-result-${callId}`,
+        { selectData, callId },
+        3000
+      )
+      return !!(result?.success && result.shouldEnterPlugin)
+    } finally {
+      releaseRuntime()
     }
-
-    const callId = `mps_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
-
-    return new Promise((resolve) => {
-      const timeout = setTimeout(() => resolve(false), 3000)
-
-      plugin!.view.webContents.ipc.once(`main-push-select-result-${callId}`, (_event, result) => {
-        clearTimeout(timeout)
-        resolve(result.success && result.shouldEnterPlugin)
-      })
-
-      plugin!.view.webContents.send('main-push-select', { selectData, callId })
-    })
   }
 
   /**
@@ -2117,7 +2240,10 @@ export class PluginManager {
         {
           width: windowWidth,
           height: viewHeight,
-          title: pluginConfig.title || pluginConfig.name,
+          title: isToolsPluginPath(pluginPath)
+            ? getToolsWindowTitle(featureCode)
+            : pluginConfig.title || pluginConfig.name,
+          toolFeatureCode: isToolsPluginPath(pluginPath) ? featureCode : undefined,
           logo: logoUrl,
           searchQuery: '',
           searchPlaceholder: '搜索...',
@@ -2228,7 +2354,14 @@ export class PluginManager {
         {
           width: windowWidth,
           height: viewHeight,
-          title: pluginConfig.title || pluginConfig.name,
+          title: isToolsPluginPath(this.currentPluginPath)
+            ? getToolsWindowTitle(
+                this.pluginLastEnterState.get(this.currentPluginPath)?.featureCode || ''
+              )
+            : pluginConfig.title || pluginConfig.name,
+          toolFeatureCode: isToolsPluginPath(this.currentPluginPath)
+            ? this.pluginLastEnterState.get(this.currentPluginPath)?.featureCode
+            : undefined,
           logo: cached.logo,
           searchQuery: cached.subInputValue || '',
           searchPlaceholder: cached.subInputPlaceholder || '搜索...',
@@ -2249,6 +2382,7 @@ export class PluginManager {
       }
 
       // 从缓存中移除
+      if (isToolsPluginPath(this.currentPluginPath)) resetToolsWindowIdentity(this.mainWindow)
       const index = this.pluginViews.findIndex((v) => v.path === this.currentPluginPath)
       if (index !== -1) {
         this.pluginViews.splice(index, 1)

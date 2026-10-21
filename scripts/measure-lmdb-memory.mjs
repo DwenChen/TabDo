@@ -9,7 +9,7 @@ const DOC_COUNT = Number(process.env.DOC_COUNT || 5000)
 const DOC_PAYLOAD_BYTES = Number(process.env.DOC_PAYLOAD_BYTES || 512)
 const MAP_SIZE = Number(process.env.MAP_SIZE || 2 * 1024 * 1024 * 1024)
 
-const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ztools-lmdb-memory-'))
+const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'tabdo-lmdb-memory-'))
 const opened = []
 
 function formatBytes(bytes) {
@@ -57,7 +57,7 @@ function print(label, current, baseline, previous) {
   })
 }
 
-function openZToolsLikeDb(name, mapSize = MAP_SIZE) {
+function openTabDoLikeDb(name, mapSize = MAP_SIZE) {
   const dir = path.join(tempRoot, name)
   fs.mkdirSync(dir, { recursive: true })
   const env = open({
@@ -139,10 +139,10 @@ async function measure() {
   let previous = baseline
   print('baseline', baseline, baseline, previous)
 
-  const deviceDb = openZToolsLikeDb('device')
+  const deviceDb = openTabDoLikeDb('device')
   await settle()
   let current = snapshot()
-  print('open one empty ZTools-like LMDB env', current, baseline, previous)
+  print('open one empty TabDo-like LMDB env', current, baseline, previous)
   previous = current
 
   writeSmallDocs(deviceDb, DOC_COUNT, 'device')
@@ -151,10 +151,10 @@ async function measure() {
   print(`after writing ${DOC_COUNT} small docs into first env`, current, baseline, previous)
   previous = current
 
-  const accountDb = openZToolsLikeDb('account')
+  const accountDb = openTabDoLikeDb('account')
   await settle()
   current = snapshot()
-  print('open second empty ZTools-like LMDB env', current, baseline, previous)
+  print('open second empty TabDo-like LMDB env', current, baseline, previous)
   previous = current
 
   writeSmallDocs(accountDb, DOC_COUNT, 'account')

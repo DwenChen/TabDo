@@ -1,15 +1,18 @@
 import { exec } from 'child_process'
 import os from 'os'
+import path from 'node:path'
 import type { PluginManager } from '../../managers/pluginManager'
 import { BrowserWindow, clipboard, nativeImage, Notification, shell } from 'electron'
 import { promisify } from 'util'
 import { GLOBAL_SCROLLBAR_CSS } from '../../core/globalStyles'
 import { screenCapture } from '../../core/screenCapture'
 import windowManager from '../../managers/windowManager'
+import clipboardManager from '../../managers/clipboardManager'
 import databaseAPI from '../shared/database'
 import * as terminalLauncher from '../../utils/terminalLauncher'
 import { ColorPicker } from '../../core/native/index.js'
 import { getExplorerFolderPathFromWindow } from '../../utils/common'
+import { applyToolsWindowIdentity, getToolsWindowIcon } from '../../core/toolsWindowIdentity'
 
 interface SystemCommandContext {
   mainWindow: Electron.BrowserWindow | null
@@ -135,6 +138,9 @@ export async function executeSystemCommand(
     case 'copy-path':
       return handleCopyPath(ctx, execAsync, param)
 
+    case 'copy-name':
+      return handleCopyName(ctx, execAsync, param)
+
     case 'open-terminal':
       return handleOpenTerminal(ctx, execAsync, param)
 
@@ -143,9 +149,6 @@ export async function executeSystemCommand(
 
     case 'screenshot':
       return handleScreenshot(ctx)
-
-    case 'add-to-wakeup-blacklist':
-      return handleAddToWakeupBlacklist(ctx)
 
     default:
       return { success: false, error: `Unknown system command: ${command}` }
@@ -225,6 +228,11 @@ async function handleTemplateSearch(
  * @param ctx 系统指令上下文
  * @returns 截图结果，包含 dataURL 与区域信息
  */
+/**
+ * 打开截图编辑器并交付最终图像，复用原生完成的剪贴板或保存操作。
+ * @param ctx 本次调用的窗口和插件管理上下文。
+ * @returns 截图结果或取消、失败说明。
+ */
 async function handleScreenshot(ctx: SystemCommandContext): Promise<any> {
   console.log('[SystemCmd] 执行截图（编辑态）')
 
@@ -235,8 +243,9 @@ async function handleScreenshot(ctx: SystemCommandContext): Promise<any> {
       return { success: false, error: '未获取到截图内容' }
     }
 
-    // 用户确认后发布最终图像，不弹出复制成功通知。
-    clipboard.writeImage(nativeImage.createFromDataURL(result.image))
+    // Windows/macOS 已在原生确认时复制或保存，重复解码和写回会放大长图内存峰值。
+    if (process.platform === 'linux')
+      clipboard.writeImage(nativeImage.createFromDataURL(result.image))
 
     // 附带 image/bounds，供后续工具调用链使用
     return { success: true, image: result.image, bounds: result.bounds }
@@ -261,6 +270,11 @@ async function handleOpenUrl(ctx: SystemCommandContext, param: any): Promise<any
   return { success: false, error: '缺少网址' }
 }
 
+/**
+ * 用带独立任务栏图标的临时窗口显示前一个活动窗口的信息。
+ * @param ctx 本次指令的宿主窗口上下文。
+ * @returns 窗口创建结果。
+ */
 function handleWindowInfo(ctx: SystemCommandContext): any {
   console.log('[SystemCmd] 执行窗口信息')
   const winInfo = windowManager.getPreviousActiveWindow()
@@ -297,7 +311,7 @@ function handleWindowInfo(ctx: SystemCommandContext): any {
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    background: rgba(0, 0, 0, 0.75);
+    background: #202124;
     color: #fff;
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
     display: flex;
@@ -359,19 +373,22 @@ function handleWindowInfo(ctx: SystemCommandContext): any {
 </html>`
 
   const infoWindow = new BrowserWindow({
+    title: '窗口信息',
+    icon: getToolsWindowIcon('window-info'),
     width: 500,
     height: 460,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
     resizable: false,
-    skipTaskbar: true,
+    skipTaskbar: false,
     hasShadow: false,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true
     }
   })
+  applyToolsWindowIdentity(infoWindow, 'window-info')
 
   infoWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
 
@@ -388,63 +405,87 @@ function handleWindowInfo(ctx: SystemCommandContext): any {
   return { success: true }
 }
 
+/**
+ * 解析复制类指令的目标路径，优先使用匹配到的单个文件或文件夹。
+ * @param execAsync 异步执行外部命令的函数。
+ * @param param 本次匹配输入，可能携带 files 或 window 载荷。
+ * @returns 目标绝对路径；无法解析时返回错误说明。
+ */
+async function resolveCopyTarget(
+  execAsync: (cmd: string) => Promise<{ stdout: string; stderr: string }>,
+  param?: any
+): Promise<{ path?: string; error?: string }> {
+  const filePath = getSingleFilePathParam(param)
+  if (filePath) return { path: filePath }
+
+  const windowInfo =
+    (param?.type === 'window' && param?.payload) || windowManager.getPreviousActiveWindow()
+
+  if (!windowInfo) return { error: '无法获取当前窗口信息' }
+
+  if (process.platform === 'win32') {
+    const folderPath = getWindowsExplorerPath(windowInfo as WindowsWindowInfo)
+    return folderPath ? { path: folderPath } : { error: '未读取到当前 "文件资源管理器" 窗口目录' }
+  }
+
+  if (process.platform === 'darwin') {
+    try {
+      return { path: await getMacFinderPath(execAsync) }
+    } catch (error) {
+      console.error('[SystemCmd] 获取 Finder 路径失败:', error)
+      return { error: String(error) }
+    }
+  }
+
+  return { error: `不支持的平台: ${process.platform}` }
+}
+
+/**
+ * 复制单个文件或文件夹的完整路径，同时按文本登记到剪贴板历史。
+ * @param ctx 本次调用的窗口和插件管理上下文。
+ * @param execAsync 异步执行外部命令的函数。
+ * @param param 本次匹配输入。
+ * @returns 复制结果，包含被复制的路径或错误说明。
+ */
 async function handleCopyPath(
   ctx: SystemCommandContext,
   execAsync: (cmd: string) => Promise<{ stdout: string; stderr: string }>,
   param?: any
 ): Promise<any> {
-  const filePath = getSingleFilePathParam(param)
-  console.log('[SystemCmd] 执行复制路径', filePath ? `(剪贴板文件: ${filePath})` : '(从窗口获取)')
+  console.log('[SystemCmd] 执行复制路径', param?.type === 'files' ? '(剪贴板文件)' : '(从窗口获取)')
+  const target = await resolveCopyTarget(execAsync, param)
+  if (!target.path) return { success: false, error: target.error }
 
-  if (filePath) {
-    clipboard.writeText(filePath)
-    console.log('[SystemCmd] 已复制路径:', filePath)
-    ctx.mainWindow?.hide()
-    return { success: true, path: filePath }
-  }
+  await clipboardManager.writeTextEntry(target.path)
+  console.log('[SystemCmd] 已复制路径:', target.path)
+  ctx.mainWindow?.hide()
+  return { success: true, path: target.path }
+}
 
-  const windowInfo =
-    (param?.type === 'window' && param?.payload) || windowManager.getPreviousActiveWindow()
+/**
+ * 复制单个文件、文件夹或资源管理器目录的名称，同时按文本登记到剪贴板历史。
+ * @param ctx 本次调用的窗口和插件管理上下文。
+ * @param execAsync 异步执行外部命令的函数。
+ * @param param 本次匹配输入。
+ * @returns 复制结果，包含被复制的名称或错误说明。
+ */
+async function handleCopyName(
+  ctx: SystemCommandContext,
+  execAsync: (cmd: string) => Promise<{ stdout: string; stderr: string }>,
+  param?: any
+): Promise<any> {
+  console.log('[SystemCmd] 执行复制名称', param?.type === 'files' ? '(剪贴板文件)' : '(从窗口获取)')
+  const target = await resolveCopyTarget(execAsync, param)
+  if (!target.path) return { success: false, error: target.error }
 
-  if (!windowInfo) {
-    return { success: false, error: '无法获取当前窗口信息' }
-  }
+  // 去掉目录分隔符后再取末级名称，兼容以分隔符结尾的路径。
+  const name = path.basename(target.path.replace(/[\\/]+$/, ''))
+  if (!name) return { success: false, error: '无法从路径中取出名称' }
 
-  if (process.platform === 'win32') {
-    const folderPath = getWindowsExplorerPath(windowInfo as WindowsWindowInfo)
-    if (!folderPath) {
-      return { success: false, error: '未读取到当前 "文件资源管理器" 窗口目录' }
-    }
-
-    clipboard.writeText(folderPath)
-    console.log('[SystemCmd] 已复制路径:', folderPath)
-    ctx.mainWindow?.hide()
-    return { success: true, path: folderPath }
-  }
-
-  if (process.platform === 'darwin') {
-    try {
-      const script = `
-      tell application "Finder"
-        if (count of Finder windows) is 0 then
-          return POSIX path of (desktop as alias)
-        else
-          return POSIX path of (target of front window as alias)
-        end if
-      end tell
-    `
-      const { stdout } = await execAsync(`osascript -e '${script}'`)
-      const folderPath = stdout.trim()
-      clipboard.writeText(folderPath)
-      console.log('[SystemCmd] 已复制路径:', folderPath)
-      ctx.mainWindow?.hide()
-      return { success: true, path: folderPath }
-    } catch (error) {
-      console.error('[SystemCmd] 获取 Finder 路径失败:', error)
-      return { success: false, error: String(error) }
-    }
-  }
-  return { success: false, error: `不支持的平台: ${process.platform}` }
+  await clipboardManager.writeTextEntry(name)
+  console.log('[SystemCmd] 已复制名称:', name)
+  ctx.mainWindow?.hide()
+  return { success: true, path: name }
 }
 
 /**
@@ -583,60 +624,11 @@ async function handleColorPicker(ctx: SystemCommandContext): Promise<any> {
     clipboard.writeText(result.hex)
     console.log('[SystemCmd] 已复制颜色值:', result.hex)
     if (Notification.isSupported()) {
-      new Notification({ title: 'ZTools', body: `已复制颜色值: ${result.hex}` }).show()
+      new Notification({ title: 'TabDo', body: `已复制颜色值: ${result.hex}` }).show()
     }
     return { success: true, hex: result.hex }
   } catch (error) {
     console.error('[SystemCmd] 取色失败:', error)
     return { success: false, error: String(error) }
   }
-}
-
-/**
- * 添加到唤醒黑名单：将唤醒前活动窗口的应用加入黑名单
- */
-function handleAddToWakeupBlacklist(ctx: SystemCommandContext): any {
-  const winInfo = windowManager.getPreviousActiveWindow()
-  if (!winInfo?.app) {
-    return { success: false, error: '无法获取当前窗口信息' }
-  }
-
-  const settings = databaseAPI.dbGet('settings-general') || {}
-  const blacklist: Array<{ app: string; bundleId?: string; label?: string }> =
-    settings.wakeupBlacklist ?? []
-
-  const appName = winInfo.app
-
-  // 去重：macOS 按 bundleId，Windows 按 app 名称
-  const isDuplicate =
-    process.platform === 'darwin' && winInfo.bundleId
-      ? blacklist.some((item) => item.bundleId === winInfo.bundleId)
-      : blacklist.some((item) => item.app.toLowerCase() === appName.toLowerCase())
-
-  if (isDuplicate) {
-    ctx.mainWindow?.hide()
-    if (Notification.isSupported()) {
-      new Notification({ title: 'ZTools', body: `${appName} 已在唤醒黑名单中` }).show()
-    }
-    return { success: false, error: '该应用已在唤醒黑名单中' }
-  }
-
-  const label = appName.replace(/\.(exe|app)$/i, '')
-  blacklist.push({
-    app: appName,
-    bundleId: winInfo.bundleId,
-    label
-  })
-
-  databaseAPI.dbPut('settings-general', { ...settings, wakeupBlacklist: blacklist })
-  windowManager.updateWakeupBlacklist(blacklist)
-
-  ctx.mainWindow?.hide()
-  if (Notification.isSupported()) {
-    new Notification({
-      title: 'ZTools',
-      body: `已将 ${label} 添加到唤醒黑名单`
-    }).show()
-  }
-  return { success: true }
 }

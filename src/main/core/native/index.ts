@@ -2,8 +2,8 @@ import os from 'os'
 import path from 'path'
 import { execSync, fork, spawnSync } from 'child_process'
 import { app, clipboard } from 'electron'
-import macZToolsNative from '../../../../resources/lib/mac/ztools_native.node?asset'
-import winZToolsNative from '../../../../resources/lib/win/ztools_native.node?asset'
+import macTabDoNative from '../../../../resources/lib/mac/tabdo_native.node?asset'
+import winTabDoNative from '../../../../resources/lib/win/tabdo_native.node?asset'
 import {
   primeToolsScreenshot,
   startToolsScreenshot,
@@ -14,11 +14,11 @@ import {
 // 原生日志默认关闭：只有设置里的调试控制台开启时才向临时目录写入日志
 // （NativeLogger.setEnabled 联动）。必须在下方 require 原生模块之前设置——
 // 原生模块加载时会立即读取该环境变量并写会话起始行；off 时起始行被过滤、
-// 日志文件懒创建，临时目录不会出现 ztools-native.log。
-// 用户已显式设置 ZTOOLS_LOG_LEVEL 时尊重其取值（排障后门）。
-if (!process.env.ZTOOLS_LOG_LEVEL) {
-  process.env.ZTOOLS_LOG_LEVEL = 'off'
-}
+// 日志文件懒创建，临时目录不会出现 tabdo-native.log。
+// 用户已显式设置 TABDO_LOG_LEVEL 时尊重其取值（排障后门）。
+process.env.TABDO_LOG_LEVEL = process.env.TABDO_LOG_LEVEL || process.env.ZTOOLS_LOG_LEVEL || 'off'
+// 现有原生二进制沿用旧环境键，兼容默认关闭和显式排障级别。
+process.env.ZTOOLS_LOG_LEVEL = process.env.TABDO_LOG_LEVEL
 
 // 根据平台加载对应的原生模块
 // 注意：?asset 导入是 Vite 构建期转换，只能做静态导入（得到路径字符串）
@@ -28,10 +28,10 @@ const platform = os.platform()
 let addon: any = null
 if (platform === 'darwin') {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  addon = require(macZToolsNative)
+  addon = require(macTabDoNative)
 } else if (platform === 'win32') {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  addon = require(winZToolsNative)
+  addon = require(winTabDoNative)
 }
 
 // 原生模块接口类型定义
@@ -314,12 +314,16 @@ export class ClipboardMonitor {
   }
 
   /**
-   * 停止剪贴板监控
+   * 停止剪贴板监控，先解除回调再回收原生消息线程。
+   * @returns 无返回值。
+   * @throws {Error} 原生监听停止失败时抛出。
    */
   stop(): void {
     if (!this._isMonitoring) {
       return
     }
+    this._isMonitoring = false
+    this._callback = null
 
     if (platform === 'linux') {
       if (this._pollTimer !== null) {
@@ -329,8 +333,6 @@ export class ClipboardMonitor {
     } else {
       ;(addon as NativeAddon).stopMonitor()
     }
-    this._isMonitoring = false
-    this._callback = null
   }
 
   /**
@@ -437,18 +439,20 @@ export class WindowMonitor {
   }
 
   /**
-   * 停止窗口监控
+   * 停止窗口监控，屏蔽已排队回调后回收原生消息线程。
+   * @returns 无返回值。
+   * @throws {Error} 原生监听停止失败时抛出。
    */
   stop(): void {
     if (!this._isMonitoring) {
       return
     }
+    this._isMonitoring = false
+    this._callback = null
 
     if (platform !== 'linux') {
       ;(addon as NativeAddon).stopWindowMonitor()
     }
-    this._isMonitoring = false
-    this._callback = null
   }
 
   /**
@@ -1236,7 +1240,7 @@ export class WindowsShortcutScanner {
             'windows-shortcut-scanner-runner.cjs'
           )
         : path.join(app.getAppPath(), 'resources', 'windows-shortcut-scanner-runner.cjs')
-      const child = fork(runnerPath, [winZToolsNative], {
+      const child = fork(runnerPath, [winTabDoNative], {
         env: {
           ...process.env,
           ELECTRON_RUN_AS_NODE: '1'
@@ -1519,10 +1523,10 @@ function safeParseBridgeJson(inputJson: string): unknown {
 /**
  * 原生层日志控制类
  *
- * 原生日志写入系统临时目录（ztools-native.log，10MB 轮转），默认关闭
- * （见本文件顶部的 ZTOOLS_LOG_LEVEL 默认值），仅当设置里的调试控制台开启时
+ * 原生日志写入系统临时目录（tabdo-native.log，10MB 轮转），默认关闭
+ * （见本文件顶部的 TABDO_LOG_LEVEL 默认值），仅当设置里的调试控制台开启时
  * 由 NativeLogger.setEnabled(true) 打开，关闭调试控制台时停止写入。
- * 只影响原生层自己的日志，与 JS 侧 logCollector 的调试输出互不干扰。
+ * 只影响原生层自己的日志，与应用文件日志互不干扰。
  * Linux 无原生模块、旧版二进制无日志导出时，所有方法安全降级为 no-op。
  */
 export class NativeLogger {

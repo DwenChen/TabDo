@@ -6,7 +6,7 @@ export function getAppBundlePath(...segments: string[]): string {
 }
 
 export function getPreloadPath(fileName = 'index.js'): string {
-  if (process.env.ZTOOLS_SOURCE_PREVIEW === '1' && fileName === 'index.js') {
+  if (process.env.TABDO_SOURCE_PREVIEW === '1' && fileName === 'index.js') {
     return getAppBundlePath('scripts', 'preview-preload.cjs')
   }
   return getAppBundlePath('out', 'preload', fileName)

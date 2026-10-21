@@ -10,6 +10,5 @@
 | 原生构建       | `build-tools-screenshot.cjs`                                                                                | 固定来源版本的截图模块重现，构建中间文件进入 `.artifacts/native/` |
 | 定位与性能     | `compare-windows-scanner.cjs`、`diagnose-windows-scanner-paths.cjs`、`measure-lmdb-memory.mjs`              | 专项目标的诊断，不应作为默认全量检查                              |
 | 版本与发布支持 | `version-utils.mjs`、`update-metadata.mjs`、`updater.mjs`                                                   | 版本解析、云端制品更新元数据；仅有当前用户授权才能发布            |
-| API / 插件 CLI | `sync-api-types.js`、`publish-api-types.*`、`publish-plugin-cli.*`                                          | 上游类型或开发包辅助；发布同样需要明确授权                        |
 
 不要在根目录新增 `_fix*.cjs` 等一次性脚本。临时诊断进入 `.artifacts/`，可复用的工具进入本目录并补 JSDoc、对应测试与维护条目。不得将凭据写入脚本、日志或变更记录。

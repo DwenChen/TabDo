@@ -225,11 +225,11 @@ export class PluginAssemblyCoordinator {
     try {
       // 第一步：通知主渲染“当前装配目标 token”
       await mainWindow.webContents.executeJavaScript(
-        `window.ztools?.setAssemblyTarget?.(${JSON.stringify(token)})`
+        `window.tabdo?.setAssemblyTarget?.(${JSON.stringify(token)})`
       )
       // 第二步：读取主渲染回执 token，确保主/插件视图状态一致
       const returned = await mainWindow.webContents.executeJavaScript(
-        `window.ztools?.endAssemblyPlugin?.()`
+        `window.tabdo?.endAssemblyPlugin?.()`
       )
       // 只有 token 一致才允许继续展示/进入插件
       const ok = returned === token
@@ -328,7 +328,10 @@ export class PluginAssemblyCoordinator {
   }
 
   /**
-   * 等待视图进入 dom-ready（含已就绪命中与超时兜底）
+   * 等待视图就绪，成功、超时或销毁后均撤销临时监听。
+   * @param view 目标插件视图。
+   * @param timeoutMs 等待上限。
+   * @returns 就绪或结束等待后的 Promise。
    */
   public async waitForDomReady(view: WebContentsView, timeoutMs: number = 5000): Promise<void> {
     const webContents = view.webContents
@@ -351,10 +354,16 @@ export class PluginAssemblyCoordinator {
     await new Promise<void>((resolve) => {
       let done = false
       const startedAt = Date.now()
+      /**
+       * 释放本次就绪等待的全部监听和计时器。
+       * @returns 无返回值。
+       */
       const finish = (): void => {
         if (done) return
         done = true
         clearTimeout(timeout)
+        webContents.removeListener('dom-ready', ready)
+        webContents.removeListener('destroyed', finish)
         console.log('[插件][DomReady] 等待结束', {
           webContentsId: webContents.id,
           durationMs: Date.now() - startedAt
@@ -371,12 +380,18 @@ export class PluginAssemblyCoordinator {
         finish()
       }, timeoutMs)
 
-      webContents.once('dom-ready', () => {
+      /**
+       * 记录本次真实就绪事件，然后结束等待。
+       * @returns 无返回值。
+       */
+      const ready = (): void => {
         // 首次就绪后做缓存，后续可直接命中快速返回
         this.markDomReady(webContents.id)
         console.log('[插件][DomReady] 收到 dom-ready 事件', { webContentsId: webContents.id })
         finish()
-      })
+      }
+      webContents.once('dom-ready', ready)
+      webContents.once('destroyed', finish)
     })
   }
 }

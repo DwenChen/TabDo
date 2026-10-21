@@ -24,7 +24,10 @@ const emit = defineEmits([
   'toggle-expand',
   'delete-favorite',
   'toggle-selection',
-  'reorder-favorite'
+  'reorder-favorite',
+  'float-image',
+  'float-text',
+  'annotate-image'
 ])
 
 const listRef = ref(null)
@@ -341,12 +344,15 @@ onBeforeUnmount(resetDragState)
         :is-favorite-tab="activeTab === 'favorite'"
         @toggle-expand="emit('toggle-expand', item.id)"
         @delete-favorite="emit('delete-favorite', index)"
+        @float-text="emit('float-text', item)"
       />
       <ImageItem
-        v-else-if="item.type === 'image'"
+        v-else-if="item.type === 'image' || item.category === 'image'"
         :item="item"
         :is-favorite-tab="activeTab === 'favorite'"
         @delete-favorite="emit('delete-favorite', index)"
+        @float-image="emit('float-image', item, $event)"
+        @annotate-image="emit('annotate-image', item, $event)"
       />
       <FileItem
         v-else-if="item.type === 'file'"

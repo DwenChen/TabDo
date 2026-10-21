@@ -3,7 +3,7 @@ const fs = require('fs/promises')
 const os = require('os')
 const path = require('path')
 
-const nativeAddon = require('../resources/lib/win/ztools_native.node')
+const nativeAddon = require('../resources/lib/win/tabdo_native.node')
 
 const SKIP_FOLDERS = [
   'sdk',

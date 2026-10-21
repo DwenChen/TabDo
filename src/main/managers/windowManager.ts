@@ -66,7 +66,7 @@ class WindowManager {
   private settingsOpenPromise: Promise<void> | null = null
   private tray: Tray | null = null
   private trayMenu: Menu | null = null // 托盘菜单
-  private currentShortcut = 'Option+Z' // 当前注册的快捷键
+  private currentShortcut = '' // 新资料默认不注册设置页呼出快捷键
   private isDoubleTapMode = false // 当前呼出快捷键是否为双击修饰键模式
   private static readonly MODIFIER_NAMES = ['Command', 'Ctrl', 'Alt', 'Option', 'Shift']
   private isQuitting = false // 是否正在退出应用
@@ -103,15 +103,11 @@ class WindowManager {
   // 原生模态对话框关闭前后可能发出排队的 blur/mouseup 事件。
   private modalDialogBlurHideSuppressed: boolean = false
   private modalDialogBlurHideReleaseTimer: ReturnType<typeof setTimeout> | null = null
-  private modalDialogBlurHideSuppressionDepth: number = 0
-  private lastBlurHideTime: number = 0 // blur 导致隐藏窗口的时间戳（用于解决托盘点击竞态）
+  private modalDialogBlurHideSuppressionDepth: number = 0 // blur 导致隐藏窗口的时间戳（用于解决托盘点击竞态）
   private blurHideTimer: ReturnType<typeof setTimeout> | null = null // Linux blur 延迟隐藏定时器
   // macOS 全屏场景的空间锚点；全屏呼出期间复用，普通桌面呼出时释放。
   private macSpaceAnchor: BrowserWindow | null = null
-  private isPreparingMacSpace = false // 透明迁移阶段不恢复输入焦点，正式显示时再恢复
-  // Double-tap 唤醒窗口时，Windows 可能紧跟一个短暂 blur；这两个 timer 用于跳过误关闭并补一次焦点。
-  private doubleTapFocusTimer: ReturnType<typeof setTimeout> | null = null
-  private windowsHotkeyFocusTimer: ReturnType<typeof setTimeout> | null = null
+  private isPreparingMacSpace = false
   private transientBlurSuppressTimer: ReturnType<typeof setTimeout> | null = null
   private transientBlurSuppressUntil: number = 0 // 瞬时 blur 抑制截止时间戳，取最长值避免提前释放
   // 全局左键状态用于区分“点击外部关闭”和“从外部拖文件进窗口”。拖拽时 blur 先挂起，等 mouseup 再判断。
@@ -119,8 +115,7 @@ class WindowManager {
   private pendingBlurHideOnMouseUp: boolean = false // blur 时左键按下，等待 mouseup 再决定是否隐藏
   private pendingBlurHideTimer: ReturnType<typeof setTimeout> | null = null // mouseup 兜底定时器
   private mouseStateTrackingStarted: boolean = false
-  private appShortcuts: Map<string, string> = new Map() // 应用快捷键映射表 (快捷键 -> 目标指令)
-  private wakeupBlacklist: Array<{ app: string; bundleId?: string; label?: string }> = [] // 唤醒黑名单
+  private appShortcuts: Map<string, string> = new Map() // 唤醒黑名单
   private onThemeInfoChanged: (() => void) | null = null // 主题信息变更回调钩子
   private compactMainWindowHeader = false // 主窗口是否使用紧凑顶部栏
   // 应用快捷键触发时携带的当前输入上下文
@@ -193,7 +188,7 @@ class WindowManager {
    */
   private isBlurHideSuppressed(): boolean {
     return (
-      process.env.ZTOOLS_E2E === '1' ||
+      process.env.TABDO_E2E === '1' ||
       this.suppressBlurHide ||
       this.modalDialogBlurHideSuppressed ||
       this.transientBlurSuppressTimer !== null
@@ -271,7 +266,6 @@ class WindowManager {
       if (this.mainWindow?.isFocused()) return
       if (pluginManager.isPluginViewFocused()) return
 
-      this.lastBlurHideTime = Date.now()
       this.hideWindow(false)
     }, 15000)
   }
@@ -296,7 +290,6 @@ class WindowManager {
       return
     }
 
-    this.lastBlurHideTime = Date.now()
     this.hideWindow(false)
   }
 
@@ -368,7 +361,7 @@ class WindowManager {
     // 根据平台设置不同的窗口配置
     const windowConfig: Electron.BrowserWindowConstructorOptions = {
       type: 'panel',
-      title: 'ZTools',
+      title: 'TabDo',
       width: WINDOW_WIDTH,
       height: initialHeight,
       alwaysOnTop: true,
@@ -383,7 +376,7 @@ class WindowManager {
       hasShadow: true, // 启用窗口阴影（可调整为 false 来移除阴影）
       webPreferences: {
         preload: getPreloadPath(),
-        sandbox: process.env.ZTOOLS_SOURCE_PREVIEW !== '1',
+        sandbox: process.env.TABDO_SOURCE_PREVIEW !== '1',
         backgroundThrottling: false, // 窗口最小化时是否继续动画和定时器
         contextIsolation: true, // 禁用上下文隔离, 渲染进程和preload共用window对象
         nodeIntegration: false, // 渲染进程禁止直接使用 Node
@@ -460,7 +453,7 @@ class WindowManager {
           !input.alt
         ) {
           const settings = databaseAPI.dbGet('settings-general') || {}
-          const closeShortcutEnabled = settings?.builtinAppShortcutsEnabled?.closePlugin !== false
+          const closeShortcutEnabled = settings?.builtinAppShortcutsEnabled?.closePlugin === true
           if (!closeShortcutEnabled) {
             // 禁用时不拦截，让按键正常传到渲染进程（供 HotkeyInput 录制）
             return
@@ -545,17 +538,15 @@ class WindowManager {
           // 插件视图持有焦点（应用内部切换）→ 不隐藏
           if (pluginManager.isPluginViewFocused()) return
           // 确认是点击了其他窗口，隐藏
-          this.lastBlurHideTime = Date.now()
           this.hideWindow(false)
         }, 150)
       } else {
         // macOS / Windows：原有行为不变
-        this.lastBlurHideTime = Date.now()
         this.hideWindow(false)
       }
     })
 
-    if (process.env.ZTOOLS_E2E !== '1') {
+    if (process.env.TABDO_E2E !== '1') {
       // 系统级鼠标监听不属于界面冒烟测试范围，避免请求权限和产生全局副作用。
       this.startMouseStateTracking()
     }
@@ -587,7 +578,7 @@ class WindowManager {
 
     // 阻止窗口被销毁（Command+W 时隐藏而不是关闭）
     this.mainWindow.on('close', (event) => {
-      if (process.env.ZTOOLS_E2E !== '1' && !this.isQuitting) {
+      if (process.env.TABDO_E2E !== '1' && !this.isQuitting) {
         event.preventDefault()
 
         // 若当前处于插件页面，先退出插件回到主搜索框
@@ -607,12 +598,6 @@ class WindowManager {
       }
     })
     // clipboardManager.setWindowFloating(this.mainWindow.getNativeWindowHandle())
-
-    // 从数据库加载唤醒黑名单
-    const initSettings = databaseAPI.dbGet('settings-general')
-    if (initSettings?.wakeupBlacklist) {
-      this.wakeupBlacklist = initSettings.wakeupBlacklist
-    }
 
     return this.mainWindow
   }
@@ -642,7 +627,7 @@ class WindowManager {
     this.tray = new Tray(icon)
 
     // 设置托盘提示文字
-    this.tray.setToolTip('ZTools')
+    this.tray.setToolTip('TabDo')
 
     // 创建右键菜单
     this.createTrayMenu()
@@ -675,12 +660,6 @@ class WindowManager {
 
     // 使用普通菜单项显示游戏模式状态，避免原生 checkbox 为整个菜单预留勾选栏。
     this.trayMenu = Menu.buildFromTemplate([
-      {
-        label: '显示/隐藏设置',
-        click: () => {
-          this.toggleWindow()
-        }
-      },
       {
         label: dndManager.manualEnabled ? '游戏模式 ✓' : '游戏模式',
         click: () => {
@@ -735,10 +714,12 @@ class WindowManager {
   }
 
   /**
-   * 注册全局快捷键（支持双击修饰键）
+   * 更新设置页呼出快捷键，空字符串表示关闭，支持双击修饰键。
+   * @param shortcut 新快捷键；省略时使用当前值。
+   * @returns 注册或关闭是否成功。
    */
   public registerShortcut(shortcut?: string): boolean {
-    const keyToRegister = shortcut || this.currentShortcut
+    const keyToRegister = shortcut ?? this.currentShortcut
 
     // 保存旧的快捷键信息，用于注册失败时回滚
     const oldShortcut = this.currentShortcut
@@ -748,15 +729,22 @@ class WindowManager {
     if (this.isDoubleTapMode) {
       const oldModifier = this.currentShortcut.split('+')[0]
       doubleTapManager.unregister(oldModifier)
-    } else {
+    } else if (this.currentShortcut) {
       globalShortcut.unregister(this.currentShortcut)
+    }
+
+    // 关闭时不注册空 accelerator，也不影响其他用户全局快捷键。
+    if (!keyToRegister) {
+      this.currentShortcut = ''
+      this.isDoubleTapMode = false
+      return true
     }
 
     // 双击修饰键模式：通过 doubleTapManager 注册
     if (this.isDoubleTapShortcut(keyToRegister)) {
       const modifier = keyToRegister.split('+')[0]
       doubleTapManager.register(modifier, () => {
-        if (!dndManager.shouldIgnoreHotkeys()) this.toggleWindowFromDoubleTap()
+        if (!dndManager.shouldIgnoreHotkeys()) void this.showSettings()
       })
       this.currentShortcut = keyToRegister
       this.isDoubleTapMode = true
@@ -766,7 +754,7 @@ class WindowManager {
 
     // 普通快捷键模式：通过 globalShortcut 注册
     const ret = globalShortcut.register(keyToRegister, () => {
-      if (!dndManager.shouldIgnoreHotkeys()) this.toggleWindow()
+      if (!dndManager.shouldIgnoreHotkeys()) void this.showSettings()
     })
 
     if (!ret) {
@@ -775,11 +763,11 @@ class WindowManager {
       if (oldIsDoubleTapMode) {
         const oldModifier = oldShortcut.split('+')[0]
         doubleTapManager.register(oldModifier, () => {
-          if (!dndManager.shouldIgnoreHotkeys()) this.toggleWindowFromDoubleTap()
+          if (!dndManager.shouldIgnoreHotkeys()) void this.showSettings()
         })
-      } else {
+      } else if (oldShortcut) {
         globalShortcut.register(oldShortcut, () => {
-          if (!dndManager.shouldIgnoreHotkeys()) this.toggleWindow()
+          if (!dndManager.shouldIgnoreHotkeys()) void this.showSettings()
         })
       }
       return false
@@ -820,64 +808,6 @@ class WindowManager {
     // 如果没有插件在运行,焦点一定在主窗口
     if (pluginManager.getCurrentPluginPath() === null) {
       this.updateFocusTarget('mainWindow')
-    }
-  }
-
-  /**
-   * 按用户唤醒意图切换窗口；空宿主显式打开设置，不依赖窗口 show 事件。
-   * @returns 无返回值。
-   */
-  private toggleWindow(): void {
-    if (!this.mainWindow) return
-
-    const isFocused = this.mainWindow.isFocused()
-    const isVisible = this.mainWindow.isVisible()
-
-    // 判断窗口是否聚焦显示
-    // 修复：同时检查聚焦和可见状态，避免alert弹窗后判断错误
-    if (isFocused && isVisible) {
-      // 窗口已显示且聚焦 → 隐藏
-
-      // 记录当前的焦点状态（在隐藏之前）
-      this.recordFocusState()
-
-      this.mainWindow.blur()
-      this.mainWindow.hide()
-      this.restorePreviousWindow()
-    } else {
-      // 窗口已隐藏或失焦 → 显示并强制激活
-      // 但如果是刚刚因为 blur 事件隐藏的（点击托盘图标导致失焦），
-      // 说明用户意图是隐藏窗口，不应再重新显示
-      const timeSinceBlurHide = Date.now() - this.lastBlurHideTime
-      if (timeSinceBlurHide < 300) {
-        return
-      }
-      if (pluginManager.getCurrentPluginPath()) this.showWindow()
-      else void this.showSettings()
-      if (platform.isWindows) {
-        this.scheduleWindowsHotkeyRefocus()
-      }
-    }
-  }
-
-  private toggleWindowFromDoubleTap(): void {
-    if (!this.mainWindow) return
-
-    const willShow = !(this.mainWindow.isFocused() && this.mainWindow.isVisible())
-    if (willShow) {
-      // Double-tap 的 uiohook 回调刚触发后，系统可能补发一次 transient blur，短暂忽略避免刚显示就关闭。
-      this.suppressBlurHideTransiently(350)
-    }
-
-    this.toggleWindow()
-
-    if (willShow && platform.isWindows) {
-      if (this.doubleTapFocusTimer) clearTimeout(this.doubleTapFocusTimer)
-      // Windows 上延后一小段时间再聚焦，避开窗口 show 和系统焦点切换尚未稳定的阶段。
-      this.doubleTapFocusTimer = setTimeout(() => {
-        this.refocusSearchAfterDoubleTap()
-        this.doubleTapFocusTimer = null
-      }, 80)
     }
   }
 
@@ -1033,43 +963,6 @@ class WindowManager {
     return isFullscreenWindow(activeWindow)
   }
 
-  private refocusSearchAfterDoubleTap(): void {
-    if (!platform.isWindows) return
-    if (!this.mainWindow?.isVisible()) return
-
-    this.refocusActiveContentOnWindows()
-  }
-
-  private scheduleWindowsHotkeyRefocus(): void {
-    if (!platform.isWindows) return
-    if (this.windowsHotkeyFocusTimer) clearTimeout(this.windowsHotkeyFocusTimer)
-    // Windows 前台键盘目标有时会晚于 show/focus 稳定，延后一小段时间再补激活。
-    this.windowsHotkeyFocusTimer = setTimeout(() => {
-      this.refocusActiveContentOnWindows()
-      this.windowsHotkeyFocusTimer = null
-    }, 80)
-  }
-
-  private refocusActiveContentOnWindows(): void {
-    if (!platform.isWindows) return
-    if (!this.mainWindow?.isVisible()) return
-
-    app.focus({ steal: true })
-    this.mainWindow.show()
-    this.mainWindow.moveTop()
-    // Electron 的 isFocused 有时已经为 true，但 Windows 前台键盘目标仍未切到本应用；这里用原生激活补齐。
-    NativeWindowManager.activateWindow(process.pid)
-    this.mainWindow.focus()
-    if (pluginManager.getCurrentPluginPath() !== null && this.lastFocusTarget !== 'mainWindow') {
-      pluginManager.focusPluginView()
-      setImmediate(() => pluginManager.forceRepaintCurrentView())
-      return
-    }
-
-    this.mainWindow.webContents.focus()
-    this.mainWindow.webContents.send('focus-search', this.previousActiveWindow || null)
-  }
-
   /**
    * 保存窗口位置到指定显示器（仅内存）
    */
@@ -1199,15 +1092,6 @@ class WindowManager {
     const currentWindow = clipboardManager.getCurrentWindow()
     if (currentWindow) {
       this.previousActiveWindow = currentWindow
-
-      // 唤醒黑名单检查：当前活动窗口在黑名单中时不弹出
-      if (currentWindow.app) {
-        const wakeupWindow = { ...currentWindow, app: currentWindow.app }
-        if (this.isAppInWakeupBlacklist(wakeupWindow)) {
-          this.isRestoringFocus = false
-          return
-        }
-      }
     }
 
     // 移动到鼠标所在显示器（恢复该显示器记忆的位置或居中）
@@ -1389,28 +1273,6 @@ class WindowManager {
    */
   public getPreviousActiveWindow(): typeof this.previousActiveWindow {
     return this.previousActiveWindow
-  }
-
-  /**
-   * 更新唤醒黑名单（由设置或系统指令调用）
-   */
-  public updateWakeupBlacklist(
-    blacklist: Array<{ app: string; bundleId?: string; label?: string }>
-  ): void {
-    this.wakeupBlacklist = blacklist
-  }
-
-  /**
-   * 检查指定窗口是否在唤醒黑名单中
-   */
-  private isAppInWakeupBlacklist(windowInfo: { app: string; bundleId?: string }): boolean {
-    if (this.wakeupBlacklist.length === 0) return false
-    if (process.platform === 'darwin' && windowInfo.bundleId) {
-      return this.wakeupBlacklist.some((item) => item.bundleId === windowInfo.bundleId)
-    }
-    return this.wakeupBlacklist.some(
-      (item) => item.app.toLowerCase() === windowInfo.app.toLowerCase()
-    )
   }
 
   /**
@@ -1940,14 +1802,15 @@ class WindowManager {
 
   /**
    * 检查 Cmd+Q 内置快捷键（killPlugin）是否被用户禁用
-   * 用于 before-quit 事件：禁用时不隐藏窗口，让 Cmd+Q 可被用作呼出快捷键
+   * 用于 before-quit 事件：仅用户明确启用时接管 Cmd+Q。
+   * @returns 是否明确启用该内置快捷键。
    */
   public isKillPluginShortcutEnabled(): boolean {
     try {
       const settings = databaseAPI.dbGet('settings-general') || {}
-      return settings?.builtinAppShortcutsEnabled?.killPlugin !== false
+      return settings?.builtinAppShortcutsEnabled?.killPlugin === true
     } catch {
-      return true
+      return false
     }
   }
 

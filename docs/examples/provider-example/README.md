@@ -1,13 +1,13 @@
 # Provider 示例插件
 
-这是一个最小可参考的 provider 插件骨架，演示如何通过 `providers` 声明 + `ztools.registerProvider` 接入「翻译」与「OCR」能力。
+这是一个最小可参考的 provider 插件骨架，演示如何通过 `providers` 声明 + `tabdo.registerProvider` 接入「翻译」与「OCR」能力。
 
 > 此目录为文档示例，handler 使用 mock 实现，不可作为正式插件直接安装运行。真实接入请参考 `docs/provider-development-guide.md` 替换 handler 逻辑。
 
 ## 文件说明
 
 - `plugin.json` —— 声明了 `providers.translation` 与 `providers.ocr`（此处 key 恰好等于 type，作为最简兼容示例；多声明见下方说明）。
-- `preload.js` —— 调用 `ztools.registerProvider` 注册两个 provider 的 mock 实现。
+- `preload.js` —— 调用 `tabdo.registerProvider` 注册两个 provider 的 mock 实现。
 
 ## 同一 type 多条声明
 
@@ -21,10 +21,10 @@
 ```
 
 ```js
-ztools.registerProvider('baidu', async (input) => {
+tabdo.registerProvider('baidu', async (input) => {
   /* ... */
 })
-ztools.registerProvider('google', async (input) => {
+tabdo.registerProvider('google', async (input) => {
   /* ... */
 })
 ```

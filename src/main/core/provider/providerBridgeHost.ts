@@ -9,7 +9,7 @@ import providerManager from './providerManager'
  * 这里按 type 白名单转发到 providerManager（沿用用户在设置页选择的默认渠道）：
  *   ocr        { image }          => { text, blocks: [{ text, left, top, right, bottom }] }
  *   translation { text }          => { text }
- * 契约细节见 ztools-native-api 仓库 README「截图翻译」。
+ * 契约细节见 tabdo-native-api 仓库 README「截图翻译」。
  *
  * 桥接在主进程生命周期内常驻（原生模块无此能力时记日志跳过，不影响启动）。
  */
@@ -40,7 +40,9 @@ export function startProviderBridgeHost(): void {
 }
 
 /**
- * 停止桥接宿主（等待中的原生调用会立即收到失败）。目前仅测试 / 退出流程使用。
+ * 应用退出时停止桥接宿主，等待中的原生调用立即收到失败；重复停止安全。
+ * @returns 无返回值。
+ * @throws {Error} 原生桥接停止失败时抛出。
  */
 export function stopProviderBridgeHost(): void {
   if (!started) return

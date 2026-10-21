@@ -55,7 +55,7 @@ describe('plugin preload internal api bridge', () => {
   it('exposes updateDevProjectsOrder for internal plugin runtimes', async () => {
     require(preloadPath)
 
-    const internalApi = (globalThis as any).window.ztools?.internal
+    const internalApi = (globalThis as any).window.tabdo?.internal
 
     expect(internalApi?.updateDevProjectsOrder).toBeTypeOf('function')
 
@@ -67,7 +67,7 @@ describe('plugin preload internal api bridge', () => {
   it('exposes upsertDevProjectByConfigPath for internal plugin runtimes', async () => {
     require(preloadPath)
 
-    const internalApi = (globalThis as any).window.ztools?.internal
+    const internalApi = (globalThis as any).window.tabdo?.internal
 
     expect(internalApi?.upsertDevProjectByConfigPath).toBeTypeOf('function')
 
@@ -82,7 +82,7 @@ describe('plugin preload internal api bridge', () => {
   it('converts reactive AI provider data before add and update IPC calls', async () => {
     require(preloadPath)
 
-    const internalApi = (globalThis as any).window.ztools?.internal
+    const internalApi = (globalThis as any).window.tabdo?.internal
     const reasoning = new Proxy(
       {
         protocol: 'openai-compatible',
@@ -155,7 +155,7 @@ describe('plugin preload internal api bridge', () => {
     )
     require(preloadPath)
 
-    const aiChat = (globalThis as any).window.ztools?.aiChat
+    const aiChat = (globalThis as any).window.tabdo?.aiChat
     expect(aiChat).toBeTypeOf('function')
 
     const eventCallback = vi.fn()
@@ -166,7 +166,7 @@ describe('plugin preload internal api bridge', () => {
       String(eventName).startsWith('plugin:ai-chat-event-')
     )?.[1]
     eventListener({}, { type: 'content', delta: '完成' })
-    eventListener({}, { type: '__ztools_ai_chat_delivery_end__' })
+    eventListener({}, { type: '__tabdo_ai_chat_delivery_end__' })
     await expect(request).resolves.toEqual(response.data)
 
     const chatCall = ipcInvoke.mock.calls.find(([channel]) => channel === 'plugin:ai-chat')
@@ -188,14 +188,14 @@ describe('plugin preload internal api bridge', () => {
     })
     require(preloadPath)
 
-    const request = (globalThis as any).window.ztools.aiChat(
+    const request = (globalThis as any).window.tabdo.aiChat(
       { messages: [{ role: 'user', content: '测试' }] },
       vi.fn()
     )
     const eventListener = ipcOn.mock.calls.find(([eventName]) =>
       String(eventName).startsWith('plugin:ai-chat-event-')
     )?.[1]
-    eventListener({}, { type: '__ztools_ai_chat_delivery_end__' })
+    eventListener({}, { type: '__tabdo_ai_chat_delivery_end__' })
 
     await expect(request).rejects.toMatchObject({
       name: 'Error',

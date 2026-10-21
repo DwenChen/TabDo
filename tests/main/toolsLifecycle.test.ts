@@ -77,3 +77,19 @@ describe('built-in tool resource ownership', () => {
     expect(signal?.aborted).toBe(true)
   })
 })
+
+describe('early session resource release', () => {
+  it('removes completed resource closures during a long visible session', async () => {
+    const scope = new ToolLifecycle()
+    const cleanup = vi.fn()
+    for (let index = 0; index < 1000; index++) {
+      const release = scope.addCleanup(cleanup)
+      await release()
+      await release()
+    }
+    expect(cleanup).toHaveBeenCalledTimes(1000)
+    expect(scope.cleanups.size).toBe(0)
+    await scope.dispose()
+    expect(cleanup).toHaveBeenCalledTimes(1000)
+  })
+})

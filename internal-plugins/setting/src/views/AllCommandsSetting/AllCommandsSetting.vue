@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import settingsFillIcon from '@/assets/image/settings-fill.png'
 import { weightedSearch } from '@/utils'
+import { groupToolFeatures } from '@/utils/toolFeatureGroups'
 import {
   AdaptiveIcon,
   CommandTag,
@@ -11,7 +12,7 @@ import {
   MatchCommandDetailDialog
 } from '@/components'
 import type { TagDropdownMenuItem } from '@/components'
-import { usePluginCommandActions, useZtoolsSubInput } from '@/composables'
+import { usePluginCommandActions, useTabDoSubInput } from '@/composables'
 import {
   jumpFunctionShortcutsSetting,
   type ShortcutsSettingAliasDraftTarget
@@ -59,6 +60,7 @@ export interface Command {
 
 interface Feature {
   code: string
+  group?: string
   name: string
   explain: string
   icon: string
@@ -168,9 +170,9 @@ async function toggleAppSuperPanelPin(cmd: Command): Promise<void> {
   const isPinned = isAppPinnedToSuperPanel(cmd)
 
   if (isPinned) {
-    await window.ztools.internal.unpinSuperPanelCommand(cmd.path || '', cmd.featureCode)
+    await window.tabdo.internal.unpinSuperPanelCommand(cmd.path || '', cmd.featureCode)
   } else {
-    await window.ztools.internal.pinToSuperPanel({
+    await window.tabdo.internal.pinToSuperPanel({
       name: cmd.name,
       path: cmd.path || '',
       icon: cmd.icon || '',
@@ -232,7 +234,7 @@ function openAppAliasShortcut(cmd: Command): void {
 async function handleAppMenuSelect(key: string, cmd: Command): Promise<void> {
   if (key === 'open') {
     try {
-      await window.ztools.internal.launch({
+      await window.tabdo.internal.launch({
         path: cmd.path || '',
         type: cmd.type,
         name: cmd.name,
@@ -286,7 +288,7 @@ const localShortcutCount = computed(
   () => getFilteredSystemCommandsForSource({ subType: 'local-shortcut', name: '本地启动' }).length
 )
 
-const { value: searchQuery } = useZtoolsSubInput('', '搜索指令...')
+const { value: searchQuery } = useTabDoSubInput('', '搜索指令...')
 const normalizedSearchQuery = computed(() => (searchQuery.value || '').trim().toLowerCase())
 const isSearching = computed(() => normalizedSearchQuery.value.length > 0)
 
@@ -344,11 +346,18 @@ function commandMatchesQuery(command: Command, plugin?: any): boolean {
   ])
 }
 
+/**
+ * 按插件、工具分类及指令内容判断来源是否需要保留。
+ * @param plugin 待筛选的插件记录。
+ * @returns 当前搜索是否命中该来源。
+ */
 function pluginMatchesQuery(plugin: any): boolean {
   if (!isSearching.value) return true
 
   return (
     anyIncludesQuery([plugin.name, plugin.title, plugin.description]) ||
+    (plugin.name === 'system' &&
+      plugin.features?.some((feature: any) => includesQuery(feature.group))) ||
     allCommands.value.some(
       (command) =>
         command.type === 'plugin' &&
@@ -478,7 +487,12 @@ const groupedFeatures = computed(() => {
       })
     })
 
-  return Array.from(featureMap.values())
+  // 分类来自内置清单，原功能码继续用于指令菜单和匹配详情。
+  const definitions = plugins.value.find((plugin) => plugin.path === source.path)?.features || []
+  return Array.from(featureMap.values()).map((feature) => ({
+    ...feature,
+    group: definitions.find((definition: any) => definition.code === feature.code)?.group
+  }))
 })
 
 const filteredSystemCommands = computed(() =>
@@ -494,7 +508,10 @@ const filteredGroupedFeatures = computed(() => {
   if (!query) return groupedFeatures.value
   return groupedFeatures.value
     .map((feature) => {
-      const featureMatched = anyIncludesQuery([feature.code, feature.name, feature.explain], query)
+      const featureMatched = anyIncludesQuery(
+        [feature.code, feature.name, feature.explain, feature.group],
+        query
+      )
       if (featureMatched) return feature
 
       return {
@@ -507,6 +524,10 @@ const filteredGroupedFeatures = computed(() => {
     })
     .filter((f) => f.textCmds.length > 0 || f.matchCmds.length > 0)
 })
+
+const commandGroups = computed(() =>
+  groupToolFeatures(filteredGroupedFeatures.value, activeSource.value?.name === 'system')
+)
 
 const hasCommands = computed(
   () => filteredSystemCommands.value.length > 0 || filteredGroupedFeatures.value.length > 0
@@ -552,7 +573,7 @@ function getPluginCommandCount(plugin: any): number {
 // 加载指令数据（包含 commands、regexCommands、plugins）
 async function loadCommands(): Promise<void> {
   try {
-    const result = await window.ztools.internal.getCommands()
+    const result = await window.tabdo.internal.getCommands()
     commands.value = result.commands
     regexCommands.value = result.regexCommands
     // 直接使用 getCommands 返回的 plugins，避免额外 IPC 请求
@@ -748,42 +769,57 @@ onMounted(async () => {
           <!-- 插件：按 feature 分组显示 -->
           <template v-else>
             <FeatureCard
-              v-for="feature in filteredGroupedFeatures"
-              v-show="feature.textCmds.length > 0"
-              :key="feature.code"
-              :feature="feature"
+              v-for="group in commandGroups.filter((item) =>
+                item.features.some((feature) => feature.textCmds.length)
+              )"
+              :key="group.code"
+              :feature="group"
+              :data-command-group="group.code"
             >
-              <div v-for="(cmd, idx) in feature.textCmds" :key="idx" class="feature-command-row">
-                <TagDropdown
-                  :menu-items="
-                    getMenuItems(
-                      isCommandDisabled(activeSource?.name || '', feature.code, cmd.name, 'text'),
-                      'text',
-                      activeSource?.name || '',
-                      feature.code,
-                      cmd.name
-                    )
-                  "
-                  @select="
-                    (key) =>
-                      handleMenuSelect(
-                        key,
+              <template v-for="feature in group.features" :key="feature.code">
+                <div
+                  v-for="(cmd, idx) in feature.textCmds"
+                  :key="idx"
+                  class="feature-command-row"
+                  :data-feature-code="feature.code"
+                >
+                  <img
+                    v-if="group.features.length > 1"
+                    :src="feature.icon"
+                    class="command-feature-icon"
+                    alt=""
+                  />
+                  <TagDropdown
+                    :menu-items="
+                      getMenuItems(
+                        isCommandDisabled(activeSource?.name || '', feature.code, cmd.name, 'text'),
+                        'text',
                         activeSource?.name || '',
                         feature.code,
-                        cmd.name,
-                        'text'
+                        cmd.name
                       )
-                  "
-                >
-                  <CommandTag
-                    :command="cmd"
-                    :disabled="
-                      isCommandDisabled(activeSource?.name || '', feature.code, cmd.name, 'text')
                     "
-                    show-arrow
-                  />
-                </TagDropdown>
-              </div>
+                    @select="
+                      (key) =>
+                        handleMenuSelect(
+                          key,
+                          activeSource?.name || '',
+                          feature.code,
+                          cmd.name,
+                          'text'
+                        )
+                    "
+                  >
+                    <CommandTag
+                      :command="cmd"
+                      :disabled="
+                        isCommandDisabled(activeSource?.name || '', feature.code, cmd.name, 'text')
+                      "
+                      show-arrow
+                    />
+                  </TagDropdown>
+                </div>
+              </template>
             </FeatureCard>
           </template>
         </div>
@@ -797,33 +833,48 @@ onMounted(async () => {
 
           <!-- 插件：按 feature 分组显示 -->
           <FeatureCard
-            v-for="feature in filteredGroupedFeatures"
-            v-show="feature.matchCmds.length > 0"
-            :key="feature.code"
-            :feature="feature"
+            v-for="group in commandGroups.filter((item) =>
+              item.features.some((feature) => feature.matchCmds.length)
+            )"
+            :key="group.code"
+            :feature="group"
+            :data-command-group="group.code"
           >
-            <TagDropdown
-              v-for="(cmd, idx) in feature.matchCmds"
-              :key="idx"
-              :menu-items="
-                getMenuItems(
-                  isCommandDisabled(activeSource?.name || '', feature.code, cmd.name, cmd.type),
-                  cmd.type,
-                  activeSource?.name || '',
-                  feature.code,
-                  cmd.name
-                )
-              "
-              @select="(key) => handleMatchMenuSelect(key, feature, cmd)"
+            <div
+              v-for="feature in group.features.filter((item) => item.matchCmds.length)"
+              :key="feature.code"
+              class="feature-command-row"
+              :data-feature-code="feature.code"
             >
-              <CommandTag
-                :command="cmd"
-                :disabled="
-                  isCommandDisabled(activeSource?.name || '', feature.code, cmd.name, cmd.type)
-                "
-                show-arrow
+              <img
+                v-if="group.features.length > 1"
+                :src="feature.icon"
+                class="command-feature-icon"
+                alt=""
               />
-            </TagDropdown>
+              <TagDropdown
+                v-for="(cmd, idx) in feature.matchCmds"
+                :key="idx"
+                :menu-items="
+                  getMenuItems(
+                    isCommandDisabled(activeSource?.name || '', feature.code, cmd.name, cmd.type),
+                    cmd.type,
+                    activeSource?.name || '',
+                    feature.code,
+                    cmd.name
+                  )
+                "
+                @select="(key) => handleMatchMenuSelect(key, feature, cmd)"
+              >
+                <CommandTag
+                  :command="cmd"
+                  :disabled="
+                    isCommandDisabled(activeSource?.name || '', feature.code, cmd.name, cmd.type)
+                  "
+                  show-arrow
+                />
+              </TagDropdown>
+            </div>
           </FeatureCard>
         </div>
       </div>
@@ -841,6 +892,13 @@ onMounted(async () => {
 </template>
 
 <style lang="less" scoped>
+.command-feature-icon {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
 .all-commands-container {
   display: flex;
   height: 100%;
@@ -1345,6 +1403,7 @@ onMounted(async () => {
 .feature-command-row {
   display: inline-flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
 }
 

@@ -4,13 +4,23 @@ defineProps({
   isFavoriteTab: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['delete-favorite'])
+const emit = defineEmits(['delete-favorite', 'float-image', 'annotate-image'])
 </script>
 
 <template>
   <div class="item-content">
     <div class="image-preview">
-      <img :src="item.content" :alt="`图片 ${item.id}`" />
+      <div
+        v-for="(source, index) in item.imageSources?.length ? item.imageSources : [item.content]"
+        :key="source"
+        class="image-tile"
+      >
+        <img :src="source" :alt="`图片 ${item.id} ${index + 1}`" />
+        <div class="image-actions">
+          <button @click.stop="emit('float-image', source)">悬浮固定</button
+          ><button @click.stop="emit('annotate-image', source)">标记图片</button>
+        </div>
+      </div>
     </div>
     <div class="item-meta">
       <span class="meta-time">{{ item.time }}</span>
@@ -30,6 +40,22 @@ const emit = defineEmits(['delete-favorite'])
 </template>
 
 <style scoped>
+.image-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 4px 6px;
+}
+.image-actions button {
+  font: inherit;
+  font-size: 12px;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 3px 7px;
+  cursor: pointer;
+}
 .item-content {
   padding: 5px 10px;
 }

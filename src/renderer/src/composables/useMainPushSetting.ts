@@ -28,8 +28,8 @@ export async function resolveMainPushMenuState(
 
   try {
     const [plugins, enabledData] = await Promise.all([
-      window.ztools.getAllPlugins(),
-      window.ztools.dbGet(ENABLED_MAIN_PUSH_PLUGINS_KEY)
+      window.tabdo.getAllPlugins(),
+      window.tabdo.dbGet(ENABLED_MAIN_PUSH_PLUGINS_KEY)
     ])
     const plugin = Array.isArray(plugins)
       ? plugins.find((item: any) => item?.name === pluginName)
@@ -57,9 +57,9 @@ export async function resolveMainPushMenuState(
 export async function toggleMainPushSetting(pluginName?: string | null): Promise<void> {
   if (!pluginName) return
 
-  const enabledData = await window.ztools.dbGet(ENABLED_MAIN_PUSH_PLUGINS_KEY)
+  const enabledData = await window.tabdo.dbGet(ENABLED_MAIN_PUSH_PLUGINS_KEY)
   const nextEnabled = !isMainPushPluginEnabled(pluginName, normalizeConfigList(enabledData))
-  const result = await window.ztools.setPluginMainPushEnabled(pluginName, nextEnabled)
+  const result = await window.tabdo.setPluginMainPushEnabled(pluginName, nextEnabled)
   if (!result?.success) {
     throw new Error(result?.error || '未知错误')
   }

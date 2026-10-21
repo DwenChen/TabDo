@@ -10,7 +10,7 @@ async function run(action: 'export' | 'restore'): Promise<void> {
   busy.value = true
   message.value = ''
   try {
-    await window.ztools.internal.backupRun(action)
+    await window.tabdo.internal.backupRun(action)
   } catch (error) {
     message.value = error instanceof Error ? error.message : String(error)
   } finally {
@@ -18,7 +18,7 @@ async function run(action: 'export' | 'restore'): Promise<void> {
   }
 }
 onMounted(async () => {
-  const result = await window.ztools.internal.backupResult()
+  const result = await window.tabdo.internal.backupResult()
   if (result)
     message.value = result.success
       ? `操作完成：${result.file}${result.rollback ? '；旧数据保存在 ' + result.rollback : ''}`

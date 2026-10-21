@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 const projectRoot = path.resolve(__dirname, '../..')
 const runnerPath = path.join(projectRoot, 'resources', 'windows-shortcut-scanner-runner.cjs')
-const addonPath = path.join(projectRoot, 'resources', 'lib', 'win', 'ztools_native.node')
+const addonPath = path.join(projectRoot, 'resources', 'lib', 'win', 'tabdo_native.node')
 const children = new Set<ChildProcess>()
 
 type RunnerResponse = { type: 'result'; entries: unknown[] } | { type: 'error'; error: string }
@@ -70,7 +70,7 @@ afterEach(() => {
 
 describe.runIf(process.platform === 'win32')('Windows shortcut scanner runner', () => {
   it('扫描中文空目录并返回空结果', async () => {
-    const testRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'ztools-scanner-runner-'))
+    const testRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'tabdo-scanner-runner-'))
     const scanPath = path.join(testRoot, 'OneDrive', '桌面')
     await fs.mkdir(scanPath, { recursive: true })
 
@@ -97,7 +97,7 @@ describe.runIf(process.platform === 'win32')('Windows shortcut scanner runner', 
   })
 
   it('native 加载失败只终止 runner', async () => {
-    const missingAddonPath = path.join(os.tmpdir(), 'missing-ztools-native.node')
+    const missingAddonPath = path.join(os.tmpdir(), 'missing-tabdo-native.node')
     await expect(requestRunner({ type: 'scan' }, missingAddonPath)).rejects.toThrow(
       /runner exited early/
     )

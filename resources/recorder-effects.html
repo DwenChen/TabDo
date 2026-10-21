@@ -1,0 +1,121 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'"
+    />
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: transparent;
+        pointer-events: none;
+        font-family: system-ui, 'Microsoft YaHei UI', sans-serif;
+      }
+      .click {
+        position: fixed;
+        transform: translate(-50%, -50%);
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        opacity: 0.7;
+        animation: click 0.55s ease-out forwards;
+      }
+      .emoji {
+        background: transparent !important;
+        font-size: 30px;
+        line-height: 32px;
+      }
+      #keys {
+        position: absolute;
+        left: 50%;
+        bottom: 24px;
+        transform: translateX(-50%);
+        max-width: 90%;
+        padding: 9px 16px;
+        background: #ffffffb0;
+        color: #fff;
+        border-radius: 7px;
+        font-size: 22px;
+        opacity: 0;
+        transition: opacity 0.15s;
+        box-shadow: 0 2px 5px #0003;
+        display: flex;
+        gap: 12px;
+      }
+      #keys kbd {
+        display: grid;
+        place-items: center;
+        font:
+          20px Arial,
+          sans-serif;
+        min-width: 56px;
+        height: 56px;
+        padding: 0 20px;
+        border-radius: 7px;
+        box-sizing: border-box;
+        background: #212121;
+        color: white;
+      }
+      #keys[data-style='apple-wireless'] {
+        background: #d5d9dcb0;
+      }
+      #keys[data-style='apple-wireless'] kbd {
+        border-radius: 4px;
+        background: #222;
+        color: #ccc;
+        box-shadow:
+          inset 0 0 25px #333,
+          0 2px 0 #111;
+      }
+      #keys[data-style='claymorphism'] kbd {
+        border-radius: 15px;
+        color: #111;
+        background: #ebebeb;
+        box-shadow:
+          8px 8px 16px #0004,
+          inset -8px -8px 16px #0004,
+          inset 8px 8px 16px #fff4;
+      }
+      #keys[data-style='mechanical'] {
+        background: transparent;
+        box-shadow: none;
+      }
+      #keys[data-style='mechanical'] kbd {
+        height: 72px;
+        min-width: 72px;
+        border: 8px outset #393939;
+        background: linear-gradient(90deg, #232323, #4a4a4a);
+        color: #ccc;
+        box-shadow: 5px 8px 12px #0005;
+      }
+      #keys[data-style='rgb'] {
+        background: transparent;
+        box-shadow: none;
+      }
+      #keys[data-style='rgb'] kbd {
+        border: 3px solid transparent;
+        border-bottom-width: 7px;
+        background:
+          linear-gradient(#111, #111) padding-box,
+          conic-gradient(#ff6464, #64c864, #6464ff, #ff6464) border-box;
+      }
+      @keyframes click {
+        to {
+          width: 60px;
+          height: 60px;
+          opacity: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="keys"></div>
+    <script src="recorder-effects.js"></script>
+  </body>
+</html>

@@ -1,6 +1,6 @@
 import { extractAcronym } from '../../utils/common'
 import { getWindowsFlatScanPaths, getWindowsRecursiveScanPaths } from '../../utils/systemPaths'
-import { toZToolsIconUrl } from '../../common/iconUtils'
+import { toTabDoIconUrl } from '../../common/iconUtils'
 import { WindowsShortcutScanner, type WindowsShortcutInfo } from '../native/index'
 import type { ApplicationScanResult, Command } from './types'
 import { pLimit } from './utils'
@@ -73,7 +73,7 @@ export function shouldSkipShortcut(name: string): boolean {
  * @returns 编码后的 ztools-icon URL。
  */
 export function getIconUrl(appPath: string): string {
-  return toZToolsIconUrl(appPath)
+  return toTabDoIconUrl(appPath)
 }
 
 /**

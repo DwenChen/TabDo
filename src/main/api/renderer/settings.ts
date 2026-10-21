@@ -1,4 +1,4 @@
-import { app, globalShortcut, ipcMain, nativeTheme } from 'electron'
+import { app, globalShortcut, ipcMain, nativeTheme, webContents } from 'electron'
 import fs from 'fs'
 import type { PluginManager } from '../../managers/pluginManager'
 
@@ -19,6 +19,8 @@ import api from '../index'
 import databaseAPI from '../shared/database'
 import { normalizeCompactMainWindowHeader } from '../../../shared/mainWindowLayout'
 import detachedWindowManager from '../../core/detachedWindowManager'
+import devToolsShortcut from '../../utils/devToolsShortcut'
+import { readBuiltinShortcuts } from '../../../shared/shortcutSettings'
 
 /**
  * 快捷键触发时携带的文件输入
@@ -223,6 +225,16 @@ export class SettingsAPI {
     // 快捷键
     ipcMain.handle('update-shortcut', (_event, shortcut: string) => this.updateShortcut(shortcut))
     ipcMain.handle('get-current-shortcut', () => this.getCurrentShortcutValue())
+    ipcMain.handle('update-builtin-shortcuts', (_event, config) => {
+      const settings = databaseAPI.dbGet('settings-general') || {}
+      const next = readBuiltinShortcuts({ builtinAppShortcutsEnabled: config })
+      databaseAPI.dbPut('settings-general', { ...settings, builtinAppShortcutsEnabled: next })
+      // 广播给宿主及独立标题栏，原生插件按键处理直接读取同一配置。
+      for (const contents of webContents.getAllWebContents())
+        contents.send('builtin-shortcuts-changed', next)
+      devToolsShortcut.refresh()
+      return { success: true }
+    })
     ipcMain.handle(
       'register-global-shortcut',
       (

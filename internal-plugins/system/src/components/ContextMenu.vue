@@ -3,14 +3,22 @@ defineProps({
   show: { type: Boolean, default: false },
   x: { type: Number, default: 0 },
   y: { type: Number, default: 0 },
-  canFavorite: { type: Boolean, default: false }
+  canFavorite: { type: Boolean, default: false },
+  canFloat: { type: Boolean, default: false },
+  canAnnotate: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['favorite', 'delete'])
+const emit = defineEmits(['favorite', 'delete', 'float', 'annotate'])
 </script>
 
 <template>
   <div v-if="show" class="context-menu" :style="{ left: x + 'px', top: y + 'px' }" @click.stop>
+    <div v-if="canFloat" class="context-menu-item" @click="emit('float')">
+      📌 <span>悬浮固定</span>
+    </div>
+    <div v-if="canAnnotate" class="context-menu-item" @click="emit('annotate')">
+      ✎ <span>标记图片</span>
+    </div>
     <div v-if="canFavorite" class="context-menu-item" @click="emit('favorite')">
       <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <path
@@ -50,21 +58,13 @@ const emit = defineEmits(['favorite', 'delete'])
 <style scoped>
 .context-menu {
   position: fixed;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: var(--bg-elevated);
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   padding: 4px;
   min-width: 120px;
   z-index: 2000;
   border: 1px solid var(--border-color);
-}
-
-@media (prefers-color-scheme: dark) {
-  .context-menu {
-    background: rgba(30, 30, 50, 0.95);
-  }
 }
 
 .context-menu-item {

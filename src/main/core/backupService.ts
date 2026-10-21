@@ -5,7 +5,7 @@ import path from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { spawn } from 'node:child_process'
 import { pathToFileURL } from 'node:url'
-import { getZToolsRoot } from './appData/appDataPaths'
+import { getTabDoRoot } from './appData/appDataPaths'
 import { getAppBundlePath } from '../utils/appBundlePath'
 import lmdbInstance from './lmdb/lmdbInstance'
 import databaseAPI from '../api/shared/database'
@@ -17,14 +17,14 @@ import type { PluginManager } from '../managers/pluginManager'
  * @returns 无返回值。
  */
 export function applyBackupMigration(): void {
-  const marker = path.join(getZToolsRoot(), '.migration.json')
+  const marker = path.join(getTabDoRoot(), '.migration.json')
   if (!fs.existsSync(marker)) return
   const manifest = JSON.parse(fs.readFileSync(marker, 'utf8'))
   const mappings = [
-    { source: manifest.sourceRoot, target: getZToolsRoot() },
+    { source: manifest.sourceRoot, target: getTabDoRoot() },
     ...manifest.externalPlugins.map((item: { source: string; target: string }) => ({
       source: item.source,
-      target: path.join(getZToolsRoot(), item.target)
+      target: path.join(getTabDoRoot(), item.target)
     }))
   ]
   /** 递归重定位宿主配置中的绝对路径。
@@ -74,7 +74,7 @@ export function initBackupService(manager: PluginManager): void {
   let busy = false
   ipcMain.handle('internal:backup-result', (event) => {
     if (!requireInternalPlugin(manager, event)) throw new Error('无备份权限')
-    const resultFile = path.join(getZToolsRoot(), '.backup-result.json')
+    const resultFile = path.join(getTabDoRoot(), '.backup-result.json')
     if (!fs.existsSync(resultFile)) return null
     const result = JSON.parse(fs.readFileSync(resultFile, 'utf8'))
     fs.rmSync(resultFile)
@@ -85,18 +85,18 @@ export function initBackupService(manager: PluginManager): void {
     if (!['export', 'restore'].includes(action) || busy) throw new Error('备份任务无效或正在执行')
     busy = true
     try {
-      const root = path.resolve(getZToolsRoot())
+      const root = path.resolve(getTabDoRoot())
       const selection =
         action === 'export'
           ? await dialog.showSaveDialog({
               title: '导出完整数据备份',
-              defaultPath: `ZTools-${app.getVersion()}-${Date.now()}.ztbackup`,
-              filters: [{ name: 'ZTools 数据备份', extensions: ['ztbackup'] }]
+              defaultPath: `TabDo-${app.getVersion()}-${Date.now()}.ztbackup`,
+              filters: [{ name: 'TabDo 数据备份', extensions: ['ztbackup'] }]
             })
           : await dialog.showOpenDialog({
               title: '选择要恢复的备份',
               properties: ['openFile'],
-              filters: [{ name: 'ZTools 数据备份', extensions: ['ztbackup'] }]
+              filters: [{ name: 'TabDo 数据备份', extensions: ['ztbackup'] }]
             })
       if (selection.canceled) return { cancelled: true }
       const file = 'filePath' in selection ? selection.filePath : selection.filePaths[0]
@@ -133,7 +133,7 @@ export function initBackupService(manager: PluginManager): void {
         )
       ]
       const worker = getAppBundlePath('resources', 'backup-worker.cjs')
-      const jobFile = path.join(os.tmpdir(), `ztools-backup-${randomUUID()}.json`)
+      const jobFile = path.join(os.tmpdir(), `tabdo-backup-${randomUUID()}.json`)
       fs.writeFileSync(
         jobFile,
         JSON.stringify({

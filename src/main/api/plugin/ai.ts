@@ -99,7 +99,7 @@ class PluginAiAPI {
 
   /**
    * 绑定主窗口和插件管理器，并注册插件侧 AI IPC。
-   * @param mainWindow ZTools 主窗口
+   * @param mainWindow TabDo 主窗口
    * @param pluginManager 插件运行时管理器
    * @returns 无返回值
    */
@@ -170,7 +170,7 @@ class PluginAiAPI {
         eventBatcher.flush()
         // invoke 结果可能先于普通 send 事件抵达；哨兵用于插件侧等待流事件全部入队。
         if (!event.sender.isDestroyed()) {
-          event.sender.send(eventName, { type: '__ztools_ai_chat_delivery_end__' })
+          event.sender.send(eventName, { type: '__tabdo_ai_chat_delivery_end__' })
         }
       }
     })

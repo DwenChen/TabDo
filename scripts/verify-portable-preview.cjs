@@ -1,5 +1,6 @@
 const fs = require('node:fs/promises')
 const path = require('node:path')
+const { mediaRuntimeFiles } = require('./media-runtime-dependencies.cjs')
 
 /**
  * 收集程序目录的文件；Windows 预览继续排除 macOS 原生资源。
@@ -45,11 +46,23 @@ async function verifyPortableResources(projectRoot, previewRoot) {
       const mustUnpack =
         /\.(node|dll)$/i.test(file) ||
         (file.startsWith('resources/') &&
-          (/\.cjs$/i.test(file) || file.startsWith('resources/lib/win/')))
+          (/\.(cjs|exe)$/i.test(file) || file.startsWith('resources/lib/win/')))
       if (mustUnpack && !asar.statFile(archive, path.normalize(file)).unpacked)
         problems.push('Native resource is not unpacked: ' + file)
     } catch {
       problems.push('Program resource missing or unreadable: ' + file)
+    }
+  }
+  const mediaDependencies = mediaRuntimeFiles(projectRoot)
+  for (const file of mediaDependencies) {
+    try {
+      const installed = await fs.readFile(path.join(archive + '.unpacked', file.relative))
+      if (!installed.equals(await fs.readFile(file.source)))
+        problems.push('Media runtime differs: ' + file.relative)
+      if (!asar.statFile(archive, path.normalize(file.relative)).unpacked)
+        problems.push('Media runtime is not unpacked: ' + file.relative)
+    } catch {
+      problems.push('Media runtime missing or unreadable: ' + file.relative)
     }
   }
   // 内置插件从物理展开目录加载，不能只验证归档内的旧副本。
@@ -68,7 +81,11 @@ async function verifyPortableResources(projectRoot, previewRoot) {
     }
   }
   if (problems.length) throw new Error(problems.join('\n'))
-  return { programFiles: program.length, builtinFiles }
+  return {
+    programFiles: program.length,
+    builtinFiles,
+    ...(mediaDependencies.length ? { mediaFiles: mediaDependencies.length } : {})
+  }
 }
 
 module.exports = { verifyPortableResources }

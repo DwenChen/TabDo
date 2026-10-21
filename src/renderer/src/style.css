@@ -19,6 +19,8 @@ body::-webkit-scrollbar {
 }
 
 :root {
+  /* 覆盖正文的详情层必须有独立底色，不继承窗口材质的透明背景。 */
+  --bg-elevated: #f4f4f4;
   --bg-color: #f4f4f4;
   --text-color: #333333;
   --text-secondary: #616161;
@@ -99,6 +101,7 @@ body::-webkit-scrollbar {
 
 @media (prefers-color-scheme: dark) {
   :root {
+    --bg-elevated: #303133;
     --bg-color: #303133;
     --text-color: #f3f4f6;
     --text-secondary: #bfc0c3;

@@ -1,8 +1,8 @@
 import { app } from 'electron'
 import { spawn, type ChildProcess } from 'node:child_process'
 import workerPath from '../../../../resources/tools-native-worker.cjs?asset'
-import screenshotPath from '../../../../resources/lib/win/ztools_screenshot.node?asset'
-import nativePath from '../../../../resources/lib/win/ztools_native.node?asset'
+import screenshotPath from '../../../../resources/lib/win/tabdo_screenshot.node?asset'
+import nativePath from '../../../../resources/lib/win/tabdo_native.node?asset'
 import type { ScreenCaptureOptions, ScreenCaptureResult } from './index'
 
 type NativeToolResult = ScreenCaptureResult & { hex?: string | null; error?: string }

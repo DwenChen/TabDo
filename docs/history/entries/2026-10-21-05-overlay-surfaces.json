@@ -1,0 +1,25 @@
+{
+  "id": "opaque-interaction-surfaces",
+  "date": "2026-10-21",
+  "summary": "修复快捷键吸顶栏透字，并统一设置、工具和独立窗口的覆盖层背景",
+  "changes": [
+    "快捷键页签补充不透明主题底色并覆盖两侧/底部留白，抵消滚动容器 20px 内边距，吸顶后上方不再露出旧卡片。",
+    "设置共享 Dropdown、TagDropdown、Select 改用 --dialog-bg；四类 Toast 的透明语义色叠在不透明底色上。设置/宿主详情和市场分类覆盖页不再复用透明窗口背景，宿主增加明暗 --bg-elevated。",
+    "剪贴板右键、收藏、确认及悬浮提示改用工具 --bg-elevated，公共表格吸顶表头和固定确认条补充不透明底色与叠放顺序。",
+    "便签选项移出纸张 opacity 层，纸张降至 35% 时菜单继续不透明；图片标记文字输入、提示、工具栏、悬浮图片控制按钮，以及更新来源提示和窗口信息采用不透明前景背景。保留纸张、画布、选区、OCR 定位、遮罩、窗口圆角及录屏效果的透明用途。",
+    "新增覆盖层审查文档，记录现有正确表面及透明例外，并将约束写入设置/工具开发必读。新增 overlay-surfaces 源码 E2E 回归组，登记 TX-58/59/60 和 Bug 台账。"
+  ],
+  "checks": [
+    "使用 context-mode 分析；初始扫描设置、工具、宿主及独立 HTML/CSS 共 122 个文件、256 条交互/定位规则，逐类检查背景变量、父表面、布局及同名规则覆盖，补查主进程生成的窗口 HTML。修正后再次解析 122 文件、248 条规则，零解析错误；剩余候选包含有意透明的遮罩/选区、普通流控件及过渡态，不能按颜色字符串批量改造。私有扫描器和盘点保存在 .artifacts/work/opacity-audit、.artifacts/reviews/opacity-audit-2026-10-21。",
+    "pnpm test:regressions overlay-surfaces --e2e 最终 4/4 通过，归档 .artifacts/runs/2026-10-21T13-47-37-622Z-e2e。48 次正向内部像素比较全部不受底图变化影响，透明反例出现约 23.47% 变化，证明探针有效。明暗 × none/Mica/Acrylic 覆盖吸顶栏、设置菜单及四类 Toast；剪贴板右键/收藏/清空确认、文件表头/确认条、35% 透明度便签菜单覆盖明暗。取消后测试历史与 25 个文件保留，关闭便签后窗口销毁。",
+    "验证直接从 scripts/preview-main.cjs 加载源码与设置开发页，数据和旧数据目录均隔离；截图直接捕获对应 WebContents 当前可见区域。人工查看吸顶栏、明暗菜单/收藏、文件确认条及便签截图。未为 E2E 使用编译成品或打包器。",
+    "首轮探针在 Vue 进入位移完成前采样 Toast，后改为等待帧提交/不透明；表格探针原先在 tr 中插入 div 造成匿名盒重排，改为在 table 前插入且保持同层顺序。正向检查通过后视觉发现吸顶上方仍有 20px 缝隙，新增贴顶几何断言并修正偏移；各次失败、通过和截图均由测试入口归档，未隐去失败。",
+    "修改范围 ESLint 零错误零警告；pnpm build 完成 Node/Web/设置类型检查及设置、工具、宿主/preload 编译，保留已有循环重导出、混合导入及 pnpm 兼容提示。",
+    "pnpm preview:sync 已同步 1.1.0，177 个现有配置及插件文件前后逐项一致，核对 89 个程序文件；备份 .artifacts/backups/preview-sync/update-1792590566277/previous-resources，同目录 preservation.json 留存前后指纹。pnpm test:preview:resources 通过：88 个程序资源、229 个内置插件文件、1676 个媒体运行库文件。",
+    "收尾执行 pnpm maintain、pnpm maintain:check 与 git diff --check。仅更新预览程序资源，未重置配置、插件或历史，未启动实际预览写入测试资料；不提交私有文件、不 push、不云端构建或 release。"
+  ],
+  "pending": [
+    "共享 Select、TagDropdown、详情页和图片标记等已完成源码审查与编译，未逐项运行全部业务流程。自动化为当前 Windows 桌面；本轮未另行枚举显示器/DPI 配置，其他 DPI/多屏、第三方插件及最终视觉仍需人工验收。"
+  ],
+  "preview": "已同步 .local/portable-preview/（1.1.0），177 个现有资料文件逐项校验保留，程序/内置插件/媒体资源核验通过；通过 PreviewPortable.cmd 手动验收，未重置。"
+}

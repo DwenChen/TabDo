@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
+import { readBuiltinShortcuts, type BuiltinShortcutKey } from '@shared/shortcutSettings'
 import {
   resolveVisibleAiRequestStatus,
   type AiRequestStatus,
@@ -16,7 +17,7 @@ interface PluginInfo {
   subInputVisible?: boolean
   sourceType?: 'open_source' | 'closed_source'
 }
-export type BuiltInShortcutKey = 'closePlugin' | 'killPlugin' | 'esc'
+export type BuiltInShortcutKey = BuiltinShortcutKey
 
 // 更新状态
 interface AvailableUpdateInfo {
@@ -26,9 +27,10 @@ interface AvailableUpdateInfo {
 }
 
 export const useWindowStore = defineStore('window', () => {
-  const builtInClosePluginShortcutEnabled = ref(true)
-  const builtInKillPluginShortcutEnabled = ref(true)
-  const builtInEscShortcutEnabled = ref(true)
+  const builtinShortcuts = ref(readBuiltinShortcuts(null))
+  const builtInClosePluginShortcutEnabled = computed(() => builtinShortcuts.value.closePlugin)
+  const builtInKillPluginShortcutEnabled = computed(() => builtinShortcuts.value.killPlugin)
+  const builtInEscShortcutEnabled = computed(() => builtinShortcuts.value.esc)
   const hideMainWindowOnPluginEsc = ref(false)
 
   // 当前插件信息
@@ -138,15 +140,16 @@ export const useWindowStore = defineStore('window', () => {
    * @returns 无返回值。
    */
   function updateBuiltInShortcutEnabled(key: BuiltInShortcutKey, value: boolean): void {
-    if (key === 'closePlugin') {
-      builtInClosePluginShortcutEnabled.value = value
-      return
-    }
-    if (key === 'killPlugin') {
-      builtInKillPluginShortcutEnabled.value = value
-      return
-    }
-    builtInEscShortcutEnabled.value = value
+    builtinShortcuts.value = { ...builtinShortcuts.value, [key]: value === true }
+  }
+
+  /**
+   * 应用设置页推送的完整快捷键状态，缺失项保持关闭。
+   * @param config 内置快捷键开关。
+   * @returns 无返回值。
+   */
+  function updateBuiltinShortcuts(config: unknown): void {
+    builtinShortcuts.value = readBuiltinShortcuts({ builtinAppShortcutsEnabled: config })
   }
 
   /**
@@ -360,7 +363,7 @@ export const useWindowStore = defineStore('window', () => {
     if (!autoCheckUpdateEnabled.value) return
 
     try {
-      const status = await window.ztools.updater.getDownloadStatus()
+      const status = await window.tabdo.updater.getDownloadStatus()
       if (status.hasUpdate) {
         availableUpdateInfo.value = {
           hasUpdate: true,
@@ -394,7 +397,7 @@ export const useWindowStore = defineStore('window', () => {
    */
   async function loadSettings(): Promise<void> {
     try {
-      const data = await window.ztools.dbGet('settings-general')
+      const data = await window.tabdo.dbGet('settings-general')
       if (data) {
         if (data.autoCheckUpdate !== undefined) {
           autoCheckUpdateEnabled.value = data.autoCheckUpdate
@@ -418,12 +421,7 @@ export const useWindowStore = defineStore('window', () => {
         if (data.acrylicDarkOpacity !== undefined) {
           acrylicDarkOpacity.value = data.acrylicDarkOpacity
         }
-        if (data.builtinAppShortcutsEnabled !== undefined) {
-          const config = data.builtinAppShortcutsEnabled || {}
-          builtInClosePluginShortcutEnabled.value = config.closePlugin !== false
-          builtInKillPluginShortcutEnabled.value = config.killPlugin !== false
-          builtInEscShortcutEnabled.value = config.esc !== false
-        }
+        updateBuiltinShortcuts(data.builtinAppShortcutsEnabled)
         hideMainWindowOnPluginEsc.value = data.hideMainWindowOnPluginEsc === true
       } else {
         // 首次启动没有通用设置时使用当前产品默认的绿色。
@@ -463,6 +461,8 @@ export const useWindowStore = defineStore('window', () => {
     updateSubInputPlaceholder,
     updateSubInputVisible,
     builtInClosePluginShortcutEnabled,
+    builtinShortcuts,
+    updateBuiltinShortcuts,
     builtInKillPluginShortcutEnabled,
     builtInEscShortcutEnabled,
     hideMainWindowOnPluginEsc,

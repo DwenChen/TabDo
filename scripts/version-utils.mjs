@@ -80,9 +80,9 @@ export function getProcessedVersion() {
 // 生成下载URL
 export function getDownloadUrl(isDev, version) {
   if (isDev) {
-    return 'https://github.com/DwenChen/ZTools/releases/download/dev'
+    return 'https://github.com/DwenChen/TabDo/releases/download/dev'
   } else {
-    return `https://github.com/DwenChen/ZTools/releases/download/v${version}`
+    return `https://github.com/DwenChen/TabDo/releases/download/v${version}`
   }
 }
 
@@ -96,8 +96,8 @@ export function generateDownloadLinksMarkdown(downloadUrl, version) {
   let links = '\n\n---\n\n### 下载地址：\n\n'
 
   links += '#### Windows 10/11 (x64)：\n\n'
-  links += `- 安装版：[ZTools-${version}-win-x64-setup.exe](${downloadUrl}/ZTools-${version}-win-x64-setup.exe)\n`
-  links += `- 便携版：[ZTools-${version}-win-x64.zip](${downloadUrl}/ZTools-${version}-win-x64.zip)\n\n`
+  links += `- 安装版：[TabDo-${version}-win-x64-setup.exe](${downloadUrl}/TabDo-${version}-win-x64-setup.exe)\n`
+  links += `- 便携版：[TabDo-${version}-win-x64.zip](${downloadUrl}/TabDo-${version}-win-x64.zip)\n\n`
 
   return links
 }

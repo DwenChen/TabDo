@@ -15,7 +15,7 @@ async function createFixture(options?: {
   unpack?: string
   files?: Record<string, string>
 }): Promise<{ root: string; sourceDir: string; zpxPath: string }> {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'ztools-zpx-test-'))
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'tabdo-zpx-test-'))
   tempDirs.push(root)
   const sourceDir = path.join(root, 'source')
   await fs.mkdir(sourceDir, { recursive: true })

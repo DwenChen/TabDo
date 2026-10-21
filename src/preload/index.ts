@@ -188,8 +188,8 @@ const api = {
   onPluginLoaded: (callback: (plugin: { name: string; path: string }) => void) => {
     ipcRenderer.on('plugin-loaded', (_event, plugin) => callback(plugin))
   },
-  onPluginClosed: (callback: () => void) => {
-    ipcRenderer.on('plugin-closed', callback)
+  onPluginClosed: (callback: (state?: { switching?: boolean }) => void) => {
+    ipcRenderer.on('plugin-closed', (_event, state) => callback(state))
   },
   onWindowInfoChanged: (
     callback: (windowInfo: {
@@ -409,8 +409,8 @@ const api = {
     ipcRenderer.on('update-sub-input-visible', (_event, visible) => callback(visible))
   },
   // 数据库相关（主程序专用，直接操作 ZTOOLS 命名空间）
-  dbPut: (key: string, data: any) => ipcRenderer.invoke('ztools:db-put', key, data),
-  dbGet: (key: string) => ipcRenderer.invoke('ztools:db-get', key),
+  dbPut: (key: string, data: any) => ipcRenderer.invoke('tabdo:db-put', key, data),
+  dbGet: (key: string) => ipcRenderer.invoke('tabdo:db-get', key),
   // 软件更新
   updater: {
     checkUpdate: () => ipcRenderer.invoke('updater:check-update'),
@@ -472,10 +472,16 @@ const api = {
   // 获取拖放文件的路径（Electron webUtils）
   getPathForFile: (file: File) => webUtils.getPathForFile(file),
   // 超级面板相关
-  onSuperPanelSearch: (callback: (data: { text: string; clipboardContent?: any }) => void) => {
+  onSuperPanelSearch: (
+    callback: (data: { requestId?: number; text: string; clipboardContent?: any }) => void
+  ) => {
     ipcRenderer.on('super-panel-search', (_event, data) => callback(data))
   },
-  sendSuperPanelSearchResult: (data: { results: any[]; clipboardContent?: any }) => {
+  sendSuperPanelSearchResult: (data: {
+    requestId?: number
+    results: any[]
+    clipboardContent?: any
+  }) => {
     ipcRenderer.send('super-panel-search-result', data)
   },
   onSuperPanelData: (
@@ -490,6 +496,12 @@ const api = {
   },
   superPanelLaunch: (command: any) => ipcRenderer.invoke('super-panel:launch', command),
   superPanelReady: () => ipcRenderer.send('super-panel:ready'),
+  /**
+   * 将超级面板正文测得的高度发送给宿主，由宿主校验来源并约束工作区边界。
+   * @param height 内容所需的逻辑像素高度。
+   * @returns 无返回值。
+   */
+  superPanelResize: (height: number): void => ipcRenderer.send('super-panel:resize', height),
   superPanelShowPinned: () => ipcRenderer.send('super-panel:show-pinned'),
   superPanelShowMainWindow: () => ipcRenderer.send('super-panel:show-main-window'),
   updateSuperPanelPinnedOrder: (commands: any[]) =>
@@ -529,7 +541,7 @@ const api = {
   }
 }
 
-contextBridge.exposeInMainWorld('ztools', api)
+contextBridge.exposeInMainWorld('tabdo', api)
 
 // 为标题栏暴露 electron API
 contextBridge.exposeInMainWorld('electron', {
@@ -574,7 +586,7 @@ declare global {
         on: (channel: string, callback: (...args: any[]) => void) => () => void
       }
     }
-    ztools: {
+    tabdo: {
       getApps: () => Promise<Command[]>
       getSystemSettings: () => Promise<any[]>
       isWindows: () => Promise<boolean>
@@ -688,7 +700,7 @@ declare global {
       onPluginOpened: (
         callback: (plugin: { name: string; logo: string; path: string }) => void
       ) => void
-      onPluginClosed: (callback: () => void) => void
+      onPluginClosed: (callback: (state?: { switching?: boolean }) => void) => void
       onWindowInfoChanged: (
         callback: (windowInfo: {
           app: string

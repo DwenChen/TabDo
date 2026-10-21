@@ -4,7 +4,7 @@ import { useToast, AdaptiveIcon } from '@/components'
 import type { PluginUninstallOptions } from '@/components'
 import { PluginDetail, NpmInstallPanel } from './components'
 import { compareVersions, upgradeInstalledPluginFromMarket, weightedSearch } from '@/utils'
-import { useJumpFunction, useZtoolsSubInput } from '@/composables'
+import { useJumpFunction, useTabDoSubInput } from '@/composables'
 import { jumpFunctionPluginMarketSetting } from '@/views/PluginMarketSetting/PluginMarketSetting'
 import { useRouter } from 'vue-router'
 
@@ -52,7 +52,7 @@ const pinnedPluginPaths = ref<string[]>([])
 // 路由
 const router = useRouter()
 
-const { value: searchQuery } = useZtoolsSubInput('', '搜索已安装插件...')
+const { value: searchQuery } = useTabDoSubInput('', '搜索已安装插件...')
 // 先进行搜索过滤（不考虑运行状态）
 const searchFilteredPlugins = computed(() => {
   return weightedSearch(plugins.value, searchQuery.value || '', [
@@ -127,7 +127,7 @@ async function togglePin(plugin: any): Promise<void> {
   try {
     // 将 Vue 响应式数组转换为普通数组，避免 IPC 克隆错误
     const plainArray = [...pinnedPluginPaths.value]
-    await window.ztools.internal.dbPut(PINNED_PLUGINS_KEY, plainArray)
+    await window.tabdo.internal.dbPut(PINNED_PLUGINS_KEY, plainArray)
   } catch (e) {
     console.error('保存置顶列表失败:', e)
   }
@@ -138,8 +138,8 @@ async function loadPlugins(): Promise<void> {
   isLoading.value = true
   try {
     const [installedPlugins, disabledPlugins] = await Promise.all([
-      window.ztools.internal.getPlugins(),
-      window.ztools.internal.getDisabledPlugins()
+      window.tabdo.internal.getPlugins(),
+      window.tabdo.internal.getDisabledPlugins()
     ])
     disabledPluginPaths.value = disabledPlugins
     plugins.value = buildPluginList(installedPlugins)
@@ -155,7 +155,7 @@ async function loadPlugins(): Promise<void> {
 }
 
 /**
- * 构建含内置插件的安装列表，并仅为第三方安装版计算市场更新。
+ * 构建用户安装的插件列表，内置能力不占用安装列表或更新统计。
  * @param installedPlugins 宿主返回的插件记录。
  * @param marketPluginMap 按插件名索引的市场数据。
  * @returns 按安装时间排序的插件列表。
@@ -163,6 +163,7 @@ async function loadPlugins(): Promise<void> {
 function buildPluginList(installedPlugins: any[], marketPluginMap?: Map<string, any>): any[] {
   // 内置插件由应用版本管理，不能被同名市场包覆盖。
   return installedPlugins
+    .filter((plugin) => !plugin.isBuiltin)
     .map((plugin: any) => {
       const market = plugin.isBuiltin ? undefined : marketPluginMap?.get(plugin.name)
       return {
@@ -193,11 +194,11 @@ async function checkMarketUpdates(): Promise<void> {
   const seq = ++marketCheckSeq
   isCheckingMarketUpdates.value = true
   try {
-    const marketResult = await window.ztools.internal.fetchPluginMarket()
+    const marketResult = await window.tabdo.internal.fetchPluginMarket()
     if (seq !== marketCheckSeq) return // 已被新调用取代，丢弃结果
     if (!marketResult.success || !Array.isArray(marketResult.data)) return
 
-    const currentPlatform = window.ztools.internal.getPlatform()
+    const currentPlatform = window.tabdo.internal.getPlatform()
     const marketPluginMap = new Map<string, any>()
     for (const marketPlugin of marketResult.data) {
       if (!marketPlugin?.name) continue
@@ -315,7 +316,7 @@ async function handleUpgradeAllPlugins(): Promise<void> {
 // 加载运行中的插件
 async function loadRunningPlugins(): Promise<void> {
   try {
-    const result = await window.ztools.internal.getRunningPlugins()
+    const result = await window.tabdo.internal.getRunningPlugins()
     runningPlugins.value = result
   } catch (error) {
     console.error('加载运行中插件失败:', error)
@@ -334,7 +335,7 @@ async function importPlugin(): Promise<void> {
   isImporting.value = true
   try {
     // 仅选择文件，不直接安装
-    const result = await window.ztools.internal.selectPluginFile()
+    const result = await window.tabdo.internal.selectPluginFile()
     if (result.success && result.filePath) {
       void router.replace({
         name: 'PluginInstaller',
@@ -367,13 +368,13 @@ async function handleUninstallFromDetail(
   isDeleting.value = true
   try {
     // 宿主负责实体删除与退出后清理，界面仅在结果确定后移除详情。
-    const result = await window.ztools.internal.deletePlugin(plugin.path, options)
+    const result = await window.tabdo.internal.deletePlugin(plugin.path, options)
     if (result.success) {
       const message = options.deleteData
         ? '插件已卸载，插件数据已删除'
         : '插件已卸载，插件数据已保留'
       success(
-        message + (result.cleanupPending ? '；安装包仍被系统占用，将在退出 ZTools 后自动清理' : '')
+        message + (result.cleanupPending ? '；安装包仍被系统占用，将在退出 TabDo 后自动清理' : '')
       )
       // 关闭详情面板
       closePluginDetail()
@@ -396,7 +397,7 @@ async function handleKillPlugin(plugin: any): Promise<void> {
 
   isKilling.value = true
   try {
-    const result = await window.ztools.internal.killPlugin(plugin.path)
+    const result = await window.tabdo.internal.killPlugin(plugin.path)
     if (result.success) {
       // 重新加载运行状态
       await loadRunningPlugins()
@@ -436,7 +437,7 @@ async function handleKillAllPlugins(): Promise<void> {
     // 逐个停止插件
     for (const pluginPath of pluginPaths) {
       try {
-        const result = await window.ztools.internal.killPlugin(pluginPath)
+        const result = await window.tabdo.internal.killPlugin(pluginPath)
         if (result.success) {
           successCount++
         } else {
@@ -479,7 +480,7 @@ async function handleOpenPlugin(plugin: any): Promise<void> {
   }
 
   try {
-    const result = await window.ztools.internal.launch({
+    const result = await window.tabdo.internal.launch({
       path: plugin.path,
       type: 'plugin',
       name: plugin.title || plugin.name, // 传递插件名称
@@ -499,7 +500,7 @@ async function handleOpenPlugin(plugin: any): Promise<void> {
 // 打开插件目录
 async function handleOpenFolder(plugin: any): Promise<void> {
   try {
-    await window.ztools.internal.revealInFinder(plugin.path)
+    await window.tabdo.internal.revealInFinder(plugin.path)
   } catch (err: any) {
     console.error('打开目录失败:', err)
     error(`打开目录失败: ${err.message || '未知错误'}`)
@@ -515,7 +516,7 @@ function handleOpenMarketDetail(plugin: any): void {
 
 async function handleTogglePluginDisabled(plugin: any, disabled: boolean): Promise<void> {
   try {
-    const result = await window.ztools.internal.setPluginDisabled(plugin.path, disabled)
+    const result = await window.tabdo.internal.setPluginDisabled(plugin.path, disabled)
     if (!result.success) {
       error(`更新插件状态失败: ${result.error || '未知错误'}`)
       return
@@ -551,7 +552,7 @@ async function handleExportAllPlugins(): Promise<void> {
   showMoreMenu.value = false
 
   try {
-    const result = await window.ztools.internal.exportAllPlugins()
+    const result = await window.tabdo.internal.exportAllPlugins()
     if (result.success) {
       success(`导出成功，共 ${result.count} 个插件`)
     } else {
@@ -592,7 +593,7 @@ function handleClickOutside(e: MouseEvent): void {
 // 初始化时加载插件列表
 onMounted(async () => {
   try {
-    const data = await window.ztools.internal.dbGet(PINNED_PLUGINS_KEY)
+    const data = await window.tabdo.internal.dbGet(PINNED_PLUGINS_KEY)
     pinnedPluginPaths.value = Array.isArray(data) ? data : []
   } catch (e) {
     console.error('加载置顶列表失败:', e)
@@ -603,7 +604,7 @@ onMounted(async () => {
   window.addEventListener('click', handleClickOutside)
 })
 
-// 处理对应 ztools code 进来的功能
+// 处理对应 tabdo code 进来的功能
 useJumpFunction((state) => {
   void loadRunningPlugins()
   if (state.payload) {
@@ -690,7 +691,7 @@ async function handleInstallFromNpm(data: {
 
   isImportingNpm.value = true
   try {
-    const result = await window.ztools.internal.installPluginFromNpm({
+    const result = await window.tabdo.internal.installPluginFromNpm({
       packageName: data.packageName,
       useChinaMirror: data.useChinaMirror
     })

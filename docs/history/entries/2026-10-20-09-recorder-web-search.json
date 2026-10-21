@@ -1,0 +1,31 @@
+{
+  "id": "recorder-web-search-and-tool-refinements",
+  "date": "2026-10-20",
+  "summary": "重命名预览校验与清晰提示、文件搜索设置修复、新增内置录屏及网页快开",
+  "changes": [
+    "重命名主按钮改为执行重命名；预览增加逐行名称、重复目标、既有目标、父子混合和源文件身份检查，8 路有界并发、去抖与迟到结果隔离，提供刷新；事务仍重新校验并支持回滚与撤销，无二次确认。",
+    "模型未配置等状态消息进入独立布局并使用不透明 --bg-elevated 明暗背景，避免叠字；收紧规则栏，保留预览列表可读空间。",
+    "文件搜索补齐 FinderIcon 导入和可见设置文字，抽屉只保留一个关闭按钮；整理分类响应式网格、连接选项和复选框尺寸，增加焦点及 Esc。",
+    "移植指定 screen-recorder 2.0.1 的 Windows x64 原生录制引擎，来源提交 af6dc6df9bae6dc61022dabeb3a1d0c54e6de8f2、MIT 许可保留。统一 Vue 界面提供全屏/窗口/区域、系统声音/麦克风/鼠标及倒计时。录制由独立可见控制条和隔离工作进程持有，停止等待原生捕获与工作进程退出后发布 MP4，异常保留可恢复文件。启动等待首个输出再计时，避免编码器尚未开始就提前停止导致空文件。",
+    "新增网页快开网站配置，以及文本搜索/以图搜图匹配指令。多个启用项使用独立紧凑二级菜单，取消和失焦销毁；文字编码进网址模板，图片上传 Bing 或 Google Lens 并在默认浏览器打开结果。使用 Electron ClientRequest 捕获重定向，避免 net.fetch manual 模式拒绝跳转；无图片缓存或图床。",
+    "旧网页快开迁移逻辑明确保留新增的两个固定匹配功能码，避免重启时删除其固定项和使用统计；预览同步与核验把录屏 exe 纳入必须物理展开的资源。",
+    "更新工具开发原则、模块说明、Bug 台账和 recorder-web 回归分组；保留已有未提交工作、配置和插件，不 push、不云端构建、不发布 release。"
+  ],
+  "checks": [
+    "全量单测 83 文件 596 项通过，归档 .artifacts/runs/2026-10-20T13-32-11-080Z-unit；随后迁移专项新增保留固定指令用例，6 项通过，归档 .artifacts/runs/2026-10-20T13-34-13-972Z-unit。",
+    "录屏资源展开和网页请求单测专项 15 项通过，归档 .artifacts/runs/2026-10-20T13-46-48-597Z-unit；更换 Electron 请求方式后网页专项 4 项通过。",
+    "完整源码 E2E 首轮 16 通过、1 跳过、1 失败，归档 .artifacts/runs/2026-10-20T13-32-53-015Z-e2e；失败确认录制进程已启动但编码器尚未输出，过早停止未生成 MP4，改为等待输出后计时。此前和后续专项保留全部失败与修复证据，不把失败计为通过。",
+    "补验真实 Electron 联网时发现 net.fetch redirect:manual 报 Redirect was cancelled，改用 ClientRequest redirect 事件并立即关闭请求。用本机生成的 32×32 纯色图片调用实际生产上传函数，Bing 返回 www.bing.com/images/search，Google Lens 返回 www.google.com/search，证据 .artifacts/probes/recorder-web-network.json；未上传用户图片。",
+    "最终网页快开/录屏源码专项通过，归档 .artifacts/runs/2026-10-20T13-51-18-382Z-e2e；实际点击二级菜单、验证两个匹配入口、MP4 和两级进程清理、倒计时及区域取消。Windows 菜单请求宽度 250，实际页面客户区 254，紧凑宽度断言允许 260；不套用超级面板的固定宽度断言。",
+    "最终全量单测 83 文件 598 项通过，归档 .artifacts/runs/2026-10-20T13-53-16-069Z-unit；包含新增迁移保留与 exe 解包用例。类型检查、修改范围 ESLint（无错误）和 runtime 脚本语法检查通过，git diff --check 通过。",
+    "最终完整源码 E2E 16 通过、1 跳过、1 原生截图工具栏点击超时，归档 .artifacts/runs/2026-10-20T13-53-05-634Z-e2e；新工具、重命名、搜索设置及生命周期均通过。原生截图未改代码单独复核通过，归档 .artifacts/runs/2026-10-20T13-59-38-493Z-e2e。不能将跨运行合并结果写成一次完整运行全绿；保留整轮失败和 trace。跳过项为缺少真实离线模型归档。",
+    "已查看重命名模型提示、文件搜索设置、网页快开明暗及录屏正文截图；稳定截图等候抽屉过渡完成，截图直接来自工具 WebContentsView，留存 .artifacts/reviews/recorder-web-2026-10-20。",
+    "pnpm build 编译成功，包含类型检查、设置、工具、宿主和 preload；未执行 electron-builder 或 build:unpack，E2E 均使用源码。保留既有设置循环重导出等构建提示，未借本轮改动调整无关构建策略。",
+    "pnpm preview:sync 成功同步 1.1.0，更新 77 个程序文件（含 package.json），453 个 data/legacy 文件前后 SHA-256 一致。pnpm test:preview:resources 只读核验 76 个运行时文件及 154 个内置插件文件一致，包含新原生 exe 的物理展开。保留回滚 .artifacts/backups/preview-sync/update-1792504944574/previous-resources，数据证据同目录 preservation.json。",
+    "pnpm maintain 与 pnpm maintain:check 完成；源码和免安装交付分开验证，未启动成品替用户操作，未 push、未云端构建、未 release。"
+  ],
+  "pending": [
+    "不同显示器/DPI、音频设备、受保护窗口及实际网络/账号风控下的体验需人工验收。原生截图工具栏系统点击在完整运行中偶发超时，单独复核通过，保留失败证据；未据此改动无关截图实现。"
+  ],
+  "preview": "已同步 .local/portable-preview 1.1.0，通过 PreviewPortable.cmd 使用隔离预览；453 个配置、插件及旧数据文件保持一致。资源核验通过，未自动启动预览。"
+}

@@ -31,7 +31,7 @@ function readOption(name) {
 
 const addonPath = path.resolve(
   process.cwd(),
-  readOption('addon') || 'resources/lib/win/ztools_native.node'
+  readOption('addon') || 'resources/lib/win/tabdo_native.node'
 )
 const nativeAddon = require(addonPath)
 
@@ -77,7 +77,7 @@ function createFixture(rootPath) {
   // 同时覆盖 native scanner 的非 HTTP URL 解析分支。
   fs.writeFileSync(
     path.join(rootPath, '测试协议.url'),
-    '[InternetShortcut]\r\nURL=ztools-diagnostic://open\r\nIconFile=C:\\Windows\\System32\\notepad.exe\r\n',
+    '[InternetShortcut]\r\nURL=tabdo-diagnostic://open\r\nIconFile=C:\\Windows\\System32\\notepad.exe\r\n',
     'utf8'
   )
   shortcutCount += 1
@@ -272,7 +272,7 @@ async function main() {
     throw new Error('OneDrive base path is unavailable')
   }
 
-  const expectedParent = path.join(basePath, 'ztools-windows-scanner-diagnostic')
+  const expectedParent = path.join(basePath, 'tabdo-windows-scanner-diagnostic')
   const diagnosticRoot = path.join(expectedParent, caseName)
   const scanPath = path.join(
     diagnosticRoot,

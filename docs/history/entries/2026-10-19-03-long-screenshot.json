@@ -1,0 +1,25 @@
+{
+  "id": "long-screenshot-continuity",
+  "date": "2026-10-19",
+  "summary": "长截图持续拼接验证与大图交付优化",
+  "changes": [
+    "按用户后续要求，以固定数万像素连续页面验收，不查找极限上限；身份色带检查拼接连续性和完整输出。",
+    "宿主直接复用原生 PNG，不再重复读取并编码剪贴板；Windows/macOS 确认时沿用原生复制/保存，避免再次解码写回。",
+    "保留旧原生模块缺少 PNG 的兼容回退；取消不触碰剪贴板，保存文件可返回正确原图而非旧剪贴板。"
+  ],
+  "checks": [
+    "screenCaptureResult 与 toolsHostLifecycle 2 个单测文件、7 项通过，归档 .artifacts/runs/2026-10-19T11-38-26-541Z-unit。",
+    "初次扩展场景原生日志生成 PNG，但 E2E 完成后遇到 CDP 临时求值 Promise 被 GC 而失败；加入仅针对该错误的有限等待重试后完成完整验收，失败证据仍保留。",
+    "最终全量 pnpm test --maxWorkers=2：74 个文件、531 项通过；日志 .artifacts/runs/2026-10-19T11-41-25-266Z-unit。",
+    "最终源码 Electron E2E builtin-providers 与 tools-screenshot 2 项通过，归档 .artifacts/runs/2026-10-19T11-40-55-149Z-e2e；pnpm typecheck、全仓 eslint 通过。",
+    "固定页面 96 次滚动后输出 931×48170 PNG，549 个身份编号段从 2 到 550 连续，gapCount=0；完成、预抓帧超时和取色取消后全部工具进程退出。",
+    "此前 80 次滚动场景同样通过：931×40250、459 个身份段无断序，归档 .artifacts/runs/2026-10-19T11-39-18-877Z-e2e。最终场景均记录 1 次 CDP 临时求值 GC 重试，其他通信错误不忽略；不将本次长度声称为最大上限。",
+    "最终 pnpm build 通过；pnpm preview:sync 核验 57 份程序文件，527 个 data/legacy 文件同步前后 SHA-256 一致，未重置数据或插件。",
+    "预览回退资源和 preservation.json：.artifacts/backups/preview-sync/update-1792410460157；程序版本保持 1.1.0。",
+    "pnpm test:preview:resources：56 份运行资源、67 份内置插件资源通过；pnpm maintain、pnpm maintain:check 与 git diff --check 通过。"
+  ],
+  "pending": [
+    "任意应用的平滑滚动、懒加载、固定悬浮层和不同 DPI 组合仍需手动体验；本次不寻找最大长度上限。"
+  ],
+  "preview": "已同步 .local/portable-preview，通过 PreviewPortable.cmd 手动测试；保留配置、离线资源、记录与已安装插件。未 push、未云端构建、未发布 release。"
+}

@@ -1,0 +1,39 @@
+{
+  "id": "tools-commands-panel-and-rename",
+  "date": "2026-10-20",
+  "summary": "便签贴靠手感与开关、入口页面闪现、二维码扫描、重命名与解散文件夹、复制名称与复制路径、超级面板自适应",
+  "changes": [
+    "便签拖动释放后宿主在尺寸稳定时立即贴靠，不再要求指针离开便签；释放位置仍在色签上时保持收起，指针离开后重新进入才展开，指针已在别处则照常响应悬停。",
+    "便签选项新增贴靠开关，作用于本次运行的整组便签；关闭时解除已有贴靠并恢复完整纸张，不写入用户配置。",
+    "竖排收起色签的文字使用 text-orientation: upright，编号不再横躺。",
+    "只开独立窗口的子组件（便签、悬浮内容、图片标记）声明 mainHide，面板或快捷键启动不唤出宿主窗口；入口转交完成后主动隐藏宿主窗口并按内容收紧高度，去除闪出的入口页面。",
+    "二维码扫描重做紧凑界面并按实测正文高度请求 setExpendHeight，去掉固定高度留下的大片空白。",
+    "纯系统指令（复制路径、复制名称、前往文件夹、取色等）声明 mainHide，从超级面板触发不再闪出宿主窗口。",
+    "新增匹配指令“复制名称”，文件与文件夹均能匹配，复制末级名称并登记到剪贴板历史。",
+    "修复“复制路径”：宿主 clipboardManager.writeTextEntry 写入文本并立即按文本条目登记，剪贴板与历史都呈现路径文本。",
+    "文件批量重命名按 batch-rename 界面重做：上栏顺序为自动编号、查找替换、规则清理、插入内容、手动编辑、智能重命名；规则清理含大小写转换、文件名清洗、扩展名处理、删除字符；预览列表、行内改名、排序、检查后确认执行与撤销上次改名。",
+    "新增内置“解散文件夹”：单层或递归模式、自动重命名/覆盖/跳过冲突策略、预览统计、确认后执行、最近 50 条历史与撤销；文件事务在插件私有桥接内完成并先回滚。",
+    "超级面板按正文与列表实测高度自适应（120–420），弹层展开时撑到上限；面板头部可拖动窗口。"
+  ],
+  "checks": [
+    "仅验证本轮改动与相关回归，没有为验证打包应用。",
+    "node scripts/run-tests.cjs unit：81 个文件 574 项通过，含新增的贴合/开关用例与重构后的重命名规则用例；归档 .artifacts/runs/2026-10-20T05-41-02-695Z-unit。",
+    "node scripts/test-regressions.cjs tools-commands：新增分组（2 个单测文件 24 项 + tools-copy-commands、tools-expanded、tools-folder-break 三个源码 E2E）全部通过；归档 .artifacts/runs/2026-10-20T05-46-43-799Z-unit 与 .artifacts/runs/2026-10-20T05-46-45-864Z-e2e。",
+    "node scripts/run-tests.cjs e2e 全量：15 项通过、1 项跳过（builtin-models 因本机没有离线模型资产）；归档 .artifacts/runs/2026-10-20T05-35-40-016Z-e2e。覆盖真实系统鼠标拖动贴靠与展开、便签开关、超级面板弹出与关闭、剪贴板与工具生命周期、原生退出码。",
+    "floating-pointer 用真实系统鼠标按下/移动/松开标题栏后释放即收起、指针离开重进展开；tools-polish 验证开关关闭/开启与竖排色签 text-orientation；tools-expanded 验证 mainHide、入口转交后宿主隐藏、重命名执行与撤销、二维码扫描。",
+    "tools-copy-commands 先在剪贴板与历史留下文件条目，再以超级面板来源启动复制路径与复制名称，断言剪贴板文本、历史首条为文本条目、宿主窗口未 show() 且两条指令声明 mainHide。",
+    "tools-folder-break 单层解散把文件与子目录移到父目录并删除空目录，历史保留移动 2 项并可撤销回原结构。",
+    "node_modules/.bin/tsc --noEmit -p tsconfig.node.json 与 node_modules/.bin/vue-tsc --noEmit -p tsconfig.web.json 通过。",
+    "vite build internal-plugins/system 与 electron-vite build 通过，仅为交付预览编译；未执行 electron-builder、build:unpack，未使用 dist 替代源码 E2E。",
+    "node scripts/project-maintenance.cjs prepare 与 check 通过（prepare 生成 2 份索引，check 无待处理项）。",
+    "node scripts/sync-portable-preview.cjs：更新 64 份程序文件、保留 423 份用户数据文件，版本 1.1.0，回滚资源 .artifacts/backups/preview-sync/update-1792475161288/previous-resources。",
+    "node scripts/verify-portable-preview.cjs：63 份运行资源与 134 份内置插件资源一致。"
+  ],
+  "pending": [
+    "多显示器跨屏、非整数缩放与触控板下的贴靠手感保留人工验收；本轮只验证当前 Windows 系统鼠标环境。",
+    "超级面板自适应高度与拖动只做程序内约束与既有自动化，最终留白观感仍需人工确认，台账 BUG-SUPER-PANEL-FIXED-SIZE 记录为待人工验收。",
+    "解散文件夹的只读目录、跨设备移动与占用冲突只覆盖单测与当前桌面场景；覆盖策略会删除同名项且无法恢复，已在界面标注。",
+    "重命名“智能重命名”沿用宿主 AI 链路，未启用模型时给出条目级提示；拍摄时间读取在宿主没有通道时按条目报错。"
+  ],
+  "preview": "已同步 .local/portable-preview，原有 data 与 legacy 逐文件比对后保持一致；请重新通过 PreviewPortable.cmd 启动测试。未 push、未云端构建、未发布 release。"
+}

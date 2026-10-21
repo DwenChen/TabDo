@@ -47,7 +47,7 @@ export async function upgradeInstalledPluginFromMarket(
     console.log('开始升级插件:', installedPlugin.name)
 
     console.log('开始安装新版本（覆盖安装，保留插件数据）:', installedPlugin.name)
-    const installResult = await window.ztools.internal.installPluginFromMarket(
+    const installResult = await window.tabdo.internal.installPluginFromMarket(
       JSON.parse(JSON.stringify(marketPlugin))
     )
     if (!installResult.success) {

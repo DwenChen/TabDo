@@ -4,6 +4,7 @@ import path from 'path'
 import { pathToFileURL } from 'url'
 import api from '../api/index'
 import { BUNDLED_INTERNAL_PLUGIN_NAMES, getInternalPluginPath } from './internalPlugins'
+import { initializeLocalEditionDefaults } from './localEditionDefaults'
 
 /**
  * 加载所有内置插件，并在应用启动时将插件信息写入数据库。
@@ -70,5 +71,35 @@ export function loadInternalPlugins(): void {
 
   // 保存到数据库
   api.dbPut('plugins', filteredPlugins)
+  initializeLocalEditionDefaults(filteredPlugins)
+  // 设置仍采用独立窗口；工具使用嵌入宿主和专属生命周期，不再依赖通用退出开关。
+  if (!api.dbGet('builtin-window-defaults-v1')) {
+    for (const key of ['auto-detach-plugin', 'out-kill-plugin']) {
+      const existing = api.dbGet(key)
+      api.dbPut(key, [...new Set([...(Array.isArray(existing) ? existing : []), 'setting'])])
+    }
+    api.dbPut('builtin-window-defaults-v1', true)
+  }
+  if (!api.dbGet('builtin-tools-embedded-v2')) {
+    // 一次迁移撤回旧默认值，仅移除工具项，保留第三方和设置插件的原有配置。
+    for (const key of ['auto-detach-plugin', 'out-kill-plugin']) {
+      const existing = api.dbGet(key)
+      if (Array.isArray(existing))
+        api.dbPut(
+          key,
+          existing.filter(
+            (entry: unknown) =>
+              entry !== 'system' &&
+              !(
+                entry &&
+                typeof entry === 'object' &&
+                'pluginName' in entry &&
+                entry.pluginName === 'system'
+              )
+          )
+        )
+    }
+    api.dbPut('builtin-tools-embedded-v2', true)
+  }
   console.log('[InternalPlugin] 内置插件加载完成')
 }

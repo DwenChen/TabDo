@@ -3,7 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useToast, AdaptiveIcon, DetailPanel } from '@/components'
 import ProgressCircleButton from '@/components/common/ProgressCircleButton/ProgressCircleButton.vue'
 import { weightedSearch } from '@/utils'
-import { useZtoolsSubInput } from '@/composables'
+import { useTabDoSubInput } from '@/composables'
 import { useRoute, useRouter } from 'vue-router'
 import BackupSetting from '@/views/BackupSetting/BackupSetting.vue'
 
@@ -113,7 +113,7 @@ function getPluginDataKey(data: PluginData): string {
   return data.pluginName
 }
 
-const { value: searchQuery } = useZtoolsSubInput('', '搜索数据...')
+const { value: searchQuery } = useTabDoSubInput('', '搜索数据...')
 
 const filteredPluginDataList = computed(() =>
   weightedSearch(pluginDataList.value, searchQuery.value || '', [
@@ -160,7 +160,7 @@ async function loadPluginData(): Promise<void> {
   void loadPluginMetadata(requestId)
 
   try {
-    const result = await window.ztools.internal.getPluginDataStats()
+    const result = await window.tabdo.internal.getPluginDataStats()
     if (requestId !== loadRequestId) return
     if (result.success) {
       pluginDataList.value = result.data || []
@@ -176,7 +176,7 @@ async function loadPluginData(): Promise<void> {
 
 async function loadPluginMetadata(requestId = loadRequestId): Promise<void> {
   try {
-    const installedPlugins = await window.ztools.internal
+    const installedPlugins = await window.tabdo.internal
       .getPlugins()
       .catch(() => [] as InstalledPlugin[])
     if (requestId !== loadRequestId) return
@@ -186,7 +186,7 @@ async function loadPluginMetadata(requestId = loadRequestId): Promise<void> {
         .map((plugin) => plugin.name)
     )
 
-    const marketResult = await window.ztools.internal.fetchPluginMarket().catch((err: unknown) => {
+    const marketResult = await window.tabdo.internal.fetchPluginMarket().catch((err: unknown) => {
       console.warn('加载插件市场失败:', err)
       return null
     })
@@ -232,7 +232,7 @@ async function downloadPlugin(pluginData: PluginData): Promise<void> {
 
   const currentState = getDownloadState(pluginData.pluginName)
   if (currentState?.status === 'downloading') {
-    const cancelResult = await window.ztools.internal.cancelPluginMarketDownload(
+    const cancelResult = await window.tabdo.internal.cancelPluginMarketDownload(
       currentState.taskId || pluginData.pluginName
     )
     if (!cancelResult.success) {
@@ -250,7 +250,7 @@ async function downloadPlugin(pluginData: PluginData): Promise<void> {
   })
 
   try {
-    const result = await window.ztools.internal.installPluginFromMarket(
+    const result = await window.tabdo.internal.installPluginFromMarket(
       JSON.parse(JSON.stringify(marketPlugin))
     )
     if (result.success) {
@@ -278,7 +278,7 @@ async function viewPluginDocs(pluginData: PluginData): Promise<void> {
   currentLevel.value = 'docList'
 
   try {
-    const result = await window.ztools.internal.getPluginDocKeys(pluginData.pluginName)
+    const result = await window.tabdo.internal.getPluginDocKeys(pluginData.pluginName)
     if (result.success) {
       docKeys.value = result.data || []
     }
@@ -301,7 +301,7 @@ async function deleteDocContent(docItem: DocItem): Promise<void> {
   if (!confirmed) return
 
   try {
-    const result = await window.ztools.internal.deletePluginDoc(
+    const result = await window.tabdo.internal.deletePluginDoc(
       currentPluginData.value.pluginName,
       docItem.key
     )
@@ -326,7 +326,7 @@ async function exportDocContent(docItem: DocItem): Promise<void> {
   if (!currentPluginData.value) return
 
   try {
-    const result = await window.ztools.internal.exportPluginDoc(
+    const result = await window.tabdo.internal.exportPluginDoc(
       currentPluginData.value.pluginName,
       docItem.key
     )
@@ -350,10 +350,7 @@ async function viewDocContent(key: string): Promise<void> {
   currentLevel.value = 'docDetail'
 
   try {
-    const result = await window.ztools.internal.getPluginDoc(
-      currentPluginData.value.pluginName,
-      key
-    )
+    const result = await window.tabdo.internal.getPluginDoc(currentPluginData.value.pluginName, key)
     if (result.success) {
       currentDocContent.value = result.data
       currentDocType.value = result.type || 'document'
@@ -401,7 +398,7 @@ async function handleClearData(): Promise<void> {
   if (!confirmed) return
 
   try {
-    const result = await window.ztools.internal.clearPluginData(currentPluginData.value.pluginName)
+    const result = await window.tabdo.internal.clearPluginData(currentPluginData.value.pluginName)
     if (result.success) {
       success(`已成功清空 ${result.deletedCount} 个文档`)
       // 关闭弹窗
@@ -434,7 +431,7 @@ onMounted(() => {
   loadPluginData()
   window.addEventListener('keydown', handleKeydown, true)
   removeDownloadProgressListener =
-    window.ztools.internal.onPluginMarketDownloadProgress?.(handleDownloadProgress)
+    window.tabdo.internal.onPluginMarketDownloadProgress?.(handleDownloadProgress)
 })
 
 onUnmounted(() => {
@@ -446,7 +443,7 @@ onUnmounted(() => {
 
 <template>
   <div class="data-management">
-    <div class="data-tabs" role="tablist" aria-label="我的数据">
+    <div v-show="currentLevel === 'main'" class="data-tabs" role="tablist" aria-label="我的数据">
       <button role="tab" :aria-selected="!showBackup" @click="router.replace({ name: 'Data' })">
         插件数据
       </button>
@@ -475,7 +472,7 @@ onUnmounted(() => {
             v-for="pluginData in filteredPluginDataList"
             :key="getPluginDataKey(pluginData)"
             class="card plugin-card"
-            :class="{ 'ztools-card': pluginData.pluginName === 'ZTOOLS' }"
+            :class="{ 'tabdo-card': pluginData.pluginName === 'ZTOOLS' }"
             @click="viewPluginDocs(pluginData)"
           >
             <!-- 图标区域（含 DEV 角标） -->
@@ -759,7 +756,7 @@ onUnmounted(() => {
 }
 
 /* 主程序数据卡片特殊样式 */
-.plugin-card.ztools-card .plugin-name {
+.plugin-card.tabdo-card .plugin-name {
   color: var(--primary-color);
   font-weight: 600;
 }

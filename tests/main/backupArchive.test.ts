@@ -13,7 +13,7 @@ const {
 } = require('../../resources/backup-worker.cjs')
 let base: string, root: string, file: string
 beforeEach(() => {
-  base = fs.mkdtempSync(path.join(os.tmpdir(), 'ztools-backup-test-'))
+  base = fs.mkdtempSync(path.join(os.tmpdir(), 'tabdo-backup-test-'))
   root = path.join(base, 'profile')
   file = path.join(base, 'all.ztbackup')
   for (const [relative, value] of Object.entries({
@@ -50,6 +50,19 @@ describe('complete offline backup', () => {
     ).toBe('plugin-local-storage')
     expect(fs.existsSync(path.join(root, 'Cache'))).toBe(false)
     expect(fs.existsSync(path.join(root, '.migration.json'))).toBe(true)
+  })
+  it('restores historical archive markers without losing plugin-private files', () => {
+    createBackup({ root, file, version: '1.1.0' })
+    const zip = new AdmZip(file)
+    const manifest = JSON.parse(zip.readAsText('manifest.json'))
+    manifest.format = 'ztools-local-backup'
+    zip.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest)))
+    zip.writeZip(file)
+    fs.writeFileSync(path.join(root, 'plugins-data/demo/state.json'), 'new contents')
+    restoreBackup({ root, file })
+    expect(fs.readFileSync(path.join(root, 'plugins-data/demo/state.json'), 'utf8')).toBe(
+      'private-plugin-data'
+    )
   })
   it('includes external development plugins and relocates their files into the restored plugin root', () => {
     const external = path.join(base, 'external')

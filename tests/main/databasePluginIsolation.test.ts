@@ -207,7 +207,7 @@ describe('database plugin isolation', () => {
     const result = await database.clearPluginData('demo')
 
     expect(result).toEqual({ success: true, deletedCount: 0 })
-    // 「清除数据」同时删除 ztools.getPath('pluginData') 指向的目录，与卸载清理语义一致
+    // 「清除数据」同时删除 tabdo.getPath('pluginData') 指向的目录，与卸载清理语义一致
     expect(fsRm).toHaveBeenCalledWith(getPluginDataPath('demo'), {
       recursive: true,
       force: true,

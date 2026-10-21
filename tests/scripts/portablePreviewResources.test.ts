@@ -8,7 +8,7 @@ import { createPackageWithOptions, statFile, uncache } from '@electron/asar'
 const { verifyPortableResources } = createRequire(import.meta.url)(
   '../../scripts/verify-portable-preview.cjs'
 )
-const { createPreviewArchive } = createRequire(import.meta.url)(
+const { createPreviewArchive, resolvePreviewUnpackedEntries } = createRequire(import.meta.url)(
   '../../scripts/sync-portable-preview.cjs'
 )
 let temporary: string
@@ -39,12 +39,16 @@ async function archiveFixture(unpackNative = true): Promise<void> {
   await fs.cp(path.join(project, 'out'), path.join(app, 'out'), { recursive: true })
   await fs.cp(path.join(project, 'resources'), path.join(app, 'resources'), { recursive: true })
   uncache(archive)
-  await createPackageWithOptions(app, archive, unpackNative ? { unpack: '**/*.{node,cjs}' } : {})
+  await createPackageWithOptions(
+    app,
+    archive,
+    unpackNative ? { unpack: '**/*.{node,cjs,exe}' } : {}
+  )
 }
 
 beforeEach(async () => {
   // 所有程序和用户文件都在临时目录中，核验工具本身没有写入能力。
-  temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'ztools-preview-resources-'))
+  temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'tabdo-preview-resources-'))
   project = path.join(temporary, 'project')
   preview = path.join(temporary, 'preview')
   archive = path.join(preview, 'resources/app.asar')
@@ -73,6 +77,56 @@ afterEach(async () => {
 })
 
 describe('portable preview runtime resources', () => {
+  it('requires recorder executables to be physically unpacked', async () => {
+    await write(project, 'resources/recorder/win32/capture-x64.exe', 'recorder executable fixture')
+    const app = path.join(temporary, 'app-fixture')
+    await fs.cp(path.join(project, 'resources'), path.join(app, 'resources'), { recursive: true })
+    uncache(archive)
+    await createPackageWithOptions(app, archive, { unpack: '**/*.{node,cjs}' })
+    await expect(verifyPortableResources(project, preview)).rejects.toThrow(
+      'Native resource is not unpacked: resources/recorder/win32/capture-x64.exe'
+    )
+    await archiveFixture()
+    expect(await verifyPortableResources(project, preview)).toEqual({
+      programFiles: 5,
+      builtinFiles: 2
+    })
+  })
+  it('replaces obsolete hashed native output while preserving unpacked dependencies', async () => {
+    const source = path.join(temporary, '.artifacts', 'current-app')
+    const destination = path.join(temporary, '.artifacts', 'current-resources', 'app.asar')
+    const oldNative = 'out/main/chunks/tabdo_native-old.node'
+    const newNative = 'out/main/chunks/tabdo_native-new.node'
+    const dependency = 'node_modules/@lmdb/lmdb-win32-x64/index.js'
+    await write(source, newNative, 'new native module')
+    await write(source, dependency, 'existing native dependency')
+
+    // 模拟重新编译的哈希变化，旧清单不能阻断同步或把新原生文件打进归档。
+    const entries = resolvePreviewUnpackedEntries(source, [
+      oldNative,
+      'resources/lib/win/obsolete-native.node',
+      dependency,
+      newNative,
+      newNative
+    ])
+    expect(entries).toEqual([dependency, newNative])
+    await createPreviewArchive(source, destination, entries)
+    expect(() => statFile(destination, path.normalize(oldNative))).toThrow()
+    for (const file of entries) {
+      expect(statFile(destination, path.normalize(file)).unpacked).toBe(true)
+      expect(await fs.readFile(path.join(destination + '.unpacked', file))).toEqual(
+        await fs.readFile(path.join(source, file))
+      )
+    }
+    uncache(destination)
+  })
+
+  it('still rejects a missing unpacked dependency outside compiled output', () => {
+    expect(() =>
+      resolvePreviewUnpackedEntries(project, ['node_modules/@lmdb/lmdb-win32-x64/index.js'])
+    ).toThrow('Required unpacked preview resource is missing: node_modules/@lmdb')
+  })
+
   it.each([1, 2])('preserves %i unpacked dependencies under a hidden directory', async (count) => {
     const source = path.join(temporary, '.artifacts', 'app')
     const destination = path.join(temporary, '.artifacts', 'new-resources', 'app.asar')

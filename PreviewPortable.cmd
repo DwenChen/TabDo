@@ -1,9 +1,10 @@
 @echo off
-setlocal
-cd /d "%~dp0"
-if not exist ".local\portable-preview\Start-Preview.cmd" (
+setlocal DisableDelayedExpansion
+rem Resolve the launcher before a called script changes the working directory.
+set "TABDO_PREVIEW_LAUNCHER=%~dp0.local\portable-preview\Start-Preview.cmd"
+if not exist "%TABDO_PREVIEW_LAUNCHER%" (
   echo Portable preview is missing. See docs\maintenance.md.
   pause
   exit /b 1
 )
-call ".local\portable-preview\Start-Preview.cmd"
+call "%TABDO_PREVIEW_LAUNCHER%"

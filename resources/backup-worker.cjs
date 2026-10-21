@@ -3,7 +3,7 @@ const path = require('node:path')
 const crypto = require('node:crypto')
 const { spawn } = require('node:child_process')
 const AdmZip = require('adm-zip')
-const FORMAT = 'ztools-local-backup'
+const FORMAT = 'tabdo-local-backup'
 const LIMIT = 20 * 1024 ** 3
 const browserCaches = new Set([
   'Cache',
@@ -136,7 +136,7 @@ function inspectBackup(file, destination) {
   if (!header || header.header.size > 25 * 1024 ** 2) throw Error('备份清单缺失或过大')
   const manifest = JSON.parse(header.getData().toString('utf8'))
   if (
-    manifest.format !== FORMAT ||
+    ![FORMAT, 'ztools-local-backup'].includes(manifest.format) ||
     manifest.schema !== 1 ||
     !Array.isArray(manifest.entries) ||
     typeof manifest.sourceRoot !== 'string'

@@ -1,14 +1,14 @@
-appId: io.github.dwenchen.ztools
-productName: ZTools
+appId: io.github.dwenchen.tabdo
+productName: TabDo
 publish:
   provider: github
   owner: DwenChen
-  repo: ZTools
+  repo: TabDo
 directories:
   buildResources: build
 files:
   - '!{.local/**,.artifacts/**,test-results/**,playwright-report/**,_*,_*/**}'
-  - '!{Preview.cmd,PreviewPortable.cmd}'
+  - '!{Preview.cmd,PreviewPortable.cmd,README_CN.md,playwright.e2e.config.ts,pnpm-workspace.yaml}'
   - '!**/.vscode/*'
   - '!**/.DS_Store'
   - '!src/*'
@@ -22,8 +22,6 @@ files:
   - '!docs/**'
   - '!tests/**'
   - '!updater/**'
-  - '!ztools-api-types/**'
-  - '!ztools-plugin-cli/**'
   - '!scripts/**'
   - '!internal-plugins/**'
   - '!**/*.map'
@@ -36,14 +34,15 @@ asarUnpack:
   - resources/**
   - '**/node_modules/sharp/**/*'
   - '**/node_modules/@img/**/*'
+  - '**/node_modules/ffmpeg-static/**/*'
 fileAssociations:
   - ext: zpx
-    name: ZTools Plugin
-    description: ZTools Plugin Package
+    name: TabDo Plugin
+    description: TabDo Plugin Package
     role: Viewer
 win:
   compression: normal
-  executableName: ZTools
+  executableName: TabDo
   artifactName: ${name}-${version}-${os}-${arch}.${ext}
   target:
     - target: nsis
@@ -53,6 +52,8 @@ win:
       arch:
         - x64
 nsis:
+  # 保留既有安装记录身份，更名后仍升级同一安装。
+  guid: 16cce2fb-e210-5495-95a1-e6cbd75b10f6
   artifactName: ${name}-${version}-${os}-${arch}-setup.${ext}
   include: build/installer.nsh
   shortcutName: ${productName}

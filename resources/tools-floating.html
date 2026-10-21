@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'"
+    />
+    <title>悬浮内容</title>
+    <link rel="stylesheet" href="tools-floating.css" />
+  </head>
+  <body>
+    <div class="frame">
+      <div id="note-dock-tab" class="note-dock-tab" aria-label="展开便签" hidden></div>
+      <header class="window-header" id="note-header" hidden title="拖拽移动便签">
+        <span class="input-status" id="note-label">便签</span>
+        <div class="btns">
+          <button
+            class="btn"
+            id="note-top"
+            aria-label="保持置顶"
+            aria-pressed="true"
+            title="取消置顶"
+          >
+            <svg viewBox="0 0 24 24">
+              <path d="m16 3 5 5-3 1-3 5v4l-4-4-6 6-1-1 6-6-4-4h4l5-3z" />
+            </svg>
+          </button>
+          <button class="btn" id="new-note" title="新建便签 (Ctrl+N)" aria-label="新建便签">
+            <svg viewBox="0 0 24 24"><path d="M11 4h2v7h7v2h-7v7h-2v-7H4v-2h7z" /></svg>
+          </button>
+          <button class="btn" id="copy-text" title="复制文字" aria-label="复制文字">
+            <svg viewBox="0 0 24 24">
+              <path d="M16 1H4v16h2V3h10zm4 4H8v18h12zm-2 16h-8V7h8z" />
+            </svg>
+          </button>
+          <button
+            class="btn"
+            id="note-more"
+            aria-label="便签选项"
+            title="便签选项"
+            aria-expanded="false"
+            aria-controls="note-options"
+          >
+            <svg viewBox="0 0 24 24">
+              <circle cx="12" cy="5" r="2" />
+              <circle cx="12" cy="12" r="2" />
+              <circle cx="12" cy="19" r="2" />
+            </svg>
+          </button>
+          <button class="btn" id="note-close" title="关闭" aria-label="关闭">
+            <svg viewBox="0 0 24 24">
+              <path d="m6 5 6 6 6-6 1 1-6 6 6 6-1 1-6-6-6 6-1-1 6-6-6-6z" />
+            </svg>
+          </button>
+        </div>
+      </header>
+      <div class="body note-body" id="note-body" hidden>
+        <textarea id="note" aria-label="便签内容" spellcheck="false" maxlength="1000000"></textarea>
+      </div>
+      <!-- 标题栏 / 工具栏 -->
+      <div class="toolbar" id="image-tools" hidden>
+        <div class="drag-region" id="dragRegion" title="拖拽移动窗口">
+          <svg
+            class="annotation-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.7"
+            aria-hidden="true"
+          >
+            <rect x="3" y="3" width="18" height="18" rx="3" />
+            <circle cx="8.5" cy="8.5" r="1.5" />
+            <path d="m21 15-5-5L5 21" />
+          </svg>
+          <span class="annotation-title">图片标记</span>
+        </div>
+
+        <div class="editing-controls">
+          <div class="group" id="drawing-tools">
+            <button class="tool-btn active" data-tool="pen" aria-label="画笔" title="画笔 (B)">
+              <svg viewBox="0 0 24 24">
+                <path
+                  d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+                />
+              </svg>
+            </button>
+            <button class="tool-btn" data-tool="highlighter" aria-label="荧光笔" title="荧光笔 (H)">
+              <svg viewBox="0 0 24 24">
+                <path
+                  d="M6 14l3 3v3H6v-3l-1 1H3v-2l1-1v-3l5-5 7 7-5 5-2-1zM18.5 2.5l3 3-7 7-3-3 7-7z"
+                />
+              </svg>
+            </button>
+            <button class="tool-btn" data-tool="rect" aria-label="矩形" title="矩形 (R)">
+              <svg viewBox="0 0 24 24">
+                <rect
+                  x="3"
+                  y="5"
+                  width="18"
+                  height="14"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                />
+              </svg>
+            </button>
+            <button class="tool-btn" data-tool="ellipse" aria-label="椭圆" title="椭圆 (O)">
+              <svg viewBox="0 0 24 24">
+                <ellipse
+                  cx="12"
+                  cy="12"
+                  rx="9"
+                  ry="6"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                />
+              </svg>
+            </button>
+            <button class="tool-btn" data-tool="arrow" aria-label="箭头" title="箭头 (A)">
+              <svg viewBox="0 0 24 24">
+                <path d="M4 12h12.17l-5.59-5.59L12 5l8 8-8 8-1.42-1.41L16.17 14H4z" />
+              </svg>
+            </button>
+            <button class="tool-btn" data-tool="text" aria-label="文字" title="文字 (T)">
+              <svg viewBox="0 0 24 24"><path d="M5 5v3h5.5v12h3V8H19V5z" /></svg>
+            </button>
+            <button class="tool-btn" data-tool="mosaic" aria-label="马赛克" title="马赛克 (M)">
+              <svg viewBox="0 0 24 24">
+                <path d="M3 3h6v6H3zm0 12h6v6H3zm12-12h6v6h-6zm0 12h6v6h-6zM9 9h6v6H9z" />
+              </svg>
+            </button>
+            <button class="tool-btn" data-tool="eraser" aria-label="橡皮擦" title="橡皮擦 (E)">
+              <svg viewBox="0 0 24 24">
+                <path
+                  d="M16.24 3.56l4.95 4.94c.78.79.78 2.05 0 2.84L12 20.53a4.008 4.008 0 0 1-5.66 0L2.81 17a4.008 4.008 0 0 1 0-5.66L11.41 3a2.001 2.001 0 0 1 2.83 0l1.99-.01z"
+                />
+              </svg>
+            </button>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="group color-control">
+            <button
+              class="color-preview"
+              id="color-toggle"
+              aria-label="画笔颜色"
+              title="选择颜色"
+              aria-expanded="false"
+              aria-controls="color-palette"
+            >
+              <span id="color-preview"></span>
+            </button>
+            <input id="color" type="hidden" value="#ff3b30" />
+            <div id="color-palette" class="color-palette" role="group" aria-label="基本配色" hidden>
+              <button
+                id="highlighter-yellow"
+                class="swatch"
+                data-color="#eeff00"
+                aria-label="荧光黄"
+                title="荧光黄"
+                style="background: #eeff00"
+                hidden
+              ></button>
+              <button
+                class="swatch"
+                data-color="#ff3b30"
+                aria-label="红色"
+                title="红色"
+                style="background: #ff3b30"
+              ></button>
+              <button
+                class="swatch"
+                data-color="#ff9500"
+                aria-label="橙色"
+                title="橙色"
+                style="background: #ff9500"
+              ></button>
+              <button
+                class="swatch"
+                data-color="#ffcc00"
+                aria-label="黄色"
+                title="黄色"
+                style="background: #ffcc00"
+              ></button>
+              <button
+                class="swatch"
+                data-color="#34c759"
+                aria-label="绿色"
+                title="绿色"
+                style="background: #34c759"
+              ></button>
+              <button
+                class="swatch"
+                data-color="#007aff"
+                aria-label="蓝色"
+                title="蓝色"
+                style="background: #007aff"
+              ></button>
+              <button
+                class="swatch"
+                data-color="#af52de"
+                aria-label="紫色"
+                title="紫色"
+                style="background: #af52de"
+              ></button>
+              <button
+                class="swatch"
+                data-color="#1c1c1e"
+                aria-label="黑色"
+                title="黑色"
+                style="background: #1c1c1e"
+              ></button>
+              <button
+                class="swatch"
+                data-color="#ffffff"
+                aria-label="白色"
+                title="白色"
+                style="background: #ffffff"
+              ></button>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="group size-control" role="group" aria-label="笔触大小">
+            <button class="size-dot" data-size="2" aria-label="笔触 2 像素" aria-pressed="false">
+              <i style="width: 3px; height: 3px"></i>
+            </button>
+            <button
+              class="size-dot active"
+              data-size="4"
+              aria-label="笔触 4 像素"
+              aria-pressed="true"
+            >
+              <i style="width: 5px; height: 5px"></i>
+            </button>
+            <button class="size-dot" data-size="8" aria-label="笔触 8 像素" aria-pressed="false">
+              <i style="width: 8px; height: 8px"></i>
+            </button>
+            <button class="size-dot" data-size="12" aria-label="笔触 12 像素" aria-pressed="false">
+              <i style="width: 11px; height: 11px"></i>
+            </button>
+            <button class="size-dot" data-size="20" aria-label="笔触 20 像素" aria-pressed="false">
+              <i style="width: 15px; height: 15px"></i>
+            </button>
+          </div>
+          <input id="size" type="hidden" value="4" /><input
+            id="font-size"
+            type="hidden"
+            value="24"
+          />
+
+          <div class="divider"></div>
+
+          <div class="group">
+            <button class="tool-btn" id="undo" aria-label="撤销" title="撤销 (Ctrl/⌘+Z)">
+              <svg viewBox="0 0 24 24">
+                <path
+                  d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78A9.99 9.99 0 0 0 12.5 8z"
+                />
+              </svg>
+            </button>
+            <button class="tool-btn" id="redo" aria-label="重做" title="重做 (Ctrl/⌘+Y)">
+              <svg viewBox="0 0 24 24">
+                <path
+                  d="M18.4 10.6A8.018 8.018 0 0 0 11.5 8a10 10 0 0 0-9.95 8.74L3.92 17a7.502 7.502 0 0 1 7.58-6c1.96 0 3.73.72 5.12 1.88L13 16h9V7l-3.6 3.6z"
+                />
+              </svg>
+            </button>
+            <button class="tool-btn" id="clear" aria-label="清除所有标注" title="清除所有标注">
+              <svg viewBox="0 0 24 24">
+                <path d="M9 3h6l1 2h4v2H4V5h4zm-3 6h12l-1 12H7zm3 2v8h2v-8zm4 0v8h2v-8z" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div class="spacer"></div>
+        <div class="group">
+          <select id="zoom" aria-label="图片缩放" title="图片缩放">
+            <option value="fit">适应</option>
+            <option value="0.5">50%</option>
+            <option value="1">100%</option>
+            <option value="2">200%</option></select
+          ><button
+            class="tool-btn"
+            id="top"
+            aria-label="保持置顶"
+            aria-pressed="true"
+            title="保持置顶"
+          >
+            <svg viewBox="0 0 24 24">
+              <path d="m16 3 5 5-3 1-3 5v4l-4-4-6 6-1-1 6-6-4-4h4l5-3z" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="group">
+          <button
+            class="tool-btn action-copy"
+            id="copy-image"
+            aria-label="复制图片"
+            title="复制到剪贴板 (Ctrl/⌘+C)"
+          >
+            <svg viewBox="0 0 24 24">
+              <path
+                d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z"
+              />
+            </svg>
+          </button>
+          <button
+            class="tool-btn action-save"
+            id="save-image"
+            aria-label="另存为"
+            title="另存为... (Ctrl/⌘+S)"
+          >
+            <svg viewBox="0 0 24 24">
+              <path
+                d="M17 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7l-4-4zm-5 16a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm3-10H5V5h10v4z"
+              />
+            </svg>
+          </button>
+          <button class="tool-btn action-close" id="close" aria-label="关闭" title="关闭 (Esc)">
+            <svg viewBox="0 0 24 24">
+              <path
+                d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+              />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div id="float-controls" class="float-controls" hidden>
+        <button
+          class="tool-btn"
+          id="float-top"
+          aria-label="保持置顶"
+          aria-pressed="true"
+          title="取消置顶"
+        >
+          <svg viewBox="0 0 24 24">
+            <path d="m16 3 5 5-3 1-3 5v4l-4-4-6 6-1-1 6-6-4-4h4l5-3z" />
+          </svg>
+        </button>
+        <button class="tool-btn action-close" id="float-close" aria-label="关闭" title="关闭 (Esc)">
+          <svg viewBox="0 0 24 24">
+            <path d="m6 5 6 6 6-6 1 1-6 6 6 6-1 1-6-6-6 6-1-1 6-6-6-6z" />
+          </svg>
+        </button>
+      </div>
+      <!-- 图像 + 涂改画布 -->
+      <div class="canvas-wrap" id="stage" hidden>
+        <div class="stage" id="image-stage">
+          <canvas id="canvas" hidden></canvas>
+        </div>
+        <div class="hint" id="status" role="status">
+          Esc 关闭 · Ctrl/⌘+Z 撤销 · Ctrl/⌘+S 保存 · Ctrl/⌘+C 复制
+        </div>
+      </div>
+
+      <!-- 文字输入浮层 -->
+      <input
+        type="text"
+        id="text-entry"
+        aria-label="标注文字"
+        hidden
+        class="text-input"
+        placeholder="输入文字后回车确认，Esc 取消"
+      />
+
+      <!-- 右下角调节大小手柄（透明窗口下原生 resize 边缘体验欠佳，提供自定义手柄） -->
+      <div class="resize-edge north" data-resize="n"></div>
+      <div class="resize-edge south" data-resize="s"></div>
+      <div class="resize-edge west" data-resize="w"></div>
+      <div class="resize-edge east" data-resize="e"></div>
+      <div class="resize-corner northwest" data-resize="nw"></div>
+      <div class="resize-corner northeast" data-resize="ne"></div>
+      <div class="resize-corner southwest" data-resize="sw"></div>
+      <div class="resize-grip" id="resizeGrip" data-resize="se" title="拖拽调整窗口大小"></div>
+    </div>
+
+    <!-- 菜单独立于纸张透明度，避免正文或桌面透进选项文字。 -->
+    <div class="note-options" id="note-options" hidden>
+      <div class="note-colors" role="group" aria-label="便签颜色">
+        <button
+          class="swatch"
+          data-note-color="#c1f3bd"
+          aria-label="薄荷绿"
+          title="薄荷绿"
+          style="background: #c1f3bd"
+        ></button>
+        <button
+          class="swatch"
+          data-note-color="#d3bdf3"
+          aria-label="薰衣草紫"
+          title="薰衣草紫"
+          style="background: #d3bdf3"
+        ></button>
+        <button
+          class="swatch"
+          data-note-color="#f3cbbd"
+          aria-label="珊瑚粉"
+          title="珊瑚粉"
+          style="background: #f3cbbd"
+        ></button>
+        <button
+          class="swatch"
+          data-note-color="#bdd7f3"
+          aria-label="天空蓝"
+          title="天空蓝"
+          style="background: #bdd7f3"
+        ></button>
+        <button
+          class="swatch"
+          data-note-color="#f3f0bd"
+          aria-label="柠檬黄"
+          title="柠檬黄"
+          style="background: #f3f0bd"
+        ></button>
+      </div>
+      <label
+        >透明度
+        <input
+          id="note-opacity"
+          aria-label="便签透明度"
+          type="range"
+          min="35"
+          max="100"
+          value="100"
+      /></label>
+      <label
+        >字号
+        <input
+          id="note-font-size"
+          aria-label="便签字号"
+          type="number"
+          min="12"
+          max="32"
+          step="1"
+          value="16"
+      /></label>
+      <label class="dock-toggle"
+        ><input id="note-dock-toggle" type="checkbox" aria-label="贴靠屏幕边缘" checked />
+        贴靠屏幕边缘</label
+      >
+    </div>
+
+    <script src="tools-floating.js"></script>
+  </body>
+</html>

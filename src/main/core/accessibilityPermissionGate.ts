@@ -25,7 +25,7 @@ export function focusAccessibilityPermissionWindow(): boolean {
  */
 export async function ensureMacAccessibilityPermission(): Promise<void> {
   if (
-    process.env.ZTOOLS_E2E === '1' ||
+    process.env.TABDO_E2E === '1' ||
     process.platform !== 'darwin' ||
     systemPreferences.isTrustedAccessibilityClient(false)
   ) {
@@ -113,7 +113,7 @@ function showAccessibilityPermissionWindow(): Promise<void> {
     const handleOpenSettings = (event: Electron.IpcMainEvent): void => {
       if (!isPermissionWindowSender(event)) return
 
-      // 先触发系统授权请求，确保 ZTools 出现在辅助功能应用列表中。
+      // 先触发系统授权请求，确保 TabDo 出现在辅助功能应用列表中。
       systemPreferences.isTrustedAccessibilityClient(true)
       window.setAlwaysOnTop(false)
       void shell
@@ -146,7 +146,7 @@ function showAccessibilityPermissionWindow(): Promise<void> {
             if (!window.isDestroyed()) {
               window.webContents.send('accessibility-permission:reset-result', {
                 success: false,
-                error: '权限重置失败，请在系统设置中手动删除 ZTools'
+                error: '权限重置失败，请在系统设置中手动删除 TabDo'
               })
             }
             return

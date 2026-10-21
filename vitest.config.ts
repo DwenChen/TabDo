@@ -6,7 +6,7 @@ const packageJson = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 
 
 export default defineConfig({
   define: {
-    __ZTOOLS_TARGET_ELECTRON_VERSION__: JSON.stringify(packageJson.devDependencies.electron)
+    __TABDO_TARGET_ELECTRON_VERSION__: JSON.stringify(packageJson.devDependencies.electron)
   },
   test: {
     globals: true,

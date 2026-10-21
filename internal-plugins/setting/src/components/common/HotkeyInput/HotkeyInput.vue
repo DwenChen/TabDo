@@ -146,7 +146,7 @@ async function startRecording(): Promise<void> {
   clearDoubleTapTimer()
 
   try {
-    const result = await window.ztools.internal.startHotkeyRecording()
+    const result = await window.tabdo.internal.startHotkeyRecording()
     if (result.success) {
       console.log('已启动后端快捷键监听')
     } else {
@@ -325,8 +325,8 @@ function handleHotkeyRecorded(shortcut: string): void {
   }
 }
 
-if (window.ztools.internal.onHotkeyRecorded) {
-  window.ztools.internal.onHotkeyRecorded(handleHotkeyRecorded)
+if (window.tabdo.internal.onHotkeyRecorded) {
+  window.tabdo.internal.onHotkeyRecorded(handleHotkeyRecorded)
 }
 
 onUnmounted(() => {

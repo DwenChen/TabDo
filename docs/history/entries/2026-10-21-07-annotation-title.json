@@ -1,0 +1,20 @@
+{
+  "id": "annotation-window-title",
+  "date": "2026-10-21",
+  "summary": "图片标记窗口以图片图标和中文标题替代左上角装饰点",
+  "changes": [
+    "移除拖动区的三颗装饰点，补充简洁的图片图标与“图片标记”标题，保留原生拖动。标题单行可收缩，基础第三方样式保持原样。"
+  ],
+  "checks": [
+    "使用 context-mode 阅读维护、变更、Bug、工具与悬浮窗口规范。生产改动仅涉及独立 HTML/CSS 及来源说明，保留原生拖动区和现有操作，无新增运行时函数或依赖。",
+    "运行既有 tools-polish 源码 Electron 用例，首次在旧的 Everything 命名实例定位器处失败；当前精简界面已移除此字段且连接区域已分为两组，因此更新定位器及全部区域的无内部裁剪检查，未改变产品逻辑。",
+    "增加默认/窄窗口截图时发现旧 setSize 调用没有真正缩到预期宽度，记录仍为 618 CSS px；改为调用实际窗口手柄使用的受限 resize 入口，并等待宽度不超过 342。最终记录 341×520 CSS px，标题及所有现有操作在视口内。",
+    "pnpm test:e2e tests/e2e/tools-polish.spec.ts 最终 1/1 通过，归档 .artifacts/runs/2026-10-21T14-30-02-711Z-e2e。绘制、荧光笔配色、文字标注、复制图片、独立窗口存续/关闭、便签及文件搜索既有路径均通过；测试使用隔离数据和旧数据目录，不访问真实或预览资料。",
+    "直接查看工具独立 WebContents 的 tools-image-toolbar-default.png 与 tools-image-toolbar-narrow.png 当前可见区域截图。默认及窄窗口标题均完整、无装饰点，操作按钮正常；尺寸记录在 annotation-toolbar-layout.json。仅复用现有用例补充截图和修正旧假设，未为此低影响样式新增独立测试。",
+    "修改范围 ESLint 通过；Prettier 完成格式检查。HTML/CSS 由预览同步器直接复制，未更改需要编译的生产源码，本轮沿用已有编译输出，未重新构建或运行打包器。",
+    "pnpm preview:sync 已同步 1.1.0，208 个现有配置及插件文件前后逐项一致，核对 89 个程序文件；备份 .artifacts/backups/preview-sync/update-1792593049065/previous-resources，同目录 preservation.json 留存前后指纹。pnpm test:preview:resources 通过：88 个程序资源、229 个内置插件文件、1676 个媒体运行库文件。",
+    "收尾执行 pnpm maintain、pnpm maintain:check 及 git diff --check，全部通过。未重置资料，未启动实际免安装预览写入测试资料，未 push、云端构建或发布 release。"
+  ],
+  "pending": ["其他 DPI、多屏和用户最终视觉偏好保留手动验收。"],
+  "preview": "已同步 .local/portable-preview/（1.1.0），208 个现有资料文件逐项校验保留，程序/内置插件/媒体资源核验通过。重启 PreviewPortable.cmd 手动查看，未重置配置或插件。"
+}

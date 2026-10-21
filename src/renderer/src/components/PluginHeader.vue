@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { normalizeConfigList } from '@shared/pluginSettings'
 import { useWindowStore } from '../stores/windowStore'
 import AdaptiveIcon from './common/AdaptiveIcon.vue'
 import {
@@ -10,22 +9,19 @@ import {
 } from '../utils/convertKeyboardEvent'
 
 const store = useWindowStore()
-const host = window.ztools
+const host = window.tabdo
 defineProps<{ modelValue: string }>()
 const emit = defineEmits<{ 'update:modelValue': [value: string]; close: [] }>()
 const input = ref<HTMLInputElement | null>(null)
 const error = ref('')
 const menuBusy = ref(false)
 const height = computed(() => (store.compactMainWindowHeader ? 40 : 60))
+const isBuiltinPlugin = computed(() =>
+  ['system', 'setting'].includes(store.currentPlugin?.name || '')
+)
 let menuPluginPath: string | undefined
 let removeMenuListener: (() => void) | undefined
 
-type BehaviorKey = 'out-kill-plugin' | 'auto-detach-plugin' | 'auto-start-plugin'
-const behaviorCommands: Record<string, BehaviorKey> = {
-  'toggle-auto-kill': 'out-kill-plugin',
-  'toggle-auto-detach': 'auto-detach-plugin',
-  'toggle-auto-start': 'auto-start-plugin'
-}
 defineExpose({ focus: () => input.value?.focus(), selectAll: () => input.value?.select() })
 
 /** 将导航键和没有原生文本选择的复制快捷键转发给插件视图。
@@ -77,16 +73,11 @@ async function detach(): Promise<void> {
  */
 async function showPluginMenu(): Promise<void> {
   const plugin = store.currentPlugin
-  if (!plugin || menuBusy.value) return
+  if (!plugin || isBuiltinPlugin.value || menuBusy.value) return
   menuBusy.value = true
   error.value = ''
   try {
-    // 对实际插件名读取配置，开发版和安装版保持各自的运行行为。
-    const [kill, separate, start] = await Promise.all([
-      host.dbGet('out-kill-plugin'),
-      host.dbGet('auto-detach-plugin'),
-      host.dbGet('auto-start-plugin')
-    ])
+    // 菜单始终绑定当前会话，后台资源策略由宿主统一管理。
     if (store.currentPlugin?.path !== plugin.path) return
     menuPluginPath = plugin.path
     const mac = host.getPlatform() === 'darwin'
@@ -95,29 +86,6 @@ async function showPluginMenu(): Promise<void> {
       ...(plugin.sourceType === 'closed_source'
         ? []
         : [{ id: 'open-devtools', label: '打开开发者工具' }]),
-      {
-        label: '插件设置',
-        submenu: [
-          {
-            id: 'toggle-auto-kill',
-            label: '退出到后台立即结束运行',
-            type: 'checkbox',
-            checked: normalizeConfigList(kill).includes(plugin.name)
-          },
-          {
-            id: 'toggle-auto-detach',
-            label: '自动分离为独立窗口',
-            type: 'checkbox',
-            checked: normalizeConfigList(separate).includes(plugin.name)
-          },
-          {
-            id: 'toggle-auto-start',
-            label: '跟随主程序同时启动运行',
-            type: 'checkbox',
-            checked: normalizeConfigList(start).includes(plugin.name)
-          }
-        ]
-      },
       { id: 'kill-plugin', label: `结束运行 (${mac ? '⌘+Q' : 'Ctrl+Q'})` }
     ])
   } catch (cause) {
@@ -133,7 +101,7 @@ async function showPluginMenu(): Promise<void> {
  */
 async function handleMenuCommand(command: string): Promise<void> {
   const plugin = store.currentPlugin
-  if (!plugin || plugin.path !== menuPluginPath) return
+  if (!plugin || isBuiltinPlugin.value || plugin.path !== menuPluginPath) return
   error.value = ''
   try {
     if (command === 'detach-plugin') {
@@ -145,13 +113,6 @@ async function handleMenuCommand(command: string): Promise<void> {
       const result = await host.killPluginAndReturn(plugin.path)
       if (!result.success) error.value = result.error || '结束插件失败'
       else emit('close')
-    } else if (Object.hasOwn(behaviorCommands, command)) {
-      const key = behaviorCommands[command]
-      const current = normalizeConfigList(await host.dbGet(key))
-      const next = current.includes(plugin.name)
-        ? current.filter((name) => name !== plugin.name)
-        : [...current, plugin.name]
-      await host.dbPut(key, next)
     }
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
@@ -164,7 +125,12 @@ onMounted(() => {
 onUnmounted(() => removeMenuListener?.())
 </script>
 <template>
-  <header :style="{ height: height + 'px' }" @dblclick="detach">
+  <header
+    class="plugin-header"
+    :aria-busy="store.pluginLoading"
+    :style="{ height: height + 'px' }"
+    @dblclick="detach"
+  >
     <div v-if="store.currentPlugin" class="identity">
       <AdaptiveIcon
         v-if="store.currentPlugin.logo"
@@ -190,7 +156,7 @@ onUnmounted(() => removeMenuListener?.())
         ×
       </button>
     </div>
-    <span v-else class="host-title">ZTools 本地版</span>
+    <span v-else class="host-title">TabDo 本地版</span>
     <input
       v-if="store.subInputVisible"
       ref="input"
@@ -201,7 +167,7 @@ onUnmounted(() => removeMenuListener?.())
       @dblclick.stop
     />
     <span v-if="error" class="action-error" role="alert">{{ error }}</span>
-    <nav @dblclick.stop>
+    <nav v-if="!isBuiltinPlugin" @dblclick.stop>
       <button
         class="plugin-actions"
         :class="{ loading: store.pluginLoading, 'ai-active': store.aiRequestStatus !== 'idle' }"

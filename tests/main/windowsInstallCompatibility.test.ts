@@ -17,12 +17,12 @@ const validInstallInfo: WindowsInstallInfo = {
 
 describe('validateWindowsInstall', () => {
   it('builds a version-specific download page for stable and prerelease versions', () => {
-    expect(getWindowsReleaseUrl()).toBe('https://github.com/DwenChen/ZTools/releases/latest')
+    expect(getWindowsReleaseUrl()).toBe('https://github.com/DwenChen/TabDo/releases/latest')
     expect(getWindowsReleaseUrl('3.0.0')).toBe(
-      'https://github.com/DwenChen/ZTools/releases/tag/v3.0.0'
+      'https://github.com/DwenChen/TabDo/releases/tag/v3.0.0'
     )
     expect(getWindowsReleaseUrl('3.0.0-beta.8')).toBe(
-      'https://github.com/DwenChen/ZTools/releases/tag/v3.0.0-beta.8'
+      'https://github.com/DwenChen/TabDo/releases/tag/v3.0.0-beta.8'
     )
   })
 
@@ -51,7 +51,7 @@ describe('validateWindowsInstall', () => {
   it('requires migration when app identity or updater configuration does not match', () => {
     const result = validateWindowsInstall(
       WINDOWS_ELECTRON_VERSION,
-      { ...validInstallInfo, appId: 'legacy.ztools' },
+      { ...validInstallInfo, appId: 'legacy.tabdo' },
       false
     )
 

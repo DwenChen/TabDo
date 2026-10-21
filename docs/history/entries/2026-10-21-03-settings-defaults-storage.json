@@ -1,0 +1,29 @@
+{
+  "id": "settings-shortcuts-defaults-and-data-location",
+  "date": "2026-10-21",
+  "summary": "整理设置与快捷键，精简调试日志和托盘菜单，增加数据缓存目录选择并调整初始指令",
+  "changes": [
+    "通用设置优先展示超级面板，开发者组默认折叠；呼出及全屏快捷键统一移至快捷键的内置页，呼出明确打开应用设置页。所有应用级快捷键与全屏暂停初始关闭，宿主、插件、分离视图、开发者全局注册和录屏 F10 均按显式 true 启用；Windows 移除会绕过开关的 Electron 默认菜单。",
+    "完整删除唤醒黑名单设置、系统指令、运行时拦截与内部 API，失效内置固定/历史引用清理且不改原始配置。工具清单现为 36 功能、28 个普通中文入口和 13 类。删除调试日志页、路由、内存收集器及日志 API，保留文件日志。托盘左键打开设置，右键删除重复显示/隐藏设置；游戏模式继续暂停呼出/全局指令快捷键和超级面板鼠标触发，不优化性能或停止剪贴板采集。",
+    "新增数据与缓存目录选择，迁移整个 .ztools 配置、插件、历史与缓存。原生确认后退出，由专属工作进程复制并逐文件 SHA-256 校验、发布空目标、最后原子切换锚点位置记录并重启；userData/sessionData 跟随新根。原件保留，拒绝非空/嵌套/联接，复制失败不切换；插件私有同名文件保留，宿主路径重定位，根外开发插件仍在原位。",
+    "首次缺失对应存储键时禁用设置来源全部普通与匹配指令，并按截图、剪贴板、便签、文件搜索、录屏顺序固定到超级面板；已有明确选择和空列表不覆盖。",
+    "新增设置开发必读并关联 AGENTS.md、维护必读和文档入口；同步架构、迁移、工具清单、Bug 台账与 settings-defaults 回归组。再次核对终端、代理、剪贴板保留、外观材质及插件高度仍有实际消费者，保留其设置。保留本来已有的未提交改动。"
+  ],
+  "checks": [
+    "全量单测 90 文件 637 项通过，.artifacts/runs/2026-10-21T04-54-30-926Z-unit。此前全量发现浮动窗口夹具缺少上轮图标 API mock，补齐 nativeImage/createFromPath 与窗口 setter 后通过，失败归档 .artifacts/runs/2026-10-21T04-53-54-210Z-unit。",
+    "追加二次迁移和插件私有 .data-location.json 保留场景后，目录迁移单测 9 项通过，.artifacts/runs/2026-10-21T04-58-32-172Z-unit；覆盖完整内容、非空/同根/相互嵌套/联接/复制失败和坏位置记录。",
+    "settings-defaults 源码 Electron E2E 七项通过，.artifacts/runs/2026-10-21T04-55-20-249Z-e2e；覆盖设置默认状态、实际 Ctrl+D 开关、托盘游戏模式、设置指令禁用及固定项、完整资料迁移退出重启、相邻宿主/窗口稳定/任务栏图标/生命周期/原生录屏/退出清理。未用成品或打包进行 E2E。",
+    "迁移专项先修正测试输入方式（CDP 按键不经过宿主 before-input-event，改原生 ctrl 注入）、Playwright 调试连接释放、重启探针错误模块引用及等待启动迁移完成；曾遇到测试 worker 原生退出和清理时 EBUSY。失败和一次挂起中断均保留归档，不表述为首次通过；最终专项单独通过 .artifacts/runs/2026-10-21T04-51-26-710Z-e2e，完整组再次通过。",
+    "已直接查看设置插件当前可见区域截图，核对超级面板提前、快捷键归类及关闭状态；目录 E2E 真实重启后核对 userData/sessionData、插件版本、私有二进制、宿主绝对路径与原件保留。",
+    "Node、设置类型检查通过，修改范围 ESLint 零错误，格式修正后新增测试零警告，数据工作进程 node --check 通过；pnpm build 完成 Node/Web/设置类型检查及设置、工具、宿主/preload 编译。既有设置组件循环分块与宿主静态/动态导入提示保留；未执行 electron-builder/build:unpack。",
+    "pnpm preview:sync 已同步 1.1.0，494 个原有配置及插件文件前后逐项校验一致，核对 89 个程序资源；回退资源 .artifacts/backups/preview-sync/update-1792558789805/previous-resources，资料校验在同目录 preservation.json。pnpm test:preview:resources 通过：88 个程序资源、229 个内置插件文件及 1676 个媒体运行库文件均与当前编译/源码一致。",
+    "按用户本轮明确要求，在同步后运行 pnpm preview:reset --confirm-reset：494 个原配置和已安装插件文件完整移入 .artifacts/backups/portable-profile/2026-10-21T05-03-44-894Z-9a453e96，备份前后指纹完全一致。data 和 legacy 已确认空目录，程序不变，未启动真实预览写入测试资料，下一次通过 PreviewPortable.cmd 初始化最新默认状态。正常用户 .ztools 未重置。",
+    "收尾生成 CHANGES.md 首次遇到 UNKNOWN 文件访问错误，随后只重试标准维护入口成功；最终执行 pnpm maintain、pnpm maintain:check 和 git diff --check，不绕过维护检查。不提交私有配置、插件、截图、日志或备份，未提交、push、云端构建或 release。",
+    "初次清理旧隔离测试临时目录被自动审批拒绝，返回 blocked by policy；用户随后明确授权重试时仍被拒绝，当时未绕过限制，临时资料保留。项目根未产生临时文件。",
+    "用户切换为请求审批并再次要求清理后，通过 require_escalated 发起一次审批并执行成功。仅删除系统临时目录下 ztools-settings-cleanup-DJwdWu、ztools-settings-cleanup-Jblrmi、ztools-settings-cleanup-e9UuQT：先核对绝对路径白名单、普通目录/无联接及无 Electron 占用，再逐项删除并确认不存在。项目、预览程序、用户配置及资料备份未参与删除；预览可执行文件和 494 文件备份清单仍存在。仅补记清理结果，未改业务源码，无需重新构建或运行 E2E；收尾执行标准维护与差异检查。"
+  ],
+  "pending": [
+    "用户最终视觉、其他快捷键逐项手感、多屏/DPI 与跨平台仍待手动验收；目录迁移的跨卷、受限权限、掉电及大资料量需真实设备验收。"
+  ],
+  "preview": "已同步 .local/portable-preview/（1.1.0）并按用户本轮明确授权还原初始状态，data/legacy 均为空、未启动预览。原有 494 个配置及插件文件逐项校验后备份于 .artifacts/backups/portable-profile/2026-10-21T05-03-44-894Z-9a453e96。通过 PreviewPortable.cmd 供手动验收；正常用户资料未重置，未提交、push、云端构建或 release。"
+}

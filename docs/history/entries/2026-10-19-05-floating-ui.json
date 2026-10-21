@@ -1,0 +1,36 @@
+{
+  "id": "floating-plugin-ui-and-ephemeral-notes",
+  "date": "2026-10-19",
+  "summary": "复用原插件悬浮界面并改为临时纸张便签",
+  "changes": [
+    "移除系统边框，复用原图片插件窗口结构、SVG 工具栏、拖动与缩放手柄，保留 MIT 许可和明确来源。",
+    "颜色为预览圆圈点击展开八种基本配色，笔触大小为单独显示的拖动滑块；窄窗口工具栏可换行。",
+    "便签复用原插件窄彩色标题栏与五种纸色，增加纸张折角；关闭即释放，不再记录或提供历史入口。",
+    "文字条目右下角增加悬浮固定，匹配标签精简为悬浮文本/悬浮图片；文本匹配优先于残留剪贴板图片。",
+    "剪贴板文字默认以空行追加到最近聚焦的存活便签，保留用户编辑；多窗口关闭后顺延，首次初始化期间排队追加。独立便签指令、窗口加号和 Ctrl+N 可主动新建空白窗口，新窗口错开位置。",
+    "按本轮明确要求，在程序同步和资源校验后备份并重置免安装预览为初始状态。",
+    "工具默认嵌入主窗口；一次迁移只撤回工具旧版默认自动分离与通用退出开关。内置插件隐藏主窗口与独立窗口右上角行为设置入口。",
+    "评估后保留专属后台释放：子组件取消资源，宿主等待已登记任务后销毁页面；工具分支不会重复进入通用杀插件流程，退出 Promise 和窗口标识提供幂等保护。"
+  ],
+  "checks": [
+    "pnpm test --maxWorkers=2：78 个文件、554 项单测通过，归档 .artifacts/runs/2026-10-19T13-58-59-364Z-unit。",
+    "全套源码 pnpm test:e2e：8 项通过、2 项失败、1 项真实模型测试按默认跳过；两项失败分别是新增标题栏检查未等待页面，以及冷启动未等待宿主 IPC 监听。保留完整失败日志 .artifacts/runs/2026-10-19T13-55-54-938Z-e2e。",
+    "修正等待条件后，pnpm test:e2e tests/e2e/plugin-host-regressions.spec.ts tests/e2e/tools-expanded.spec.ts：2 项通过，归档 .artifacts/runs/2026-10-19T14-00-50-586Z-e2e。本轮所有 10 个常规源码 E2E 均有通过记录，未把默认跳过模型测试计为通过。",
+    "tools-expanded 验证透明无边框、340px 工具栏、颜色圆圈与预设色板、实际滑块拖动、标注复制、文字快捷入口、折角/配色、关闭不持久化、多窗口聚焦追加/关闭回退、独立便签指令、加号与 Ctrl+N、新窗口初始化期间排队追加。",
+    "builtin-providers 验证工具默认嵌入后的自动识别和退出释放；宿主/设置稳定性回归验证内置两种标题栏无行为入口，第三方两种标题栏仍保留入口。",
+    "开发中早期高 DPI 1px 边界、output 隐式 status 角色、便签指令未加入宿主白名单及旧菜单断言等失败均已修正。失败输出与 trace 均保留于 .artifacts/runs，未删改或覆盖为成功。",
+    "pnpm typecheck、全仓 eslint --no-cache --max-warnings=0 通过；格式化过程的 Windows 临时文件占用已重试成功。",
+    "界面来源及 MIT 许可随资源保留；原图片插件基础 CSS 与下载版本一致。",
+    "git diff --check 通过。",
+    "pnpm build 通过，仅用于免安装预览交付；未执行 electron-builder 或 build:unpack。既有 Rollup 循环分块、动态/静态导入和 highlight 非 module 脚本警告仍保留，未宣称消除。",
+    "pnpm preview:sync 成功：64 份程序文件核验，565 个 data/legacy 文件同步前后 SHA-256 一致；版本保持 1.1.0。程序回退 .artifacts/backups/preview-sync/update-1792418577471/previous-resources。",
+    "pnpm test:preview:resources 通过：63 份运行资源、73 份内置插件资源一致。",
+    "按本轮用户明确授权执行 pnpm preview:reset --confirm-reset：原 data/legacy 共 565 文件完整迁移并校验到 .artifacts/backups/portable-profile/2026-10-19T14-03-52-978Z-a6ef7c76，创建空数据目录，程序不变；同步后未再次启动预览。",
+    "pnpm maintain、pnpm maintain:check 与最终 git diff --check 通过；记录更新后的索引过期提示已通过重新生成解决。"
+  ],
+  "pending": [
+    "真实模型下载/精度测试默认跳过，本轮未重新启用。",
+    "不同 DPI/多屏下的原生拖动手感、折角视觉和用户实际应用中的追加操作仍需手工验收。"
+  ],
+  "preview": "已同步 .local/portable-preview 并按本轮明确指示备份重置为初始状态，使用 PreviewPortable.cmd 首次启动手动测试。原配置、插件及历史保留在校验后的私有备份；未 push、未云端构建、未发布 release。"
+}

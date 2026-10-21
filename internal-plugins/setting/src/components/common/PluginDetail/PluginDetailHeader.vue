@@ -28,7 +28,7 @@ async function loadProviderTypes(): Promise<void> {
     return
   }
   try {
-    const res = await window.ztools.internal.providers.getAll()
+    const res = await window.tabdo.internal.providers.getAll()
     if (res.success && Array.isArray(res.data)) {
       const types = new Set<'translation' | 'ocr'>()
       for (const entry of res.data) {
@@ -76,18 +76,18 @@ function formatSize(bytes?: number): string {
 
 function openHomepage(): void {
   if (props.plugin.homepage) {
-    window.ztools.shellOpenExternal(props.plugin.homepage)
+    window.tabdo.shellOpenExternal(props.plugin.homepage)
   }
 }
 
 const repositoryUrl = computed(() => {
   if (props.plugin.sourceType !== 'open_source' || !props.plugin.name) return ''
-  return `https://github.com/ZToolsCenter/ZTools-plugins/tree/main/plugins/${encodeURIComponent(props.plugin.name)}`
+  return `https://github.com/DwenChen/TabDo-plugins/tree/main/plugins/${encodeURIComponent(props.plugin.name)}`
 })
 
 function openRepository(): void {
   if (repositoryUrl.value) {
-    window.ztools.shellOpenExternal(repositoryUrl.value)
+    window.tabdo.shellOpenExternal(repositoryUrl.value)
   }
 }
 </script>

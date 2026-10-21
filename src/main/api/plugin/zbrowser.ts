@@ -78,7 +78,7 @@ export class ZBrowserAPI {
        * 异步 API：设置代理
        *
        * ⚠️ 破坏性变更：uTools 为同步 sendSync 返回 boolean，
-       * ZTools 改为 ipcInvoke 异步（因为 session.setProxy 是 Promise）。
+       * TabDo 改为 ipcInvoke 异步（因为 session.setProxy 是 Promise）。
        * 插件需改为 `await utools.setUBrowserProxy(config)`。
        */
       setZBrowserProxy: async (event: Electron.IpcMainInvokeEvent, config: unknown) => {
@@ -91,7 +91,7 @@ export class ZBrowserAPI {
       /**
        * 异步 API：清除缓存
        *
-       * ⚠️ 破坏性变更：同上，uTools 为同步，ZTools 改为异步。
+       * ⚠️ 破坏性变更：同上，uTools 为同步，TabDo 改为异步。
        */
       clearZBrowserCache: async (event: Electron.IpcMainInvokeEvent) => {
         const pluginInfo = pluginManager.getPluginInfoByWebContents(event.sender)
@@ -104,10 +104,10 @@ export class ZBrowserAPI {
        * 异步 API：ubrowserLogin 兼容桩
        *
        * uTools 实现：弹出 OAuth 登录窗口，返回用户登录凭证。
-       * ZTools 暂不支持此功能，返回 null 并记录警告日志。
+       * TabDo 暂不支持此功能，返回 null 并记录警告日志。
        */
       ubrowserLogin: async () => {
-        console.warn('[zbrowser] ubrowserLogin is not supported in ZTools')
+        console.warn('[zbrowser] ubrowserLogin is not supported in TabDo')
         return null
       }
     })

@@ -29,7 +29,7 @@ export function isFullscreenWindow(
   win: ActiveWindowResult,
   platformForTest: NodeJS.Platform = process.platform
 ): boolean {
-  // 排除 ZTools 自身窗口，避免面板已显示时误判为需要屏蔽。
+  // 排除 TabDo 自身窗口，避免面板已显示时误判为需要屏蔽。
   if (win.pid === process.pid) return false
 
   // 桌面 Shell 永远不应拦截热键，同时防御旧版 native 或异常返回值。

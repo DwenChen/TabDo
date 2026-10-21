@@ -31,7 +31,7 @@ async function load(more = false): Promise<void> {
   loading.value = true
   error.value = ''
   try {
-    const result = await window.ztools.internal.getPluginReleaseHistory(
+    const result = await window.tabdo.internal.getPluginReleaseHistory(
       props.pluginName,
       more ? nextOffset.value : 0
     )
@@ -57,7 +57,7 @@ function openLink(event: MouseEvent): void {
   if (!anchor) return
   event.preventDefault()
   const href = anchor.getAttribute('href') || ''
-  if (/^https?:\/\//i.test(href)) window.ztools.shellOpenExternal(href)
+  if (/^https?:\/\//i.test(href)) window.tabdo.shellOpenExternal(href)
 }
 
 watch(

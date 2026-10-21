@@ -9,10 +9,10 @@ import {
 
 describe('internal plugin privilege split', () => {
   it('应将开发者插件识别为仅拥有内部 API 权限', () => {
-    expect(INTERNAL_API_PLUGIN_NAMES).toContain('ztools-developer-plugin')
-    expect(BUNDLED_INTERNAL_PLUGIN_NAMES).not.toContain('ztools-developer-plugin')
-    expect(canPluginUseInternalApi('ztools-developer-plugin')).toBe(true)
-    expect(isBundledInternalPlugin('ztools-developer-plugin')).toBe(false)
+    expect(INTERNAL_API_PLUGIN_NAMES).toContain('tabdo-developer-plugin')
+    expect(BUNDLED_INTERNAL_PLUGIN_NAMES).not.toContain('tabdo-developer-plugin')
+    expect(canPluginUseInternalApi('tabdo-developer-plugin')).toBe(true)
+    expect(isBundledInternalPlugin('tabdo-developer-plugin')).toBe(false)
   })
 
   it('应归一化用户自定义内部 API 授权插件名称', () => {

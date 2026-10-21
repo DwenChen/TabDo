@@ -30,11 +30,20 @@ class DevToolsShortcutManager {
   /**
    * 注册当前焦点的 DevTools 快捷键
    * @param target 需要打开开发者工具的 WebContents
+   * @param toggleHandler 宿主提供的开发者工具切换方法。
+   * @returns 无返回值。
    */
   public register(
     target: Electron.WebContents,
     toggleHandler?: (target: Electron.WebContents) => void | Promise<void>
   ): void {
+    // 默认关闭；仍记住当前聚焦目标，设置页启用时可即时刷新。
+    if (databaseAPI.dbGet('settings-general')?.builtinAppShortcutsEnabled?.devTools !== true) {
+      this.unregister()
+      this.currentTarget = target
+      this.currentToggleHandler = toggleHandler ?? null
+      return
+    }
     // 如果已经注册且目标相同，无需重复注册
     if (this.currentTarget?.id === target.id && globalShortcut.isRegistered(this.shortcut)) {
       this.currentToggleHandler = toggleHandler ?? null
@@ -70,7 +79,18 @@ class DevToolsShortcutManager {
   }
 
   /**
+   * 在设置变更后按当前聚焦目标刷新注册。
+   * @returns 无返回值。
+   */
+  public refresh(): void {
+    const target = this.currentTarget,
+      handler = this.currentToggleHandler
+    if (target && !target.isDestroyed()) this.register(target, handler || undefined)
+  }
+
+  /**
    * 注销快捷键
+   * @returns 无返回值。
    */
   public unregister(): void {
     if (globalShortcut.isRegistered(this.shortcut)) {

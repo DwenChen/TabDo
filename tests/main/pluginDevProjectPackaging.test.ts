@@ -108,7 +108,7 @@ describe('development plugin packaging', () => {
       success: true,
       version: '1.2.3',
       temporaryPackage: true,
-      packagePath: expect.stringMatching(/ztools-plugin-upload-demo-.+\.zpx$/)
+      packagePath: expect.stringMatching(/tabdo-plugin-upload-demo-.+\.zpx$/)
     })
     expect(mocks.packZpx).toHaveBeenCalledWith('/workspace/demo', result.packagePath)
     expect(dialog.showSaveDialog).not.toHaveBeenCalled()
@@ -122,7 +122,7 @@ describe('development plugin packaging', () => {
 
     expect(result).toEqual({ success: false, error: 'pack failed' })
     expect(mocks.fsRm).toHaveBeenCalledWith(
-      expect.stringMatching(/ztools-plugin-upload-demo-.+\.zpx$/),
+      expect.stringMatching(/tabdo-plugin-upload-demo-.+\.zpx$/),
       { force: true }
     )
   })

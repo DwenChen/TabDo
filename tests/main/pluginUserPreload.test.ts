@@ -65,7 +65,7 @@ describe('plugin preload user bridges', () => {
   it('exposes getUser through the synchronous plugin.api channel', () => {
     require(preloadPath)
 
-    expect((globalThis as any).window.ztools.getUser()).toEqual({
+    expect((globalThis as any).window.tabdo.getUser()).toEqual({
       avatar: 'avatar.png',
       nickname: 'Zing',
       uid: 'zing'
@@ -76,7 +76,7 @@ describe('plugin preload user bridges', () => {
   it('exposes getUserTempToken through the asynchronous plugin.api channel', async () => {
     require(preloadPath)
 
-    await expect((globalThis as any).window.ztools.getUserTempToken()).resolves.toEqual({
+    await expect((globalThis as any).window.tabdo.getUserTempToken()).resolves.toEqual({
       token: 'plugin-token',
       expiredAt: 1_800_000_000_000
     })
@@ -101,7 +101,7 @@ describe('plugin preload user bridges', () => {
       )
       return { orderId: 'PLtest', status: 'paid' }
     })
-    await (globalThis as any).window.ztools.requestPayment(
+    await (globalThis as any).window.tabdo.requestPayment(
       { productId: 'p', orderNo: 'o' },
       callback
     )

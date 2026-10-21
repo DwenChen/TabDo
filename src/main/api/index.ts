@@ -1,4 +1,5 @@
 import { initBackupService, applyBackupMigration } from '../core/backupService'
+import { initDataLocationService } from '../core/dataLocationService'
 import { BrowserWindow, ipcMain, Notification } from 'electron'
 import type { PluginManager } from '../managers/pluginManager'
 
@@ -58,6 +59,7 @@ import { startProviderBridgeHost } from '../core/provider/providerBridgeHost'
 import { runStartupDataMigrations } from '../core/startupDataMigrations'
 import superPanelManager from '../core/superPanelManager'
 import translationManager from '../core/translationManager'
+import builtinProviderService from '../core/provider/builtinProviderService'
 
 /**
  * 快捷键触发时携带的文件输入
@@ -92,6 +94,9 @@ class APIManager {
 
   /**
    * 初始化所有API模块
+   * @param mainWindow 主窗口实例。
+   * @param pluginManager 插件运行时管理器。
+   * @returns 无返回值。
    */
   public init(mainWindow: BrowserWindow, pluginManager: PluginManager): void {
     this.pluginManager = pluginManager
@@ -100,6 +105,7 @@ class APIManager {
     databaseAPI.init(pluginManager)
     applyBackupMigration()
     initBackupService(pluginManager)
+    initDataLocationService(pluginManager)
     // 启动时统一迁移mac图标历史遗留数据
     runStartupDataMigrations()
     clipboardAPI.init()
@@ -179,16 +185,23 @@ class APIManager {
     providerManager.registerBuiltinProvider({
       name: 'bergamot',
       type: 'translation',
-      label: '离线翻译引擎（Bergamot）',
+      label: '离线翻译引擎',
       description: '英译中离线引擎，首次启用需下载约 55MB 模型',
       isReady: () => translationManager.getStatus().status === 'ready',
-      invoke: async (input) => {
+      /**
+       * 让离线推理跟随发起面板的取消信号，退出后释放所属 Worker。
+       * @param input 本次翻译输入。
+       * @param signal 调用方的取消信号。
+       * @returns 译文和检测语言。
+       */
+      invoke: async (input, signal) => {
         const { text, from } = input as { text: string; from?: string; to?: string }
         // 当前内置引擎仅支持 en→zh，忽略 from/to 参数
-        const result = await translationManager.translate(text)
+        const result = await translationManager.translate(text, signal)
         return { text: result || '', detectedFrom: from }
       }
     })
+    builtinProviderService.init()
 
     // 设置一些特殊的IPC处理器
     this.setupSpecialHandlers()
@@ -597,7 +610,7 @@ class APIManager {
           const msg = `[API] 未找到插件: ${pluginDescription}`
           console.error(msg)
           if (Notification.isSupported()) {
-            new Notification({ title: 'ZTools', body: msg }).show()
+            new Notification({ title: 'TabDo', body: msg }).show()
           }
           return
         }
@@ -607,7 +620,7 @@ class APIManager {
           const msg = `[API] 未找到命令: ${pluginDescription}/${cmdName}`
           console.error(msg)
           if (Notification.isSupported()) {
-            new Notification({ title: 'ZTools', body: msg }).show()
+            new Notification({ title: 'TabDo', body: msg }).show()
           }
           return
         }
@@ -645,7 +658,7 @@ class APIManager {
           const msg = `[API] 未找到命令: ${cmdName}`
           console.error(msg)
           if (Notification.isSupported()) {
-            new Notification({ title: 'ZTools', body: msg }).show()
+            new Notification({ title: 'TabDo', body: msg }).show()
           }
           return
         }
@@ -658,7 +671,7 @@ class APIManager {
           const msg = `[API] 多个指令匹配「${cmdName}」: ${matchNames.join('、')}，请使用「插件名称/${cmdName}」格式精确指定`
           console.warn(msg)
           if (Notification.isSupported()) {
-            new Notification({ title: 'ZTools', body: msg }).show()
+            new Notification({ title: 'TabDo', body: msg }).show()
           }
           return
         }

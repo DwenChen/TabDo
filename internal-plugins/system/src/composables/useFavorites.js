@@ -23,7 +23,7 @@ export function useFavorites() {
    */
   const loadFavorites = async () => {
     try {
-      const data = await window.ztools.db.promises.get(FAVORITE_STORAGE_KEY)
+      const data = await window.tabdo.db.promises.get(FAVORITE_STORAGE_KEY)
       if (!disposed && data && Array.isArray(data.favorites)) {
         favorites.value = data.favorites
       }
@@ -42,8 +42,8 @@ export function useFavorites() {
     // 在排入串行队列时登记整个读改写链，退出不能截断尚未提交的收藏。
     const saveOperation = window.toolsLifecycle.runTask(() =>
       previousSave.then(async () => {
-        const record = await window.ztools.db.promises.get(FAVORITE_STORAGE_KEY)
-        await window.ztools.db.promises.put({
+        const record = await window.tabdo.db.promises.get(FAVORITE_STORAGE_KEY)
+        await window.tabdo.db.promises.put({
           _id: FAVORITE_STORAGE_KEY,
           _rev: record?._rev,
           favorites: snapshot

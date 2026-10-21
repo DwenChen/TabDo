@@ -1,6 +1,6 @@
 # Provider（提供商）开发指南
 
-ZTools 把「翻译」「OCR」等能力抽象为 **Provider（提供商）**。主程序不再硬编码这些能力的实现，而是由插件按统一契约提供，主程序负责聚合、展示与调用。
+TabDo 把「翻译」「OCR」等能力抽象为 **Provider（提供商）**。内置能力与第三方插件按统一契约提供，主程序负责聚合、展示与调用。内置配置、资源管理和旧 f-provider 接管规则见 [内置提供商与工具](builtin-providers.md)。默认调用仅选择仍存在且已启用的提供商；全部关闭时不会静默回退调用。
 
 > AI 模型不纳入 provider 抽象，仍走独立的 AI 模型配置。
 
@@ -36,7 +36,7 @@ ZTools 把「翻译」「OCR」等能力抽象为 **Provider（提供商）**。
 }
 ```
 
-- `providers` 的 key 即「声明 key」，后续 `ztools.registerProvider(key, handler)` 的首参必须与之一致。
+- `providers` 的 key 即「声明 key」，后续 `tabdo.registerProvider(key, handler)` 的首参必须与之一致。
 - 一个插件可同时声明多个 type（如同时提供 `translation` 和 `ocr`）。
 - **同一 type 可声明多条**，只要 key 不同即可（见下方「同一 type 多条」示例）。
 - `label` / `description` 会展示在「设置 → 提供商」对应 tab 中。
@@ -58,10 +58,10 @@ ZTools 把「翻译」「OCR」等能力抽象为 **Provider（提供商）**。
 
 ```js
 // preload.js
-ztools.registerProvider('baidu', async (input) => {
+tabdo.registerProvider('baidu', async (input) => {
   /* 调用百度 */
 })
-ztools.registerProvider('google', async (input) => {
+tabdo.registerProvider('google', async (input) => {
   /* 调用谷歌 */
 })
 ```
@@ -72,11 +72,11 @@ ztools.registerProvider('google', async (input) => {
 
 ## 第二步：在 preload 注册 handler
 
-在插件 preload 脚本中调用 `ztools.registerProvider(key, handler)`，**首参为声明 key**（与 plugin.json 的 providers key 一致），handler 签名必须匹配该声明的 type 对应契约：
+在插件 preload 脚本中调用 `tabdo.registerProvider(key, handler)`，**首参为声明 key**（与 plugin.json 的 providers key 一致），handler 签名必须匹配该声明的 type 对应契约：
 
 ```js
 // 插件 preload
-ztools.registerProvider('ocr', async (input) => {
+tabdo.registerProvider('ocr', async (input) => {
   const { image, lang } = input
   // 调用你的 OCR 服务
   const res = await fetch('https://your-ocr-api/recognize', {
@@ -104,7 +104,7 @@ ztools.registerProvider('ocr', async (input) => {
 ## 翻译 provider 示例
 
 ```js
-ztools.registerProvider('translation', async (input) => {
+tabdo.registerProvider('translation', async (input) => {
   const { text, from, to } = input
   const res = await fetch('https://your-translate-api/translate', {
     method: 'POST',
@@ -133,36 +133,36 @@ OCR 暂无内置实现，完全由插件提供。
 
 任何插件（不仅是 provider 的提供方）都可以**主动发起一次翻译 / OCR**，复用用户已启用的 provider。这是 Provider 抽象的核心价值之一：能力可被跨插件复用。
 
-### 通用入口：`ztools.providers`
+### 通用入口：`tabdo.providers`
 
 ```js
 // 查询某个 type 下的全部渠道，每个渠道带 isDefault 标记
-const list = await ztools.providers.getProviders('translation')
+const list = await tabdo.providers.getProviders('translation')
 // → [{ id, type, label, description, source, isDefault }, ...]
 
 // 单独查询默认渠道（无可用时返回 null）
-const def = await ztools.providers.getDefaultProvider('translation')
+const def = await tabdo.providers.getDefaultProvider('translation')
 // → { id, type, label, ..., isDefault: true } | null
 
 // 统一调用入口：providerId 可选，缺省走该 type 的默认渠道
-const out = await ztools.providers.invokeProvider('translation', { text: 'hello', to: 'zh' })
+const out = await tabdo.providers.invokeProvider('translation', { text: 'hello', to: 'zh' })
 // → { text: '你好', detectedFrom?: 'en' }
 ```
 
 `invokeProvider` 失败会抛错（如没有可用 provider、provider 加载超时等），调用方需 `try/catch`。
 
-### 便捷封装：`ztools.translate` / `ztools.ocr`
+### 便捷封装：`tabdo.translate` / `tabdo.ocr`
 
 为最常用的两种调用提供语法糖，签名更贴近直觉：
 
 ```js
 // 翻译：options: { from?, to?, providerId? }
-const result = await ztools.translate('hello', { from: 'en', to: 'zh' })
+const result = await tabdo.translate('hello', { from: 'en', to: 'zh' })
 console.log(result.text) // 翻译结果
 console.log(result.detectedFrom) // 实际识别到的源语言（可选）
 
 // OCR：options: { lang?, providerId? }，image 为本地路径 / data URI / URL
-const ocrResult = await ztools.ocr('/path/to/image.png', { lang: 'eng' })
+const ocrResult = await tabdo.ocr('/path/to/image.png', { lang: 'eng' })
 console.log(ocrResult.text)
 ```
 
@@ -186,7 +186,7 @@ console.log(ocrResult.text)
 1. 用户在「设置 → 提供商」启用 / 设为默认某个 provider。
 2. 消费方调用 `providerManager.invoke(type, input)`：
    - 主程序内（如超级面板选中翻译）直接调用主进程方法；
-   - 插件通过 `ztools.providers.invokeProvider` / `ztools.translate` / `ztools.ocr` 发起，经统一分发器转发到同一个 `providerManager.invoke`。
+   - 插件通过 `tabdo.providers.invokeProvider` / `tabdo.translate` / `tabdo.ocr` 发起，经统一分发器转发到同一个 `providerManager.invoke`。
 3. 主进程按默认 / 启用项选择 provider：
    - 内置 provider：直接在主进程调用本地实现。
    - 插件 provider：按需预加载插件，等待 `registerProvider` 完成后回调 handler。
@@ -198,7 +198,7 @@ console.log(ocrResult.text)
 
 - provider 注册失败会在插件控制台抛错（如未声明该 type）。
 - 「设置 → 提供商」tab 可确认你的 provider 是否被识别、是否启用 / 默认。
-- 翻译可在超级面板选中文本时触发验证；插件内可直接 `await ztools.translate('hello')` / `await ztools.ocr(imagePath)` 验证。
+- 翻译可在超级面板选中文本时触发验证；插件内可直接 `await tabdo.translate('hello')` / `await tabdo.ocr(imagePath)` 验证。
 
 ## 完整 plugin.json 示例
 

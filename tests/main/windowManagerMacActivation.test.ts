@@ -35,7 +35,7 @@ const mocks = vi.hoisted(() => {
         }),
         focus: vi.fn(),
         send: vi.fn(),
-        getURL: vi.fn(() => 'app://ztools')
+        getURL: vi.fn(() => 'app://tabdo')
       },
       setVisibleOnAllWorkspaces: vi.fn(),
       setParentWindow: vi.fn(),
@@ -94,7 +94,7 @@ vi.mock('@electron-toolkit/utils', () => ({
 
 vi.mock('electron', () => ({
   app: {
-    getAppPath: vi.fn(() => '/tmp/ztools'),
+    getAppPath: vi.fn(() => '/tmp/tabdo'),
     focus: mocks.appFocus,
     hide: mocks.appHide,
     show: mocks.appShow,

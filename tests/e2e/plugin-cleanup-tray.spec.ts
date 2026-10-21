@@ -7,7 +7,7 @@ test('tray always restores settings and uninstall removes a running ASAR and its
   browserName: _browserName
 }, testInfo) => {
   const root = path.resolve(__dirname, '../..')
-  const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'ztools-cleanup-tray-'))
+  const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'tabdo-cleanup-tray-'))
   if (!path.resolve(temporary).startsWith(path.resolve(os.tmpdir()) + path.sep)) {
     throw new Error('Unexpected test data path')
   }
@@ -16,18 +16,42 @@ test('tray always restores settings and uninstall removes a running ASAR and its
     // 所有安装、卸载和托盘验证均使用临时配置，隔离真实预览数据。
     const environment = {
       ...process.env,
-      ZTOOLS_E2E: '1',
-      ZTOOLS_SOURCE_PREVIEW: '1',
-      ZTOOLS_DATA_ROOT: path.join(temporary, 'data'),
-      ZTOOLS_LEGACY_USER_DATA_PATH: path.join(temporary, 'legacy'),
+      TABDO_E2E: '1',
+      TABDO_SOURCE_PREVIEW: '1',
+      TABDO_PREVIEW_OPEN_SETTINGS: '0',
+      TABDO_DATA_ROOT: path.join(temporary, 'data'),
+      TABDO_LEGACY_USER_DATA_PATH: path.join(temporary, 'legacy'),
       ELECTRON_RENDERER_URL: 'http://127.0.0.1:5174',
-      ZTOOLS_SETTING_DEV_SERVER_URL: 'http://127.0.0.1:15177'
+      TABDO_SETTING_DEV_SERVER_URL: 'http://127.0.0.1:15177'
     }
     delete environment.ELECTRON_RUN_AS_NODE
     app = await electron.launch({
       args: [path.join(root, 'scripts/preview-main.cjs')],
       cwd: root,
       env: environment
+    })
+    // 本组验证嵌入式设置宿主；新默认独立窗口由 builtin-providers 专项覆盖。
+    await expect((await app.firstWindow()).locator('.plugin-host')).toBeAttached()
+    await expect
+      .poll(() =>
+        app!.evaluate(({ app }) =>
+          process
+            .mainModule!.require(app.getAppPath() + '/src/main/api/shared/database.ts')
+            .default.dbGet('plugins')
+            ?.some((plugin: any) => plugin.name === 'setting')
+        )
+      )
+      .toBe(true)
+    await app.evaluate(async ({ app }) => {
+      process
+        .mainModule!.require(app.getAppPath() + '/src/main/api/shared/database.ts')
+        .default.dbPut('auto-detach-plugin', [])
+      process
+        .mainModule!.require(app.getAppPath() + '/src/main/api/shared/database.ts')
+        .default.dbPut('out-kill-plugin', [])
+      await process
+        .mainModule!.require(app.getAppPath() + '/src/main/managers/windowManager.ts')
+        .default.showSettings()
     })
     await expect
       .poll(() =>
@@ -38,11 +62,19 @@ test('tray always restores settings and uninstall removes a running ASAR and its
         )
       )
       .toBe(true)
-    const settings = app
+    await expect
+      .poll(() =>
+        app!
+          .context()
+          .pages()
+          .some((page) => page.url().startsWith('http://127.0.0.1:15177'))
+      )
+      .toBe(true)
+    let settings = app
       .context()
       .pages()
       .find((page) => page.url().startsWith('http://127.0.0.1:15177'))!
-    await expect(settings.getByText('启用超级面板', { exact: true })).toBeVisible()
+    await expect(settings.getByText('鼠标按键弹出', { exact: true })).toBeVisible()
 
     const source = path.join(temporary, 'fixture')
     const archive = path.join(temporary, 'fixture.zpx')
@@ -69,11 +101,11 @@ test('tray always restores settings and uninstall removes a running ASAR and its
       { source, archive }
     )
     const installed = await settings.evaluate(
-      (file) => window.ztools.internal.installPluginFromPath(file),
+      (file) => window.tabdo.internal.installPluginFromPath(file),
       archive
     )
     expect(installed.success, installed.error).toBe(true)
-    const fixture = (await settings.evaluate(() => window.ztools.internal.getPlugins())).find(
+    const fixture = (await settings.evaluate(() => window.tabdo.internal.getPlugins())).find(
       (plugin) => plugin.name === 'cleanup-fixture'
     )!
     expect(fixture.path.endsWith('.asar')).toBe(true)
@@ -95,20 +127,18 @@ test('tray always restores settings and uninstall removes a running ASAR and its
     })
 
     // 切换到真实安装包后通过托盘事件回到设置，覆盖“其他插件正在显示”的情况。
-    expect(
-      (
-        await settings.evaluate(
-          (pluginPath) =>
-            window.ztools.internal.launch({
-              path: pluginPath,
-              type: 'plugin',
-              featureCode: 'main',
-              name: 'Cleanup Fixture'
-            }),
-          fixture.path
-        )
-      ).success
-    ).toBe(true)
+    const host = await app.firstWindow()
+    await host.evaluate(
+      (pluginPath) =>
+        window.tabdo.launch({
+          path: pluginPath,
+          type: 'plugin',
+          featureCode: 'main',
+          name: 'Cleanup Fixture'
+        }),
+      fixture.path
+    )
+    await expect.poll(() => settings.isClosed()).toBe(true)
     await expect
       .poll(() =>
         app!.evaluate(({ webContents }) =>
@@ -127,7 +157,19 @@ test('tray always restores settings and uninstall removes a running ASAR and its
       ).default
       manager.tray.emit('click')
     })
-    await expect(settings.getByText('启用超级面板', { exact: true })).toBeVisible()
+    await expect
+      .poll(() =>
+        app!
+          .context()
+          .pages()
+          .some((page) => !page.isClosed() && page.url().startsWith('http://127.0.0.1:15177'))
+      )
+      .toBe(true)
+    settings = app
+      .context()
+      .pages()
+      .find((page) => !page.isClosed() && page.url().startsWith('http://127.0.0.1:15177'))!
+    await expect(settings.getByText('鼠标按键弹出', { exact: true })).toBeVisible()
     for (const hidden of [false, true, false]) {
       await app.evaluate(({ app }, hide) => {
         const manager = process.mainModule!.require(
@@ -156,6 +198,18 @@ test('tray always restores settings and uninstall removes a running ASAR and its
           path: expect.stringMatching(/[\\/]setting(?:[\\/]public)?$/)
         })
     }
+    await expect
+      .poll(() =>
+        app!
+          .context()
+          .pages()
+          .some((page) => !page.isClosed() && page.url().startsWith('http://127.0.0.1:15177'))
+      )
+      .toBe(true)
+    settings = app
+      .context()
+      .pages()
+      .find((page) => !page.isClosed() && page.url().startsWith('http://127.0.0.1:15177'))!
     const menuLabels = await app.evaluate(({ app }) =>
       process
         .mainModule!.require(app.getAppPath() + '/src/main/managers/windowManager.ts')
@@ -166,11 +220,11 @@ test('tray always restores settings and uninstall removes a running ASAR and its
 
     // 不勾选删除数据时仍清除实体和失效入口，插件专属文件应保留。
     await settings.evaluate(async (pluginPath) => {
-      await window.ztools.internal.dbPut('plugin-center-pinned', [pluginPath])
+      await window.tabdo.internal.dbPut('plugin-center-pinned', [pluginPath])
     }, fixture.path)
     const removal = await settings.evaluate(
       (pluginPath) =>
-        window.ztools.internal.deletePlugin(pluginPath, {
+        window.tabdo.internal.deletePlugin(pluginPath, {
           deleteData: false
         }),
       fixture.path
@@ -189,24 +243,24 @@ test('tray always restores settings and uninstall removes a running ASAR and its
       )
     ).toEqual(['keep'])
     expect(
-      await settings.evaluate(() => window.ztools.internal.dbGet('plugin-center-pinned'))
+      await settings.evaluate(() => window.tabdo.internal.dbGet('plugin-center-pinned'))
     ).toEqual([])
-    expect(await settings.evaluate(() => window.ztools.internal.getDisabledPlugins())).toEqual([])
+    expect(await settings.evaluate(() => window.tabdo.internal.getDisabledPlugins())).toEqual([])
 
     // 再次安装后通过界面勾选删除数据，验证插件专属目录一起清理。
     expect(
       (
         await settings.evaluate(
-          (file) => window.ztools.internal.installPluginFromPath(file),
+          (file) => window.tabdo.internal.installPluginFromPath(file),
           archive
         )
       ).success
     ).toBe(true)
     const reinstalledPath = await settings.evaluate(async () => {
-      const plugin = (await window.ztools.internal.getPlugins()).find(
+      const plugin = (await window.tabdo.internal.getPlugins()).find(
         (item) => item.name === 'cleanup-fixture'
       )!
-      await window.ztools.internal.setPluginDisabled(plugin.path, true)
+      await window.tabdo.internal.setPluginDisabled(plugin.path, true)
       return plugin.path
     })
     await settings.getByRole('button', { name: '已安装插件', exact: true }).click()
@@ -223,13 +277,13 @@ test('tray always restores settings and uninstall removes a running ASAR and its
         session.fromPartition('persist:cleanup-fixture').cookies.get({ name: 'fixture' })
       )
     ).toEqual([])
-    expect(await settings.evaluate(() => window.ztools.internal.getDisabledPlugins())).toEqual([])
+    expect(await settings.evaluate(() => window.tabdo.internal.getDisabledPlugins())).toEqual([])
     expect(
-      (await settings.evaluate(() => window.ztools.internal.getPlugins())).map(
+      (await settings.evaluate(() => window.tabdo.internal.getPlugins())).map(
         (plugin) => plugin.name
       )
     ).toEqual(expect.arrayContaining(['setting', 'system']))
-    await expect(settings.locator('.plugin-item').getByText('内置', { exact: true })).toHaveCount(2)
+    await expect(settings.locator('.plugin-item').getByText('内置', { exact: true })).toHaveCount(0)
 
     // 等待正文插件项稳定后，直接捕获设置 WebContentsView 的当前可见区域。
     await settings.evaluate(() => {

@@ -1,13 +1,16 @@
 import Fuse from 'fuse.js'
 import { defineStore } from 'pinia'
 import { pinyin } from 'pinyin-pro'
-import { ref } from 'vue'
+import { ref, shallowRef } from 'vue'
 import arrowBackwardIcon from '../assets/image/arrow-backward.png'
 import settingsFillIcon from '../assets/image/settings-fill.png'
 import {
   getCommandId as _getCommandId,
   applySpecialConfig as _applySpecialConfig,
-  calculateMatchScore as _calculateMatchScore
+  calculateMatchScore as _calculateMatchScore,
+  calculateUsageBoost,
+  sortCommandsByUsage,
+  getUsageStatsKey
 } from './commandUtils'
 import {
   COMMAND_ALIASES_KEY,
@@ -267,16 +270,17 @@ export const useCommandDataStore = defineStore('commandData', () => {
   // 固定指令
   const pinnedCommands = ref<Command[]>([])
   // 指令列表（用于搜索）
-  const commands = ref<Command[]>([]) // 用于 Fuse 模糊搜索的指令列表
-  const regexCommands = ref<Command[]>([]) // 只用正则匹配的指令列表
-  const mainPushFeatures = ref<MainPushFeature[]>([]) // mainPush 功能列表
-  const rawAppsCache = ref<any[]>([])
-  const enabledPluginsCache = ref<any[]>([])
-  const systemSettingCommandsCache = ref<Command[]>([])
+  // 搜索集合始终整体重建，不为索引和每个只读指令创建深层响应式代理。
+  const commands = shallowRef<Command[]>([]) // 用于 Fuse 模糊搜索的指令列表
+  const regexCommands = shallowRef<Command[]>([]) // 只用正则匹配的指令列表
+  const mainPushFeatures = shallowRef<MainPushFeature[]>([]) // mainPush 功能列表
+  const rawAppsCache = shallowRef<any[]>([])
+  const enabledPluginsCache = shallowRef<any[]>([])
+  const systemSettingCommandsCache = shallowRef<Command[]>([])
   // 存原始本地启动项数据（保留 name/alias），由 buildLocalShortcutCommandItems 映射为搜索指令
-  const localShortcutCommandsCache = ref<any[]>([])
+  const localShortcutCommandsCache = shallowRef<any[]>([])
   const loading = ref(false)
-  const fuse = ref<Fuse<Command> | null>(null)
+  const fuse = shallowRef<Fuse<Command> | null>(null)
   let loadCommandsRequestId = 0
   // 是否已初始化
   const isInitialized = ref(false)
@@ -311,6 +315,48 @@ export const useCommandDataStore = defineStore('commandData', () => {
   // 匹配推荐置顶序列（只影响推荐区，不影响主搜索框固定列表）
   const recommendationPins = ref<RecommendationPin[]>([])
 
+  // 指令使用统计（频次 + 最近使用），用于匹配指令列表的优先级排序
+  const commandUsageStats = ref<Record<string, { useCount: number; lastUsed: number }>>({})
+  let usageStatsLoadedAt = 0
+  const USAGE_STATS_REFRESH_MS = 2000
+
+  /**
+   * 重新读取主进程记录的指令使用统计。
+   *
+   * 指令启动后统计在主进程更新，这里按短间隔重新拉取，让下一次匹配列表就用上最新热度；
+   * 同时避免每次按键都发起 IPC 请求。
+   *
+   * @param force 是否忽略刷新间隔强制读取。
+   * @returns 读取完成后的 Promise。
+   */
+  async function refreshCommandUsageStats(force = false): Promise<void> {
+    if (!force && Date.now() - usageStatsLoadedAt < USAGE_STATS_REFRESH_MS) return
+    try {
+      const stats = (await window.tabdo.getUsageStats?.()) || []
+      const next: Record<string, { useCount: number; lastUsed: number }> = {}
+      for (const item of stats) {
+        if (!item?.path) continue
+        next[getUsageStatsKey(item)] = {
+          useCount: Number(item.useCount) || 0,
+          lastUsed: Number(item.lastUsed) || 0
+        }
+      }
+      commandUsageStats.value = next
+      usageStatsLoadedAt = Date.now()
+    } catch (error) {
+      console.error('读取指令使用统计失败:', error)
+    }
+  }
+
+  /**
+   * 取单条指令的使用热度加分。
+   * @param command 待排序的指令。
+   * @returns 频次与最近使用折算的加分。
+   */
+  function usageBoost(command: Command): number {
+    return calculateUsageBoost(commandUsageStats.value[getUsageStatsKey(command)])
+  }
+
   // 超级面板固定列表缓存
   const superPanelPinned = ref<any[]>([])
 
@@ -319,7 +365,7 @@ export const useCommandDataStore = defineStore('commandData', () => {
    */
   async function loadSuperPanelPinnedData(): Promise<void> {
     try {
-      superPanelPinned.value = await window.ztools.getSuperPanelPinned()
+      superPanelPinned.value = await window.tabdo.getSuperPanelPinned()
     } catch {
       superPanelPinned.value = []
     }
@@ -537,7 +583,7 @@ export const useCommandDataStore = defineStore('commandData', () => {
 
   async function loadCommandAliases(): Promise<CommandAliasStore> {
     try {
-      const data = await window.ztools.dbGet(COMMAND_ALIASES_KEY)
+      const data = await window.tabdo.dbGet(COMMAND_ALIASES_KEY)
       return normalizeCommandAliases(data)
     } catch (error) {
       console.error('加载指令别名失败:', error)
@@ -566,7 +612,7 @@ export const useCommandDataStore = defineStore('commandData', () => {
 
   async function loadDisabledCommands(): Promise<void> {
     try {
-      const data = await window.ztools.dbGet(DISABLED_COMMANDS_KEY)
+      const data = await window.tabdo.dbGet(DISABLED_COMMANDS_KEY)
       if (data && Array.isArray(data)) {
         disabledCommands.value = data
       }
@@ -577,7 +623,7 @@ export const useCommandDataStore = defineStore('commandData', () => {
 
   async function loadDisabledPlugins(): Promise<void> {
     try {
-      const data = await window.ztools.getDisabledPlugins()
+      const data = await window.tabdo.getDisabledPlugins()
       setDisabledPluginPaths(data)
     } catch (error) {
       console.error('加载禁用插件列表失败:', error)
@@ -587,7 +633,7 @@ export const useCommandDataStore = defineStore('commandData', () => {
 
   async function loadEnabledMainPushPlugins(): Promise<void> {
     try {
-      const data = await window.ztools.dbGet(ENABLED_MAIN_PUSH_PLUGINS_KEY)
+      const data = await window.tabdo.dbGet(ENABLED_MAIN_PUSH_PLUGINS_KEY)
       enabledMainPushPluginNames.value = normalizeConfigList(data)
     } catch (error) {
       console.error('加载启用 mainPush 插件列表失败:', error)
@@ -597,7 +643,7 @@ export const useCommandDataStore = defineStore('commandData', () => {
 
   async function loadSearchPreference(): Promise<void> {
     try {
-      const data = await window.ztools.dbGet('search-preference')
+      const data = await window.tabdo.dbGet('search-preference')
       if (data && typeof data === 'object') {
         searchPreference.value = data
       }
@@ -612,7 +658,7 @@ export const useCommandDataStore = defineStore('commandData', () => {
    */
   async function loadRecommendationPins(): Promise<void> {
     try {
-      const data = await window.ztools.dbGet(RECOMMENDATION_PINS_DOC_ID)
+      const data = await window.tabdo.dbGet(RECOMMENDATION_PINS_DOC_ID)
       if (!Array.isArray(data)) {
         recommendationPins.value = []
         return
@@ -637,7 +683,7 @@ export const useCommandDataStore = defineStore('commandData', () => {
    * @throws 数据库写入失败时抛出原始错误
    */
   async function saveRecommendationPins(): Promise<void> {
-    await window.ztools.dbPut(
+    await window.tabdo.dbPut(
       RECOMMENDATION_PINS_DOC_ID,
       JSON.parse(JSON.stringify(recommendationPins.value))
     )
@@ -773,7 +819,7 @@ export const useCommandDataStore = defineStore('commandData', () => {
       name: command.name
     }
     try {
-      await window.ztools.dbPut(
+      await window.tabdo.dbPut(
         'search-preference',
         JSON.parse(JSON.stringify(searchPreference.value))
       )
@@ -805,22 +851,22 @@ export const useCommandDataStore = defineStore('commandData', () => {
       ])
 
       // 监听后端历史记录变化事件
-      window.ztools.onHistoryChanged(() => {
+      window.tabdo.onHistoryChanged(() => {
         loadHistoryData()
       })
 
       // 监听指令列表变化事件（应用文件夹变化、插件变化时触发）
-      window.ztools.onAppsChanged(() => {
+      window.tabdo.onAppsChanged(() => {
         loadCommands()
       })
 
       // 监听本地启动项变化事件（添加/删除/别名修改时触发，无需重新扫描系统应用）
-      window.ztools.onLocalShortcutsChanged(() => {
+      window.tabdo.onLocalShortcutsChanged(() => {
         reloadLocalShortcuts()
       })
 
       // 监听固定列表变化事件
-      window.ztools.onPinnedChanged(() => {
+      window.tabdo.onPinnedChanged(() => {
         // 如果是本地触发的更新，忽略此事件，避免重复加载
         if (isLocalPinnedUpdate) {
           isLocalPinnedUpdate = false
@@ -830,17 +876,17 @@ export const useCommandDataStore = defineStore('commandData', () => {
       })
 
       // 监听超级面板固定列表变化事件
-      window.ztools.onSuperPanelPinnedChanged(() => {
+      window.tabdo.onSuperPanelPinnedChanged(() => {
         loadSuperPanelPinnedData()
       })
 
       // 监听禁用指令列表变化事件
-      window.ztools.onDisabledCommandsChanged(() => {
+      window.tabdo.onDisabledCommandsChanged(() => {
         loadDisabledCommands()
       })
 
       // 监听指令别名变化事件，仅基于当前缓存重建 alias 展开，避免重复扫描系统应用。
-      window.ztools.onCommandAliasesChanged(() => {
+      window.tabdo.onCommandAliasesChanged(() => {
         reloadCommandAliases()
       })
 
@@ -858,7 +904,7 @@ export const useCommandDataStore = defineStore('commandData', () => {
   // 加载历史记录数据
   async function loadHistoryData(): Promise<void> {
     try {
-      const data = await window.ztools.dbGet(HISTORY_DOC_ID)
+      const data = await window.tabdo.dbGet(HISTORY_DOC_ID)
 
       if (data && Array.isArray(data)) {
         // 创建当前所有指令的 path Set（用于验证历史记录是否仍然有效）
@@ -915,8 +961,8 @@ export const useCommandDataStore = defineStore('commandData', () => {
   async function loadPinnedData(): Promise<void> {
     try {
       const [data, plugins] = await Promise.all([
-        window.ztools.dbGet(PINNED_DOC_ID),
-        window.ztools.getAllPlugins()
+        window.tabdo.dbGet(PINNED_DOC_ID),
+        window.tabdo.getAllPlugins()
       ])
 
       if (data && Array.isArray(data)) {
@@ -956,9 +1002,9 @@ export const useCommandDataStore = defineStore('commandData', () => {
   async function reloadPluginCommands(): Promise<void> {
     try {
       const [plugins, disabledPlugins, enabledMainPushPlugins, commandAliases] = await Promise.all([
-        window.ztools.getAllPlugins(),
-        window.ztools.getDisabledPlugins(),
-        window.ztools.dbGet(ENABLED_MAIN_PUSH_PLUGINS_KEY),
+        window.tabdo.getAllPlugins(),
+        window.tabdo.getDisabledPlugins(),
+        window.tabdo.dbGet(ENABLED_MAIN_PUSH_PLUGINS_KEY),
         loadCommandAliases()
       ])
       setDisabledPluginPaths(disabledPlugins)
@@ -1261,18 +1307,18 @@ export const useCommandDataStore = defineStore('commandData', () => {
     try {
       const [rawApps, plugins, disabledPlugins, enabledMainPushPlugins, commandAliases] =
         await Promise.all([
-          window.ztools.getApps(),
-          window.ztools.getAllPlugins(),
-          window.ztools.getDisabledPlugins(),
-          window.ztools.dbGet(ENABLED_MAIN_PUSH_PLUGINS_KEY),
+          window.tabdo.getApps(),
+          window.tabdo.getAllPlugins(),
+          window.tabdo.getDisabledPlugins(),
+          window.tabdo.dbGet(ENABLED_MAIN_PUSH_PLUGINS_KEY),
           loadCommandAliases()
         ])
 
       let settingCommands: Command[] = []
       try {
-        const isWindows = window.ztools.getPlatform() === 'win32'
+        const isWindows = window.tabdo.getPlatform() === 'win32'
         if (isWindows) {
-          const settings = await window.ztools.getSystemSettings()
+          const settings = await window.tabdo.getSystemSettings()
           settingCommands = settings.map((s: any) => ({
             name: s.name,
             path: s.uri,
@@ -1296,7 +1342,7 @@ export const useCommandDataStore = defineStore('commandData', () => {
 
       let localShortcuts: any[] = []
       try {
-        localShortcuts = await window.ztools.localShortcuts.getAll()
+        localShortcuts = await window.tabdo.localShortcuts.getAll()
       } catch (error) {
         console.error('加载本地启动项失败:', error)
       }
@@ -1330,7 +1376,7 @@ export const useCommandDataStore = defineStore('commandData', () => {
    */
   async function reloadLocalShortcuts(): Promise<void> {
     try {
-      const shortcuts = await window.ztools.localShortcuts.getAll()
+      const shortcuts = await window.tabdo.localShortcuts.getAll()
       localShortcutCommandsCache.value = shortcuts
 
       rebuildCommandCollections(await loadCommandAliases())
@@ -1363,8 +1409,10 @@ export const useCommandDataStore = defineStore('commandData', () => {
   // 搜索
   function search(
     query: string,
-    commandList?: SearchResult[]
+    commandList?: Command[]
   ): { bestMatches: SearchResult[]; regexMatches: SearchResult[] } {
+    // 匹配前按间隔刷新使用统计，让常用与刚用过的指令在相近匹配中优先。
+    void refreshCommandUsageStats()
     // 如果没有指定搜索范围，使用全局指令
     const searchTarget = commandList || commands.value
 
@@ -1428,9 +1476,11 @@ export const useCommandDataStore = defineStore('commandData', () => {
       })
       bestMatches = scoredMatches
         .sort((a, b) => {
-          // 自定义排序：优先连续匹配，系统应用权重略高
-          const scoreA = calculateMatchScore(a.scoreText, query, a.scoreMatches, a.result)
-          const scoreB = calculateMatchScore(b.scoreText, query, b.scoreMatches, b.result)
+          // 自定义排序：优先连续匹配，系统应用权重略高；匹配相近时把常用与最近用过的指令提前。
+          const scoreA =
+            calculateMatchScore(a.scoreText, query, a.scoreMatches, a.result) + usageBoost(a.result)
+          const scoreB =
+            calculateMatchScore(b.scoreText, query, b.scoreMatches, b.result) + usageBoost(b.result)
           return scoreB - scoreA // 分数高的排前面
         })
         .map((item) => item.result)
@@ -1473,9 +1523,9 @@ export const useCommandDataStore = defineStore('commandData', () => {
 
     // 应用特殊指令配置（确保图标等属性正确）
     const processedBestMatches = bestMatches.filter((cmd) => !isCommandDisabled(cmd))
-    const processedRegexMatches = regexMatches
-      .filter((cmd) => !isCommandDisabled(cmd))
-      .map((cmd) => applySpecialConfig(cmd))
+    const processedRegexMatches = sortByUsage(
+      regexMatches.filter((cmd) => !isCommandDisabled(cmd)).map((cmd) => applySpecialConfig(cmd))
+    )
 
     // 如果指定了搜索范围（用于粘贴内容的二次搜索），不需要 regexMatches
     if (commandList) {
@@ -1486,13 +1536,24 @@ export const useCommandDataStore = defineStore('commandData', () => {
     return { bestMatches: processedBestMatches, regexMatches: processedRegexMatches }
   }
 
+  /**
+   * 将候选中上一次使用的指令置首，其余依次按频次、最近时间和稳定顺序排列。
+   *
+   * @param commands 已匹配的指令列表。
+   * @returns 按明确优先级排列的新数组。
+   */
+  function sortByUsage<T extends Command>(commands: T[]): T[] {
+    void refreshCommandUsageStats()
+    return sortCommandsByUsage(commands, commandUsageStats.value)
+  }
+
   // 搜索支持图片的指令
   function searchImageCommands(): SearchResult[] {
     const result = regexCommands.value
       .filter((cmd) => cmd.matchCmd?.type === 'img')
       .filter((cmd) => !isCommandDisabled(cmd))
     // 应用特殊指令配置
-    return result.map((cmd) => applySpecialConfig(cmd))
+    return sortByUsage(result.map((cmd) => applySpecialConfig(cmd)))
   }
 
   // 搜索支持文本的指令（根据文本长度过滤）
@@ -1518,7 +1579,9 @@ export const useCommandDataStore = defineStore('commandData', () => {
     })
 
     // 应用特殊指令配置，过滤禁用指令
-    return result.filter((cmd) => !isCommandDisabled(cmd)).map((cmd) => applySpecialConfig(cmd))
+    return sortByUsage(
+      result.filter((cmd) => !isCommandDisabled(cmd)).map((cmd) => applySpecialConfig(cmd))
+    )
   }
 
   // 搜索支持文件的指令（根据配置属性过滤）
@@ -1539,7 +1602,9 @@ export const useCommandDataStore = defineStore('commandData', () => {
     )
 
     // 应用特殊指令配置，过滤禁用指令
-    return result.filter((cmd) => !isCommandDisabled(cmd)).map((cmd) => applySpecialConfig(cmd))
+    return sortByUsage(
+      result.filter((cmd) => !isCommandDisabled(cmd)).map((cmd) => applySpecialConfig(cmd))
+    )
   }
 
   const windowTitleRegexCache = new Map<string, RegExp | null>()
@@ -1605,7 +1670,9 @@ export const useCommandDataStore = defineStore('commandData', () => {
     const result = windowCommandsList.filter((cmd) => matchesWindowCommand(cmd, windowInfo))
 
     // 应用特殊指令配置，过滤禁用指令
-    return result.filter((cmd) => !isCommandDisabled(cmd)).map((cmd) => applySpecialConfig(cmd))
+    return sortByUsage(
+      result.filter((cmd) => !isCommandDisabled(cmd)).map((cmd) => applySpecialConfig(cmd))
+    )
   }
 
   // 在指定的指令列表中搜索（用于粘贴内容后的二次搜索）
@@ -1650,7 +1717,7 @@ export const useCommandDataStore = defineStore('commandData', () => {
     featureCode?: string,
     name?: string
   ): Promise<void> {
-    await window.ztools.removeFromHistory(commandPath, featureCode, name)
+    await window.tabdo.removeFromHistory(commandPath, featureCode, name)
     // 后端会发送 history-changed 事件，触发重新加载
   }
 
@@ -1669,7 +1736,7 @@ export const useCommandDataStore = defineStore('commandData', () => {
         pluginName: cmd.pluginName
       }))
 
-      await window.ztools.dbPut(PINNED_DOC_ID, cleanData)
+      await window.tabdo.dbPut(PINNED_DOC_ID, cleanData)
     } catch (error) {
       console.error('保存固定列表失败:', error)
     }
@@ -1707,7 +1774,7 @@ export const useCommandDataStore = defineStore('commandData', () => {
   async function pinCommand(command: Command): Promise<void> {
     // 将 Vue 响应式对象转换为纯对象，避免 IPC 传递时的克隆错误
     const plainCommand = JSON.parse(JSON.stringify(command))
-    await window.ztools.pinApp(plainCommand)
+    await window.tabdo.pinApp(plainCommand)
     // 后端会发送 pinned-changed 事件，触发重新加载
   }
 
@@ -1719,7 +1786,7 @@ export const useCommandDataStore = defineStore('commandData', () => {
     featureCode?: string,
     name?: string
   ): Promise<void> {
-    await window.ztools.unpinApp(commandPath, featureCode, name)
+    await window.tabdo.unpinApp(commandPath, featureCode, name)
     // 后端会发送 pinned-changed 事件，触发重新加载
   }
 
@@ -1751,7 +1818,7 @@ export const useCommandDataStore = defineStore('commandData', () => {
     // 异步保存到后端，不等待完成
     // 将 Vue 响应式对象数组转换为纯对象数组，避免 IPC 传递时的克隆错误
     const plainOrder = JSON.parse(JSON.stringify(newOrder))
-    window.ztools.updatePinnedOrder(plainOrder).catch((error) => {
+    window.tabdo.updatePinnedOrder(plainOrder).catch((error) => {
       console.error('保存固定列表顺序失败:', error)
       // 如果保存失败，重置标志并重新从后端加载数据
       isLocalPinnedUpdate = false
@@ -1850,6 +1917,9 @@ export const useCommandDataStore = defineStore('commandData', () => {
 
     // 初始化
     initializeData,
+    // 使用统计：指令启动后强制刷新，下一次匹配即可按最新热度排序
+    refreshCommandUsageStats,
+    sortByUsage,
 
     // 指令和搜索相关
     loadCommands,

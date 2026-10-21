@@ -118,17 +118,6 @@ const homeRoutes: MenuRouterItemType[] = [
     redirect: { name: 'Data', query: { tab: 'backup' } }
   },
   {
-    path: '/debug',
-    name: 'Debug',
-    component: () => import('@/views/DebugSetting/DebugSetting.vue'),
-    meta: {
-      menu: {
-        label: '调试日志',
-        icon: 'i-z-terminal'
-      }
-    }
-  },
-  {
     path: '/httpService',
     name: 'HttpService',
     component: () => import('@/views/HttpServiceSetting/HttpServiceSetting.vue'),

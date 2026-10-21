@@ -49,9 +49,7 @@ export function usePluginDetail(options: UsePluginDetailOptions) {
 
   // 插件设置状态
   const showSettingsDropdown = ref(false)
-  const isAutoKill = ref(false)
   const isAutoDetach = ref(false)
-  const isAutoStart = ref(false)
   const isMainPushEnabled = ref(false)
 
   // 当前详情页插件的有效名称（已包含 __dev 后缀）
@@ -79,21 +77,15 @@ export function usePluginDetail(options: UsePluginDetailOptions) {
     showSettingsDropdown.value = !showSettingsDropdown.value
   }
 
-  // 加载插件设置
+  /**
+   * 读取仍受支持的独立窗口与动态指令偏好。
+   * @returns 配置加载结束后的 Promise。
+   */
   async function loadPluginSettings(): Promise<void> {
     if (!plugin.value.name) return
 
     try {
-      const killData = await window.ztools.internal.dbGet('out-kill-plugin')
-      if (Array.isArray(killData) && currentPluginName.value) {
-        isAutoKill.value = normalizeConfigList(killData).includes(currentPluginName.value)
-      }
-    } catch (err) {
-      console.debug('未找到 outKillPlugin 配置', err)
-    }
-
-    try {
-      const detachData = await window.ztools.internal.dbGet('auto-detach-plugin')
+      const detachData = await window.tabdo.internal.dbGet('auto-detach-plugin')
       if (Array.isArray(detachData) && currentPluginName.value) {
         isAutoDetach.value = normalizeConfigList(detachData).includes(currentPluginName.value)
       }
@@ -102,16 +94,7 @@ export function usePluginDetail(options: UsePluginDetailOptions) {
     }
 
     try {
-      const startData = await window.ztools.internal.dbGet('auto-start-plugin')
-      if (Array.isArray(startData) && currentPluginName.value) {
-        isAutoStart.value = normalizeConfigList(startData).includes(currentPluginName.value)
-      }
-    } catch (err) {
-      console.debug('未找到 autoStartPlugin 配置', err)
-    }
-
-    try {
-      const mainPushData = await window.ztools.internal.dbGet(ENABLED_MAIN_PUSH_PLUGINS_KEY)
+      const mainPushData = await window.tabdo.internal.dbGet(ENABLED_MAIN_PUSH_PLUGINS_KEY)
       if (currentPluginName.value) {
         isMainPushEnabled.value = isMainPushPluginEnabled(
           currentPluginName.value,
@@ -123,62 +106,28 @@ export function usePluginDetail(options: UsePluginDetailOptions) {
     }
   }
 
-  // 切换「退出即结束」
-  async function toggleAutoKill(): Promise<void> {
-    if (!currentPluginName.value) return
-
-    let list: string[] = []
-    try {
-      const data = await window.ztools.internal.dbGet('out-kill-plugin')
-      list = normalizeConfigList(data)
-    } catch {
-      // ignore
-    }
-
-    list = toggleInList(list, currentPluginName.value)
-    await window.ztools.internal.dbPut('out-kill-plugin', list)
-    isAutoKill.value = list.includes(currentPluginName.value)
-  }
-
   // 切换「自动分离窗口」
   async function toggleAutoDetach(): Promise<void> {
     if (!currentPluginName.value) return
 
     let list: string[] = []
     try {
-      const data = await window.ztools.internal.dbGet('auto-detach-plugin')
+      const data = await window.tabdo.internal.dbGet('auto-detach-plugin')
       list = normalizeConfigList(data)
     } catch {
       // ignore
     }
 
     list = toggleInList(list, currentPluginName.value)
-    await window.ztools.internal.dbPut('auto-detach-plugin', list)
+    await window.tabdo.internal.dbPut('auto-detach-plugin', list)
     isAutoDetach.value = list.includes(currentPluginName.value)
-  }
-
-  // 切换「跟随主程序同时启动运行」
-  async function toggleAutoStart(): Promise<void> {
-    if (!currentPluginName.value) return
-
-    let list: string[] = []
-    try {
-      const data = await window.ztools.internal.dbGet('auto-start-plugin')
-      list = normalizeConfigList(data)
-    } catch {
-      // ignore
-    }
-
-    list = toggleInList(list, currentPluginName.value)
-    await window.ztools.internal.dbPut('auto-start-plugin', list)
-    isAutoStart.value = list.includes(currentPluginName.value)
   }
 
   async function toggleMainPushEnabled(): Promise<void> {
     if (!currentPluginName.value) return
 
     const nextEnabled = !isMainPushEnabled.value
-    const result = await window.ztools.internal.setPluginMainPushEnabled(
+    const result = await window.tabdo.internal.setPluginMainPushEnabled(
       currentPluginName.value,
       nextEnabled
     )
@@ -259,7 +208,7 @@ export function usePluginDetail(options: UsePluginDetailOptions) {
 
     try {
       if (plugin.value.name) {
-        const result = await window.ztools.internal.getPluginReadme(plugin.value.name)
+        const result = await window.tabdo.internal.getPluginReadme(plugin.value.name)
         if (result.success && result.content) {
           readmeContent.value = result.content
         } else {
@@ -287,7 +236,7 @@ export function usePluginDetail(options: UsePluginDetailOptions) {
     dataError.value = ''
 
     try {
-      const result = await window.ztools.internal.getPluginDocKeys(currentPluginName.value)
+      const result = await window.tabdo.internal.getPluginDocKeys(currentPluginName.value)
       if (result.success) {
         docKeys.value = result.data || []
       } else {
@@ -317,7 +266,7 @@ export function usePluginDetail(options: UsePluginDetailOptions) {
 
     isClearing.value = true
     try {
-      const result = await window.ztools.internal.clearPluginData(currentPluginName.value)
+      const result = await window.tabdo.internal.clearPluginData(currentPluginName.value)
       if (result.success) {
         success('插件数据已清除')
         expandedDataId.value = ''
@@ -391,7 +340,7 @@ export function usePluginDetail(options: UsePluginDetailOptions) {
     currentDocType.value = item.type
 
     try {
-      const result = await window.ztools.internal.getPluginDoc(currentPluginName.value, item.key)
+      const result = await window.tabdo.internal.getPluginDoc(currentPluginName.value, item.key)
       if (result.success) {
         currentDocContent.value = result.data
         currentDocType.value = result.type || 'document'
@@ -442,7 +391,7 @@ export function usePluginDetail(options: UsePluginDetailOptions) {
 
   function openHomepage(): void {
     if (plugin.value.homepage) {
-      window.ztools.shellOpenExternal(plugin.value.homepage)
+      window.tabdo.shellOpenExternal(plugin.value.homepage)
     }
   }
 
@@ -460,7 +409,7 @@ export function usePluginDetail(options: UsePluginDetailOptions) {
 
     memoryLoading.value = true
     try {
-      const result = await window.ztools.internal.getPluginMemoryInfo(plugin.value.path)
+      const result = await window.tabdo.internal.getPluginMemoryInfo(plugin.value.path)
       if (result.success && result.data) {
         memoryInfo.value = result.data
       } else {
@@ -549,16 +498,12 @@ export function usePluginDetail(options: UsePluginDetailOptions) {
   return {
     // 设置状态
     showSettingsDropdown,
-    isAutoKill,
     isAutoDetach,
-    isAutoStart,
     isMainPushEnabled,
     pluginHasMainPush,
     currentPluginName,
     toggleSettingsDropdown,
-    toggleAutoKill,
     toggleAutoDetach,
-    toggleAutoStart,
     toggleMainPushEnabled,
 
     // Tab 状态

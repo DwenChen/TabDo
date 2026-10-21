@@ -1,0 +1,33 @@
+{
+  "id": "tools-ui-and-translation-preferences",
+  "date": "2026-10-19",
+  "summary": "优化便签、图片标记、搜索及识别界面，增加自动翻译与语言设置",
+  "changes": [
+    "便签缩小初始尺寸，黄色起始并轮换新窗口颜色，置顶独立图标，支持四边和角落缩放。",
+    "图片窗口按原图与工作区适配，修复文字输入焦点，荧光笔独立颜色、默认荧光黄，五档笔触与分行工具栏。",
+    "本地文件搜索复用原插件 Finder 布局与样式，集中连接指引、分类与预览。",
+    "选区弹窗新增独立自动翻译开关；在线服务保存源语言和目标语言，默认自动识别并译为简体中文。",
+    "识别页参考原插件双栏布局，保留坐标选文并增加受限 LaTeX 预览。"
+  ],
+  "checks": [
+    "按用户本轮指示，仅验证相关改动，不运行全量单测或全量 E2E。",
+    "pnpm test tests/main/builtinProviderService.test.ts --maxWorkers=2：1 个文件、6 项通过，归档 .artifacts/runs/2026-10-19T15-43-17-890Z-unit。覆盖在线语言默认值、服务配置、显式调用优先级与原有提供商协调。",
+    "pnpm test:e2e tests/e2e/builtin-providers.spec.ts：在两次组合执行中均通过，最近证据 .artifacts/runs/2026-10-19T15-49-58-796Z-e2e。覆盖自动翻译关闭后不调用服务、开关持久化、在线语言配置、OCR 双栏坐标选文与翻译，以及 KaTeX 实时预览和公式格式复制。该组合中的 tools-expanded 失败未计为通过。",
+    "pnpm test:e2e tests/e2e/tools-polish.spec.ts：独立专项通过，归档 .artifacts/runs/2026-10-19T15-54-42-067Z-e2e。覆盖图片初始贴合、340px 工具栏、文字实际输入与画布变化、荧光笔独立配色、五档笔触、便签初始黄色/新建轮色/独立置顶/真实边缘拖动、原搜索布局和连接提示、真实文件预览及分类查询。",
+    "开发验证中的模板多语句编译错误、入口固定绿色参数、Windows DPI 尺寸断言等均已修正并在最终专项通过。首次类型检查发现 unknown 配置值类型不匹配，已增加字符串边界检查；后续 pnpm typecheck、pnpm typecheck:setting 及 pnpm build 中类型检查通过。",
+    "早期 tools-expanded 组合在无关二维码阶段出现页面重载/结果丢失，并有一次测试 worker 原生退出异常，未宣称该宽组通过。按用户范围新增无二维码/重命名路径的 tools-polish 专项，失败日志与 trace 均保留。",
+    "修改文件 eslint --no-cache --max-warnings=0、resources/tools-floating.js 的 node --check、git diff --check 通过；新增专项文件 lint 通过。",
+    "公式预览固定使用 KaTeX 0.16.22，trust:false，保留 MIT 许可；原搜索 Finder 固定源码的布局/样式来源及 MIT 许可随插件保留。依赖增加只包含 KaTeX 和 commander@8.3.0，保留既有 jsQR 变更。",
+    "pnpm build 通过，仅用于本地预览交付，未执行 electron-builder、build:unpack 或云端构建。原有 Rollup 分块和 highlight 非 module 脚本警告仍保留。",
+    "pnpm preview:sync 通过：64 份程序文件核验，172 个 data/legacy 文件同步前后内容指纹一致；版本保持 1.1.0，回滚程序 .artifacts/backups/preview-sync/update-1792425398894/previous-resources。",
+    "pnpm test:preview:resources 通过：63 份运行资源与 134 份内置插件资源一致。",
+    "用户询问 Java 报错弹窗后，读取 Windows Application Error，发现本轮源码 Electron 在退出时发生 ztools_native.node 0xc0000409。还发现 23:49 创建的本轮中断 E2E 进程 PID 28656 遗留，已按精确 PID 结束该进程及其两个子进程，并确认无仍运行的本项目 preview-main 源码实例；未按进程名批量结束用户应用。事件证据 .artifacts/runs/tools-polish-native-exit-events.json。弹窗正文尚未取得，不能断言原生异常就是该弹窗或已修复底层退出问题。",
+    "最终 pnpm maintain、pnpm maintain:check、git diff --check 通过；变更、Bug 与测试索引已刷新。"
+  ],
+  "pending": [
+    "多屏、DPI 下的透明窗口尺寸舍入和手动拖动手感，原生复制/选区与真实 Everything 环境需人工验收。",
+    "真实在线翻译服务网络可用性和真实 OCR/公式识别精度本轮未重新验收。",
+    "源码 E2E 的原生模块退出崩溃已登记，底层原因待独立排查；测试断言通过不代表该退出异常已修复。用户报告弹窗的精确标题和堆栈待补，当前仅能确认并清理本轮遗留测试进程。"
+  ],
+  "preview": "已同步 .local/portable-preview 并核验资源，使用 PreviewPortable.cmd 手动测试；172 个原数据文件指纹保持一致。未重置数据、未 push、未云端构建、未发布 release。"
+}

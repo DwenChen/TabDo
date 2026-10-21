@@ -1,0 +1,102 @@
+.utility-page {
+  height: 100vh;
+  overflow: auto;
+  padding: 20px;
+  box-sizing: border-box;
+  background: var(--bg-app);
+  color: var(--text-primary);
+  font: var(--tool-font);
+}
+.utility-page h2 {
+  font-size: 20px;
+  margin: 0 0 8px;
+}
+.utility-page .muted,
+.utility-page small {
+  color: var(--text-secondary);
+}
+.utility-page button,
+.utility-page select,
+.utility-page input,
+.utility-page textarea {
+  font: inherit;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 6px 9px;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.utility-page input[type='number'] {
+  width: 85px;
+}
+.utility-page button {
+  cursor: pointer;
+}
+.utility-page button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.utility-page .actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0;
+}
+.utility-page fieldset {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  min-width: 0;
+}
+.utility-page .rule {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-color);
+}
+.utility-page .table-scroll {
+  max-height: 40vh;
+  overflow: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+.utility-page table {
+  border-collapse: collapse;
+  width: 100%;
+  text-align: left;
+}
+.utility-page th,
+.utility-page td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color);
+  overflow-wrap: anywhere;
+}
+.utility-page th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg-elevated);
+}
+.utility-page .confirmation {
+  position: fixed;
+  z-index: 20;
+  bottom: 16px;
+  left: 16px;
+  right: 16px;
+  background: var(--bg-elevated);
+  padding: 16px;
+  border: 1px solid var(--primary-color);
+  border-radius: 8px;
+  box-shadow: 0 3px 24px #0003;
+}
+.utility-page .confirmation button {
+  margin-right: 10px;
+}
+.utility-page textarea {
+  width: 100%;
+  resize: vertical;
+}
+.utility-page a {
+  color: var(--primary-color);
+  cursor: pointer;
+}

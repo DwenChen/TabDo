@@ -104,7 +104,7 @@ export function useMainPushResults(props: UseMainPushResultsProps): {
             type: feature.matchedCmdType,
             payload: searchText
           }
-          const items = await window.ztools.queryMainPush(
+          const items = await window.tabdo.queryMainPush(
             feature.pluginPath,
             feature.featureCode,
             queryData
@@ -175,7 +175,7 @@ export function useMainPushResults(props: UseMainPushResultsProps): {
         payload: searchQuery,
         option: rawItem
       }
-      return await window.ztools.selectMainPush(group.pluginPath, group.featureCode, selectData)
+      return await window.tabdo.selectMainPush(group.pluginPath, group.featureCode, selectData)
     } catch (error) {
       console.error(`[MainPush] 选择处理失败:`, error)
       return false

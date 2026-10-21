@@ -1,6 +1,6 @@
 import path from 'path'
 import { fileURLToPath, pathToFileURL } from 'url'
-import type { ZToolsDataLayout } from '../appData/appDataPaths'
+import type { TabDoDataLayout } from '../appData/appDataPaths'
 
 export interface LegacyPathRewriteResult<T> {
   value: T
@@ -15,7 +15,7 @@ export interface LegacyPathRewriteResult<T> {
  */
 export function rewriteLegacyStoragePaths<T>(
   value: T,
-  layout: ZToolsDataLayout
+  layout: TabDoDataLayout
 ): LegacyPathRewriteResult<T> {
   if (typeof value === 'string') {
     return rewriteLegacyStoragePath(value, layout) as LegacyPathRewriteResult<T>
@@ -53,7 +53,7 @@ export function rewriteLegacyStoragePaths<T>(
  */
 function rewriteLegacyStoragePath(
   value: string,
-  layout: ZToolsDataLayout
+  layout: TabDoDataLayout
 ): LegacyPathRewriteResult<string> {
   let localPath = value
   let isFileUrl = false
@@ -83,7 +83,7 @@ function rewriteLegacyStoragePath(
  * @param layout 旧版与 3.x 数据目录布局
  * @returns 映射后的路径；不属于旧目录时返回 null
  */
-function rebaseLegacyLocalPath(localPath: string, layout: ZToolsDataLayout): string | null {
+function rebaseLegacyLocalPath(localPath: string, layout: TabDoDataLayout): string | null {
   const relativePath = path.relative(layout.legacyUserDataPath, localPath)
 
   // 防止相同字符串前缀或上级目录被误判为旧版数据目录内容。

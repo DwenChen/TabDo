@@ -6,7 +6,7 @@
  */
 
 // 翻译 provider：入参 { text, from?, to? }，返回 { text, detectedFrom? }
-window.ztools.registerProvider('translation', async (input) => {
+window.tabdo.registerProvider('translation', async (input) => {
   const { text } = input
   // === mock：真实场景替换为你的翻译 API 调用 ===
   return {
@@ -16,7 +16,7 @@ window.ztools.registerProvider('translation', async (input) => {
 })
 
 // OCR provider：入参 { image, lang? }，返回 { text, blocks?, confidence? }
-window.ztools.registerProvider('ocr', async (input) => {
+window.tabdo.registerProvider('ocr', async (input) => {
   const { image } = input
   // === mock：真实场景替换为你的 OCR API 调用（image 可为路径/dataURI/URL） ===
   console.log('[provider-example] ocr called with image:', image)

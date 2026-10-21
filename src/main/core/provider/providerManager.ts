@@ -3,6 +3,7 @@ import fsSync from 'fs'
 import path from 'path'
 import type { PluginManager } from '../../managers/pluginManager'
 import databaseAPI from '../../api/shared/database'
+import { resolveLegacyBuiltinProviderId } from '../../../shared/builtinProviders'
 import {
   ALL_PROVIDER_TYPES,
   BUILTIN_PROVIDER_PREFIX,
@@ -26,7 +27,7 @@ interface BuiltinProviderDefinition {
   label: string
   description: string
   /** 实际调用实现；为空表示该 provider 仅有声明、暂不可调用（如尚未就绪的引擎） */
-  invoke?: (input: never) => Promise<unknown>
+  invoke?: (input: never, signal?: AbortSignal) => Promise<unknown>
   /** 是否就绪（影响 UI 提示与是否可被设为默认） */
   isReady?: () => boolean
 }
@@ -45,7 +46,7 @@ class ProviderManager {
   private pluginManager: PluginManager | null = null
   /** 已注册的内置 provider 定义（id -> definition） */
   private builtinProviders = new Map<string, BuiltinProviderDefinition>()
-  /** webContents.id => 已通过 ztools.registerProvider 注册的 key 集合 */
+  /** webContents.id => 已通过 tabdo.registerProvider 注册的 key 集合 */
   private registeredProviders = new Map<number, Set<string>>()
   /** webContents.id:key => 等待注册完成的回调 */
   private waiters = new Map<string, Array<() => void>>()
@@ -58,7 +59,7 @@ class ProviderManager {
   // ==================== IPC ====================
 
   private setupIPC(): void {
-    // 插件 preload 通过 ztools.registerProvider 注册
+    // 插件 preload 通过 tabdo.registerProvider 注册
     // payload 为插件内声明 key（plugin.json providers 字段的 key），不再限制为 type。
     ipcMain.on('plugin:provider-register', (event, key: string) => {
       try {
@@ -159,6 +160,8 @@ class ProviderManager {
       const pluginPath = plugin?.path
       const pluginName = plugin?.name
       if (typeof pluginPath !== 'string' || typeof pluginName !== 'string') continue
+      // 原提供商条目已由内置能力接管，保留其安装文件与私有数据。
+      if (pluginName === 'f-provider') continue
 
       const declared = this.getDeclaredProvidersByPath(pluginPath)
       // 声明 key 为插件内唯一标识，同一 type 可有多条（key 不同）
@@ -184,17 +187,24 @@ class ProviderManager {
 
   /**
    * 解析某 type 下最终使用的 provider id：
-   * 优先显式传入 → 其次默认 → 最后回退到第一个启用项（或第一个可用项）。
-   * 仅做选择，不做加载/校验，供 invoke / 查询默认项等场景复用。
+   * 优先显式标识，其次仍存在且已启用的默认项，最后取首个有效启用项。
+   * @param type 需要解析的能力类型。
+   * @param providerId 调用方显式指定的提供商标识。
+   * @returns 最终提供商标识，没有有效启用项时返回 undefined。
    */
   public resolveProviderId(type: ProviderType, providerId?: string): string | undefined {
     const settings = this.getSettings()
-    return providerId || settings.defaultId[type] || this.firstEnabledId(type, settings)
+    if (providerId) return resolveLegacyBuiltinProviderId(providerId)
+    const available = new Set(this.getAllProviders(type).map((entry) => entry.id))
+    const enabled = settings.enabled[type] || []
+    const preferred = settings.defaultId[type]
+    return preferred && enabled.includes(preferred) && available.has(preferred)
+      ? preferred
+      : this.firstEnabledId(type, settings)
   }
 
   /**
-   * 取某 type 的默认 provider id（显式默认 → 首个启用 → 首个可用）。
-   * 无可用项时返回 undefined。
+   * 取某 type 的默认提供商标识，没有有效启用项时返回 undefined。
    */
   public getDefaultProviderId(type: ProviderType): string | undefined {
     return this.resolveProviderId(type)
@@ -202,26 +212,34 @@ class ProviderManager {
 
   /**
    * 按 type 调用默认 provider（或显式指定 providerId）。
+   * @param type 提供商类型。
+   * @param input 符合对应能力契约的输入。
+   * @param options 可选的提供商标识和当前调用取消信号。
+   * @returns 提供商输出结果。
+   * @throws 未找到、未就绪或调用失败时抛出。
    */
   public async invoke<T extends ProviderType>(
     type: T,
     input: ProviderContractMap[T]['input'],
-    options?: { providerId?: string }
+    options?: { providerId?: string; signal?: AbortSignal }
   ): Promise<ProviderContractMap[T]['output']> {
+    options?.signal?.throwIfAborted()
     const targetId = this.resolveProviderId(type, options?.providerId)
 
     if (!targetId) {
-      throw new Error(`没有可用的 ${type} 提供商，请在设置中安装或启用对应插件`)
+      throw new Error(`没有可用的 ${type} 提供商，请在“提供商”页启用对应服务`)
     }
 
     // 内置 provider
     if (targetId.startsWith(BUILTIN_PROVIDER_PREFIX)) {
       const def = this.builtinProviders.get(targetId)
-      if (!def) throw new Error(`未找到内置 provider: ${targetId}`)
+      if (!def || def.type !== type) throw new Error(`未找到内置 ${type} provider: ${targetId}`)
       if (typeof def.invoke !== 'function') {
         throw new Error(`内置 provider "${def.label}" 暂不可用`)
       }
-      return (await def.invoke(input as never)) as ProviderContractMap[T]['output']
+      return (await (options?.signal
+        ? def.invoke(input as never, options.signal)
+        : def.invoke(input as never))) as ProviderContractMap[T]['output']
     }
 
     // 插件 provider
@@ -229,34 +247,42 @@ class ProviderManager {
     if (!entry || entry.source !== 'plugin' || !entry.pluginPath || !entry.key) {
       throw new Error(`未找到 provider: ${targetId}`)
     }
-    const webContents = await this.ensurePluginProviderReady(entry.pluginPath, entry.key)
-    if (!webContents) {
-      throw new Error(`provider 所在插件无法加载: ${entry.pluginName}`)
-    }
+    const releaseRuntime = this.pluginManager?.retainPluginRuntime?.(entry.pluginPath)
+    try {
+      const webContents = await this.ensurePluginProviderReady(entry.pluginPath, entry.key)
+      // 插件准备期间已退出的调用不再向插件派发新计算。
+      options?.signal?.throwIfAborted()
+      if (!webContents) {
+        throw new Error(`provider 所在插件无法加载: ${entry.pluginName}`)
+      }
 
-    const result = await webContents.executeJavaScript(`
+      const result = await webContents.executeJavaScript(`
       (async () => {
-        if (!window.ztools || typeof window.ztools.__invokeRegisteredProvider !== 'function') {
+        if (!window.tabdo || typeof window.tabdo.__invokeRegisteredProvider !== 'function') {
           throw new Error('插件运行时缺少 provider 调用入口')
         }
-        return await window.ztools.__invokeRegisteredProvider(
+        return await window.tabdo.lifecycle.runTask(() => window.tabdo.__invokeRegisteredProvider(
           ${JSON.stringify(entry.key)},
           ${JSON.stringify(input ?? {})}
-        )
+        ), 60_000)
       })()
     `)
-    return result as ProviderContractMap[T]['output']
+      return result as ProviderContractMap[T]['output']
+    } finally {
+      releaseRuntime?.()
+    }
   }
 
   /**
    * 取某 type 下第一个启用的 provider id（兜底逻辑）。
+   * @param type 能力类型。
+   * @param settings 当前提供商配置。
+   * @returns 第一个仍存在且已启用的标识。
    */
   private firstEnabledId(type: ProviderType, settings: ProviderSettings): string | undefined {
-    const enabled = settings.enabled[type]
-    if (enabled && enabled.length > 0) return enabled[0]
-    // 没有显式启用项时，回退到该类型的第一个可用 provider
     const all = this.getAllProviders(type)
-    return all[0]?.id
+    const available = new Set(all.map((entry) => entry.id))
+    return settings.enabled[type]?.find((id) => available.has(id))
   }
 
   /**

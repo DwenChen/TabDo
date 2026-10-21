@@ -67,7 +67,7 @@ vi.mock('../../src/main/core/lmdb/lmdbInstance', () => ({
 }))
 
 vi.mock('../../src/main/core/appData/appDataPaths', () => ({
-  getClipboardPath: vi.fn(() => '/tmp/ztools-test-clipboard')
+  getClipboardPath: vi.fn(() => '/tmp/tabdo-test-clipboard')
 }))
 
 vi.mock('../../src/main/api', () => ({

@@ -5,6 +5,8 @@ import proxyManager from '../managers/proxyManager'
 import { GLOBAL_SCROLLBAR_CSS } from './globalStyles'
 import { buildPluginThemeCSS, getCurrentPluginThemeState } from './pluginTheme'
 import { resolvePluginWindowUrl } from '../utils/pluginUrl'
+import { ensurePluginSessionPreload } from './pluginSessionPreload'
+import { releaseToolsView } from './toolsLifecycle'
 
 /**
  * 插件可用的 BrowserWindow / WebContents 方法白名单
@@ -194,7 +196,7 @@ export const winIpc = {
  */
 interface PluginWindowInfo {
   window: BrowserWindow
-  parentWebContents: Electron.WebContents
+  parentWebContents: Electron.WebContents | null
   pluginPath: string
   pluginName: string
   sessionPartition: string
@@ -205,8 +207,15 @@ class PluginWindowManager {
   private windowInfoMap: Map<number, PluginWindowInfo> = new Map()
 
   /**
-   * 创建插件独立窗口
-   * @returns win.id（数字）
+   * 创建插件独立窗口，复用所属 Session 的公共 preload 注册。
+   * @param pluginPath 插件实际路径。
+   * @param pluginName 插件有效名称。
+   * @param sessionPartition 插件 Session 隔离标识。
+   * @param url 待打开的页面地址。
+   * @param options 原生窗口选项。
+   * @param senderWebContents 发起创建的插件页面。
+   * @returns 新建的独立窗口实例。
+   * @throws 窗口配置或创建失败时抛出。
    */
   public createWindow(
     pluginPath: string,
@@ -224,10 +233,7 @@ class PluginWindowManager {
 
     // 使用插件名称创建 session，确保和插件主视图共享同一个 session
     const sess = session.fromPartition(sessionPartition)
-    sess.registerPreloadScript({
-      type: 'frame',
-      filePath: mainPreload
-    })
+    ensurePluginSessionPreload(sess, mainPreload)
 
     // 应用代理配置到插件 session
     proxyManager
@@ -261,6 +267,33 @@ class PluginWindowManager {
       sessionPartition
     })
 
+    let retiring = false
+    /**
+     * 结束此独立窗口自己的会话；必要任务收束前保留受限的旧 IPC 身份。
+     * @returns 无返回值。
+     */
+    const retireWindow = (): void => {
+      if (retiring || win.isDestroyed()) return
+      retiring = true
+      this.windowInfoMap.delete(win.id)
+      releaseToolsView(
+        win.webContents,
+        () => {
+          if (!win.isDestroyed()) win.destroy()
+        },
+        { name: pluginName, path: pluginPath }
+      )
+    }
+    win.on('hide', retireWindow)
+    win.on('minimize', retireWindow)
+    win.on('close', (event) => {
+      if (!retiring) {
+        event.preventDefault()
+        win.hide()
+        retireWindow()
+      }
+    })
+
     // 加载 URL（支持 `index.html?id=1#/route` 形式的 query 与 hash）
     const loadUrl = resolvePluginWindowUrl(pluginPath, url)
     win.loadURL(loadUrl)
@@ -278,9 +311,9 @@ class PluginWindowManager {
 
       // 在父窗口触发 callback（与 utools executeJavaScript 方式一致）
       senderWebContents.executeJavaScript(
-        `if (window.ztools && window.ztools.__event__ && typeof window.ztools.__event__.createBrowserWindowCallback === 'function') {
-          try { window.ztools.__event__.createBrowserWindowCallback() } catch(e) {}
-          delete window.ztools.__event__.createBrowserWindowCallback
+        `if (window.tabdo && window.tabdo.__event__ && typeof window.tabdo.__event__.createBrowserWindowCallback === 'function') {
+          try { window.tabdo.__event__.createBrowserWindowCallback() } catch(e) {}
+          delete window.tabdo.__event__.createBrowserWindowCallback
         }`
       )
       console.debug(`[pluginWindow:callback] dom-ready → trigger parent callback, winId=${win.id}`)
@@ -363,6 +396,20 @@ class PluginWindowManager {
       }
     }
     return null
+  }
+
+  /**
+   * 父页面退出时解除独立可见窗口的父引用，只回收已隐藏的子窗口。
+   * @param parent 退出的父 WebContents，不能按插件路径影响新会话。
+   * @returns 无返回值。
+   */
+  public releaseParent(parent: Electron.WebContents): void {
+    for (const info of this.windowInfoMap.values()) {
+      if (info.parentWebContents !== parent) continue
+      // 可见窗口持有独立会话，不保留父页面模型或失效 IPC 回调。
+      info.parentWebContents = null
+      if (!info.window.isVisible() || info.window.isMinimized()) info.window.close()
+    }
   }
 
   /**

@@ -5,11 +5,19 @@ import type { PluginUninstallOptions, TabId } from '@/components'
 import { compareVersions, upgradeInstalledPluginFromMarket, weightedSearch } from '@/utils'
 import { PluginDetail, PluginCard, CategoryCard, CategoryDetail, RefreshButton } from './components'
 import type { Plugin, CategoryInfo, CategoryLayoutSection, PluginDownloadState } from './components'
-import { useJumpFunction, useZtoolsSubInput } from '@/composables'
+import { useJumpFunction, useTabDoSubInput } from '@/composables'
 import { PluginMarketSettingJumpFunction } from '@/views/PluginMarketSetting/PluginMarketSetting'
 import { getMarketCategoryIcon } from './marketAssets'
 
 const { success, error, confirm } = useToast()
+
+/**
+ * 打开独立市场的开发与提交入口。
+ * @returns 无返回值。
+ */
+function openMarketRepository(): void {
+  window.tabdo.shellOpenExternal('https://github.com/DwenChen/TabDo-plugins')
+}
 
 interface CategorySummary {
   key: string
@@ -68,7 +76,7 @@ const installingPlugin = ref<string | null>(null)
 const downloadStates = ref<Record<string, PluginDownloadState | undefined>>({})
 let stopDownloadProgressListener: (() => void) | undefined
 
-const { value: searchQuery, setSubInput } = useZtoolsSubInput('', '搜索插件市场...')
+const { value: searchQuery, setSubInput } = useTabDoSubInput('', '搜索插件市场...')
 
 // 搜索模式：有搜索词时使用扁平搜索
 const isSearchMode = computed(() => (searchQuery.value || '').trim().length > 0)
@@ -143,8 +151,8 @@ async function fetchPlugins(): Promise<void> {
   isLoading.value = true
   try {
     const [marketResult, installedPlugins] = await Promise.all([
-      window.ztools.internal.fetchPluginMarket(),
-      window.ztools.internal.getPlugins()
+      window.tabdo.internal.fetchPluginMarket(),
+      window.tabdo.internal.getPlugins()
     ])
 
     const typedMarketResult = marketResult as PluginMarketResponse
@@ -276,7 +284,7 @@ async function handleOpenPlugin(plugin: Plugin): Promise<void> {
     return
   }
   try {
-    const result = await window.ztools.internal.launch({
+    const result = await window.tabdo.internal.launch({
       path: plugin.path,
       type: 'plugin',
       name: plugin.title || plugin.name,
@@ -306,7 +314,7 @@ async function handleOpenFolder(plugin: Plugin): Promise<void> {
 
   try {
     // 交由主进程按当前平台打开并选中插件文件。
-    await window.ztools.internal.revealInFinder(plugin.path)
+    await window.tabdo.internal.revealInFinder(plugin.path)
   } catch (err: unknown) {
     console.error('打开插件目录失败:', err)
     error(`打开插件目录失败: ${err instanceof Error ? err.message : '未知错误'}`)
@@ -399,7 +407,7 @@ function handleDownloadProgress(payload: PluginDownloadState & { pluginName: str
 async function downloadPlugin(plugin: Plugin): Promise<void> {
   const currentState = downloadStates.value[plugin.name]
   if (currentState?.status === 'downloading') {
-    const cancelResult = await window.ztools.internal.cancelPluginMarketDownload(
+    const cancelResult = await window.tabdo.internal.cancelPluginMarketDownload(
       currentState.taskId || plugin.name
     )
     if (!cancelResult.success) {
@@ -417,7 +425,7 @@ async function downloadPlugin(plugin: Plugin): Promise<void> {
   })
 
   try {
-    const result = await window.ztools.internal.installPluginFromMarket(
+    const result = await window.tabdo.internal.installPluginFromMarket(
       JSON.parse(JSON.stringify(plugin))
     )
     if (result.success) {
@@ -458,7 +466,7 @@ async function handleUninstallPlugin(
 
   try {
     // 使用宿主统一卸载结果，避免把已登记的延后清理误报为即时删除。
-    const deleteResult = await window.ztools.internal.deletePlugin(plugin.path, options)
+    const deleteResult = await window.tabdo.internal.deletePlugin(plugin.path, options)
     if (!deleteResult.success) {
       error(`卸载失败: ${deleteResult.error}`)
       return
@@ -467,7 +475,7 @@ async function handleUninstallPlugin(
     const message = options.deleteData ? '插件已卸载，插件数据已删除' : '插件已卸载，插件数据已保留'
     success(
       message +
-        (deleteResult.cleanupPending ? '；安装包仍被系统占用，将在退出 ZTools 后自动清理' : '')
+        (deleteResult.cleanupPending ? '；安装包仍被系统占用，将在退出 TabDo 后自动清理' : '')
     )
 
     plugin.installed = false
@@ -486,8 +494,8 @@ async function shuffleRandomSection(section: StorefrontSection): Promise<void> {
   if (section.type !== 'random' || !section.plugins) return
   try {
     const [recommendations, installedPlugins] = await Promise.all([
-      window.ztools.internal.fetchPluginMarketRecommendations(section.plugins.length || 12),
-      window.ztools.internal.getPlugins()
+      window.tabdo.internal.fetchPluginMarketRecommendations(section.plugins.length || 12),
+      window.tabdo.internal.getPlugins()
     ])
     const enriched = enrichPlugins(
       recommendations as MarketPlugin[],
@@ -539,7 +547,7 @@ useJumpFunction<PluginMarketSettingJumpFunction>((state) => {
 onMounted(() => {
   fetchPlugins()
   stopDownloadProgressListener =
-    window.ztools.internal.onPluginMarketDownloadProgress(handleDownloadProgress)
+    window.tabdo.internal.onPluginMarketDownloadProgress(handleDownloadProgress)
   window.addEventListener('keydown', handleKeydown, true)
 })
 
@@ -666,7 +674,9 @@ onUnmounted(() => {
                 stroke-linecap="round"
               />
             </svg>
-            <span>暂无插件</span>
+            <span>TabDo 插件市场</span>
+            <p>符合新生命周期规范的插件将逐步收录。</p>
+            <button class="btn" @click="openMarketRepository">开发与提交插件</button>
           </div>
           <div v-else class="market-grid">
             <PluginCard
@@ -819,6 +829,8 @@ onUnmounted(() => {
 
 .category-panel-container.shifted-left {
   transform: translateX(-100%);
+  /* 详情页进入前立即撤下分类正文，材质背景不承担页面遮挡。 */
+  visibility: hidden;
 }
 
 /* 分类导航网格 */

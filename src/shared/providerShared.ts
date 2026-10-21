@@ -3,7 +3,7 @@
  *
  * 翻译、OCR 等能力不再由主程序硬编码实现，而是统一抽象为 Provider：
  * - 插件在 plugin.json 的 providers 字段声明它提供哪些 type；
- * - 运行时通过 ztools.registerProvider(key, handler) 注册实现；
+ * - 运行时通过 tabdo.registerProvider(key, handler) 注册实现；
  * - 主程序经 providerManager 聚合后供设置页展示与调用。
  *
  * 注意：AI 不纳入本抽象，AI 模型继续走 aiModels 独立链路。

@@ -5,7 +5,7 @@
       <img :src="logo" class="header-icon" draggable="false" />
       <div class="header-info">
         <div class="title">发现新版本 {{ version }}</div>
-        <div class="subtitle">ZTools</div>
+        <div class="subtitle">TabDo</div>
       </div>
       <button
         type="button"
@@ -65,7 +65,7 @@
               >
                 <span aria-hidden="true">?</span>
                 <span id="quark-source-tooltip" class="source-tooltip" role="tooltip">
-                  通过夸克网盘下载并转存时，ZTools
+                  通过夸克网盘下载并转存时，TabDo
                   可能获得少量渠道收益，用于分担服务器和持续维护成本。感谢你的支持。
                 </span>
               </button>
@@ -190,7 +190,7 @@ const startUpdate = async (): Promise<void> => {
   try {
     // 人工渠道只打开浏览器，不进入应用内下载状态。
     if (!isInAppUpdateSource(selectedSource.value)) {
-      const result = await window.ztools.updater.startUpdate(selectedSource.value.id)
+      const result = await window.tabdo.updater.startUpdate(selectedSource.value.id)
       if (!result.success) {
         updateError.value = result.error || '打开下载页面失败'
         status.value = 'error'
@@ -202,7 +202,7 @@ const startUpdate = async (): Promise<void> => {
 
     if (status.value === 'downloaded') {
       status.value = 'installing'
-      const result = await window.ztools.updater.installDownloadedUpdate()
+      const result = await window.tabdo.updater.installDownloadedUpdate()
       if (!result.success) {
         updateError.value = result.error || '安装更新失败'
         status.value = 'error'
@@ -214,7 +214,7 @@ const startUpdate = async (): Promise<void> => {
     downloadProgress.value = 0
     transferredBytes.value = 0
     totalBytes.value = 0
-    const result = await window.ztools.updater.startUpdate(selectedSource.value.id)
+    const result = await window.tabdo.updater.startUpdate(selectedSource.value.id)
     if (result.cancelled) return
     if (!result.success) {
       updateError.value = result.error || '下载更新失败'
@@ -237,7 +237,7 @@ const cancelDownload = async (): Promise<void> => {
 
   isCancelling.value = true
   try {
-    const result = await window.ztools.updater.cancelUpdate()
+    const result = await window.tabdo.updater.cancelUpdate()
     if (!result.success) {
       // 下载可能恰好完成，只有仍处于下载态时才展示取消失败。
       if (status.value === 'downloading') {
@@ -395,8 +395,8 @@ onMounted(() => {
   window.electron?.ipcRenderer.send('updater:window-ready')
 
   // 初始化窗口材质
-  if (window.ztools?.getWindowMaterial) {
-    window.ztools
+  if (window.tabdo?.getWindowMaterial) {
+    window.tabdo
       .getWindowMaterial()
       .then((material) => {
         document.documentElement.setAttribute('data-material', material)
@@ -408,16 +408,16 @@ onMounted(() => {
   }
 
   // 监听窗口材质更新
-  if (window.ztools?.onUpdateWindowMaterial) {
-    window.ztools.onUpdateWindowMaterial((material) => {
+  if (window.tabdo?.onUpdateWindowMaterial) {
+    window.tabdo.onUpdateWindowMaterial((material) => {
       document.documentElement.setAttribute('data-material', material)
       applyAcrylicOverlay()
     })
   }
 
   // 监听亚克力透明度更新
-  if (window.ztools?.onUpdateAcrylicOpacity) {
-    window.ztools.onUpdateAcrylicOpacity((data) => {
+  if (window.tabdo?.onUpdateAcrylicOpacity) {
+    window.tabdo.onUpdateAcrylicOpacity((data) => {
       acrylicLightOpacity.value = data.lightOpacity
       acrylicDarkOpacity.value = data.darkOpacity
       applyAcrylicOverlay()
@@ -778,7 +778,7 @@ body,
   width: 250px;
   padding: 9px 11px;
   border-radius: 6px;
-  background: rgba(34, 34, 34, 0.96);
+  background: #222222;
   color: #fff;
   font-size: 11px;
   font-weight: 400;

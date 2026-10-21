@@ -2,7 +2,7 @@
 import { computed, nextTick, onMounted, ref } from 'vue'
 import { useToast, AdaptiveIcon } from '@/components'
 import { weightedSearch } from '@/utils'
-import { useJumpFunction, useZtoolsSubInput } from '@/composables'
+import { useJumpFunction, useTabDoSubInput } from '@/composables'
 import { LocalLaunchSettingJumpFunction } from '@/views/LocalLaunchSetting/LocalLaunchSetting'
 
 const emit = defineEmits<{
@@ -31,7 +31,7 @@ const isDragging = ref(false)
 // 防止并发消费待添加路径
 const isConsumingPending = ref(false)
 
-const { value: searchQuery } = useZtoolsSubInput('', '搜索本地启动项...')
+const { value: searchQuery } = useTabDoSubInput('', '搜索本地启动项...')
 
 const filteredShortcuts = computed(() =>
   weightedSearch(shortcuts.value, searchQuery.value || '', [
@@ -47,7 +47,7 @@ const editingAlias = ref('')
 // 加载本地启动项列表
 async function loadShortcuts(): Promise<void> {
   try {
-    const result = await window.ztools.internal.localShortcuts.getAll()
+    const result = await window.tabdo.internal.localShortcuts.getAll()
     shortcuts.value = result
   } catch (err) {
     console.error('加载本地启动项失败:', err)
@@ -63,7 +63,7 @@ async function handleAdd(type: 'file' | 'folder'): Promise<void> {
 
   isAdding.value = true
   try {
-    const result = await window.ztools.internal.localShortcuts.add(type)
+    const result = await window.tabdo.internal.localShortcuts.add(type)
     if (result.success) {
       success('添加成功')
       await loadShortcuts()
@@ -82,7 +82,7 @@ async function handleAdd(type: 'file' | 'folder'): Promise<void> {
 async function addDroppedFile(filePath: string): Promise<void> {
   try {
     // 调用内部 API 按路径添加文件/文件夹/应用
-    const result = await window.ztools.internal.localShortcuts.addByPath(filePath)
+    const result = await window.tabdo.internal.localShortcuts.addByPath(filePath)
     if (result.success) {
       success('添加成功')
       await loadShortcuts()
@@ -156,7 +156,7 @@ async function handleDrop(e: DragEvent): Promise<void> {
   for (let i = 0; i < files.length; i++) {
     const file = files[i]
     try {
-      const filePath = (window as any).ztools.getPathForFile(file)
+      const filePath = (window as any).tabdo.getPathForFile(file)
       await addDroppedFile(filePath)
     } catch (err) {
       console.error('处理拖拽文件失败:', err)
@@ -198,7 +198,7 @@ async function saveAlias(shortcut: LocalShortcut): Promise<void> {
   }
 
   try {
-    const result = await window.ztools.internal.localShortcuts.updateAlias(shortcut.id, newAlias)
+    const result = await window.tabdo.internal.localShortcuts.updateAlias(shortcut.id, newAlias)
     if (result.success) {
       // 更新本地状态
       shortcut.alias = newAlias || undefined
@@ -217,7 +217,7 @@ async function saveAlias(shortcut: LocalShortcut): Promise<void> {
 // 打开项目
 async function handleOpen(shortcut: LocalShortcut): Promise<void> {
   try {
-    const result = await window.ztools.internal.localShortcuts.open(shortcut.path)
+    const result = await window.tabdo.internal.localShortcuts.open(shortcut.path)
     if (!result.success) {
       error(result.error || '打开失败')
     }
@@ -242,7 +242,7 @@ async function handleDelete(shortcut: LocalShortcut): Promise<void> {
 
   isDeleting.value = true
   try {
-    const result = await window.ztools.internal.localShortcuts.delete(shortcut.id)
+    const result = await window.tabdo.internal.localShortcuts.delete(shortcut.id)
     if (result.success) {
       success('删除成功')
       await loadShortcuts()
@@ -267,7 +267,7 @@ async function handleInvalidItemDelete(): Promise<void> {
   if (!confirmed) return
   isDeleting.value = true
   try {
-    const result = await window.ztools.internal.localShortcuts.deleteWhenNotExist()
+    const result = await window.tabdo.internal.localShortcuts.deleteWhenNotExist()
     if (result.success) {
       success('删除成功')
     } else {
@@ -296,7 +296,7 @@ function getTypeLabel(type: string): string {
   }
 }
 
-// 处理对应 ztools code 进来的功能
+// 处理对应 tabdo code 进来的功能
 useJumpFunction<LocalLaunchSettingJumpFunction>((state) => {
   if (state.pendingFiles && state.pendingFiles.length > 0) {
     consumePendingFiles(state.pendingFiles)

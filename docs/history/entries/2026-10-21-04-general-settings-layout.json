@@ -1,0 +1,22 @@
+{
+  "id": "general-settings-compact-controls",
+  "date": "2026-10-21",
+  "summary": "优化通用设置翻译入口、快捷匹配文案和秒数输入宽度，统一插件默认高度为 540",
+  "changes": [
+    "描述区可收缩换行，操作区保持独立宽度，前往翻译按钮保持单行；精简自动翻译与复制后匹配说明，标签去掉固定中键。秒数输入框覆盖旧 250px 最小宽度，固定为 96 CSS 像素。",
+    "插件正文初值、无效输入回退、主动重置与宿主初值统一使用 DEFAULT_PLUGIN_HEIGHT=540；已有自定义高度保留，占位文字和重置按钮同步采用共享常量。",
+    "最近主动复制的回退匹配不再限定 middle 且非长按，跟随当前配置的超级面板触发键，当前选区仍优先；既有独立中键兼容入口保持原行为。",
+    "用户补充要求对此触发键适配单独测试并加入测试集：新增 17 项用例和 clipboard-trigger 三文件回归组；同步 Bug 台账、TX-56 视觉/TX-57 行为说明及既有剪贴板 E2E 标签定位器（本轮未运行 E2E）。"
+  ],
+  "checks": [
+    "按用户最初要求，界面仅做隔离源码窗口视觉验证；随后按其补充要求，仅对触发键逻辑运行专项单测。本轮未运行 E2E，未使用成品执行端到端流程。",
+    "直接捕获并查看设置插件当前可见区域的默认、较窄及高度位置三张图。视口 804×543 和 788×551 CSS 像素，翻译按钮为 nowrap，秒数框实测 96px，表单及宿主高度为 540。截图/布局记录在 test-results/playwright/settings-layout-visual，独立资料在 .artifacts/visual/settings-layout，不访问真实或免安装预览资料。",
+    "首轮视觉发现旧最小宽度仍把输入框撑至 250px，修正选择器后截图确认 96px。私有截图脚本初次退出等待及关闭后 process API 失效已修正，最终视觉脚本正常退出。",
+    "pnpm test:regressions clipboard-trigger --list 明确选择 3 个单测文件、0 个 E2E；--unit 实际 35 项通过，新增触发链用例 17 项，归档 .artifacts/runs/2026-10-21T10-20-03-281Z-unit。原生监视器和窗口发布边界用替身隔离，宿主异步匹配链真实执行；剪贴板既有测试用真实时效读取验证过期/关闭。",
+    "修改范围 ESLint 零错误零警告；pnpm build 完成 Node/Web/设置类型检查与设置、工具、宿主/preload 编译。既有循环重导出、混合静态/动态导入及 pnpm 兼容提示保留；未执行 electron-builder/build:unpack。",
+    "pnpm preview:sync 已同步 1.1.0，105 个现有资料及插件文件前后校验一致；核对 89 个程序文件，回退资源在 .artifacts/backups/preview-sync/update-1792578060763/previous-resources，资料指纹在同目录 preservation.json。pnpm test:preview:resources 通过：88 个程序资源、229 个内置插件文件、1676 个媒体运行库文件。",
+    "本轮只更新程序资源，未重置任何预览或正常用户资料，未启动实际免安装预览写入测试资料。收尾执行 pnpm maintain、pnpm maintain:check 与 git diff --check，不提交私有文件，不 push、云端构建或发布 release。"
+  ],
+  "pending": ["未运行 E2E；不同应用的原生长按、外部选区、其他 DPI 和显示器行为保留人工验收。"],
+  "preview": "已同步 .local/portable-preview/（1.1.0），资源校验通过，105 个现有配置及插件文件逐项校验保留；未重置或启动实际预览写入测试资料。通过 PreviewPortable.cmd 手动验收，未提交、push、云端构建或 release。"
+}

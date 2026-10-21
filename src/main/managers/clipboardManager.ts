@@ -14,10 +14,15 @@ import {
   writeClipboardFiles
 } from '../utils/clipboardFiles'
 import { sleep } from '../utils/common'
+import { mapWithConcurrency } from '../utils/asyncPool'
 import api from '../api'
 import pluginManager from './pluginManager'
 import ClipboardMonitor, { WindowMonitor, WindowManager } from '../core/native'
-import { classifyClipboardText, type ClipboardCategory } from '../utils/clipboardCategory'
+import {
+  classifyClipboardText,
+  isClipboardImageFiles,
+  type ClipboardCategory
+} from '../utils/clipboardCategory'
 // 剪贴板类型
 type ClipboardType = 'text' | 'image' | 'file'
 
@@ -42,6 +47,7 @@ interface FileItem {
 
 // 剪贴板记录
 interface ClipboardItem {
+  _rev?: string
   id: string
   type: ClipboardType
   category?: ClipboardCategory
@@ -103,9 +109,12 @@ const CLIPBOARD_RETRY_INTERVAL_MS = 30
 
 class ClipboardManager {
   private isRunning = false
+  private disposed = false
+  private shutdownPromise: Promise<void> | null = null
+  private pendingCaptures = new Set<Promise<void>>()
   private config: ClipboardConfig = DEFAULT_CONFIG
   private readonly DB_BUCKET = 'CLIPBOARD'
-  private categoryCache = new Map<string, { content: string; category: ClipboardCategory }>()
+  private categoryCache = new Map<string, { signature: string; category: ClipboardCategory }>()
   private readonly IMAGE_DIR: string
   private currentWindow: WindowActivationInfo | null = null
   private clipboardMonitor: ClipboardMonitor
@@ -114,7 +123,10 @@ class ClipboardManager {
   // 记录最后一次复制的内容（统一管理）
   private lastCopiedContent: LastCopiedContent | null = null
   private lastCopiedSequence = 0
-  private lastCopiedSequenceWaiters = new Map<number, Set<(content: LastCopiedContent) => void>>()
+  private lastCopiedSequenceWaiters = new Map<
+    number,
+    Set<(content: LastCopiedContent | null) => void>
+  >()
 
   // 上一次保存到历史的 hash，用于连续重复内容去重
   private lastSavedHash: string | null = null
@@ -122,16 +134,26 @@ class ClipboardManager {
   // 临时取消剪贴板监听的计时器（防止 paste API 写入剪贴板时自我触发）
   private cancelWatchTimeout: ReturnType<typeof setTimeout> | null = null
 
+  /**
+   * 创建全局采集器并异步准备持久化目录。
+   * @returns 无返回值。
+   */
   constructor() {
     this.IMAGE_DIR = path.join(getClipboardPath(), 'images')
     this.clipboardMonitor = new ClipboardMonitor()
     this.windowMonitor = new WindowMonitor()
-    this.init()
+    void this.init().catch((error) => console.error('[Clipboard] 初始化失败:', error))
   }
 
+  /**
+   * 准备历史目录和配置后启动全局监听；退出中的迟到初始化不再创建原生线程。
+   * @returns 初始化完成后的 Promise。
+   * @throws {Error} 目录准备或原生监听启动失败时拒绝。
+   */
   private async init(): Promise<void> {
     // 确保图片目录存在
     await fs.mkdir(this.IMAGE_DIR, { recursive: true })
+    if (this.disposed) return
 
     // 读取剪贴板配置（如：历史记录保存天数）
     try {
@@ -146,9 +168,12 @@ class ClipboardManager {
 
     // 启动剪贴板监听器（原生事件已做去重）
     this.clipboardMonitor.start(() => {
-      if (this.cancelWatchTimeout) return
+      if (this.disposed || this.cancelWatchTimeout) return
       console.log('[Clipboard] 剪贴板变化事件触发')
-      this.handleClipboardChange()
+      // 退出前只等待已收到的采集保存，不再受理新的剪贴板事件。
+      const capture = this.handleClipboardChange()
+      this.pendingCaptures.add(capture)
+      void capture.finally(() => this.pendingCaptures.delete(capture))
     })
 
     // 启动窗口激活监听
@@ -160,6 +185,35 @@ class ClipboardManager {
     this.isRunning = true
     console.log('[Clipboard] 剪贴板监听已启动（原生事件模式）')
     console.log('[Clipboard] 窗口激活监听已启动')
+  }
+
+  /**
+   * 仅在宿主真正退出时停止原生监听，等已接收的记录落盘后再允许数据库关闭。
+   * @returns 所有在途采集保存结束后的同一个 Promise。
+   */
+  public stop(): Promise<void> {
+    if (this.shutdownPromise) return this.shutdownPromise
+    // 先封闭入口再 join 原生线程，排队的 TSFN 回调不能继续进入采集链。
+    this.disposed = true
+    this.isRunning = false
+    for (const monitor of [this.clipboardMonitor, this.windowMonitor]) {
+      try {
+        monitor.stop()
+      } catch (error) {
+        console.error('[Clipboard] 停止原生监听失败:', error)
+      }
+    }
+    if (this.cancelWatchTimeout) clearTimeout(this.cancelWatchTimeout)
+    this.cancelWatchTimeout = null
+    for (const waiters of this.lastCopiedSequenceWaiters.values()) {
+      for (const resolve of waiters) resolve(null)
+    }
+    this.lastCopiedSequenceWaiters.clear()
+    this.shutdownPromise = Promise.allSettled([...this.pendingCaptures]).then(() => {
+      this.pendingCaptures.clear()
+      console.log('[Clipboard] 原生监听已停止，采集保存已完成')
+    })
+    return this.shutdownPromise
   }
 
   // 处理窗口激活事件
@@ -615,21 +669,26 @@ class ClipboardManager {
     try {
       let allItems = await this.getAllItems()
 
-      // 分类仅计算一次并按内容校验缓存；删除记录的缓存同步释放。
+      // 仅缓存持久化身份与分类，不把整份历史正文长期挂在宿主中。
       const liveIds = new Set(allItems.map((item) => item.id))
       for (const id of this.categoryCache.keys()) {
         if (!liveIds.has(id)) this.categoryCache.delete(id)
       }
       allItems = allItems.map((item) => {
         const content = item.content || item.preview || ''
+        const signature = item._rev || item.hash || ''
         const cached = this.categoryCache.get(item.id)
         const resolved =
           item.type === 'text'
-            ? cached?.content === content
+            ? signature && cached?.signature === signature
               ? cached.category
               : classifyClipboardText(content)
-            : item.type
-        this.categoryCache.set(item.id, { content, category: resolved })
+            : item.type === 'file' && isClipboardImageFiles(item.files)
+              ? 'image'
+              : item.type
+        // 旧资料缺少身份时直接计算；缓存有硬上限，不随用户历史配置无限膨胀。
+        if (item.type === 'text' && signature && (cached || this.categoryCache.size < 1024))
+          this.categoryCache.set(item.id, { signature, category: resolved })
         return { ...item, category: resolved }
       })
       if (category) allItems = allItems.filter((item) => item.category === category)
@@ -663,25 +722,25 @@ class ClipboardManager {
       const items = allItems.slice(start, end)
 
       // 对于文件类型，检查文件是否存在
-      const itemsWithStatus = await Promise.all(
-        items.map(async (item) => {
-          if (item.type === 'file' && item.files) {
-            // 检查每个文件是否存在
-            const filesWithStatus = await Promise.all(
-              item.files.map(async (file: FileItem) => {
-                try {
-                  await fs.access(file.path)
-                  return { ...file, exists: true }
-                } catch {
-                  return { ...file, exists: false }
-                }
-              })
-            )
-            return { ...item, files: filesWithStatus }
-          }
-          return item
-        })
-      )
+      const itemsWithStatus = await mapWithConcurrency(items, 4, async (item) => {
+        if (item.type === 'file' && item.files) {
+          // 检查每个文件是否存在
+          const filesWithStatus = await mapWithConcurrency(
+            item.files,
+            8,
+            async (file: FileItem) => {
+              try {
+                await fs.access(file.path)
+                return { ...file, exists: true }
+              } catch {
+                return { ...file, exists: false }
+              }
+            }
+          )
+          return { ...item, files: filesWithStatus }
+        }
+        return item
+      })
 
       return {
         items: itemsWithStatus,
@@ -853,6 +912,42 @@ class ClipboardManager {
   }
 
   /**
+   * 以宿主身份把纯文本写入剪贴板，并立即按文本条目登记。
+   *
+   * 复制路径等指令的目标是让剪贴板与历史都呈现路径文本；由指令自身登记可避免
+   * 采集器按残留的文件状态把这次写入误判为文件条目。
+   *
+   * @param text 需要写入剪贴板的完整文本。
+   * @returns 写入与登记完成后的 Promise。
+   */
+  public async writeTextEntry(text: string): Promise<void> {
+    clipboard.writeText(text)
+    // 写入后短暂忽略监听结果，避免同一时刻的旧文件状态覆盖本次文本登记。
+    this.temporaryCancelWatch()
+    if (this.disposed) return
+    const timestamp = Date.now()
+    const item: ClipboardItem = {
+      id: uuidv4(),
+      type: 'text',
+      timestamp,
+      hash: createHash('md5').update(text).digest('hex'),
+      content: text,
+      preview: text.length > 100 ? text.slice(0, 100) + '...' : text
+    }
+    this.lastCopiedContent = {
+      type: 'text',
+      data: text,
+      timestamp,
+      sequence: ++this.lastCopiedSequence
+    }
+    this.resolveLastCopiedSequenceWaiters(this.lastCopiedContent)
+    // 先登记 hash，随后到达的采集事件按重复内容跳过，不会写入第二条记录。
+    this.lastSavedHash = item.hash
+    await this.saveItem(item)
+    pluginManager?.sendPluginMessage('clipboard-change', item)
+  }
+
+  /**
    * 将文本、图片或文件路径直接写入系统剪贴板。
    *
    * @param data 待写入的剪贴板内容，文件类型支持单路径或路径数组
@@ -928,11 +1023,15 @@ class ClipboardManager {
   /**
    * 等待下一次晚于指定序号的复制内容。
    * 若复制动作没有真正写入剪贴板，会在超时后返回 null，避免快捷键链路永久挂起。
+   * @param minSequence 只接收比该序号更新的内容。
+   * @param timeoutMs 最长等待时间，单位毫秒。
+   * @returns 新内容或超时/宿主退出时的 null。
    */
   public waitForNextCopiedContent(
     minSequence: number,
     timeoutMs: number = 1500
   ): Promise<LastCopiedContent | null> {
+    if (this.disposed) return Promise.resolve(null)
     const latestContent = this.lastCopiedContent
     if (latestContent && latestContent.sequence > minSequence) {
       return Promise.resolve(latestContent)
@@ -948,7 +1047,12 @@ class ClipboardManager {
         resolve(null)
       }, timeoutMs)
 
-      const wrappedResolve = (content: LastCopiedContent): void => {
+      /**
+       * 交付复制结果或退出取消，并清理本次等待的计时器。
+       * @param content 新复制内容，退出时为 null。
+       * @returns 无返回值。
+       */
+      const wrappedResolve = (content: LastCopiedContent | null): void => {
         if (timer) {
           clearTimeout(timer)
           timer = null

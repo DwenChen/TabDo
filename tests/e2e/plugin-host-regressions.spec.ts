@@ -7,18 +7,19 @@ test('cold plugin launch, singleton reuse, screenshot restore and detached body 
   browserName: _browserName
 }, testInfo) => {
   const root = path.resolve(__dirname, '../..')
-  const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'ztools-host-regression-'))
+  const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'tabdo-host-regression-'))
+  const logs: string[] = []
   let app: ElectronApplication | undefined
   try {
     const environment = {
       ...process.env,
-      ZTOOLS_E2E: '1',
-      ZTOOLS_SOURCE_PREVIEW: '1',
-      ZTOOLS_PREVIEW_OPEN_SETTINGS: '0',
-      ZTOOLS_DATA_ROOT: path.join(temporary, 'data'),
-      ZTOOLS_LEGACY_USER_DATA_PATH: path.join(temporary, 'legacy'),
+      TABDO_E2E: '1',
+      TABDO_SOURCE_PREVIEW: '1',
+      TABDO_PREVIEW_OPEN_SETTINGS: '0',
+      TABDO_DATA_ROOT: path.join(temporary, 'data'),
+      TABDO_LEGACY_USER_DATA_PATH: path.join(temporary, 'legacy'),
       ELECTRON_RENDERER_URL: 'http://127.0.0.1:5174',
-      ZTOOLS_SETTING_DEV_SERVER_URL: 'http://127.0.0.1:15177'
+      TABDO_SETTING_DEV_SERVER_URL: 'http://127.0.0.1:15177'
     }
     delete environment.ELECTRON_RUN_AS_NODE
     app = await electron.launch({
@@ -26,10 +27,17 @@ test('cold plugin launch, singleton reuse, screenshot restore and detached body 
       cwd: root,
       env: environment
     })
+    app.process().stdout?.on('data', (chunk) => logs.push(String(chunk)))
+    app.process().stderr?.on('data', (chunk) => logs.push(String(chunk)))
     const main = await app.firstWindow()
+    await app.evaluate(({ app }) => {
+      process
+        .mainModule!.require(app.getAppPath() + '/src/main/api/shared/database.ts')
+        .default.dbPut('auto-detach-plugin', [])
+    })
     await expect(main.locator('.plugin-host')).toBeAttached()
     const builtin = await main.evaluate(async () =>
-      (await window.ztools.getAllPlugins()).find((p) => p.name === 'system')
+      (await window.tabdo.getAllPlugins()).find((p) => p.name === 'system')
     )
     const command = {
       path: builtin!.path,
@@ -37,7 +45,7 @@ test('cold plugin launch, singleton reuse, screenshot restore and detached body 
       featureCode: 'clipboard',
       name: '剪贴板'
     }
-    await main.evaluate((options) => window.ztools.launch(options), command)
+    await main.evaluate((options) => window.tabdo.launch(options), command)
     await expect
       .poll(() =>
         app!
@@ -52,7 +60,7 @@ test('cold plugin launch, singleton reuse, screenshot restore and detached body 
       .find((p) => p.url().startsWith('http://127.0.0.1:15178'))!
     await expect(tools.locator('.clipboard-app .clear-btn')).toBeAttached()
     await expect(main.locator('.plugin-name')).toHaveText('工具')
-    await expect(main.locator('.plugin-actions')).not.toHaveClass(/loading/)
+    await expect(main.locator('.plugin-header')).toHaveAttribute('aria-busy', 'false')
     expect(
       app
         .context()
@@ -62,8 +70,8 @@ test('cold plugin launch, singleton reuse, screenshot restore and detached body 
 
     // 单例重入必须完成占位状态，不能一直显示加载圈。
     for (let i = 0; i < 3; i++) {
-      await main.evaluate((options) => window.ztools.launch(options), command)
-      await expect(main.locator('.plugin-actions')).not.toHaveClass(/loading/)
+      await main.evaluate((options) => window.tabdo.launch(options), command)
+      await expect(main.locator('.plugin-header')).toHaveAttribute('aria-busy', 'false')
       await expect(main.locator('.plugin-name')).toHaveText('工具')
     }
 
@@ -94,15 +102,15 @@ test('cold plugin launch, singleton reuse, screenshot restore and detached body 
         .mainModule!.require(app.getAppPath() + '/src/main/managers/windowManager.ts')
         .default.showWindow()
     )
-    await main.evaluate((options) => window.ztools.launch(options), {
+    await main.evaluate((options) => window.tabdo.launch(options), {
       ...command,
       featureCode: 'screenshot',
       name: '截图'
     })
     expect(await app.evaluate(() => (globalThis as any).__unwantedSettings)).toBe(0)
 
-    await main.evaluate((options) => window.ztools.launch(options), command)
-    await expect(main.locator('.plugin-actions')).not.toHaveClass(/loading/)
+    await main.evaluate((options) => window.tabdo.launch(options), command)
+    await expect(main.locator('.plugin-header')).toHaveAttribute('aria-busy', 'false')
     // 上一轮工具已退出并销毁；分离操作必须等待新会话正文和搜索框初始化。
     await expect.poll(() => tools.isClosed()).toBe(true)
     await expect
@@ -119,7 +127,7 @@ test('cold plugin launch, singleton reuse, screenshot restore and detached body 
       .find((p) => p.url().startsWith('http://127.0.0.1:15178'))!
     await expect(tools.locator('.clipboard-app .clear-btn')).toBeAttached()
     await expect(main.locator('header input')).toHaveAttribute('placeholder', '搜索剪贴板内容...')
-    const detached = await main.evaluate(() => window.ztools.detachPlugin())
+    const detached = await main.evaluate(() => window.tabdo.detachPlugin())
     expect(detached.success).toBe(true)
     const attachment = await app.evaluate(({ app }) => {
       const windows = process.mainModule!.require(
@@ -148,6 +156,7 @@ test('cold plugin launch, singleton reuse, screenshot restore and detached body 
       .pages()
       .find((p) => p.url().includes('detached-titlebar.html'))!
     await expect(titlebar.locator('input')).toHaveAttribute('placeholder', '搜索剪贴板内容...')
+    await expect(titlebar.getByRole('button', { name: '插件设置', exact: true })).toHaveCount(0)
     await app.evaluate(({ app }) => {
       const windows = process.mainModule!.require(
         app.getAppPath() + '/src/main/core/detachedWindowManager.ts'
@@ -188,16 +197,32 @@ test('cold plugin launch, singleton reuse, screenshot restore and detached body 
       name: 'HostFixture'
     }
     for (let i = 0; i < 2; i++) {
-      await main.evaluate((options) => window.ztools.launch(options), fixtureCommand)
-      await expect(main.locator('.plugin-actions')).not.toHaveClass(/loading/)
+      await main.evaluate((options) => window.tabdo.launch(options), fixtureCommand)
+      await expect(main.locator('.plugin-header')).toHaveAttribute('aria-busy', 'false')
     }
     const fixturePage = app
       .context()
       .pages()
       .find((p) => p.url().startsWith('file:') && p.url().endsWith('/fixture/index.html'))!
     await expect(fixturePage.getByText('Detached content remains visible.')).toBeVisible()
-    expect((await main.evaluate(() => window.ztools.detachPlugin())).success).toBe(true)
+    await expect(main.getByRole('button', { name: '插件操作', exact: true })).toBeVisible()
+    expect((await main.evaluate(() => window.tabdo.detachPlugin())).success).toBe(true)
     await expect(fixturePage.getByText('Detached content remains visible.')).toBeVisible()
+    await expect
+      .poll(() =>
+        app!
+          .context()
+          .pages()
+          .some((page) => page.url().includes('detached-titlebar.html'))
+      )
+      .toBe(true)
+    const fixtureTitlebar = app
+      .context()
+      .pages()
+      .find((page) => page.url().includes('detached-titlebar.html'))!
+    await expect(
+      fixtureTitlebar.getByRole('button', { name: '插件设置', exact: true })
+    ).toBeVisible()
     await fs.writeFile(
       testInfo.outputPath('detached-plugin-body.png'),
       Buffer.from(
@@ -216,7 +241,15 @@ test('cold plugin launch, singleton reuse, screenshot restore and detached body 
     )
     expect(await app.evaluate(() => (globalThis as any).__unwantedSettings)).toBe(0)
   } finally {
-    await app?.close()
+    await fs.writeFile(testInfo.outputPath('application.log'), logs.join(''))
+    if (app) {
+      const child = app.process()
+      await Promise.race([
+        app.close().catch(() => {}),
+        new Promise((resolve) => setTimeout(resolve, 5000))
+      ])
+      if (child.exitCode === null) child.kill()
+    }
     await fs.rm(temporary, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
   }
 })

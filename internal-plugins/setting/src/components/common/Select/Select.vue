@@ -884,19 +884,9 @@ onBeforeUnmount(() => {
   max-height: 300px;
   overflow-y: auto;
   visibility: hidden;
-  background: rgba(255, 255, 255, 0.98);
+  background: var(--dialog-bg);
   border: 2px solid var(--control-border);
   border-radius: 6px;
-  backdrop-filter: blur(100px) saturate(200%) brightness(110%);
-  -webkit-backdrop-filter: blur(100px) saturate(200%) brightness(110%);
-}
-
-/* 菜单 Teleport 到 body 后脱离组件作用域，但 Vue 3 的 data-v 哈希仍作用于 teleport 根，
-   因此 scoped 规则同样生效；暗色按插件约定走 prefers-color-scheme，不使用 html.dark */
-@media (prefers-color-scheme: dark) {
-  .select-menu {
-    background: rgba(48, 48, 48, 0.98);
-  }
 }
 
 .select-item {

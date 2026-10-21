@@ -7,7 +7,7 @@
  * 注意：run() 方法不在此文件中定义，由 preload.js 运行时注入。
  *
  * 用法：
- *   ztools.zbrowser
+ *   tabdo.zbrowser
  *     .goto('https://example.com')
  *     .click('.button')
  *     .evaluate(() => document.title)
@@ -488,7 +488,7 @@ class ZBrowserClient {
         const fileName = 'image_' + Date.now() + '.' + ext
         const path = require('path')
         const fs = require('fs')
-        const tmpDir = path.join(require('os').tmpdir(), 'ztools-zbrowser')
+        const tmpDir = path.join(require('os').tmpdir(), 'tabdo-zbrowser')
         if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir)
         const filePath = path.join(tmpDir, fileName)
         fs.writeFileSync(filePath, base64Data, 'base64')
@@ -505,7 +505,7 @@ class ZBrowserClient {
       const fileName = 'file_' + Date.now()
       const path = require('path')
       const fs = require('fs')
-      const tmpDir = path.join(require('os').tmpdir(), 'ztools-zbrowser')
+      const tmpDir = path.join(require('os').tmpdir(), 'tabdo-zbrowser')
       if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir)
       const filePath = path.join(tmpDir, fileName)
       fs.writeFileSync(filePath, Buffer.from(fileData))

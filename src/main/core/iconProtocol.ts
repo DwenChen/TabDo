@@ -6,23 +6,37 @@ import { IconExtractor } from './native/index'
 /** 图标内存缓存（LRU 淘汰，Map 按插入顺序迭代） */
 const iconMemoryCache = new Map<string, Buffer>()
 const MAX_ICON_CACHE = 128
+const MAX_ICON_CACHE_BYTES = 16 * 1024 * 1024
+let iconCacheBytes = 0
+const pendingExtractions = new Map<string, Promise<Buffer>>()
 
 /**
- * 写入图标缓存（LRU 淘汰）
- * 命中时先 delete 再 set，保证该 key 移到 Map 末尾（最近使用）
+ * 按条数和总字节双重限制图标 LRU，超大图标只交付当前请求。
+ * @param key 图标来源路径。
+ * @param buffer 图标 PNG 字节。
+ * @returns 无返回值。
  */
 function setIconCache(key: string, buffer: Buffer): void {
   // 已存在则先删除，重新插入以刷新顺序
-  if (iconMemoryCache.has(key)) {
+  const previous = iconMemoryCache.get(key)
+  if (previous) {
+    iconCacheBytes -= previous.length
     iconMemoryCache.delete(key)
-  } else if (iconMemoryCache.size >= MAX_ICON_CACHE) {
-    // 淘汰最早插入（最久未使用）的条目
+  }
+  if (buffer.length > MAX_ICON_CACHE_BYTES) return
+  // 大图标不能仅凭条数长期占据宿主内存。
+  while (
+    iconMemoryCache.size >= MAX_ICON_CACHE ||
+    iconCacheBytes + buffer.length > MAX_ICON_CACHE_BYTES
+  ) {
     const oldest = iconMemoryCache.keys().next().value
     if (oldest !== undefined) {
+      iconCacheBytes -= iconMemoryCache.get(oldest)!.length
       iconMemoryCache.delete(oldest)
     }
   }
   iconMemoryCache.set(key, buffer)
+  iconCacheBytes += buffer.length
 }
 
 /**
@@ -80,10 +94,18 @@ async function extractIcon(iconPath: string): Promise<Buffer> {
 let extractionQueue: Promise<void> = Promise.resolve()
 
 /**
- * 通过串行队列提取图标，确保原生调用不并发执行
+ * 合并同源的在途提取，同时保持原生图标 API 的串行约束。
+ * @param iconPath 图标来源路径。
+ * @returns 本次提取的图标字节。
+ * @throws 图标提取失败时抛出。
  */
 function extractIconQueued(iconPath: string): Promise<Buffer> {
-  const task = extractionQueue.then(() => extractIcon(iconPath))
+  const pending = pendingExtractions.get(iconPath)
+  if (pending) return pending
+  const task = extractionQueue
+    .then(() => extractIcon(iconPath))
+    .finally(() => pendingExtractions.delete(iconPath))
+  pendingExtractions.set(iconPath, task)
   // 更新队列尾部，忽略错误不阻塞后续任务
   extractionQueue = task.then(
     () => undefined,

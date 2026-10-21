@@ -41,20 +41,20 @@ test('middle click matches current text and files, and outside clicks dismiss fo
 }, testInfo) => {
   test.skip(process.platform !== 'win32', 'Windows native middle and clipboard file events')
   const root = path.resolve(__dirname, '../..')
-  const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'ztools-panel-selection-'))
+  const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'tabdo-panel-selection-'))
   let app: ElectronApplication | undefined
   try {
     const file = path.join(temporary, 'selected.txt')
     await fs.writeFile(file, 'Selected file fixture')
     const environment = {
       ...process.env,
-      ZTOOLS_E2E: '1',
-      ZTOOLS_SOURCE_PREVIEW: '1',
-      ZTOOLS_PREVIEW_OPEN_SETTINGS: '0',
-      ZTOOLS_DATA_ROOT: path.join(temporary, 'data'),
-      ZTOOLS_LEGACY_USER_DATA_PATH: path.join(temporary, 'legacy'),
+      TABDO_E2E: '1',
+      TABDO_SOURCE_PREVIEW: '1',
+      TABDO_PREVIEW_OPEN_SETTINGS: '0',
+      TABDO_DATA_ROOT: path.join(temporary, 'data'),
+      TABDO_LEGACY_USER_DATA_PATH: path.join(temporary, 'legacy'),
       ELECTRON_RENDERER_URL: 'http://127.0.0.1:5174',
-      ZTOOLS_SETTING_DEV_SERVER_URL: 'http://127.0.0.1:15177'
+      TABDO_SETTING_DEV_SERVER_URL: 'http://127.0.0.1:15177'
     }
     delete environment.ELECTRON_RUN_AS_NODE
     app = await electron.launch({
@@ -161,6 +161,94 @@ test('middle click matches current text and files, and outside clicks dismiss fo
       .find((p) => p.url().includes('super-panel.html'))!
     await expect(panelPage.locator('.search-header .header-text')).toContainText('选中的文本')
     await expect(panelPage.getByText('打开网址', { exact: true }).first()).toBeVisible()
+    await expect(panelPage.locator('.list-info .list-desc')).toHaveCount(0)
+    // Windows 非整数 DPI 的无边框客户区可能比逻辑目标相差 2px，不能随更新累积。
+    await expect.poll(() => panelPage.evaluate(() => innerWidth)).toBeLessThanOrEqual(252)
+    // 头部同时是窗口拖动区，左上角“返回固定列表”按钮仍必须可点击。
+    await panelPage.locator('.search-header .header-menu-btn').first().click()
+    await expect(panelPage.locator('.pinned-header')).toBeVisible()
+    // 同一窗口先显示多行再缩为一行，防止 flex 列表把旧高度当成内容高度。
+    await app.evaluate(({ app }) => {
+      const win = process.mainModule!.require(
+        app.getAppPath() + '/src/main/core/superPanelManager.ts'
+      ).default.superPanelWindow
+      const commands = Array.from({ length: 15 }, (_, index) => ({
+        name: `功能 ${index + 1}`,
+        path: `fixture-${index}`,
+        type: 'system'
+      }))
+      win.webContents.send('super-panel-data', { type: 'pinned', commands })
+    })
+    await expect(panelPage.locator('.grid-item')).toHaveCount(15)
+    await expect.poll(() => panelPage.evaluate(() => innerHeight)).toBeGreaterThan(300)
+    await app.evaluate(({ app }) => {
+      const win = process.mainModule!.require(
+        app.getAppPath() + '/src/main/core/superPanelManager.ts'
+      ).default.superPanelWindow
+      // 模拟旧实例或 DPI 带来的异常宽度，同高度请求也必须恢复规范宽度。
+      win.setBounds({ ...win.getBounds(), width: 500 })
+      win.webContents.send('super-panel-data', {
+        type: 'pinned',
+        commands: [{ name: '功能 1', path: 'fixture-0', type: 'system' }]
+      })
+    })
+    await expect(panelPage.locator('.grid-item')).toHaveCount(1)
+    await expect
+      .poll(() =>
+        panelPage.evaluate(
+          () => Math.abs(innerWidth - 250) <= 2 && Math.abs(innerHeight - 250) <= 2
+        )
+      )
+      .toBe(true)
+    const stablePanelSize = await panelPage.evaluate(() => [innerWidth, innerHeight])
+    await panelPage.evaluate(() => {
+      for (let index = 0; index < 20; index++) window.tabdo.superPanelResize(250)
+    })
+    await expect
+      .poll(() => panelPage.evaluate(() => [innerWidth, innerHeight]))
+      .toEqual(stablePanelSize)
+    const dragPoints = await app.evaluate(({ app, screen }) => {
+      const win = process.mainModule!.require(
+        app.getAppPath() + '/src/main/core/superPanelManager.ts'
+      ).default.superPanelWindow
+      const bounds = win.getBounds()
+      return {
+        bounds,
+        start: screen.dipToScreenPoint({ x: bounds.x + 100, y: bounds.y + 18 }),
+        end: screen.dipToScreenPoint({ x: bounds.x + 145, y: bounds.y + 48 })
+      }
+    })
+    execFileSync(
+      'powershell.exe',
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-File',
+        path.join(root, 'tests/fixtures/native-window-drag.ps1'),
+        '-StartX',
+        String(dragPoints.start.x),
+        '-StartY',
+        String(dragPoints.start.y),
+        '-EndX',
+        String(dragPoints.end.x),
+        '-EndY',
+        String(dragPoints.end.y)
+      ],
+      { windowsHide: true }
+    )
+    await expect
+      .poll(() =>
+        app!.evaluate(
+          ({ app }) =>
+            process
+              .mainModule!.require(app.getAppPath() + '/src/main/core/superPanelManager.ts')
+              .default.superPanelWindow.getBounds().x
+        )
+      )
+      .toBeGreaterThan(dragPoints.bounds.x + 20)
+    await panelPage.screenshot({ path: testInfo.outputPath('panel-compact-dragged.png') })
     nativeClick(points.outside, undefined, true)
     await expect
       .poll(() =>
@@ -181,6 +269,39 @@ test('middle click matches current text and files, and outside clicks dismiss fo
       ;(globalThis as any).__selectionFixture.focus()
       ;(globalThis as any).__selectionFixture.webContents.focus()
     })
+    await app.evaluate(({ app }) => {
+      const db = process.mainModule!.require(
+        app.getAppPath() + '/src/main/api/shared/database.ts'
+      ).default
+      const pluginPath = db.dbGet('plugins').find((plugin) => plugin.name === 'system').path
+      const now = Date.now()
+      db.dbPut('command-usage-stats', [
+        {
+          path: pluginPath,
+          type: 'plugin',
+          featureCode: 'file-renamer',
+          name: '旧名称',
+          useCount: 50,
+          lastUsed: now - 1000
+        },
+        {
+          path: pluginPath,
+          type: 'plugin',
+          featureCode: 'copy-path',
+          name: '旧别名',
+          useCount: 1000,
+          lastUsed: now - 2000
+        },
+        {
+          path: pluginPath,
+          type: 'plugin',
+          featureCode: 'copy-name',
+          name: '复制名称',
+          useCount: 1,
+          lastUsed: now - 100
+        }
+      ])
+    })
     nativeClick(points.trigger)
     await expect
       .poll(() =>
@@ -192,6 +313,11 @@ test('middle click matches current text and files, and outside clicks dismiss fo
       )
       .toBe(file)
     await expect(panelPage.locator('.search-header .header-text')).toContainText('选中的文件 1 个')
+    await expect(panelPage.locator('.list-name').first()).toHaveText('复制名称')
+    await expect(panelPage.locator('.list-name').nth(1)).toHaveText('复制路径')
+    await expect(panelPage.locator('.list-info .list-desc')).toHaveCount(0)
+    await expect.poll(() => panelPage.evaluate(() => innerWidth <= innerHeight)).toBe(true)
+    await panelPage.screenshot({ path: testInfo.outputPath('panel-file-matches-compact.png') })
     nativeClick(points.outside, undefined, true)
     await expect
       .poll(() =>

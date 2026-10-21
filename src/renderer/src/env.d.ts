@@ -1,6 +1,6 @@
 /// <reference types="vite-svg-loader" />
 
-// Ambient type declarations for renderer, so TS knows window.ztools
+// Ambient type declarations for renderer, so TS knows window.tabdo
 
 import type { CommonKeyboardModifier } from '@renderer/utils/convertKeyboardEvent'
 import type { SearchWallpaperConfig } from '@shared/searchWallpaper'
@@ -71,7 +71,7 @@ declare global {
         on: (channel: string, callback: (...args: any[]) => void) => () => void
       }
     }
-    ztools: {
+    tabdo: {
       getApps: () => Promise<Array<{ name: string; path: string; icon?: string }>>
       getSystemSettings: () => Promise<any[]>
       isWindows: () => Promise<boolean>
@@ -201,7 +201,7 @@ declare global {
         }) => void
       ) => void
       onPluginLoaded: (callback: (plugin: { name: string; path: string }) => void) => void
-      onPluginClosed: (callback: () => void) => void
+      onPluginClosed: (callback: (state?: { switching?: boolean }) => void) => void
       onPluginsChanged: (callback: () => void) => void
       onAppsChanged: (callback: () => void) => void
       onLocalShortcutsChanged: (callback: () => void) => void
@@ -383,9 +383,13 @@ declare global {
       getPathForFile: (file: File) => string
       // 超级面板相关
       onSuperPanelSearch: (
-        callback: (data: { text: string; clipboardContent?: any }) => void
+        callback: (data: { requestId?: number; text: string; clipboardContent?: any }) => void
       ) => void
-      sendSuperPanelSearchResult: (data: { results: any[]; clipboardContent?: any }) => void
+      sendSuperPanelSearchResult: (data: {
+        requestId?: number
+        results: any[]
+        clipboardContent?: any
+      }) => void
       onSuperPanelData: (
         callback: (data: {
           type: string
@@ -399,6 +403,8 @@ declare global {
       superPanelReady: () => void
       superPanelShowPinned: () => void
       superPanelShowMainWindow: () => void
+      /** 超级面板按正文实测高度请求宿主收紧窗口（仅面板自身页面生效） */
+      superPanelResize: (height: number) => void
       updateSuperPanelPinnedOrder: (
         commands: any[]
       ) => Promise<{ success: boolean; error?: string }>

@@ -78,7 +78,7 @@ export class PluginUIAPI {
    */
   private handlePluginEscPressed(event: Electron.IpcMainEvent): void {
     const settings = databaseAPI.dbGet('settings-general') || {}
-    const escShortcutEnabled = settings?.builtinAppShortcutsEnabled?.esc !== false
+    const escShortcutEnabled = settings?.builtinAppShortcutsEnabled?.esc === true
     if (!escShortcutEnabled || !this.pluginManager) {
       // 未接管时明确返回 false，让插件和系统继续处理该 ESC。
       event.returnValue = false
@@ -93,7 +93,7 @@ export class PluginUIAPI {
   private showNotification(event: Electron.IpcMainInvokeEvent, body: string): void {
     if (Notification.isSupported()) {
       const options: Electron.NotificationConstructorOptions = {
-        title: 'ZTools',
+        title: 'TabDo',
         body: body
       }
 

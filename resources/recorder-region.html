@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'"
+    />
+    <title>选择录屏区域</title>
+    <style>
+      :root {
+        --primary: #059669;
+        --surface: #f8faf9;
+        --text: #202623;
+        --border: #d5ddd8;
+        --secondary: #6b7770;
+        color-scheme: light;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        user-select: none;
+        background: transparent;
+        font:
+          13px/1.6 system-ui,
+          'Microsoft YaHei',
+          sans-serif;
+        color: var(--text);
+      }
+      body {
+        cursor: crosshair;
+      }
+      .hint {
+        position: fixed;
+        top: 16px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 6px 12px;
+        border-radius: 6px;
+        background: var(--surface);
+        margin: 0;
+        pointer-events: none;
+      }
+      #selection {
+        position: fixed;
+        outline: 1px dashed #fff;
+        box-shadow: 0 0 0 9999px #0007;
+        cursor: move;
+      }
+      .handle {
+        position: absolute;
+        width: 9px;
+        height: 9px;
+        background: white;
+        border: 1px solid var(--primary);
+        z-index: 2;
+      }
+      [data-edge='nw'] {
+        left: -5px;
+        top: -5px;
+        cursor: nw-resize;
+      }
+      [data-edge='n'] {
+        left: 50%;
+        top: -5px;
+        cursor: n-resize;
+      }
+      [data-edge='ne'] {
+        right: -5px;
+        top: -5px;
+        cursor: ne-resize;
+      }
+      [data-edge='w'] {
+        left: -5px;
+        top: 50%;
+        cursor: w-resize;
+      }
+      [data-edge='e'] {
+        right: -5px;
+        top: 50%;
+        cursor: e-resize;
+      }
+      [data-edge='sw'] {
+        left: -5px;
+        bottom: -5px;
+        cursor: sw-resize;
+      }
+      [data-edge='s'] {
+        left: 50%;
+        bottom: -5px;
+        cursor: s-resize;
+      }
+      [data-edge='se'] {
+        right: -5px;
+        bottom: -5px;
+        cursor: se-resize;
+      }
+      .sizes {
+        position: fixed;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        background: var(--surface);
+        padding: 4px 8px;
+        border-radius: 4px;
+        cursor: default;
+      }
+      input,
+      button {
+        font: inherit;
+        color: inherit;
+      }
+      .sizes input {
+        width: 64px;
+        min-width: 0;
+        padding: 2px 4px;
+        background: transparent;
+        border: 0;
+        outline: none;
+      }
+      .sizes span {
+        color: var(--secondary);
+      }
+      #toolbar {
+        position: fixed;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        padding: 13px 16px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        box-shadow: 0 3px 14px #0002;
+        cursor: default;
+        max-width: calc(100vw - 20px);
+      }
+      fieldset {
+        padding: 0;
+        border: 0;
+        margin: 0;
+        min-width: 0;
+      }
+      legend {
+        font-size: 11px;
+        color: var(--secondary);
+        padding: 0;
+        margin-bottom: 5px;
+      }
+      .options {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      label {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        white-space: nowrap;
+        font-size: 12px;
+        cursor: pointer;
+      }
+      input[type='checkbox'] {
+        margin: 0 4px 0 0;
+        width: 14px;
+        height: 14px;
+        accent-color: var(--primary);
+      }
+      label svg {
+        width: 16px;
+        height: 16px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.8;
+      }
+      button {
+        border: 0;
+        background: transparent;
+        cursor: pointer;
+        padding: 6px;
+        flex: none;
+        border-radius: 5px;
+      }
+      #start {
+        color: white;
+        background: var(--primary);
+        padding: 8px 13px;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        white-space: nowrap;
+      }
+      #start svg {
+        width: 18px;
+        height: 18px;
+        fill: currentColor;
+      }
+      #cancel {
+        font-size: 20px;
+        color: var(--secondary);
+      }
+      #audio-error {
+        position: absolute;
+        left: 0;
+        bottom: calc(100% + 8px);
+        margin: 0;
+        padding: 6px 10px;
+        background: var(--surface);
+        color: #dc2626;
+        border: 1px solid var(--border);
+        border-radius: 5px;
+      }
+      button:focus-visible,
+      input:focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
+      }
+      @media (max-width: 740px) {
+        #toolbar {
+          gap: 12px;
+          flex-wrap: wrap;
+          padding: 10px;
+        }
+        .options {
+          gap: 8px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <p class="hint">拖动调整录制区域 · Enter 开始 · Esc 取消</p>
+    <div id="selection" aria-label="录制选区">
+      <i class="handle" data-edge="nw"></i><i class="handle" data-edge="n"></i
+      ><i class="handle" data-edge="ne"></i><i class="handle" data-edge="w"></i
+      ><i class="handle" data-edge="e"></i><i class="handle" data-edge="sw"></i
+      ><i class="handle" data-edge="s"></i><i class="handle" data-edge="se"></i>
+    </div>
+    <div id="sizes" class="sizes">
+      <input id="width" type="number" min="16" aria-label="选区宽度" /><span>×</span
+      ><input id="height" type="number" min="16" aria-label="选区高度" />
+    </div>
+    <div id="toolbar" aria-label="区域录制选项">
+      <p id="audio-error" role="status" hidden></p>
+      <fieldset>
+        <legend>声音录制</legend>
+        <div class="options">
+          <label
+            ><input id="systemAudio" type="checkbox" /><svg viewBox="0 0 24 24">
+              <path d="M3 9h4l5-4v14l-5-4H3zM16 8a6 6 0 0 1 0 8" /></svg
+            >扬声器</label
+          ><label
+            ><input id="microphone" type="checkbox" /><svg viewBox="0 0 24 24">
+              <path d="M9 4a3 3 0 0 1 6 0v8a3 3 0 0 1-6 0zM6 10v2a6 6 0 0 0 12 0v-2M12 18v4" /></svg
+            >麦克风</label
+          >
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>操作录制</legend>
+        <div class="options">
+          <label
+            ><input id="cursor" type="checkbox" checked /><svg viewBox="0 0 24 24">
+              <path d="m5 3 14 11-7 1-4 6z" /></svg
+            >鼠标指针</label
+          ><label><input id="clicks" type="checkbox" checked />点击</label
+          ><label><input id="keys" type="checkbox" checked />按键</label>
+        </div>
+      </fieldset>
+      <button id="start">
+        <svg viewBox="0 0 24 24"><path d="m8 5 11 7-11 7z" /></svg>开始录制</button
+      ><button id="cancel" aria-label="取消区域录制">×</button>
+    </div>
+    <script src="recorder-region.js"></script>
+  </body>
+</html>

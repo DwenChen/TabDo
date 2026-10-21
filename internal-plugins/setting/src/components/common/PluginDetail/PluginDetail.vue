@@ -57,15 +57,11 @@ const isRunningRef = toRef(props, 'isRunning')
 const {
   // 设置状态
   showSettingsDropdown,
-  isAutoKill,
   isAutoDetach,
-  isAutoStart,
   isMainPushEnabled,
   pluginHasMainPush,
   toggleSettingsDropdown,
-  toggleAutoKill,
   toggleAutoDetach,
-  toggleAutoStart,
   toggleMainPushEnabled,
   // Tab
   activeTab,
@@ -123,9 +119,7 @@ function onSwitchTab(tabId: TabId): void {
         :show-disable-toggle="showDisableToggle && !plugin.isBuiltin"
         :show-market-button="showMarketButton && !plugin.isBuiltin"
         :show-settings-dropdown="showSettingsDropdown"
-        :is-auto-kill="isAutoKill"
         :is-auto-detach="isAutoDetach"
-        :is-auto-start="isAutoStart"
         :is-main-push-enabled="isMainPushEnabled"
         :show-main-push-toggle="pluginHasMainPush"
         @open="emit('open')"
@@ -136,9 +130,7 @@ function onSwitchTab(tabId: TabId): void {
         @toggle-pin="emit('toggle-pin')"
         @toggle-disabled="emit('toggle-disabled', $event)"
         @toggle-settings-dropdown="toggleSettingsDropdown"
-        @toggle-auto-kill="toggleAutoKill"
         @toggle-auto-detach="toggleAutoDetach"
-        @toggle-auto-start="toggleAutoStart"
         @toggle-main-push-enabled="toggleMainPushEnabled"
       />
     </template>

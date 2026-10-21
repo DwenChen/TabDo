@@ -12,7 +12,7 @@ const revision = '8b221e72c4b5462ba2c9b490370cc10df72108cc'
 function main() {
   // 源码与中间文件放在忽略目录，不修改完整原生模块或用户配置。
   const source = path.resolve(
-    process.env.ZTOOLS_SCREENSHOT_SOURCE || path.join(root, '.artifacts/native/screenshot-source')
+    process.env.TABDO_SCREENSHOT_SOURCE || path.join(root, '.artifacts/native/screenshot-source')
   )
   if (!fs.existsSync(source)) {
     fs.mkdirSync(path.dirname(source), { recursive: true })
@@ -33,7 +33,7 @@ function main() {
     windowsHide: true
   }).trim()
   if (actual !== revision) throw new Error('Unexpected screenshot source revision: ' + actual)
-  const compiler = process.env.ZTOOLS_NATIVE_CXX || 'g++'
+  const compiler = process.env.TABDO_NATIVE_CXX || 'g++'
   const compilerDir = path.dirname(compiler)
   /**
    * 定位编译器配套的 GNU 辅助程序。
@@ -41,11 +41,11 @@ function main() {
    * @returns {string} 可执行路径或 PATH 命令名。
    */
   const binTool = (name) => (compilerDir === '.' ? name : path.join(compilerDir, name + '.exe'))
-  const headers = process.env.ZTOOLS_NODE_HEADERS
-  const addonHeaders = process.env.ZTOOLS_ADDON_HEADERS
+  const headers = process.env.TABDO_NODE_HEADERS
+  const addonHeaders = process.env.TABDO_ADDON_HEADERS
   if (!headers || !addonHeaders)
     throw new Error(
-      'Set ZTOOLS_NODE_HEADERS and ZTOOLS_ADDON_HEADERS to the Electron headers root and node-addon-api directory'
+      'Set TABDO_NODE_HEADERS and TABDO_ADDON_HEADERS to the Electron headers root and node-addon-api directory'
     )
   /**
    * 从固定提交读取原文后应用补丁，重复编译不会重复修改源码。
@@ -283,7 +283,7 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
   exports.Set("abortLongCapture", Napi::Function::New(env, AbortLongCapture));
   return exports;
 }
-NODE_API_MODULE(ztools_screenshot, Init)
+NODE_API_MODULE(tabdo_screenshot, Init)
 `
   )
   const sources = ['windows', 'algo'].flatMap((dir) =>
@@ -292,7 +292,7 @@ NODE_API_MODULE(ztools_screenshot, Init)
       .filter((f) => f.endsWith('.cpp'))
       .map((f) => 'src/screenshot/' + dir + '/' + f)
   )
-  const output = path.join(root, 'resources/lib/win/ztools_screenshot.node')
+  const output = path.join(root, 'resources/lib/win/tabdo_screenshot.node')
   // Electron 的宿主可执行文件不是 node.exe，从当前进程解析 Node-API，避免错误加载 Node 可执行文件。
   const exportsText = execFileSync(binTool('objdump'), ['-p', process.execPath], {
     encoding: 'utf8',

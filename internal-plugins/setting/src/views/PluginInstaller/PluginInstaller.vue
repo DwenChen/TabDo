@@ -41,7 +41,7 @@ async function loadPluginInfo(filePath?: string): Promise<void> {
   }
 
   try {
-    const result = await window.ztools.internal.readPluginInfoFromZpx(filePath)
+    const result = await window.tabdo.internal.readPluginInfoFromZpx(filePath)
     if (result.success && result.pluginInfo) {
       pluginInfo.value = result.pluginInfo
       installFilePath.value = filePath
@@ -84,7 +84,7 @@ async function confirmInstall(): Promise<void> {
   installing.value = true
 
   try {
-    const result = await window.ztools.internal.installPluginFromPath(installFilePath.value)
+    const result = await window.tabdo.internal.installPluginFromPath(installFilePath.value)
     if (result.success) {
       const wasInstalled = pluginInfo.value?.isInstalled
       const actionText = wasInstalled ? '覆盖安装' : '安装'
@@ -113,7 +113,7 @@ async function resolveInstalledPlugin(): Promise<any | null> {
   }
 
   try {
-    const plugins = await window.ztools.internal.getAllPlugins()
+    const plugins = await window.tabdo.internal.getAllPlugins()
     const plugin = plugins.find((item: any) => item.name === pluginInfo.value?.name) || null
     installedPlugin.value = plugin
     return plugin
@@ -131,7 +131,7 @@ async function openInstalledPlugin(): Promise<void> {
   }
 
   try {
-    const result = await window.ztools.internal.launch({
+    const result = await window.tabdo.internal.launch({
       path: plugin.path,
       type: 'plugin',
       name: plugin.title || plugin.name,
@@ -149,7 +149,7 @@ async function openInstalledPlugin(): Promise<void> {
 
 function outPlugin(): void {
   router.replace({ name: 'GeneralSetting' })
-  window.ztools.outPlugin()
+  window.tabdo.outPlugin()
 }
 
 useJumpFunction<PluginInstallerJumpFunction>((state) => {

@@ -141,7 +141,7 @@ async function fetchModels(): Promise<void> {
   fetching.value = true
   fetchError.value = ''
   try {
-    const result = await window.ztools.internal.aiProviders.fetchModels(
+    const result = await window.tabdo.internal.aiProviders.fetchModels(
       formData.value.apiUrl,
       formData.value.apiKey
     )

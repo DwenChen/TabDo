@@ -35,8 +35,8 @@ async function openWithElectronShell(
 /**
  * 计算可执行文件的工作目录（"启动目录"）。
  *
- * ShellExecuteEx 若未显式提供 lpDirectory，则子进程会继承 ZTools 主进程的
- * 当前工作目录。当 ZTools 以开机自启/提权方式启动时，其工作目录通常是
+ * ShellExecuteEx 若未显式提供 lpDirectory，则子进程会继承 TabDo 主进程的
+ * 当前工作目录。当 TabDo 以开机自启/提权方式启动时，其工作目录通常是
  * C:\WINDOWS\system32，导致被启动的程序把相对路径（如 Save 数据目录）
  * 解析到 system32 下而报权限错误（见 issue #603）。
  *

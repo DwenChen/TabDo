@@ -1,0 +1,24 @@
+{
+  "id": "lens-result-and-recorder-overlay",
+  "date": "2026-10-20",
+  "summary": "修复 Google Lens 浏览器结果上传失败与录屏控制条进入画面",
+  "changes": [
+    "根据用户确认的浏览器上传失败，复现应用会话返回的 Lens 地址在独立浏览器缺少图片和结果；修正上轮仅验证重定向的验收表述。Lens 改由默认浏览器直接提交一次性内存 JPEG 表单，使用随机回环端口和路径、无同源权限的 CSP sandbox、nonce、无缓存/无来源策略和限定 Google 的提交与跳转；不保存临时图片、不使用图床，不保活工具视图。",
+    "一次性页面完整送达后关闭所属服务；浏览器启动失败、取消、连接中断及 60 秒未领取统一清理。Bing 保留已验证的 ClientRequest 重定向方式，搜索图片的校验、缩放和 JPEG 编码共用。",
+    "录屏控制条在首次显示前设置系统排除捕获；区域模式按全局 DIP 坐标依次避让到下、上、侧面及其他显示器，覆盖负坐标工作区。全屏或用户拖入选区仍保留系统保护，不改变原录制进程和停止收尾链。",
+    "工具子组件开发原则、录屏说明和工具模块文档补齐浏览器完整会话交接、临时资源释放和视频像素验证要求；同步 Bug 台账与 recorder-web 回归分组。保留已有未提交改动，不 push、不云端构建、不发布 release。"
+  ],
+  "checks": [
+    "新增 Lens 交接与录屏布局单测，专项 3 文件 13 项通过，归档 .artifacts/runs/2026-10-20T14-52-13-841Z-unit；最终 recorder-web 单测分组 6 文件 45 项通过，归档 .artifacts/runs/2026-10-20T14-56-35-408Z-unit。覆盖领取协议、JPEG 内容、CSP、失败/取消/超时端口回收和布局边界，以及相邻迁移与预览资源逻辑。",
+    "源码 E2E 首轮 3 项通过、1 项失败，归档 .artifacts/runs/2026-10-20T14-52-45-028Z-e2e。录屏实际区域视频、原生进程清理、网页快开及工具生命周期均通过；Lens 已完成表单提交和图片解码，失败来自自定义 protocol Request 不携带 Origin，而断言只接受字符串 null。修正测试边界后 Lens 独立复核通过，归档 .artifacts/runs/2026-10-20T14-56-08-139Z-e2e；保留首轮失败，不写成一次完整运行全绿。E2E 均使用源码和隔离数据，未为测试打包。",
+    "真实区域录制将洋红控制条强制移入绿色录区，解码 MP4 得到 578×358、绿色比例 0.9960468577835341、洋红比例 0；初始位置也验证在选区外。当前桌面验证系统排除真实生效，不只检查 API 标志。",
+    "真实联网使用生产 launchWebQuickOpen 和本机生成的 640×400 彩色网格；由替代 shell.openExternal 的独立无持久化 Chromium 会话领取表单并直接上传，Google 结果页显示 640×400 原图和实际搜索内容。未上传用户图片。已查看截图，证据 .artifacts/reviews/lens-recorder-2026-10-20，不能把网络替身 E2E 或单纯跳转当作外网验收。",
+    "pnpm typecheck:node、修改范围 ESLint 和 git diff --check 通过；pnpm build 成功，含 Node/Web/设置类型检查、设置与工具及宿主编译。保留已有设置组件循环重导出等提示，未调整无关构建策略；未执行 electron-builder 或 build:unpack。",
+    "pnpm preview:sync 已同步 1.1.0，更新 77 个程序文件（含 package.json），458 个 data/legacy 文件同步前后 SHA-256 一致；pnpm test:preview:resources 只读核验 76 个运行时文件、154 个内置插件文件一致。保留 .artifacts/backups/preview-sync/update-1792508330474/previous-resources 与同目录 preservation.json，未启动成品。",
+    "收尾执行 pnpm maintain 与 pnpm maintain:check，生成变更、故障和项目索引；不提交配置、插件、备份、日志、截图或探针。"
+  ],
+  "pending": [
+    "用户实际默认浏览器、账号/风控与网络环境仍需人工验收；联网探针使用独立 Chromium 会话，没有操作用户浏览器配置。多屏/DPI 及旧 Windows 系统保护效果保留人工项，Windows 10 2004 以前可能表现为黑块。"
+  ],
+  "preview": "已同步 .local/portable-preview 1.1.0；77 个程序文件更新，458 个配置、插件及旧数据文件保持一致，资源核验通过。用户可从 PreviewPortable.cmd 手动启动，未自动开启预览。"
+}

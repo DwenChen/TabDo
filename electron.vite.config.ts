@@ -8,7 +8,7 @@ const packageJson = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 
 const targetElectronVersion = packageJson.devDependencies.electron
 
 function getPlatformUpdaterEntry(): string {
-  const targetPlatform = process.env.ZTOOLS_TARGET_PLATFORM || process.platform
+  const targetPlatform = process.env.TABDO_TARGET_PLATFORM || process.platform
   if (targetPlatform === 'win32')
     return resolve(__dirname, 'src/main/api/platformUpdater/windows.ts')
   if (targetPlatform === 'darwin')
@@ -19,7 +19,7 @@ function getPlatformUpdaterEntry(): string {
 export default defineConfig({
   main: {
     define: {
-      __ZTOOLS_TARGET_ELECTRON_VERSION__: JSON.stringify(targetElectronVersion)
+      __TABDO_TARGET_ELECTRON_VERSION__: JSON.stringify(targetElectronVersion)
     },
     resolve: {
       alias: {

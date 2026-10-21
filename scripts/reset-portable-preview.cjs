@@ -37,7 +37,7 @@ function assertStopped(executable) {
  */
 function resetProfile(root, preview, checkStopped = assertStopped) {
   workspacePath(root, preview)
-  const executable = path.join(preview, 'ZTools.exe')
+  const executable = path.join(preview, 'TabDo.exe')
   if (!fs.existsSync(executable)) throw new Error('Portable preview executable is missing')
   checkStopped(executable)
   const backup = workspacePath(

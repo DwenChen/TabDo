@@ -43,6 +43,13 @@ useEscapeHandler(handleEscape, { priority: 50 })
 <style>
 /* 全局过渡动画类（供 Transition 组件使用） */
 
+/* 页面切换时先撤下旧正文，避免透明材质中叠加两页文字。 */
+.list-slide-leave-active,
+.slide-leave-active,
+.alias-slide-leave-active {
+  visibility: hidden;
+}
+
 /* slide: 从右进入，向右离开（用于一级↔二级） */
 .slide-enter-active {
   transition:
