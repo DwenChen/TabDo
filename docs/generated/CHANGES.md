@@ -32,6 +32,10 @@
 - 验证：提交hook的差异检查发现jsQR许可副本末尾多余空行并阻止首次提交；仅规范化末尾换行，许可正文保持不变，再次执行正常hook。暂存清单未包含.local、.artifacts、test-results或个人环境文件，新增文件无超过50MiB的单文件。
 - 验证：主仓库e8155966已正常hook提交并push，远端SHA一致。首次云端run 39641049196在设置类型检查失败：pnpm workspace仅包含根项目，原--dir安装命令未安装独立设置插件的API类型依赖。尚未构建产物、未发布tag/release；修为显式--ignore-workspace并用pnpm9复验后重跑。
 - 验证：CI修复复验：CI=true并使用pnpm 9.15.9对独立设置插件执行--ignore-workspace --frozen-lockfile --force，实际重装完成，API类型解析到插件自身node_modules；pnpm typecheck:setting通过。仅工作流及开发说明调整，继续正常hook提交并重跑云端。
+- 验证：CI修复提交6d25e186d1c34e0ae6e0c03ab1d66c559df3ee7a已push；云端run 39642241585的build/publish均成功。维护、两组类型检查和98文件675项单测通过，Windows云端构建生成NSIS/ZIP及更新资产。v2.0.0标签与release target均核对指向该提交；公开发布https://github.com/DwenChen/TabDo/releases/tag/v2.0.0，latest已指向2.0.0。
+- 验证：最终发布资产全部实际下载到忽略目录并核对GitHub SHA-256：安装包129126560字节、ZIP176045951字节、blockmap135646字节、latest.yml1088字节。更新清单2.0.0的文件大小、路径、SHA-512与安装包逐项相符。静态检查安装包及ZIP内TabDo.exe的产品名/版本为TabDo/2.0.0；未运行安装或成品E2E。
+- 验证：ZIP静态核验474项、app.asar内3616项，未包含.local/.artifacts/test-results/预览入口等私有文件，ASAR package.json为TabDo 2.0.0；发布包生命周期源码与当前源文件规范化换行后一致。成品更新源DwenChen/TabDo与appId正确，保留新原生模块命名和媒体运行库。证据在.artifacts/work/final-release/release-verification.json及packaged-verification.json。
+- 验证：独立市场v1.0.0及main CI均成功，当前main d7d859686c75396a4fd3af30d2f3f68f4b5056ee；主仓库与市场的生命周期类型声明规范化换行后一致。最后归档发布记录后执行maintain/maintain:check并正常提交push，仅文档变更不重发版本。
 
 ## 2026-10-21 · 覆盖宿主、超级面板、插件与工具子组件的性能审查及优化
 
