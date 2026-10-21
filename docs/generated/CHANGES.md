@@ -30,6 +30,8 @@
 - 验证：pnpm preview:sync最终同步2.0.0，209个既有资料/插件文件前后逐文件一致，91个程序文件核验；资源回退.artifacts/backups/preview-sync/update-1792602163010/previous-resources。同步脚本完整替换当前resources/out，并去除历史开发入口与旧原生文件，防止更名后旧资源残留；portablePreviewResources的11项专项通过。
 - 验证：pnpm test:preview:resources通过：90个程序资源、229个内置插件文件、1676个媒体运行库文件。随后按当前用户授权执行pnpm preview:reset --confirm-reset，209文件完整备份到.artifacts/backups/portable-profile/2026-10-21T17-04-16-175Z-2382ea83，指纹一致，data/legacy确认空目录，程序不变。真实用户资料根未重置。
 - 验证：提交hook的差异检查发现jsQR许可副本末尾多余空行并阻止首次提交；仅规范化末尾换行，许可正文保持不变，再次执行正常hook。暂存清单未包含.local、.artifacts、test-results或个人环境文件，新增文件无超过50MiB的单文件。
+- 验证：主仓库e8155966已正常hook提交并push，远端SHA一致。首次云端run 39641049196在设置类型检查失败：pnpm workspace仅包含根项目，原--dir安装命令未安装独立设置插件的API类型依赖。尚未构建产物、未发布tag/release；修为显式--ignore-workspace并用pnpm9复验后重跑。
+- 验证：CI修复复验：CI=true并使用pnpm 9.15.9对独立设置插件执行--ignore-workspace --frozen-lockfile --force，实际重装完成，API类型解析到插件自身node_modules；pnpm typecheck:setting通过。仅工作流及开发说明调整，继续正常hook提交并重跑云端。
 
 ## 2026-10-21 · 覆盖宿主、超级面板、插件与工具子组件的性能审查及优化
 

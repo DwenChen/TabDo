@@ -21,7 +21,7 @@ jobs:
             pnpm-lock.yaml
             internal-plugins/setting/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --dir internal-plugins/setting install --frozen-lockfile
+      - run: pnpm --dir internal-plugins/setting install --ignore-workspace --frozen-lockfile
       - name: Verify repository maintenance records
         run: pnpm maintain:check
       - run: pnpm typecheck

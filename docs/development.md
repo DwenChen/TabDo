@@ -12,7 +12,7 @@
 
 ```powershell
 pnpm install --frozen-lockfile --ignore-scripts
-pnpm --dir internal-plugins/setting install --frozen-lockfile --ignore-scripts
+pnpm --dir internal-plugins/setting install --ignore-workspace --frozen-lockfile --ignore-scripts
 node node_modules/electron/install.js
 pnpm preview:local
 ```
