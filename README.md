@@ -1,22 +1,125 @@
 # TabDo
 
-<img src="resources/icons/icon.png" width="96" alt="TabDo" />
+<img src="resources/icons/icon.png" width="96" alt="TabDo 图标：浅绿色鼠标与滚轮" />
 
-**v2.0.0** · Windows 10/11 x64。本地工具箱：通过鼠标中键等触发超级面板，使用剪贴板、截图、识别、文件搜索、便签、录屏与媒体处理。
+**把常用操作带到鼠标旁。**
 
-从 [Releases](https://github.com/DwenChen/TabDo/releases/latest) 下载安装包或免安装 ZIP。首次从托盘打开设置，选择并开启超级面板触发键。应用快捷键初始关闭，常用工具默认固定；需要联网或模型的能力在“提供商”中配置。
+TabDo 是一款面向 Windows 的鼠标驱动本地工具箱。通过超级面板，将选中的文字、图片、文件或当前窗口交给合适的工具；没有选中内容时，快速打开自己固定的常用功能。从截图、剪贴板到文件整理、录屏和媒体处理，减少在不同应用之间寻找入口的时间。
 
-插件由 [TabDo-plugins](https://github.com/DwenChen/TabDo-plugins) 独立管理。第三方插件按需创建会话，退出立即释放前台资源，仅已登记且有时限的必要任务可以继续；无需配置退出保活或跟随主程序启动。旧插件可继续本地安装，旧 API 桥接用于迁移兼容，但必须按新规范适配后才能进入新市场。
+[下载](https://github.com/DwenChen/TabDo/releases/latest) · [内置工具](#内置工具) · [快速开始](#快速开始) · [插件市场](https://github.com/DwenChen/TabDo-plugins) · [文档](docs/README.md) · [反馈问题](https://github.com/DwenChen/TabDo/issues)
 
-本地数据不上传到账户。新安装默认使用 `.tabdo`；检测到已有 `.ztools` 资料时继续原地使用，包含配置、插件、历史与迁移位置记录。切换目录必须经设置页退出后复制校验，完整备份见 [备份与迁移](docs/backup-and-migration.md)。
+## 特性
 
-开发与维护入口：
+- **鼠标呼出超级面板**：支持鼠标中键、前进键、后退键及长按触发，也可选择长按右键。按使用习惯设置触发方式和长按响应时间。
+- **根据内容匹配操作**：识别选中文本、图片、文件和窗口上下文，展示对应功能；没有选区时，可按设置使用最近复制的内容。
+- **整理自己的常用入口**：将常用指令固定到面板，拖动排序、用文件夹分组；也可配置本地启动项、指令别名和快捷键。
+- **内置完整的日常工具**：剪贴板历史、截图取色、文字与公式识别、文件搜索、批量重命名、便签、录屏，以及图片和视频处理。
+- **按需运行与释放资源**：工具和插件按需打开，离开页面后清理临时资源；已经确认的保存、编码等必要任务完成后释放所属资源。
+- **按需要选择处理方式**：识别和翻译可使用离线引擎，也可接入在线服务或自己的 AI 模型；在“提供商”中集中管理。
+- **适应工作环境**：支持明暗主题、强调色和 Windows 窗口材质；游戏模式可暂停面板鼠标触发及相关全局快捷键，减少操作干扰。
 
-- [文档总览](docs/README.md)、[开发与源码预览](docs/development.md)
-- [第三方插件开发规范](docs/plugin-development.md)、[独立市场维护](docs/plugin-market.md)
-- [工具子组件原则](docs/tools-development.md)、[性能与内存审查](docs/performance-audit.md)
-- [测试与回归](tests/README.md)、[维护记录](docs/generated/CHANGES.md)、[Bug 台账](docs/generated/BUGS.md)
+## 内置工具
 
-`pnpm test:e2e` 直接运行源码 Electron，使用隔离数据，不为测试打包。手动免安装预览固定通过 `PreviewPortable.cmd` 启动。日常更新保留预览数据；重置、push、云端构建与 release 仅在每轮用户明确授权后执行。
+工具随 TabDo 提供。普通入口使用中文名称，部分操作在匹配到相应文字、图片、文件或窗口时出现。完整指令与分类见 [工具清单](docs/tools-catalog.md)。
 
-感谢 [ZToolsCenter/ZTools](https://github.com/ZToolsCenter/ZTools)、原作者 Zing 与社区贡献者。本项目基于上游提交 `6c9dee8` 独立维护。感谢 [原插件市场](https://github.com/ZToolsCenter/ZTools-plugins)、[原插件开发项目](https://github.com/ZToolsCenter/ztools-plugin-cli)和 [API 类型项目](https://github.com/ZToolsCenter/ztools-api-types)提供的基础。保留 [MIT 许可证](LICENSE)及第三方资源各自的版权与许可。
+| 分类           | 可以做什么                                                                         |
+| -------------- | ---------------------------------------------------------------------------------- |
+| 剪贴板         | 查看与搜索文字、图片和文件历史，管理收藏，复制或粘贴历史内容                       |
+| 截图与取色     | 截取屏幕内容，使用屏幕取色器获取颜色                                               |
+| 文字与公式识别 | 从图片提取文字，查看原图行框、选择局部文字并翻译；识别公式，预览和复制 LaTeX       |
+| 文件搜索       | 搜索本地文件并预览结果，Windows 可接入 Everything                                  |
+| 文件整理       | 批量重命名、解散文件夹、复制路径或名称，以及打开文件夹和终端                       |
+| 便签与悬浮内容 | 创建便签，将文字或图片悬浮显示，对图片进行标记                                     |
+| 录屏           | 录制全屏、指定窗口或区域，选择系统声音、麦克风及操作效果，通过独立控制条停止和保存 |
+| 图片处理       | 批量压缩、转格式、调整尺寸、裁剪、旋转、加水印；合并图片，生成 PDF 或 GIF          |
+| 视频处理       | 压缩、截取、裁剪、转格式、调整速度、加水印、合并，以及音频处理和提取视频帧         |
+| 网页快开       | 打开配置的网站，使用选中文本搜索，或将图片交给以图搜图入口                         |
+| 窗口与系统     | 查看窗口信息，执行锁屏、睡眠、重启、关机等系统操作，管理插件运行和使用记录         |
+
+文字识别、公式识别和离线翻译需要先在“提供商”中启用并下载对应资源；离线翻译目前支持英译中，在线服务与 AI 能力需要网络及相应配置。识别结果是否包含行框取决于提供商。更多说明见 [识别与翻译](docs/builtin-providers.md)和 [图片、视频与录屏](docs/media-tools.md)。
+
+## 使用场景
+
+- **读资料**：选中文字后呼出面板，查看译文或执行网页搜索；遇到图片文字时，进入文字识别，再选取、复制或翻译需要的部分。
+- **整理文件**：选中文件后打开重命名、复制路径等操作；需要集中处理目录内容时使用“解散文件夹”。
+- **准备图片和视频**：将文件交给批处理工具，设置尺寸、格式、裁剪或水印，按队列处理并查看输出。
+- **记录与演示**：用便签和悬浮图片保留参考内容，使用全屏、窗口或区域录屏记录操作过程。
+
+## 下载
+
+目前发布 **Windows 10 / 11 x64** 版本。前往 [Releases](https://github.com/DwenChen/TabDo/releases/latest) 选择：
+
+| 产物                             | 使用方式                                                         |
+| -------------------------------- | ---------------------------------------------------------------- |
+| `TabDo-<版本>-win-x64-setup.exe` | 安装版，按向导安装，适合日常使用                                 |
+| `TabDo-<版本>-win-x64.zip`       | 免安装版，完整解压后运行目录中的 `TabDo.exe`，请保留配套资源文件 |
+
+版本变化见 [更新说明](changelog.md)。
+
+## 快速开始
+
+1. **打开设置**：启动 TabDo 后，左键点击托盘图标进入设置。
+2. **选择鼠标触发方式**：在“通用设置 → 超级面板”选择中键、侧键或长按方式；长按模式可以调整响应时间。
+3. **试用常用工具**：首次启动已固定“截图、剪贴板、便签、文件搜索、录屏”。先直接呼出面板，再尝试选中文字、图片或文件后呼出，查看对应操作。
+4. **按需配置能力**：在“快捷键”中启用需要的应用快捷键，在“提供商”中配置识别、翻译和 AI，在“插件市场”中添加扩展。
+
+应用级快捷键首次启动全部关闭，包括设置页呼出、Esc 和录屏快捷键；开启前可通过托盘、面板按钮和录屏控制条操作。已保存的快捷键、固定项和其他偏好会继续保留。
+
+## 插件扩展
+
+[TabDo-plugins](https://github.com/DwenChen/TabDo-plugins) 是 TabDo 独立管理的插件市场，维护插件源码、索引、图标和发布包。应用从该仓库获取目录，支持从市场或本地 `.zpx` 文件安装插件。
+
+插件由宿主统一管理运行与退出，采用 `session-v1` 生命周期：退出时释放前台资源，只有已登记且有时限的必要任务可以继续收尾。市场仓库提供可安装的会话示例，开发者可以在此基础上实现、测试并提交自己的插件。
+
+- [第三方插件开发规范](docs/plugin-development.md)：清单、API、资源清理与必要任务。
+- [市场维护与收录](docs/plugin-market.md)：索引格式、构建、发布与收录要求。
+- [插件市场仓库](https://github.com/DwenChen/TabDo-plugins)：示例源码、提交与讨论入口。
+
+## 数据与隐私
+
+配置、剪贴板历史、收藏和插件数据保存在本机，新安装默认使用用户目录下的 `.tabdo`。数据目录可以在设置中调整，也可以通过“数据备份与迁移”导出完整备份、在其他电脑恢复。
+
+本地工具在本机处理内容；选择在线翻译、AI、网页搜索或以图搜图等能力时，相关输入会发送给所选服务。离线识别和翻译需要首次下载资源，安装完成后可在本机使用。
+
+备份包含插件私有数据、服务密钥及会话，当前备份格式不加密。目录迁移、备份范围与恢复步骤见 [数据备份与迁移](docs/backup-and-migration.md)。
+
+## 从源码运行
+
+项目使用 **Electron、Vue 3 和 TypeScript**，开发环境需要 **Node.js 22+、pnpm 9.15.9**。
+
+```powershell
+git clone https://github.com/DwenChen/TabDo.git
+cd TabDo
+pnpm install --frozen-lockfile --ignore-scripts
+pnpm --dir internal-plugins/setting install --ignore-workspace --frozen-lockfile --ignore-scripts
+node node_modules/electron/install.js
+pnpm hooks:install
+pnpm preview:local
+```
+
+源码预览使用隔离的数据目录，直接加载源码，不生成应用安装包。常用验证命令：
+
+```powershell
+pnpm typecheck
+pnpm typecheck:setting
+pnpm test
+pnpm test:e2e
+```
+
+Electron E2E 直接运行源码，并自动准备本地服务与临时数据，不需要为测试打包应用。完整环境、预览和发布流程见 [开发文档](docs/development.md)；提交改动前请阅读 [维护约定](docs/maintenance.md)。
+
+## 文档与反馈
+
+| 内容           | 入口                                                                                                   |
+| -------------- | ------------------------------------------------------------------------------------------------------ |
+| 全部项目文档   | [文档总览](docs/README.md)                                                                             |
+| 内置工具与指令 | [工具清单](docs/tools-catalog.md)、[工具开发原则](docs/tools-development.md)                           |
+| 架构与资源管理 | [架构说明](docs/architecture.md)、[性能与内存审查](docs/performance-audit.md)                          |
+| 测试与维护状态 | [测试说明](tests/README.md)、[改动记录](docs/generated/CHANGES.md)、[Bug 台账](docs/generated/BUGS.md) |
+| 问题与功能建议 | [GitHub Issues](https://github.com/DwenChen/TabDo/issues)                                              |
+
+## 许可与致谢
+
+TabDo 由 DwenChen 独立维护，项目源码遵循 [MIT 许可证](LICENSE)，第三方库、原生组件、模型及资源保留各自的版权与许可。
+
+感谢 [ZToolsCenter/ZTools](https://github.com/ZToolsCenter/ZTools)、原作者 Zing 与社区贡献者提供的基础；本项目基于上游提交 `6c9dee8` 发展。感谢 [原插件市场](https://github.com/ZToolsCenter/ZTools-plugins)、[原插件开发项目](https://github.com/ZToolsCenter/ztools-plugin-cli)和 [API 类型项目](https://github.com/ZToolsCenter/ztools-api-types)。
