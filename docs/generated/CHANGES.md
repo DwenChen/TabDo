@@ -21,6 +21,10 @@
 - 验证：用户授权发布后将package/changelog更新为2.0.1，并规范SVG源码LF换行。最新远端main与工作基线一致，v2.0.1标签尚不存在，不覆盖v2.0.0。
 - 验证：2.0.1发布候选全量单测98文件675项通过（.artifacts/runs/2026-10-22T01-55-43-813Z-unit）；源码托盘专项再次通过1项（.artifacts/runs/2026-10-22T01-57-01-806Z-e2e，21.0秒）。pnpm lint、pnpm typecheck:setting和pnpm build均通过；E2E先于仅为预览进行的资源编译，未在本地运行electron-builder。
 - 验证：最新预览EXE版本与产品版本更新为2.0.1，九帧图标仍完整；旧EXE保存在.artifacts/backups/icon-release/2.0.1/TabDo.exe。pnpm preview:sync核对91个程序文件，保留当前161份资料文件；回退资源.artifacts/backups/preview-sync/update-1792634349114/previous-resources。pnpm test:preview:resources通过90/229/1676项，未重置资料。
+- 验证：发布提交fb419b50e92591b3bfc90e2243f971fd63f66bec正常hook提交并push，远端SHA一致；云端run 39709129095的build与publish均成功，维护/类型检查及98文件675项单测通过。v2.0.1标签和release target均指向该提交，latest已指向2.0.1：https://github.com/DwenChen/TabDo/releases/tag/v2.0.1。
+- 验证：四项公开资产实际下载并与GitHub SHA-256核对：安装包129127851字节、ZIP176045418字节、blockmap135237字节、latest.yml883字节。更新清单版本、文件名、大小及SHA-512均与安装包一致，证据.artifacts/work/icon-release/release-verification.json。
+- 验证：静态检查云端ZIP474项及ASAR3616项：不含本地预览、测试和私有目录，package为TabDo 2.0.1，更新源与appId正确。EXE九帧PNG逐帧匹配ICO，设置/主界面/托盘PNG与当前源文件字节一致，SVG与提交版本一致。程序与安装包产品名TabDo、文件版本2.0.1；未运行真实安装或成品E2E。证据.artifacts/work/icon-release/package-verification.json及package/exe-metadata.json。
+- 验证：完成发布后仅补充本轮归档与Bug台账，执行maintain/maintain:check和差异检查后正常hook提交push文档；不改发布tag、不重复触发云端任务。
 
 ## 2026-10-22 · 按独立项目重写 TabDo README，补齐特性与内置工具介绍
 
