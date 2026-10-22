@@ -1,6 +1,6 @@
 {
   "name": "TabDo",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "TabDo：鼠标驱动的本地工具箱、超级面板与按需插件",
   "main": "./out/main/index.js",
   "author": "DwenChen",

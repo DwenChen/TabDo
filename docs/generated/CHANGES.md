@@ -2,6 +2,26 @@
 
 > 自动生成；原始记录在 [entries](../history/entries/)。
 
+## 2026-10-22 · 放大鼠标主体并改为透明背景，改善 TabDo 托盘与任务栏图标
+
+记录：[transparent-mouse-icon](../../docs/history/entries/2026-10-22-03-transparent-icon.json)；版本：2.0.1。
+
+- 用户提供任务栏与托盘截图，指出鼠标主体过小并要求透明背景。直接编辑既有SVG，移除圆角背景和顶部箭头，放大浅绿色鼠标、加粗轮廓及滚轮。
+- 同步六份品牌PNG、Windows多尺寸ICO、ICNS与托盘模板。ICO补充20/40像素帧，覆盖16至256像素的九种尺寸；未改动内置工具各自的专属图标。
+- 原品牌文件保存在忽略目录.artifacts/backups/icon-refresh/2026-10-22；小尺寸浅色/深色/粉色底对照与一次性生成脚本在.artifacts/work/icon-refresh，临时材料不进入根目录或提交。
+- 图标调整阶段未push或发布；用户随后明确要求push并完成后续流程，本轮按2.0.1补丁版本完成提交、云端构建与release，保持现有预览资料，不重置。
+
+- 验证：开始时工作区干净；已阅读维护、变更索引、Bug台账及工具/设置规范。检查实际消费路径，Windows托盘读取windows-icon.png，主界面与设置使用各自logo，发布与预览exe需要同步ICO。
+- 验证：已目视比较16/20/24/32/48像素在浅、深与截图近似粉色底上的效果，主体与滚轮更清楚。资产字节核验通过：六份512像素PNG一致，四角及侧边透明；512主图可见范围396×500，ICO的16像素帧为14×16。ICO九帧、ICNS三帧解码透明边界通过，记录.artifacts/work/icon-refresh/asset-check.json。
+- 验证：pnpm test:e2e tests/e2e/plugin-cleanup-tray.spec.ts通过1项，23.2秒正文操作、整批46.3秒；使用源码Electron和隔离数据，未为E2E打包。归档.artifacts/runs/2026-10-22T01-40-18-915Z-e2e。pnpm test:regressions branding --list确认只选择该专项。
+- 验证：源码验证之后执行pnpm build，仅为预览编译Node/Web/设置/工具资源，类型检查及编译通过，未执行electron-builder或云端构建。保留已有编译提示，日志在.artifacts/work/icon-refresh/build.log。
+- 验证：预览停止状态校验通过；先将TabDo.exe备份至.artifacts/backups/icon-refresh/2026-10-22/preview/TabDo.exe，在临时副本更新ICO，确认九帧PNG确实嵌入后替换。程序版本与其他元数据未改，153个现有资料文件在exe更新前后逐文件一致。
+- 验证：pnpm preview:sync完成，91份程序文件核对、153份现有资料文件同步前后逐文件一致；程序资源回退位于.artifacts/backups/preview-sync/update-1792633421284/previous-resources。pnpm test:preview:resources通过90个程序资源、229个内置插件文件、1676个媒体运行库文件。
+- 验证：针对当前预览TabDo.exe发送Windows Shell条目更新通知；图标阶段EXE产品名TabDo、文件与产品版本2.0.0保持。未启动真实预览写入测试数据。收尾执行pnpm maintain、pnpm maintain:check和git diff --check。
+- 验证：用户授权发布后将package/changelog更新为2.0.1，并规范SVG源码LF换行。最新远端main与工作基线一致，v2.0.1标签尚不存在，不覆盖v2.0.0。
+- 验证：2.0.1发布候选全量单测98文件675项通过（.artifacts/runs/2026-10-22T01-55-43-813Z-unit）；源码托盘专项再次通过1项（.artifacts/runs/2026-10-22T01-57-01-806Z-e2e，21.0秒）。pnpm lint、pnpm typecheck:setting和pnpm build均通过；E2E先于仅为预览进行的资源编译，未在本地运行electron-builder。
+- 验证：最新预览EXE版本与产品版本更新为2.0.1，九帧图标仍完整；旧EXE保存在.artifacts/backups/icon-release/2.0.1/TabDo.exe。pnpm preview:sync核对91个程序文件，保留当前161份资料文件；回退资源.artifacts/backups/preview-sync/update-1792634349114/previous-resources。pnpm test:preview:resources通过90/229/1676项，未重置资料。
+
 ## 2026-10-22 · 按独立项目重写 TabDo README，补齐特性与内置工具介绍
 
 记录：[tabdo-readme](../../docs/history/entries/2026-10-22-02-readme.json)；版本：未发布。

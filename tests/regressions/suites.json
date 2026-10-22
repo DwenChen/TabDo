@@ -311,6 +311,10 @@
       "tests/e2e/overlay-surfaces.spec.ts"
     ]
   },
+  "branding": {
+    "unit": [],
+    "e2e": ["tests/e2e/plugin-cleanup-tray.spec.ts"]
+  },
   "tabdo-release": {
     "unit": [
       "tests/main/localMarket.test.ts",

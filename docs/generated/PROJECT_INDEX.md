@@ -183,4 +183,5 @@
 - `settings-defaults`：6 个单测文件、7 个源码 E2E 文件。
 - `tools-catalog`：6 个单测文件、4 个源码 E2E 文件。
 - `overlay-surfaces`：0 个单测文件、1 个源码 E2E 文件。
+- `branding`：0 个单测文件、1 个源码 E2E 文件。
 - `tabdo-release`：9 个单测文件、6 个源码 E2E 文件。
