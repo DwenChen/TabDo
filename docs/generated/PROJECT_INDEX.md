@@ -168,7 +168,7 @@
 - `screenshot`：1 个单测文件、1 个源码 E2E 文件。
 - `lifecycle`：2 个单测文件、2 个源码 E2E 文件。
 - `maintenance`：2 个单测文件、0 个源码 E2E 文件。
-- `release`：2 个单测文件、0 个源码 E2E 文件。
+- `release`：6 个单测文件、0 个源码 E2E 文件。
 - `preview`：1 个单测文件、0 个源码 E2E 文件。
 - `providers`：5 个单测文件、1 个源码 E2E 文件。
 - `tools-polish`：1 个单测文件、2 个源码 E2E 文件。

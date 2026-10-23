@@ -10,6 +10,7 @@
 - 重写README、架构、开发、贡献和维护入口，新增Agent执行、项目定位、发布升级及第三方来源文档，核对原插件作者署名。
 - 保留开始时媒体工具与便签未提交改动，纳入首版候选验证。
 - 发布工作流统一TabDo命名，单测使用自动归档入口并保留云端验证证据。
+- 修正pnpm9的CI测试参数解析差异：直接使用node scripts/run-tests.cjs unit --maxWorkers=2，继续自动归档测试证据。
 
 - 验证：已核实旧仓库DwenChen/TabDo（ID 1415714024）为ZToolsCenter/ZTools的fork，当前账号有admin权限，无未关闭议题及下游fork。git bundle verify通过；完整历史位于.artifacts/backups/tabdo-before-independent-v1.bundle。五个旧版本20个资产共1291836856字节已核对大小与SHA-256，元数据、初始25个工作区文件及补丁保留在.artifacts/backups/tabdo-before-independent-v1/。
 - 验证：旧本地发行标签转存refs/archive/tabdo-fork/tags/，保留对象和备份，不推送旧发行标签，不覆盖任何旧仓库发布对象。
@@ -20,6 +21,8 @@
 - 验证：Markdown本地链接核对通过，发布YAML解析通过，确认版本1.0.0、单测自动归档及win-x64制品路径一致。保留原始LICENSE并新增TabDo修改版权行。
 - 验证：pnpm preview:sync及pnpm test:preview:resources通过：91个程序文件、229个内置资源文件、1676个媒体依赖文件匹配；171个data文件前后路径与SHA-256一致，legacy为空并保留。证据.artifacts/backups/preview-sync/update-1792741594402/preservation.json。
 - 验证：本地收尾执行pnpm maintain、pnpm maintain:check与git diff --check，保留提交和推送hooks；远端迁移及发布结果待完成后补充。
+- 验证：旧仓库已删除（API404），新建同名独立公开仓库ID1430751482，fork=false且无parent；8148c958候选已推送。云端首轮39921705044在pnpm9内置test命令解析maxWorkers时失败，未打包、未发布；日志保存在.artifacts/work/independent-v1/cloud-failure.json。修正后重新验证与派发。
+- 验证：修正后的精确CI入口node scripts/run-tests.cjs unit --maxWorkers=2在本机再次执行，100文件682项通过，归档.artifacts/runs/2026-10-23T08-04-23-398Z-unit；release --list列出6个单测文件。验证证据上传显式允许固定.artifacts/runs路径中的隐藏目录。
 
 ## 2026-10-23 · 改善媒体批量读取容错、可视化尺寸与裁剪交互，并自动整理相邻便签色签
 

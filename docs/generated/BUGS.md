@@ -2,6 +2,16 @@
 
 > 自动生成；状态只描述已有证据，不以加入测试清单替代实际验证。
 
+## BUG-RELEASE-PNPM9-TEST-ARGUMENTS · 发布CI使用pnpm9内置test入口时拒绝maxWorkers参数
+
+状态：已修正入口；云端重跑验收中。
+
+原因：本机pnpm11将脚本参数转发，而云端固定的pnpm9在pnpm test --maxWorkers=2阶段将其解析为包管理器选项，测试尚未启动即失败。
+
+处理：工作流直接调用既有node scripts/run-tests.cjs unit --maxWorkers=2，绕开包管理器别名解析并保留自动归档；只下载win-x64制品，验证日志独立归档。
+
+回归：TX-71；release分组覆盖维护、归档、发布元数据、预览依赖及更新来源；真实CI需要确认单测执行、归档、打包和Release均完成。
+
 ## BUG-MEDIA-BATCH-READ-LOSS · 媒体读取异常导致整批图片不显示，连续添加可能丢失前批次
 
 状态：已增强容错；崩溃隔离与源码回归通过，原始故障图片根因待验收。

@@ -119,7 +119,11 @@
   },
   "release": {
     "unit": [
+      "tests/scripts/projectMaintenance.test.ts",
       "tests/scripts/updateMetadata.test.ts",
+      "tests/scripts/portablePreviewResources.test.ts",
+      "tests/scripts/mediaRuntimeDependencies.test.ts",
+      "tests/main/updateSource.test.ts",
       "tests/main/windowsInstallCompatibility.test.ts"
     ],
     "e2e": []
@@ -328,7 +332,9 @@
   },
   "branding": {
     "unit": [],
-    "e2e": ["tests/e2e/plugin-cleanup-tray.spec.ts"]
+    "e2e": [
+      "tests/e2e/plugin-cleanup-tray.spec.ts"
+    ]
   },
   "tabdo-release": {
     "unit": [

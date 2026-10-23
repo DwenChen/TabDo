@@ -30,7 +30,7 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm typecheck:setting
       - name: Run unit tests with archived results
-        run: pnpm test --maxWorkers=2
+        run: node scripts/run-tests.cjs unit --maxWorkers=2
       - name: Archive verification evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -38,6 +38,7 @@ jobs:
           name: verification
           path: .artifacts/runs/
           if-no-files-found: warn
+          include-hidden-files: true
       - name: Build and package in cloud
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'

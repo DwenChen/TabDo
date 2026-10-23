@@ -1,5 +1,16 @@
 [
   {
+    "id": "BUG-RELEASE-PNPM9-TEST-ARGUMENTS",
+    "title": "发布CI使用pnpm9内置test入口时拒绝maxWorkers参数",
+    "status": "已修正入口；云端重跑验收中",
+    "cause": "本机pnpm11将脚本参数转发，而云端固定的pnpm9在pnpm test --maxWorkers=2阶段将其解析为包管理器选项，测试尚未启动即失败。",
+    "fix": "工作流直接调用既有node scripts/run-tests.cjs unit --maxWorkers=2，绕开包管理器别名解析并保留自动归档；只下载win-x64制品，验证日志独立归档。",
+    "cases": [
+      "TX-71"
+    ],
+    "coverage": "release分组覆盖维护、归档、发布元数据、预览依赖及更新来源；真实CI需要确认单测执行、归档、打包和Release均完成。"
+  },
+  {
     "id": "BUG-MEDIA-BATCH-READ-LOSS",
     "title": "媒体读取异常导致整批图片不显示，连续添加可能丢失前批次",
     "status": "已增强容错；崩溃隔离与源码回归通过，原始故障图片根因待验收",
@@ -906,7 +917,9 @@
     "status": "已修复并随2.0.1发布；透明与格式、源码托盘及预览核验通过",
     "cause": "鼠标仅占原画布约46%宽度，圆角底板与箭头占用可视空间，细线条经小尺寸缩放后不够清楚。",
     "fix": "透明SVG仅保留鼠标，主体扩至约77%宽度和98%高度，强化滚轮及轮廓；所有品牌衍生图与多尺寸ICO同步。",
-    "cases": ["TX-67"],
+    "cases": [
+      "TX-67"
+    ],
     "coverage": "branding分组复用托盘源码Electron回归；另核对透明通道、ICO帧与小尺寸浅深底比较，exe资源更新及预览数据保留结果据本轮记录。2.0.1云端成品的九帧图标与主界面/设置/托盘PNG逐字节匹配源文件；固定项缓存、升级安装和其他DPI保留人工边界。"
   }
 ]
