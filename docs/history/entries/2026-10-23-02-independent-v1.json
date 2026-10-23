@@ -20,13 +20,30 @@
     "pnpm typecheck、pnpm typecheck:setting、16个受影响源码/测试文件ESLint、pnpm build均通过。编译仅用于交付资源，E2E全程直接加载源码，未使用electron-builder或build:unpack。当前本机Node24.15.0、pnpm11.25.0，云端继续固定Node22、pnpm9.15.9；保留现有Rollup循环分块/混合导入及本机pnpm配置提示。",
     "Markdown本地链接核对通过，发布YAML解析通过，确认版本1.0.0、单测自动归档及win-x64制品路径一致。保留原始LICENSE并新增TabDo修改版权行。",
     "pnpm preview:sync及pnpm test:preview:resources通过：91个程序文件、229个内置资源文件、1676个媒体依赖文件匹配；171个data文件前后路径与SHA-256一致，legacy为空并保留。证据.artifacts/backups/preview-sync/update-1792741594402/preservation.json。",
-    "本地收尾执行pnpm maintain、pnpm maintain:check与git diff --check，保留提交和推送hooks；远端迁移及发布结果待完成后补充。",
+    "本地收尾执行pnpm maintain、pnpm maintain:check与git diff --check，保留提交和推送hooks；远端迁移、发布及成品结果补充如下。",
     "旧仓库已删除（API404），新建同名独立公开仓库ID1430751482，fork=false且无parent；8148c958候选已推送。云端首轮39921705044在pnpm9内置test命令解析maxWorkers时失败，未打包、未发布；日志保存在.artifacts/work/independent-v1/cloud-failure.json。修正后重新验证与派发。",
-    "修正后的精确CI入口node scripts/run-tests.cjs unit --maxWorkers=2在本机再次执行，100文件682项通过，归档.artifacts/runs/2026-10-23T08-04-23-398Z-unit；release --list列出6个单测文件。验证证据上传显式允许固定.artifacts/runs路径中的隐藏目录。"
+    "修正后的精确CI入口node scripts/run-tests.cjs unit --maxWorkers=2在本机再次执行，100文件682项通过，归档.artifacts/runs/2026-10-23T08-04-23-398Z-unit；release --list列出6个单测文件。验证证据上传显式允许固定.artifacts/runs路径中的隐藏目录。",
+    "云端运行39922305495在提交84620c1c2e3e6721a81ad0647d682e665fba521a上构建和发布均成功；Node22.23.4、pnpm9.15.9执行100文件682单测通过。verification和win-x64两个制品归属该提交，测试归档真实保留。运行https://github.com/DwenChen/TabDo/actions/runs/39922305495。",
+    "TabDo v1.0.0于2026-10-23 16:11（Asia/Shanghai）发布，release ID421592326，非草稿/非预发布，标签和target_commitish均为84620c1c；新仓库只拉取v1.0.0，旧标签保留本地归档引用，未强推或覆盖。",
+    "全部四个资产已实际下载并核对GitHub SHA-256；latest.yml版本、文件名、大小与SHA-512均匹配。收据.artifacts/work/independent-v1/release-verification.json；发行https://github.com/DwenChen/TabDo/releases/tag/v1.0.0。",
+    "ZIP包含475个条目，ASAR应用名/版本/来源、原项目与TabDo修改版权、录屏win32原生组件、识别及悬浮资源许可和媒体裁剪模块核对通过。初次私有探针误用省略win32的路径，按真实包结构修正后通过；剪贴板同版权MIT完整文本与包内共享许可逐字核对，未改写任何发布产物。",
+    "本地预览补充替换云端TabDo.exe，文件版本1.0.0、产品版本1.0.0.0；旧exe另行备份。复制前确认预览退出，data171文件与legacy0文件前后SHA-256完全一致；证据.artifacts/backups/tabdo-independent-v1-executable/preservation.json。最终pnpm test:preview:resources通过91程序/229内置/1676媒体依赖。",
+    "最终验收记录仅修改文档和台账，收尾再次pnpm maintain、pnpm maintain:check、git diff --check，并经hooks提交推送；v1.0.0标签保持原构建提交，不因后续文档归档移动。"
   ],
   "pending": [
-    "云端构建、发布及成品核验尚未完成。",
-    "真实媒体、特殊编解码、声音设备、多屏、其他DPI和原生材质最终观感需要人工验收。"
+    "真实故障图片未提供，单文件原生解码根因仍不能针对性复现；已有验证覆盖损坏输入、工作进程崩溃隔离和批量交付。",
+    "真实媒体、特殊编解码、声音设备、多屏、其他DPI及原生窗口材质最终观感保留人工验收；旧2.x用户需要手动安装首版并保留数据。"
   ],
-  "preview": "已同步1.0.0程序资源到.local/portable-preview，保留171个数据文件、配置与已安装插件；通过PreviewPortable.cmd启动。未重置任何资料，回滚资源保留于.artifacts/backups/preview-sync/update-1792741594402/previous-resources。"
+  "preview": "1.0.0源码资源与云端首版TabDo.exe均已同步.local/portable-preview，通过PreviewPortable.cmd手动测试。171个数据文件、原配置与已安装插件逐文件保留，legacy为空并保留；程序资源及旧exe分别保留回滚副本。未重置任何资料。",
+  "release": {
+    "repositoryId": 1430751482,
+    "oldRepositoryId": 1415714024,
+    "fork": false,
+    "tag": "v1.0.0",
+    "commit": "84620c1c2e3e6721a81ad0647d682e665fba521a",
+    "run": "https://github.com/DwenChen/TabDo/actions/runs/39922305495",
+    "url": "https://github.com/DwenChen/TabDo/releases/tag/v1.0.0",
+    "publishedAt": "2026-10-23T08:11:29Z",
+    "verification": ".artifacts/work/independent-v1/release-verification.json"
+  }
 }
