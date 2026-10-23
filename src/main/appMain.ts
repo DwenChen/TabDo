@@ -3,7 +3,13 @@ import { app, BrowserWindow, session, webContents, Menu } from 'electron'
 import log from 'electron-log'
 import { installConsolePipeGuard } from './core/consolePipeGuard'
 import path from 'path'
-import lmdbInstance from './core/lmdb/lmdbInstance'
+import lmdbInstance, { storageManager } from './core/lmdb/lmdbInstance'
+import {
+  initializeUsageGuide,
+  offerUsageGuide,
+  stopUsageGuide,
+  isUsageGuide
+} from './core/usageGuide'
 import api from './api/index'
 import updaterAPI from './api/updater'
 import appsAPI from './api/renderer/commands'
@@ -162,7 +168,8 @@ app.whenReady().then(async () => {
 
   if (
     (isE2ETest || process.env.TABDO_SOURCE_PREVIEW === '1') &&
-    process.env.TABDO_PREVIEW_OPEN_SETTINGS !== '0'
+    process.env.TABDO_PREVIEW_OPEN_SETTINGS !== '0' &&
+    !isUsageGuide
   ) {
     // 测试模式直接展示窗口，让自动化驱动无需依赖全局快捷键。
     mainWindow.once('ready-to-show', () => {
@@ -175,7 +182,7 @@ app.whenReady().then(async () => {
   if (mainWindow) {
     api.init(mainWindow, pluginManager)
     pluginManager.init(mainWindow)
-    if (!isE2ETest) {
+    if (!isE2ETest && !isUsageGuide) {
       // 首次应用列表准备完成后再初始化应用目录监听器，避免启动时与应用扫描抢占磁盘 I/O。
       appsAPI.setAfterFirstAppsReadyCallback(() => {
         appWatcher.init(mainWindow)
@@ -189,6 +196,25 @@ app.whenReady().then(async () => {
   // 插件只在用户操作或明确能力调用时创建，不恢复旧的随宿主预加载设置。
 
   applicationInitialized = true
+
+  // 首次资料直接提供全屏学习选择；拒绝后不重复提示，关于页仍可重进。
+  try {
+    if (
+      initializeUsageGuide({
+        firstRun:
+          storageManager.getInitState().firstRun && !storageManager.getInitState().legacyLmdbFound,
+        launch: (options) => api.launchPlugin(options)
+      })
+    ) {
+      if (mainWindow.webContents.isLoadingMainFrame())
+        mainWindow.webContents.once('did-finish-load', () => {
+          void offerUsageGuide().catch((error) => console.error('[UsageGuide] 启动失败:', error))
+        })
+      else await offerUsageGuide()
+    }
+  } catch (error) {
+    console.error('[UsageGuide] 初始化失败，可从设置重试:', error)
+  }
 
   // 处理文件关联打开：macOS pending 文件 / Windows 命令行参数
   const zpxFromArgs =
@@ -226,6 +252,21 @@ app.on('will-quit', () => {
  * @returns 原生监听与在途记录清理完成后的 Promise。
  */
 async function releaseNativeResources(): Promise<void> {
+  // 父实例先结束所属引导，确保数据库关闭后才清理过程目录。
+  await stopUsageGuide()
+  if (isUsageGuide) {
+    // 练习退出先取消前台并收束已登记任务，随后才关闭进程和删除一次性数据库。
+    await Promise.allSettled(
+      webContents
+        .getAllWebContents()
+        .filter((contents) => pluginManager.getPluginInfoByWebContents(contents)?.name === 'system')
+        .map((contents) =>
+          contents.executeJavaScript(
+            '(window.tabdo?.lifecycle || window.toolsLifecycle)?.dispose()'
+          )
+        )
+    )
+  }
   stopWebQuickOpen()
   await stopMedia()
   await stopRecorder(false)

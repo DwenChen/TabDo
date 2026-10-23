@@ -42,7 +42,7 @@ async function archiveFixture(unpackNative = true): Promise<void> {
   await createPackageWithOptions(
     app,
     archive,
-    unpackNative ? { unpack: '**/*.{node,cjs,exe}' } : {}
+    unpackNative ? { unpackDir: 'resources', unpack: '**/*.{node,cjs,exe}' } : {}
   )
 }
 
@@ -77,6 +77,29 @@ afterEach(async () => {
 })
 
 describe('portable preview runtime resources', () => {
+  it('requires guide HTML, CSS and scripts at their physical sibling paths', async () => {
+    const files = [
+      'usage-guide.html',
+      'usage-guide.css',
+      'usage-guide-ui.js',
+      'usage-guide-preload.cjs'
+    ]
+    for (const file of files) await write(project, 'resources/' + file, 'guide fixture ' + file)
+    await archiveFixture(false)
+    await expect(verifyPortableResources(project, preview)).rejects.toThrow(
+      'resources/usage-guide.html'
+    )
+    await archiveFixture()
+    expect(await verifyPortableResources(project, preview)).toMatchObject({ programFiles: 8 })
+    for (const file of files)
+      expect(await fs.readFile(path.join(archive + '.unpacked/resources', file), 'utf8')).toBe(
+        'guide fixture ' + file
+      )
+    await fs.unlink(path.join(archive + '.unpacked/resources/usage-guide.html'))
+    await expect(verifyPortableResources(project, preview)).rejects.toThrow(
+      'resources/usage-guide.html'
+    )
+  })
   it('requires recorder executables to be physically unpacked', async () => {
     await write(project, 'resources/recorder/win32/capture-x64.exe', 'recorder executable fixture')
     const app = path.join(temporary, 'app-fixture')

@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { nextTick, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
+import UsageGuide from '@/views/UsageGuide/UsageGuide.vue'
 import { useToast } from '@/components'
 import { GITHUB_REPOSITORY_URL } from '@shared/updateSource'
 const version = ref(''),
   automatic = ref(true),
   checking = ref(false)
 const { info, error } = useToast()
+const route = useRoute()
 /** 打开项目或致谢链接。
  * @param url 目标地址。
  * @returns 无返回值。
@@ -21,7 +24,7 @@ async function check(): Promise<void> {
   try {
     const result = await window.tabdo.internal.updaterCheckUpdate()
     if (result.error) error(result.error)
-    else if (!result.hasUpdate) info('当前已是本地版最新版本')
+    else if (!result.hasUpdate) info('当前已是最新版本')
   } catch (cause) {
     error(String(cause))
   } finally {
@@ -43,6 +46,10 @@ onMounted(async () => {
   version.value = await window.tabdo.internal.getAppVersion()
   automatic.value =
     (await window.tabdo.internal.dbGet('settings-general'))?.autoCheckUpdate !== false
+  if (route.query.guide === '1') {
+    await nextTick()
+    document.querySelector('#usage-guide-entry')?.scrollIntoView({ block: 'start' })
+  }
 })
 </script>
 <template>
@@ -51,6 +58,7 @@ onMounted(async () => {
     <h1>TabDo</h1>
     <p>v{{ version }}</p>
     <p>围绕超级面板与插件工作流精简的本地工具箱。所有数据由你备份、保管和迁移。</p>
+    <section id="usage-guide-entry"><UsageGuide /></section>
     <section>
       <h3>本版项目</h3>
       <p>DwenChen / TabDo</p>

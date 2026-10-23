@@ -1273,6 +1273,7 @@ useJumpFunction<ShortcutsSettingJumpFunction>(async (state) => {
                   v-for="shortcut in builtInAppShortcuts"
                   :key="shortcut.id"
                   class="card shortcut-item built-in"
+                  :data-guide="'shortcut-' + shortcut.configKey"
                 >
                   <div class="shortcut-info">
                     <div class="shortcut-key-display">{{ shortcut.shortcut }}</div>

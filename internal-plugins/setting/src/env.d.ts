@@ -2,6 +2,7 @@
 /// <reference types="@ztools-center/ztools-api-types" />
 
 import type { SearchWallpaperConfig } from '@shared/searchWallpaper'
+import type { UsageGuideStatus } from '@shared/usageGuide'
 import type {
   AiProviderInput,
   AiProviderMutationResult,
@@ -34,6 +35,13 @@ declare global {
       hideMainWindow: (isRestorePreWindow?: boolean) => boolean | Promise<boolean>
 
       internal: {
+        usageGuide: {
+          (action: 'status'): Promise<UsageGuideStatus>
+          (
+            action: 'start' | 'remove' | 'retain' | 'finish' | 'launch',
+            code?: string
+          ): Promise<{ success: boolean; error?: string }>
+        }
         onLocalShortcutsChanged: (callback: () => void) => () => void
         onAppsChanged: (callback: () => void) => () => void
         onCommandAliasesChanged: (callback: () => void) => () => void

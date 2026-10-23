@@ -12,6 +12,7 @@ import { createAdapter } from '../../api/plugin/aiProtocol/adapters'
 import translationManager from '../translationManager'
 import databaseAPI from '../../api/shared/database'
 import lmdbInstance from '../lmdb/lmdbInstance'
+import { invokeUsageGuideDemo } from '../usageGuideDemo'
 
 /** 内置能力的输入，不接受任意方法名或执行路径。 */
 export interface BuiltinInput {
@@ -26,6 +27,7 @@ const active = new Map<
   { owner?: WebContents; controller: AbortController; promise: Promise<unknown>; id: string }
 >()
 const mutations = new Map<string, Promise<unknown>>()
+const isGuideDemo = process.env.TABDO_USAGE_GUIDE === '1'
 
 /**
  * 终止本次进程创建的整个进程树，等待关闭后再发布结果。
@@ -62,14 +64,21 @@ class BuiltinProviderService {
         label: capability.label,
         description: capability.description,
         isReady: () =>
-          !capability.engine || modelAssets.status(capability.engine as 'wechat').installed,
+          isGuideDemo ||
+          !capability.engine ||
+          modelAssets.status(capability.engine as 'wechat').installed,
         invoke: (input, signal) => this.invoke(capability.id, input, undefined, undefined, signal)
       })
     }
     this.migrateExistingConfiguration()
     // 重启后只恢复缺失资源的下载，不预先装载模型或原生进程。
     for (const capability of BUILTIN_CAPABILITIES) {
-      if (capability.engine && capability.engine !== 'bergamot' && this.isEnabled(capability.id)) {
+      if (
+        !isGuideDemo &&
+        capability.engine &&
+        capability.engine !== 'bergamot' &&
+        this.isEnabled(capability.id)
+      ) {
         void modelAssets
           .ensure(capability.engine)
           .catch((error) => console.warn('[BuiltinProvider] 恢复模型下载失败:', error.message))
@@ -77,6 +86,7 @@ class BuiltinProviderService {
     }
     app.on('before-quit', () => {
       for (const request of active.values()) request.controller.abort()
+      if (isGuideDemo) return
       void modelAssets.cancel('wechat')
       void modelAssets.cancel('latex')
     })
@@ -129,6 +139,24 @@ class BuiltinProviderService {
    * @returns 设置页使用的状态快照。
    */
   getState(): Record<string, unknown> {
+    if (isGuideDemo)
+      return {
+        demo: true,
+        capabilities: BUILTIN_CAPABILITIES,
+        engines: Object.fromEntries(
+          ['wechat', 'latex', 'bergamot'].map((id) => [
+            id,
+            { demo: true, installed: false, status: 'demo' }
+          ])
+        ),
+        models: [
+          {
+            value: 'guide-demo',
+            label: '教学演示模型（接口模拟）',
+            inputModalities: ['text', 'image']
+          }
+        ]
+      }
     return {
       capabilities: BUILTIN_CAPABILITIES,
       engines: {
@@ -200,13 +228,15 @@ class BuiltinProviderService {
     if (enabled) this.validateConfiguration(id)
     if (!enabled)
       for (const request of active.values()) if (request.id === id) request.controller.abort()
-    if (capability.engine === 'bergamot') translationManager.updateEnabled(enabled)
-    else if (capability.engine) {
-      if (enabled)
-        void modelAssets
-          .ensure(capability.engine)
-          .catch((error) => console.warn('[BuiltinProvider] 模型安装失败:', error.message))
-      else await modelAssets.cancel(capability.engine)
+    if (!isGuideDemo) {
+      if (capability.engine === 'bergamot') translationManager.updateEnabled(enabled)
+      else if (capability.engine) {
+        if (enabled)
+          void modelAssets
+            .ensure(capability.engine)
+            .catch((error) => console.warn('[BuiltinProvider] 模型安装失败:', error.message))
+        else await modelAssets.cancel(capability.engine)
+      }
     }
     if (capability.group === 'translation' || capability.group === 'ocr')
       return providerManager.setEnabled(id, enabled)
@@ -225,6 +255,7 @@ class BuiltinProviderService {
     const engine = capability.engine
     return this.mutate(id, async () => {
       await this.applyEnabled(id, false)
+      if (isGuideDemo) return
       await Promise.allSettled(
         [...active.values()]
           .filter((request) => request.id === id)
@@ -242,6 +273,8 @@ class BuiltinProviderService {
    * @throws 凭据或合适的 AI 模型缺失时抛出。
    */
   private validateConfiguration(id: string): void {
+    // 教学开关只写入隔离配置，不要求凭据，不下载模型或连接真实服务。
+    if (isGuideDemo) return
     const capability = findBuiltinCapability(id)
     if (
       capability?.engine &&
@@ -353,6 +386,9 @@ class BuiltinProviderService {
   private async execute(id: string, input: BuiltinInput, signal: AbortSignal): Promise<any> {
     signal.throwIfAborted()
     const capability = findBuiltinCapability(id)!
+    if (isGuideDemo) {
+      return invokeUsageGuideDemo(capability.group, input, signal)
+    }
     if (
       capability.engine &&
       capability.engine !== 'bergamot' &&

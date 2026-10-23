@@ -1,4 +1,25 @@
 {
+  "usage-guide": {
+    "unit": [
+      "tests/main/usageGuide.test.ts",
+      "tests/main/usageGuideVerification.test.ts",
+      "tests/main/usageGuideRuntime.test.ts",
+    "tests/main/usageGuideFocus.test.ts",
+      "tests/main/usageGuideFileInput.test.ts",
+      "tests/main/pluginDialogGetPath.test.ts",
+      "tests/main/superPanelClipboardTrigger.test.ts",
+      "tests/main/usageGuideDemo.test.ts",
+      "tests/main/builtinProviderService.test.ts",
+      "tests/main/viewRepaint.test.ts",
+      "tests/scripts/portablePreviewResources.test.ts",
+      "tests/main/internalPluginDefaults.test.ts"
+    ],
+    "e2e": [
+      "tests/e2e/usage-guide.spec.ts",
+      "tests/e2e/usage-guide-startup.spec.ts",
+      "tests/e2e/settings-cleanup.spec.ts"
+    ]
+  },
   "performance": {
     "unit": [
       "tests/main/pluginRuntimeResources.test.ts",
@@ -63,19 +84,11 @@
       "tests/main/clipboardSelectionState.test.ts",
       "tests/main/clipboardWriteContentApi.test.ts"
     ],
-    "e2e": [
-      "tests/e2e/tools-clipboard.spec.ts"
-    ]
+    "e2e": ["tests/e2e/tools-clipboard.spec.ts"]
   },
   "panel": {
-    "unit": [
-      "tests/main/clipboardTypeDetection.test.ts",
-      "tests/renderer/commandUtils.test.ts"
-    ],
-    "e2e": [
-      "tests/e2e/super-panel-selection.spec.ts",
-      "tests/e2e/tools-clipboard.spec.ts"
-    ]
+    "unit": ["tests/main/clipboardTypeDetection.test.ts", "tests/renderer/commandUtils.test.ts"],
+    "e2e": ["tests/e2e/super-panel-selection.spec.ts", "tests/e2e/tools-clipboard.spec.ts"]
   },
   "host": {
     "unit": [
@@ -93,22 +106,12 @@
     ]
   },
   "screenshot": {
-    "unit": [
-      "tests/main/screenCaptureResult.test.ts"
-    ],
-    "e2e": [
-      "tests/e2e/tools-screenshot.spec.ts"
-    ]
+    "unit": ["tests/main/screenCaptureResult.test.ts"],
+    "e2e": ["tests/e2e/tools-screenshot.spec.ts"]
   },
   "lifecycle": {
-    "unit": [
-      "tests/main/toolsLifecycle.test.ts",
-      "tests/main/toolsHostLifecycle.test.ts"
-    ],
-    "e2e": [
-      "tests/e2e/tools-lifecycle.spec.ts",
-      "tests/e2e/tools-screenshot.spec.ts"
-    ]
+    "unit": ["tests/main/toolsLifecycle.test.ts", "tests/main/toolsHostLifecycle.test.ts"],
+    "e2e": ["tests/e2e/tools-lifecycle.spec.ts", "tests/e2e/tools-screenshot.spec.ts"]
   },
   "maintenance": {
     "unit": [
@@ -129,9 +132,7 @@
     "e2e": []
   },
   "preview": {
-    "unit": [
-      "tests/scripts/portablePreviewResources.test.ts"
-    ],
+    "unit": ["tests/scripts/portablePreviewResources.test.ts"],
     "e2e": []
   },
   "providers": {
@@ -142,27 +143,15 @@
       "tests/main/providerConsumption.test.ts",
       "tests/main/pluginPreloadInternalApi.test.ts"
     ],
-    "e2e": [
-      "tests/e2e/builtin-providers.spec.ts"
-    ]
+    "e2e": ["tests/e2e/builtin-providers.spec.ts"]
   },
   "tools-polish": {
-    "unit": [
-      "tests/main/builtinProviderService.test.ts"
-    ],
-    "e2e": [
-      "tests/e2e/tools-polish.spec.ts",
-      "tests/e2e/builtin-providers.spec.ts"
-    ]
+    "unit": ["tests/main/builtinProviderService.test.ts"],
+    "e2e": ["tests/e2e/tools-polish.spec.ts", "tests/e2e/builtin-providers.spec.ts"]
   },
   "tools-followup": {
-    "unit": [
-      "tests/main/localSearchQuery.test.ts",
-      "tests/main/everythingBridge.test.ts"
-    ],
-    "e2e": [
-      "tests/e2e/tools-polish.spec.ts"
-    ]
+    "unit": ["tests/main/localSearchQuery.test.ts", "tests/main/everythingBridge.test.ts"],
+    "e2e": ["tests/e2e/tools-polish.spec.ts"]
   },
   "native-shutdown": {
     "unit": [
@@ -170,26 +159,14 @@
       "tests/main/clipboardTypeDetection.test.ts",
       "tests/main/clipboardCategory.test.ts"
     ],
-    "e2e": [
-      "tests/e2e/native-shutdown.spec.ts",
-      "tests/e2e/tools-lifecycle.spec.ts"
-    ]
+    "e2e": ["tests/e2e/native-shutdown.spec.ts", "tests/e2e/tools-lifecycle.spec.ts"]
   },
   "floating-pointer": {
-    "unit": [
-      "tests/main/floatingPointer.test.ts",
-      "tests/main/noteDockLayout.test.ts"
-    ],
-    "e2e": [
-      "tests/e2e/floating-pointer.spec.ts",
-      "tests/e2e/tools-polish.spec.ts"
-    ]
+    "unit": ["tests/main/floatingPointer.test.ts", "tests/main/noteDockLayout.test.ts"],
+    "e2e": ["tests/e2e/floating-pointer.spec.ts", "tests/e2e/tools-polish.spec.ts"]
   },
   "tools-commands": {
-    "unit": [
-      "tests/main/toolsRenameRules.test.ts",
-      "tests/main/toolsFiles.test.ts"
-    ],
+    "unit": ["tests/main/toolsRenameRules.test.ts", "tests/main/toolsFiles.test.ts"],
     "e2e": [
       "tests/e2e/tools-copy-commands.spec.ts",
       "tests/e2e/tools-folder-break.spec.ts",
@@ -259,10 +236,7 @@
       "tests/main/floatingPointer.test.ts",
       "tests/scripts/portablePreviewResources.test.ts"
     ],
-    "e2e": [
-      "tests/e2e/media-batch.spec.ts",
-      "tests/e2e/floating-pointer.spec.ts"
-    ]
+    "e2e": ["tests/e2e/media-batch.spec.ts", "tests/e2e/floating-pointer.spec.ts"]
   },
   "recorder-reference": {
     "unit": [
@@ -326,15 +300,11 @@
   },
   "overlay-surfaces": {
     "unit": [],
-    "e2e": [
-      "tests/e2e/overlay-surfaces.spec.ts"
-    ]
+    "e2e": ["tests/e2e/overlay-surfaces.spec.ts"]
   },
   "branding": {
     "unit": [],
-    "e2e": [
-      "tests/e2e/plugin-cleanup-tray.spec.ts"
-    ]
+    "e2e": ["tests/e2e/plugin-cleanup-tray.spec.ts"]
   },
   "tabdo-release": {
     "unit": [

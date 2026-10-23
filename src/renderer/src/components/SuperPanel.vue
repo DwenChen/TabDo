@@ -1,6 +1,7 @@
 <template>
   <div
     class="super-panel"
+    data-guide="super-panel"
     :class="{ 'is-dragging': isDragging }"
     @keydown="handleKeydown"
     @click.capture="guardDragClick"
@@ -74,6 +75,7 @@
           v-for="(cmd, index) in pinnedCommands"
           :key="getItemKey(cmd)"
           class="grid-item"
+          :data-guide-command="!isFolder(cmd) ? cmd.featureCode : undefined"
           :data-item-key="getItemKey(cmd)"
           :class="{
             selected: !isDragging && index === selectedIndex,

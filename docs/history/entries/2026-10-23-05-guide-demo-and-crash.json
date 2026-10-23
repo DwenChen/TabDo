@@ -1,0 +1,23 @@
+{
+  "id": "guide-demo-and-repaint-crash",
+  "date": "2026-10-23",
+  "summary": "隔离引导使用后台教学接口，修复测试切换视图时的主进程异常",
+  "changes": [
+    "按用户反馈修复延迟重绘读取已释放视图的 webContents，回调校验原会话及布局；测试入口遇到未捕获异常时失败退出，避免原生错误框阻塞桌面。",
+    "按用户明确要求，在隔离引导中使用按次运行的后台脚本模拟 OCR、公式、翻译与 Everything；正式实例继续走真实服务。",
+    "欢迎页、设置、工具显示教学演示标识；教学启用开关不下载模型或校验凭据，识别结果为固定样例，搜索范围仅限本次练习目录。",
+    "新增设置启用教学接口步骤，实际开启两项开关、复制 OCR 与公式结果、切换搜索分类后自动推进；脚本取消、超时、断开均释放且不产生过程文件。",
+    "按用户遮挡反馈，将隔离实例的当前教学设置与工具窗口临时置顶，提示覆盖层保持在上方；不改变正式实例窗口。"
+  ],
+  "checks": [
+    "pnpm test main/usageGuideDemo.test.ts main/builtinProviderService.test.ts main/usageGuideVerification.test.ts main/viewRepaint.test.ts：17项通过；.artifacts/runs/2026-10-23T13-17-10-522Z-unit。",
+    "重绘修复后的原23步源码引导专项通过：.artifacts/runs/2026-10-23T13-07-33-639Z-e2e。此前失败与崩溃记录保留，不视为通过。",
+    "24步教学接口源码专项通过：.artifacts/runs/2026-10-23T13-21-52-207Z-e2e；开启两项教学开关、OCR与公式复制、模拟图片搜索、重进与退出清理均完成，其他步骤明确跳过。首次模拟搜索因渲染进程访问限制失败，改为鉴权主进程代理后通过；失败归档保留。",
+    "pnpm test：104文件697项通过，.artifacts/runs/2026-10-23T13-23-46-061Z-unit；物理脚本加载器调整后相关12项再次通过，.artifacts/runs/2026-10-23T13-25-10-761Z-unit。",
+    "pnpm build通过（包含主进程/渲染器/设置页类型检查与构建）；专项ESLint错误修复后通过；git diff --check通过。",
+    "pnpm preview:sync通过，152个已有资料文件逐文件保留；pnpm test:preview:resources通过，97个程序文件、236个内置插件文件、1676个媒体依赖均一致，教学脚本按物理资源展开。未发现残留源码测试或教学脚本进程。",
+    "pnpm maintain与pnpm maintain:check通过，维护索引及Bug台账已同步。"
+  ],
+  "pending": ["真实模型效果、真实 Everything 与网络服务不属于教学模拟的验收结果；其他DPI、多屏、跨应用置顶观感、原生截图和录屏音频保留人工验收。"],
+  "preview": "已同步.local/portable-preview；程序资源回滚副本与资料保留清单在.artifacts/backups/preview-sync/update-1792761991078，保留已有资料和已安装插件，本轮未再次重置。"
+}

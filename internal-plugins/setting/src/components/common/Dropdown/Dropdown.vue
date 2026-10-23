@@ -73,6 +73,7 @@ onBeforeUnmount(() => {
           v-for="option in options"
           :key="option.value"
           class="dropdown-item"
+          :data-option-value="option.value"
           :class="{ active: option.value === modelValue }"
           @click="selectOption(option)"
         >

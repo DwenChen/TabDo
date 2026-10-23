@@ -27,6 +27,7 @@ import detachedWindowManager from '../core/detachedWindowManager'
 import superPanelManager from '../core/superPanelManager'
 import { applyWindowMaterial, getDefaultWindowMaterial } from '../utils/windowUtils'
 import pluginManager from './pluginManager'
+import { GuideOverlayFocusGate } from '../core/usageGuideFocus'
 import {
   normalizeCompactMainWindowHeader,
   resolveMainWindowHeaderHeight
@@ -105,6 +106,7 @@ class WindowManager {
   private modalDialogBlurHideReleaseTimer: ReturnType<typeof setTimeout> | null = null
   private modalDialogBlurHideSuppressionDepth: number = 0 // blur 导致隐藏窗口的时间戳（用于解决托盘点击竞态）
   private blurHideTimer: ReturnType<typeof setTimeout> | null = null // Linux blur 延迟隐藏定时器
+  private guideOverlayFocus = new GuideOverlayFocusGate()
   // macOS 全屏场景的空间锚点；全屏呼出期间复用，普通桌面呼出时释放。
   private macSpaceAnchor: BrowserWindow | null = null
   private isPreparingMacSpace = false
@@ -124,6 +126,76 @@ class WindowManager {
     pastedImage: null,
     pastedFiles: null,
     pastedText: null
+  }
+
+  /**
+   * 为隔离 Windows 教学运行登记准确的覆盖窗口身份，结束后可撤销此唯一豁免。
+   * @param overlay 当前引导控制器拥有的覆盖窗口。
+   * @returns 撤销当前登记与监听的清理函数；正式实例不改变焦点行为。
+   */
+  public registerUsageGuideOverlay(overlay: BrowserWindow): () => void {
+    if (process.env.TABDO_USAGE_GUIDE !== '1' || !platform.isWindows || overlay.isDestroyed())
+      return () => {}
+    const unregister = this.guideOverlayFocus.register(overlay)
+    /**
+     * 覆盖层离开焦点时重新判断外部焦点，不能因主窗已失焦而永久保留工具。
+     * @returns 无返回值。
+     */
+    const onBlur = (): void => {
+      this.deferGuideOverlayBlur()
+    }
+    /**
+     * 移除本次窗口监听并仅清理所属运行的焦点身份。
+     * @returns 无返回值。
+     */
+    const release = (): void => {
+      overlay.removeListener('blur', onBlur)
+      overlay.removeListener('closed', release)
+      unregister()
+    }
+    overlay.on('blur', onBlur)
+    overlay.once('closed', release)
+    return release
+  }
+
+  /**
+   * 仅隔离 Windows 实例等待一个焦点交接时隙，再决定是否沿用原有隐藏流程。
+   * @returns 已由准确注册的教学覆盖窗口接管本次判断时为 true。
+   */
+  private deferGuideOverlayBlur(): boolean {
+    const main = this.mainWindow
+    if (process.env.TABDO_USAGE_GUIDE !== '1' || !platform.isWindows || !main) return false
+    return this.guideOverlayFocus.defer(
+      main,
+      () => BrowserWindow.getFocusedWindow(),
+      () => this.isBlurHideSuppressed(),
+      () => {
+        if (this.mainWindow === main) this.handleMainWindowBlur()
+      }
+    )
+  }
+
+  /**
+   * 执行既有的失焦隐藏策略，保留原生模态、拖拽和 Linux 内部焦点判断。
+   * @returns 无返回值；确实离开工具前台时沿原有生命周期隐藏窗口。
+   */
+  private handleMainWindowBlur(): void {
+    if (this.isBlurHideSuppressed()) return
+    // 左键仍按下时可能是从外部拖文件进窗口，先等 mouseup 再决定是否隐藏。
+    if (this.leftMouseDown) {
+      this.deferBlurHideUntilMouseUp()
+      return
+    }
+    if (platform.isLinux) {
+      if (this.blurHideTimer) clearTimeout(this.blurHideTimer)
+      this.blurHideTimer = setTimeout(() => {
+        this.blurHideTimer = null
+        if (this.isBlurHideSuppressed()) return
+        if (this.mainWindow?.isFocused()) return
+        if (pluginManager.isPluginViewFocused()) return
+        this.hideWindow(false)
+      }, 150)
+    } else this.hideWindow(false)
   }
 
   /**
@@ -515,35 +587,8 @@ class WindowManager {
     })
 
     this.mainWindow.on('blur', () => {
-      if (this.isBlurHideSuppressed()) return
-
-      // 左键仍按下时可能是从外部拖文件进窗口，先等 mouseup 再决定是否隐藏。
-      if (this.leftMouseDown) {
-        this.deferBlurHideUntilMouseUp()
-        return
-      }
-
-      if (platform.isLinux) {
-        // Linux 上去掉了 type:'panel'，现在 blur 只会在真正点击其他窗口时触发。
-        // 但插件 WebContentsView 获焦仍会触发 blur，需延迟排除。
-        if (this.blurHideTimer) {
-          clearTimeout(this.blurHideTimer)
-          this.blurHideTimer = null
-        }
-        this.blurHideTimer = setTimeout(() => {
-          this.blurHideTimer = null
-          if (this.isBlurHideSuppressed()) return
-          // 主窗口重新获焦 → 不隐藏
-          if (this.mainWindow?.isFocused()) return
-          // 插件视图持有焦点（应用内部切换）→ 不隐藏
-          if (pluginManager.isPluginViewFocused()) return
-          // 确认是点击了其他窗口，隐藏
-          this.hideWindow(false)
-        }, 150)
-      } else {
-        // macOS / Windows：原有行为不变
-        this.hideWindow(false)
-      }
+      if (this.deferGuideOverlayBlur()) return
+      this.handleMainWindowBlur()
     })
 
     if (process.env.TABDO_E2E !== '1') {

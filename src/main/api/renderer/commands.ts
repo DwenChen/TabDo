@@ -22,6 +22,7 @@ import { shouldKeepMainWindowHiddenForLaunch, type PluginLaunchSource } from '@s
 import { isToolsPluginPath } from '../../core/toolsLifecycle'
 import { launchWebQuickOpen } from '../../core/webQuickOpen'
 import { getPluginDocId } from '@shared/pluginRuntimeNamespace'
+import { isGuideLaunchAllowed } from '@shared/usageGuide'
 
 /**
  * 上次匹配状态接口
@@ -623,6 +624,12 @@ export class AppsAPI {
     this.launchParam = param || {}
 
     try {
+      // 隔离引导不执行关机、注销、外部程序或第三方插件等非练习入口。
+      if (process.env.TABDO_USAGE_GUIDE === '1') {
+        const target = this.getPluginsFromDB().find((item) => item.path === appPath)
+        if (type !== 'plugin' || !isGuideLaunchAllowed(target?.name, featureCode))
+          return { success: false, error: '该操作在引导中仅作讲解，请在正式环境按需使用' }
+      }
       // 判断是插件还是直接启动
       if (type === 'plugin') {
         const registered = this.getPluginsFromDB()

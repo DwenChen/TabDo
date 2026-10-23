@@ -230,4 +230,27 @@ describe('built-in provider coordination', () => {
     service.init()
     expect(mocks.settings.params['builtin-baidu'].appKey).toBe('new-key')
   })
+
+  it('keeps guide demo switches and state independent of downloads, models and credentials', async () => {
+    vi.stubEnv('TABDO_USAGE_GUIDE', '1')
+    vi.resetModules()
+    try {
+      const demo = (await import('../../src/main/core/provider/builtinProviderService')).default
+      mocks.choices = []
+      mocks.resolve.mockReturnValue(null)
+      demo.init()
+      await demo.setEnabled('builtin-wechat-ocr', true)
+      await demo.setEnabled('builtin-latex', true)
+      await demo.setEnabled('builtin-ai-ocr', true)
+      expect(demo.getState().demo).toBe(true)
+      expect(mocks.ensure).not.toHaveBeenCalled()
+      expect(mocks.complete).not.toHaveBeenCalled()
+      expect(mocks.settings.enabled.ocr).toContain('builtin-wechat-ocr')
+      expect(mocks.settings.params['builtin-latex'].enabled).toBe(true)
+      await demo.removeModel('builtin-wechat-ocr')
+      expect(mocks.remove).not.toHaveBeenCalled()
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
 })

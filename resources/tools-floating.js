@@ -140,7 +140,7 @@ function draw(shape) {
 }
 
 /**
- * 重绘原图和标记，并同步撤销按钮状态。
+ * 重绘原图和标记，并同步撤销按钮及已提交标记数量，供可见画布状态检查。
  * @returns {void} 无返回值。
  */
 function render() {
@@ -149,6 +149,8 @@ function render() {
   ctx.drawImage(image, 0, 0)
   for (const shape of shapes) draw(shape)
   if (current) draw(current)
+  // 只发布已经提交到画布的标记数；按下画笔或临时拖动不冒充有效标注。
+  canvas.dataset.annotationCount = String(shapes.length)
   $('undo').disabled = !shapes.length
   $('redo').disabled = !undone.length
 }

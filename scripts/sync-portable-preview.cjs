@@ -169,9 +169,8 @@ async function main() {
   await collectProgramFiles(path.join(root, 'resources'), 'resources/', runtimeResources)
   await collectProgramFiles(path.join(root, 'out'), 'out/', programFiles)
   programFiles.push(...runtimeResources)
-  for (const file of runtimeResources)
-    if (/\.(node|dll|cjs|exe)$/i.test(file) || file.startsWith('resources/lib/win/'))
-      unpackedEntries.push(file)
+  // 与 electron-builder 的 resources/** 展开规则一致，HTML 的相邻脚本和样式也必须物理存在。
+  unpackedEntries.push(...runtimeResources)
 
   /**
    * 将新编译的原生资源加入物理展开清单，供 Electron 直接加载。

@@ -660,11 +660,18 @@ onMounted(() => {
 onUnmounted(dispose)
 </script>
 <template>
-  <main class="media-batch" :data-media="media" @dragover.prevent @drop.prevent="drop">
+  <main
+    class="media-batch"
+    :data-media="media"
+    :data-mode="mode"
+    @dragover.prevent
+    @drop.prevent="drop"
+  >
     <nav aria-label="处理功能">
       <button
         v-for="[key, label] in actions"
         :key="key"
+        :data-media-action="key"
         :class="{ selected: mode === key }"
         :disabled="busy"
         @click="mode = key"
@@ -951,6 +958,7 @@ onUnmounted(dispose)
             ><button
               v-else-if="item.result?.path"
               class="result-link"
+              :data-output-name="item.result.name"
               @click.stop="reveal(item.result.path)"
             >
               上次输出 · {{ item.result.name }}

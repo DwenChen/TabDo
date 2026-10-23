@@ -1,0 +1,20 @@
+{
+  "id": "guide-v110-release",
+  "date": "2026-10-24",
+  "version": "1.1.0",
+  "summary": "准备提交全屏实操教学更新并执行1.1.0发行流程",
+  "changes": [
+    "当前用户指示“现在push到仓库，并完成后续流程”；按发布指南执行提交推送、Windows云端构建、正式Release和产物核验。发布不推导再次重置数据。",
+    "本轮将近期未提交的使用引导完整链与测试、维护记录一并审查提交；更新package.json和changelog为1.1.0，保留已发布1.0.0及历史标签。",
+    "使用全新v1.1.0标签作为唯一工作流触发入口，不重复手动派发，不覆盖既有发行产物。"
+  ],
+  "checks": [
+    "工作前检查main分支、未提交清单、Git hooks和发布文档；fetch后origin/main与本地HEAD同为1f73272e17bd78147a4c48998c5e144f641c9163。GitHub最新正式版本为v1.0.0。",
+    "前一轮生产源码冻结后107文件729项单测、类型检查、ESLint与build通过；五项源码E2E最终归档.artifacts/runs/2026-10-23T16-04-04-896Z-e2e，主线42完成/8跳过、52份原生可见性记录，包含已同步免安装物理资源探针。",
+    "1.1.0版本候选重新执行pnpm test，107文件729项全部通过，归档.artifacts/runs/2026-10-23T16-19-49-883Z-unit；pnpm build含Node/Web类型检查及设置、工具、宿主编译通过，另行typecheck:setting通过。日志.artifacts/work/guide-redesign/release-unit.log及release-build.log。",
+    "提交范围只读审查通过，近期使用引导基础链及重做应完整纳入，无个人资料、配置、已安装插件、日志或构建输出；原创练习素材7份共179894字节。",
+    "1.1.0执行preview:sync及test:preview:resources通过，98项程序同步，97程序/236内置资源/1676媒体依赖核验；data与legacy仍空，0份资料前后保持，不启动成品或再次重置。程序回滚副本.artifacts/backups/preview-sync/update-1792772485863/previous-resources。"
+  ],
+  "pending": ["提交推送、云端构建及正式产物核验正在进行；设备及未执行教学步骤边界沿用本轮引导验收记录。"],
+  "preview": "1.1.0程序资源已同步并通过97程序/236内置/1676媒体依赖核验；前轮按用户授权重置后的空资料保持不变，未再次重置或启动，保留首次欢迎状态。"
+}

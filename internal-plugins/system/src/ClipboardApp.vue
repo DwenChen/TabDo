@@ -411,7 +411,13 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="clipboard-app">
+  <div
+    class="clipboard-app"
+    :data-active-tab="activeTab"
+    :data-search-text="searchText"
+    :data-context-menu="contextMenu.show"
+    :data-favorite-dialog="favoriteDialog.show"
+  >
     <div class="main-content">
       <TabBar
         :active-tab="activeTab"

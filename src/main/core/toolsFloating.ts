@@ -671,10 +671,23 @@ async function operate(sender: WebContents, action: string, value: any): Promise
       clipboard.writeImage(image)
       return true
     }
-    const result = await dialog.showSaveDialog(window, {
-      defaultPath: '标记图片.png',
-      filters: [{ name: 'PNG 图片', extensions: ['png'] }]
-    })
+    /**
+     * 用当前图片窗口作为模态父窗，教学输出优先定位到本次练习目录。
+     * @returns Windows 原生保存对话框的实际确认或取消结果。
+     */
+    const chooseSavePath = (): Promise<Electron.SaveDialogReturnValue> =>
+      dialog.showSaveDialog(window, {
+        defaultPath:
+          process.env.TABDO_USAGE_GUIDE === '1' && process.env.TABDO_GUIDE_WORKSPACE
+            ? path.join(process.env.TABDO_GUIDE_WORKSPACE, '练习输出', '标记图片.png')
+            : '标记图片.png',
+        filters: [{ name: 'PNG 图片', extensions: ['png'] }]
+      })
+    // 图片标记不经过插件对话框 API，教学实例仍须让出全屏覆盖层给真实保存窗口。
+    const result =
+      process.env.TABDO_USAGE_GUIDE === '1'
+        ? await (await import('./usageGuide')).withUsageGuideNativeDialog(chooseSavePath)
+        : await chooseSavePath()
     if (!result.canceled && result.filePath) {
       await fs.writeFile(result.filePath, image.toPNG())
       return true

@@ -47,6 +47,11 @@ const homeRoutes: MenuRouterItemType[] = [
     }
   },
   {
+    path: '/usageGuide',
+    name: 'UsageGuide',
+    redirect: { name: 'About', query: { guide: '1' } }
+  },
+  {
     path: '/plugins',
     name: 'Plugins',
     component: () => import('@/views/PluginsSetting/PluginsSetting.vue'),

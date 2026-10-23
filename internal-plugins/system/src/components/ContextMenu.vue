@@ -13,13 +13,23 @@ const emit = defineEmits(['favorite', 'delete', 'float', 'annotate'])
 
 <template>
   <div v-if="show" class="context-menu" :style="{ left: x + 'px', top: y + 'px' }" @click.stop>
-    <div v-if="canFloat" class="context-menu-item" @click="emit('float')">
+    <div
+      v-if="canFloat"
+      class="context-menu-item"
+      data-guide="clipboard-float-action"
+      @click="emit('float')"
+    >
       📌 <span>悬浮固定</span>
     </div>
     <div v-if="canAnnotate" class="context-menu-item" @click="emit('annotate')">
       ✎ <span>标记图片</span>
     </div>
-    <div v-if="canFavorite" class="context-menu-item" @click="emit('favorite')">
+    <div
+      v-if="canFavorite"
+      class="context-menu-item"
+      data-guide="clipboard-favorite-action"
+      @click="emit('favorite')"
+    >
       <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <path
           d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"

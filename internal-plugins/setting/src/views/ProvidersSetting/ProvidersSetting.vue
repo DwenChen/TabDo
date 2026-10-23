@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AiModelsSetting from '@/views/AiModelsSetting/AiModelsSetting.vue'
 import TranslationProviders from './components/TranslationProviders.vue'
@@ -16,6 +16,16 @@ const initialTab = ((): Tab => {
 })()
 
 const activeTab = ref<Tab>(initialTab)
+
+/**
+ * 已打开提供商页面时仍响应精确页签深链，供工具提示与引导定位复用。
+ * @param value 路由中的页签标识。
+ * @returns 无返回值。
+ */
+function applyRouteTab(value: unknown): void {
+  if (value === 'ai' || value === 'translation' || value === 'ocr') activeTab.value = value
+}
+watch(() => route.query.tab, applyRouteTab)
 
 const tabs: Array<{ key: Tab; label: string }> = [
   { key: 'ai', label: 'AI' },

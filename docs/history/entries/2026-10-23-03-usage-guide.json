@@ -1,0 +1,29 @@
+{
+  "id": "first-use-guide",
+  "date": "2026-10-23",
+  "summary": "首次启动使用引导与一次性隔离练习环境",
+  "changes": [
+    "新增首次资料启动的使用引导，以及设置中的长期入口；已有资料升级不强制弹出。",
+    "八节课程覆盖36个内置功能码，并介绍超级面板、快捷键、提供商与插件设置；系统中断操作和外部程序入口只讲解。",
+    "每次使用独立Electron实例、数据根和样例副本，结束后等待进程退出再清理数据库、缓存和默认输出；可保留或删除可重建素材。",
+    "新增原创图片、练习文件及三秒视频；引导不复制正式配置、密钥或第三方插件，不抢占正式实例的全局鼠标触发。",
+    "用户本轮明确要求同步后还原本地预览至初始状态；执行前备份并逐文件校验旧预览数据和插件，正式资料不受影响。"
+  ],
+  "checks": [
+    "pnpm test main/usageGuide.test.ts：3项通过，覆盖所有权、越界/链接拒绝、运行目录清理、素材重建与36个功能码一致性；归档.artifacts/runs/2026-10-23T09-04-43-476Z-unit。",
+    "pnpm test --maxWorkers=2：101个文件685项全量单测通过，归档.artifacts/runs/2026-10-23T09-10-23-817Z-unit。",
+    "pnpm test:e2e tests/e2e/usage-guide.spec.ts：最终专项1项通过（42.8秒），归档.artifacts/runs/2026-10-23T09-16-48-704Z-e2e。实际覆盖首次展示、两文件重命名界面、960×600图片读取、切换销毁旧页、保留重入、删除重建、标题栏关闭、宿主退出清理及已有资料重启不自动提示，正式数据库和插件文件哨兵始终保留。",
+    "pnpm test:e2e tests/e2e/usage-guide.spec.ts tests/e2e/settings-cleanup.spec.ts tests/e2e/tools-lifecycle.spec.ts：设置迁移及原有生命周期2项通过，引导关闭路径1项失败；原始归档.artifacts/runs/2026-10-23T09-11-54-192Z-e2e，不能将整批写成通过。关闭路径随后修复并由最终专项覆盖。",
+    "失败证据保留：首轮新页尚未装配就查询（09-05-49）补充真实页面等待；关闭控制页的无所属WebContents收尾等待（09-11-54、09-14-48）改为只等待system工具会话；一次与旧测试服务退出重叠的09-16-11启动失败，随后独立重跑最终通过。未放宽清理和数据保留断言。",
+    "pnpm typecheck、pnpm typecheck:setting、16个受影响源码/测试文件ESLint及pnpm build通过。交付编译在源码E2E后执行，不使用electron-builder或build:unpack作为E2E入口。构建日志.artifacts/work/usage-guide/build.log，保留现有循环分块与混合导入提示。",
+    "已直接查看引导插件明暗主题正文截图；测试底色只便于查看透明正文，不作为DWM材质验收。设置侧栏书本图标显式加入UnoCSS safelist。",
+    "pnpm test:regressions usage-guide --list正确选择2个单测文件和2个源码E2E；TX-72与BUG-GUIDE-CLOSE-WAIT同步记录。",
+    "pnpm preview:sync完成，92个程序文件核验；171个原有data文件与legacy前后逐路径/SHA-256一致，证据.artifacts/backups/preview-sync/update-1792747203360/preservation.json。pnpm test:preview:resources通过：91个程序资源、238个内置文件、1676个媒体依赖。",
+    "按用户本轮明确指示执行pnpm preview:reset --confirm-reset，先确认预览退出，完整迁出并校验171个旧资料文件，再创建空data/legacy；旧配置和插件原件保存在.artifacts/backups/portable-profile/2026-10-23T09-21-39-164Z-76d32a35，manifest的before/after完全一致。程序不变，未再次启动预览消耗首次引导状态。",
+    "收尾pnpm maintain、pnpm maintain:check与git diff --check；没有提交、push、云端构建或release。"
+  ],
+  "pending": [
+    "真实用户首次学习体验、其他DPI/显示器、录屏音频、在线提供商与Everything可用性仍需人工验收。"
+  ],
+  "preview": "已同步.local/portable-preview并按用户明确授权恢复初始状态；data和legacy均为空，原171文件与已安装插件完整备份校验保留。请通过PreviewPortable.cmd首次启动测试。"
+}

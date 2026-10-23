@@ -1,0 +1,17 @@
+{
+  "id": "guide-entry-compact-layout",
+  "date": "2026-10-23",
+  "summary": "对齐关于页使用引导标题并移除冗长介绍",
+  "changes": [
+    "按用户截图反馈移除使用引导标题前的装饰图标与flex间距，使其与本版项目等分节标题左对齐；同步删除未使用的图标素材及safelist。",
+    "删除从全屏分步提示到自动进入下一步的整段介绍，保留练习目录及退出清理说明和现有操作入口。",
+    "复用既有源码引导专项补充关于页当前可见区域截图，不为低影响样式新增独立测试。"
+  ],
+  "checks": [
+    "pnpm test:e2e tests/e2e/usage-guide.spec.ts通过，归档.artifacts/runs/2026-10-23T13-34-12-964Z-e2e；直接查看设置插件的about-guide-entry.png当前可见区域，两个分节标题左对齐，冗长介绍已移除。截图透明留白不作为DWM材质验收。",
+    "pnpm build:setting通过（含vue-tsc）；修改文件ESLint通过；usage-guide回归分组清单确认完成。",
+    "用户确认退出预览后，进程检查为0；pnpm preview:sync及pnpm test:preview:resources通过，153个已有资料文件逐文件保留，程序与内置插件资源一致。维护检查与差异检查通过。"
+  ],
+  "pending": ["其他DPI与原生材质观感保留人工验收。"],
+  "preview": "已同步.local/portable-preview；资源回滚副本与资料保留清单位于.artifacts/backups/preview-sync/update-1792763139707。保留已有配置、资料和插件，未重置或强制结束预览。"
+}

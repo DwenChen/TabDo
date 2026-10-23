@@ -554,6 +554,10 @@ function createFilesBridge(lifecycle) {
   async function dispose() {
     if (stopped) return
     stopped = true
+    if (process.env.TABDO_USAGE_GUIDE === '1')
+      await require('electron')
+        .ipcRenderer.invoke('internal:usage-guide-demo-search', { cancel: true })
+        .catch(() => {})
     for (const item of pending.values()) {
       clearTimeout(item.timer)
       item.reject(new Error('搜索已取消'))
@@ -592,6 +596,9 @@ function createFilesBridge(lifecycle) {
   async function everything(request) {
     if (closing) await closing
     if (stopped || lifecycle.signal.aborted) return Promise.reject(new Error('工具已退出'))
+    if (process.env.TABDO_USAGE_GUIDE === '1') {
+      return require('electron').ipcRenderer.invoke('internal:usage-guide-demo-search', request)
+    }
     if (process.platform !== 'win32')
       return Promise.resolve({
         state: 'unsupported',

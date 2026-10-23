@@ -1,0 +1,21 @@
+{
+  "id": "guide-preview-startup-and-update-copy",
+  "date": "2026-10-23",
+  "summary": "修复免安装引导空白与点击阻塞，精简按钮和更新提示",
+  "changes": [
+    "实际检查免安装资源发现引导HTML、CSS和界面JS未物理展开，而加载器使用app.asar.unpacked路径；同步规则改为与打包的resources/**策略一致，核验器检查全部运行资源的展开标记及物理字节。",
+    "覆盖窗口保持隐藏，等待界面实际渲染回执再显示并报告启动成功；预加载错误、页面加载失败、渲染进程退出或10秒超时立即释放窗口并通知父实例清理，避免透明窗口拦截桌面。",
+    "缩小关于页开始全屏引导按钮；核对关于→内部更新API→UpdaterAPI→GitHub Releases调用链和下载Feed均为DwenChen/TabDo，将提示改为当前已是最新版本。",
+    "用户明确选择保留修复代码、重置免安装预览资料；交付前先备份并校验，再重置为首次启动，重置后不再启动预览。"
+  ],
+  "checks": [
+    "物理资源及更新源专项26项通过，.artifacts/runs/2026-10-23T14-00-10-928Z-unit；全量104文件698项通过，.artifacts/runs/2026-10-23T14-05-42-167Z-unit。更新源用例实际断言GitHub请求URL和下载页/Feed均为DwenChen/TabDo。",
+    "启动失败/正常首帧及完整引导2项源码E2E通过，.artifacts/runs/2026-10-23T14-02-31-335Z-e2e；初次执行被测试fixture参数声明拦截，修正后通过，失败归档保留。",
+    "pnpm build、修改文件ESLint、git diff --check及usage-guide回归清单通过。",
+    "pnpm preview:sync及pnpm test:preview:resources通过；157个原资料文件同步时逐文件保留，97个程序文件、236个插件文件和1676个媒体依赖一致。引导HTML/CSS/JS/preload均在物理路径存在。",
+    "以源码Electron入口加载已同步预览物理目录的启动探针通过，.artifacts/runs/2026-10-23T14-08-25-641Z-e2e；直接查看physical-guide-welcome.png，内容、样式与按钮可见，点击退出与缺资源失败边界均通过。未启动成品主程序或读写预览资料。",
+    "按当前用户明确授权执行pnpm preview:reset --confirm-reset；备份157个资料文件，manifest前后摘要完全相同；重置后data/legacy均为空且预览进程数为0，未再次启动预览消耗首次状态。"
+  ],
+  "pending": ["其他DPI、多屏和原生材质保留人工验收。"],
+  "preview": "修复已同步.local/portable-preview；当前为空白首次启动资料，保留全部源码改动。完整旧资料备份在.artifacts/backups/portable-profile/2026-10-23T14-09-33-043Z-dd9d84f8；同步前程序资源回滚副本在.artifacts/backups/preview-sync/update-1792764442224。"
+}

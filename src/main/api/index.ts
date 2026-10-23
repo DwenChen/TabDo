@@ -135,7 +135,7 @@ class APIManager {
     // 暴露给所有插件的 provider 消费入口（查询默认渠道 / 调用），依赖 providerManager 已就绪
     pluginProvidersAPI.init()
     // Provider 桥接宿主：原生层（截图翻译等）反向调用 ocr/translation provider
-    startProviderBridgeHost()
+    if (process.env.TABDO_USAGE_GUIDE !== '1') startProviderBridgeHost()
     pluginAiAPI.init(mainWindow, pluginManager)
     pluginLifecycleAPI.init(mainWindow, pluginManager)
     pluginUIAPI.init(mainWindow, pluginManager)

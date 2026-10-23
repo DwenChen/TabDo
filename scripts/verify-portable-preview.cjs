@@ -43,12 +43,14 @@ async function verifyPortableResources(projectRoot, previewRoot) {
       const installed = asar.extractFile(archive, path.normalize(file))
       if (!installed.equals(await fs.readFile(path.join(projectRoot, file))))
         problems.push('Program resource differs: ' + file)
-      const mustUnpack =
-        /\.(node|dll)$/i.test(file) ||
-        (file.startsWith('resources/') &&
-          (/\.(cjs|exe)$/i.test(file) || file.startsWith('resources/lib/win/')))
+      const mustUnpack = /\.(node|dll)$/i.test(file) || file.startsWith('resources/')
       if (mustUnpack && !asar.statFile(archive, path.normalize(file)).unpacked)
         problems.push('Native resource is not unpacked: ' + file)
+      if (mustUnpack && asar.statFile(archive, path.normalize(file)).unpacked) {
+        const physical = await fs.readFile(path.join(archive + '.unpacked', file))
+        if (!physical.equals(await fs.readFile(path.join(projectRoot, file))))
+          problems.push('Physical resource differs: ' + file)
+      }
     } catch {
       problems.push('Program resource missing or unreadable: ' + file)
     }

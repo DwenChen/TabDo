@@ -26,6 +26,7 @@ import lmdbInstance from '../core/lmdb/lmdbInstance'
 import databaseAPI from '../api/shared/database'
 import proxyManager from './proxyManager'
 import { ensurePluginSessionPreload } from '../core/pluginSessionPreload'
+import { forceRepaintView } from '../core/viewRepaint'
 import { requestPluginResponse } from '../core/pluginRpc'
 import {
   EnterPayload,
@@ -1658,19 +1659,12 @@ export class PluginManager {
    * 关键：两次 setBounds 必须跨 event loop tick 执行。
    * 若在同一 tick 内同步调用，Chromium compositor 会合并两次操作，
    * 只取最终值在下次 vsync 渲染，+1px 中间状态从未触达 GPU 合成阶段，修复失效。
-   * 用 setImmediate 将第二次调用推入下一 tick，使两次变化各自落在不同 vsync 周期，
-   * 从而确保第一次 +1px 真正触发 compositor 重绘。
+   * 用 setImmediate 将第二次调用推入下一 tick；会话释放或布局变化后不再恢复旧尺寸。
+   * @param view 本次需要重绘的插件视图。
+   * @returns 无返回值。
    */
   private forceRepaintView(view: WebContentsView): void {
-    if (view.webContents.isDestroyed()) return
-    const bounds = view.getBounds()
-    if (bounds.height <= 0) return
-    view.setBounds({ ...bounds, height: bounds.height + 1 })
-    setImmediate(() => {
-      if (!view.webContents.isDestroyed()) {
-        view.setBounds(bounds)
-      }
-    })
+    forceRepaintView(view)
   }
 
   /**

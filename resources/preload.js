@@ -985,6 +985,14 @@ window.tabdo = {
 
   // 内置插件专用 API（仅限内置插件调用）
   internal: {
+    /**
+     * 管理使用引导，宿主只接受内置设置页发起的请求。
+     * @param {string} action 用户选择的引导动作。
+     * @param {string} [code] 可选练习功能码。
+     * @returns {Promise<object>} 引导状态或操作结果。
+     */
+    usageGuide: async (action, code) =>
+      electron.ipcRenderer.invoke('internal:usage-guide', action, code),
     // ==================== 数据库 API (ZTOOLS/ 命名空间) ====================
     dbPut: async (key, value) => await electron.ipcRenderer.invoke('internal:db-put', key, value),
     backupRun: async (action) => electron.ipcRenderer.invoke('internal:backup-run', action),

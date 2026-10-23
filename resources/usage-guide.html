@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:"
+    />
+    <title>TabDo 使用引导</title>
+    <link rel="stylesheet" href="usage-guide.css" />
+  </head>
+  <body>
+    <div id="scrim">
+      <div></div>
+      <div></div>
+      <div></div>
+      <div></div>
+    </div>
+    <div id="spotlight" hidden></div>
+    <main id="welcome" class="welcome">
+      <div class="brand">TABDO · 首次使用</div>
+      <h1>在桌面上，亲手试一遍</h1>
+      <p>
+        一起熟悉 TabDo
+        的常用操作吗？跟着小步骤亲手操作，完成一项再体验下一项。现在退出也可以随时从“设置 →
+        关于”重新开始。
+      </p>
+      <p class="muted">
+        识别、翻译和文件搜索使用明确标注的教学样例，无须安装模型或配置账号。文件操作与系统剪贴板仍实际生效。
+      </p>
+      <div class="welcome-grid">
+        <article>
+          <strong>01 · 鼠标与剪贴板</strong>
+          <p>选中文字复制、中键呼出、搜索与收藏。</p>
+        </article>
+        <article>
+          <strong>02 · 桌面便签</strong>
+          <p>编辑、样式、新建、贴边收起与展开。</p>
+        </article>
+        <article>
+          <strong>03 · 更多工具</strong>
+          <p>文件、图片与录屏，识别、搜索和设置。</p>
+        </article>
+      </div>
+      <p class="workspace-label">本次桌面练习目录</p>
+      <output class="workspace"></output>
+      <p class="muted">
+        练习使用独立资料，不改正式配置。退出后清理本次桌面目录、数据库与过程文件；主动另存到其他目录的文件由你保留。截图、复制和录屏使用真实画面与系统剪贴板。
+      </p>
+      <div class="actions">
+        <button class="primary" data-action="begin">开始逐步体验 →</button
+        ><button data-action="finish">暂不学习，退出引导</button>
+      </div>
+    </main>
+    <aside id="coach" hidden>
+      <div class="brand">TABDO · 跟着做</div>
+      <div class="progress">
+        <span id="progress"></span
+        ><button class="quit" data-action="finish" aria-label="退出引导并清理">×</button>
+      </div>
+      <div class="progress-bar"><span id="progress-fill"></span></div>
+      <p id="chapter" class="chapter"></p>
+      <h2 id="title"></h2>
+      <p id="location" class="location"></p>
+      <p id="instruction"></p>
+      <section id="practice" hidden>
+        <label for="practice-text">练习文字 · 请选中后按 Ctrl+C</label>
+        <textarea id="practice-text" readonly rows="3" spellcheck="false"></textarea>
+      </section>
+      <div class="expected">
+        <span>完成条件</span>
+        <p id="expected"></p>
+      </div>
+      <p id="status" role="status">等待你完成操作…</p>
+      <p id="error" role="alert" hidden></p>
+      <div class="actions">
+        <button id="retry" data-action="retry">恢复本步工具</button
+        ><button id="settings" data-action="settings" hidden>打开相关设置</button>
+      </div>
+      <div class="skip-actions">
+        <button id="skip" data-action="skip" class="skip">跳过本步</button>
+        <button data-action="skip-chapter" class="skip">跳过本章</button>
+      </div>
+      <details>
+        <summary>练习目录与清理</summary>
+        <output class="workspace"></output>
+        <p>
+          文件选择与默认输出只在本次体验中定位到这里。退出会删除此专属目录，不会清理桌面其他文件。
+        </p>
+      </details>
+    </aside>
+    <main id="finished" class="welcome" hidden>
+      <div class="brand">TABDO · 体验结束</div>
+      <h1>已经亲手走过这些步骤</h1>
+      <p id="summary"></p>
+      <p>
+        跳过的步骤不会计为已完成。退出后先清理本次桌面文件与运行资料，再回到“设置 →
+        关于”选择是否保留引导素材。
+      </p>
+      <div class="actions">
+        <button class="primary" data-action="finish">结束体验并清理</button>
+      </div>
+    </main>
+    <script src="usage-guide-ui.js"></script>
+  </body>
+</html>

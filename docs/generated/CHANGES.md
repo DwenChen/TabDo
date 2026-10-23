@@ -2,6 +2,130 @@
 
 > 自动生成；原始记录在 [entries](../history/entries/)。
 
+## 2026-10-24 · 准备提交全屏实操教学更新并执行1.1.0发行流程
+
+记录：[guide-v110-release](../../docs/history/entries/2026-10-24-01-guide-release.json)；版本：1.1.0。
+
+- 当前用户指示“现在push到仓库，并完成后续流程”；按发布指南执行提交推送、Windows云端构建、正式Release和产物核验。发布不推导再次重置数据。
+- 本轮将近期未提交的使用引导完整链与测试、维护记录一并审查提交；更新package.json和changelog为1.1.0，保留已发布1.0.0及历史标签。
+- 使用全新v1.1.0标签作为唯一工作流触发入口，不重复手动派发，不覆盖既有发行产物。
+
+- 验证：工作前检查main分支、未提交清单、Git hooks和发布文档；fetch后origin/main与本地HEAD同为1f73272e17bd78147a4c48998c5e144f641c9163。GitHub最新正式版本为v1.0.0。
+- 验证：前一轮生产源码冻结后107文件729项单测、类型检查、ESLint与build通过；五项源码E2E最终归档.artifacts/runs/2026-10-23T16-04-04-896Z-e2e，主线42完成/8跳过、52份原生可见性记录，包含已同步免安装物理资源探针。
+- 验证：1.1.0版本候选重新执行pnpm test，107文件729项全部通过，归档.artifacts/runs/2026-10-23T16-19-49-883Z-unit；pnpm build含Node/Web类型检查及设置、工具、宿主编译通过，另行typecheck:setting通过。日志.artifacts/work/guide-redesign/release-unit.log及release-build.log。
+- 验证：提交范围只读审查通过，近期使用引导基础链及重做应完整纳入，无个人资料、配置、已安装插件、日志或构建输出；原创练习素材7份共179894字节。
+- 验证：1.1.0执行preview:sync及test:preview:resources通过，98项程序同步，97程序/236内置资源/1676媒体依赖核验；data与legacy仍空，0份资料前后保持，不启动成品或再次重置。程序回滚副本.artifacts/backups/preview-sync/update-1792772485863/previous-resources。
+
+## 2026-10-23 · 重做全屏实操教学、剪贴板会话与首次启动选择
+
+记录：[guide-interactive-teaching-redesign](../../docs/history/entries/2026-10-23-08-guide-redesign.json)；版本：未发布。
+
+- 保留工作区既有未提交成果，重新梳理引导控制器、工具会话、鼠标触发与首次启动链。
+- 删除代替用户复制的按钮，提供可选取的练习文字，由用户实际复制、中键呼出超级面板并选择剪贴板。练习独占鼠标触发期间暂停正式实例的面板输入，退出恢复，不停止正式剪贴板采集或修改正式配置。
+- 按章节拆分连续教学，细化剪贴板搜索、收藏与悬浮，以及便签编辑、样式、新建和贴边收展；高亮跟随真实控件与菜单选项。
+- 同工具连续步骤保留当前会话，恢复操作合并并发并设置有界等待，退出始终可用；复制序号与当前发布结果区分旧操作和迟到输出。明确非默认参数目标避免准备期误采，重命名与媒体连续步骤继承操作前文件基线。
+- 首次全新资料启动直接显示全屏欢迎选择，用户可拒绝，关于入口可重新进入。浮窗按实际创建身份排序、换目标时提升和错位，避免新便签被旧窗口覆盖；鼠标透传按帧频更新且只在命中状态改变时调用原生接口。
+- 按用户测试现场指出的设置页覆盖问题，进入工具教学时释放隔离实例旧设置前台，正式关于窗在欢迎接管后收起、退出后重开；同一宿主换新工具按WebContents身份重新提升，而不只缓存窗口ID。增加Windows原生HWND命中和实际屏幕验收，不能用CDP能操作隐藏页面替代可见性。引导快捷键文本只展示Windows写法。
+- 真实选图与保存对话框打开时，覆盖层暂隐并暂停检查；选择、取消或失败后恢复，退出后的迟到结果不能复活页面。沿用受控file-input拦截，取消文件读取、阻止重复弹窗及退役页面回填；会话WeakMap保留用户所选File的实际路径，正式实例沿原API直通。图片标记独立保存同样纳入原生对话框让位。
+- Windows隔离主工具切入教学卡片时按本次准确窗口身份保留可见，转到外部程序仍按既有失焦策略收束；退出撤销监听，不按URL或全局标记放宽所有窗口。网页快开必须保存明确非默认名称，初始页面直接保存不计完成。
+- 本轮用户明确授权将优化同步免安装预览，并备份后还原为初始资料状态。
+
+- 验证：鼠标交接单测18项通过，归档.artifacts/runs/2026-10-23T14-37-26-700Z-unit；验证暂停期间不触发、拒绝旧回调、退出恢复当前配置。
+- 验证：全量105文件712项单测通过，.artifacts/runs/2026-10-23T15-03-58-517Z-unit；后续迟到输出防护连同运行时专项17项通过，.artifacts/runs/2026-10-23T15-07-28-224Z-unit。
+- 验证：首次欢迎自动弹出、拒绝后清理与重启不重复，以及物理资源缺失/脚本缺失/正常首帧两项源码E2E通过，.artifacts/runs/2026-10-23T14-45-32-998Z-e2e。
+- 验证：Node、Web、设置页类型检查及最终修改范围ESLint通过；resources下浏览器JS/CJS按仓库规则不纳入TS lint，node --check通过。本地pnpm build完成，日志.artifacts/work/guide-redesign/build.log，未执行electron-builder或远端操作。
+- 验证：早期失败归档保留：旧按钮及旧完成协议断言、菜单文本与菜单行几何比较、首帧原生窗口边界读取时序已修正；主宿主搜索框漏定位、新便签枚举顺序与遮挡等真实问题由逐步源码E2E发现并修复。
+- 验证：用户指出旧设置页遮挡后新增原生验收；15-15-17旧完整CDP主线通过只作为操作和文件结果证据，不能证明实际屏幕可见。15-23-35原生专项到crop后主动退出，图片标记/处理/裁剪窗口关键点Direct/Effective/Expected HWND和child PID一致且Visible=true；三张desktopCapturer整屏已逐张查看，正确工具位于前台。归档.artifacts/runs/2026-10-23T15-23-35-751Z-e2e。
+- 验证：原生对话框scope、file-input取消与原API直通等专项通过，归档.artifacts/runs/2026-10-23T15-29-05-749Z-unit、.artifacts/runs/2026-10-23T15-30-28-076Z-unit。焦点身份及既有窗口行为26项通过，.artifacts/runs/2026-10-23T15-43-41-250Z-unit；文件路径和网页非默认目标专项30项通过，.artifacts/runs/2026-10-23T15-46-36-167Z-unit。
+- 验证：最终全量107文件729项单测通过，归档.artifacts/runs/2026-10-23T15-47-53-456Z-unit。
+- 验证：15-47-10五项源码回归中四项通过，主线断言在二维码组件主动清空file-input后读取文件而得到空值；改为change捕获阶段即时取证，15-54-03已确认真实File返回完整素材路径，生产WeakMap有效。该轮后续标注保存入口使用CDP点击但实际前台为外部窗口，未建立真实指针透传/焦点边界；改为先原生移入、核对WindowFromPoint直接命中工具HWND再点击，16-00-31已通过真实取消、选图及保存。保留失败归档，后续最终五项已通过。
+- 验证：预览同步完成，切换98项程序资源前后108份资料文件逐字节不变；test:preview:resources核验97项程序、236项内置资源、1676项媒体依赖通过。
+- 验证：16-00-31主线专项完整通过，51份原生可见性记录，真实取消、成功选图的完整路径、标记保存和媒体提示卡恢复均通过；已逐张查看稳定后的真实打开、另存为和修改尺寸整屏，正确工具处于前台。归档.artifacts/runs/2026-10-23T16-00-31-953Z-e2e。
+- 验证：按本次用户明确授权执行preview:reset：108份配置/插件等原资料完整迁入.artifacts/backups/portable-profile/2026-10-23T16-04-27-307Z-edf63fb7，manifest前后逐文件指纹相同；data和legacy目录均为空，app.asar哈希不变，预览进程0。未再启动成品，保留下次首次欢迎状态。
+- 验证：最终同次五项源码E2E全部通过，归档.artifacts/runs/2026-10-23T16-04-04-896Z-e2e：正式中键面板与外点击、工具退役与后台剪贴板、首帧故障释放、首次欢迎拒绝重启、实操主线。首帧探针通过TABDO_TEST_GUIDE_RESOURCE_ROOT直接读取已同步免安装物理资源，仅运行隔离源码实例，不访问预览data。主线报告42完成/8跳过、52份原生可见性记录，三次真实选图/保存点击前均直接命中所属工具HWND，成功File路径与素材绝对路径一致。
+- 验证：最终修改范围ESLint和JS语法检查通过；收尾pnpm maintain与pnpm maintain:check通过，git diff --check通过。
+
+## 2026-10-23 · 修复免安装引导空白与点击阻塞，精简按钮和更新提示
+
+记录：[guide-preview-startup-and-update-copy](../../docs/history/entries/2026-10-23-07-guide-preview-startup.json)；版本：未发布。
+
+- 实际检查免安装资源发现引导HTML、CSS和界面JS未物理展开，而加载器使用app.asar.unpacked路径；同步规则改为与打包的resources/**策略一致，核验器检查全部运行资源的展开标记及物理字节。
+- 覆盖窗口保持隐藏，等待界面实际渲染回执再显示并报告启动成功；预加载错误、页面加载失败、渲染进程退出或10秒超时立即释放窗口并通知父实例清理，避免透明窗口拦截桌面。
+- 缩小关于页开始全屏引导按钮；核对关于→内部更新API→UpdaterAPI→GitHub Releases调用链和下载Feed均为DwenChen/TabDo，将提示改为当前已是最新版本。
+- 用户明确选择保留修复代码、重置免安装预览资料；交付前先备份并校验，再重置为首次启动，重置后不再启动预览。
+
+- 验证：物理资源及更新源专项26项通过，.artifacts/runs/2026-10-23T14-00-10-928Z-unit；全量104文件698项通过，.artifacts/runs/2026-10-23T14-05-42-167Z-unit。更新源用例实际断言GitHub请求URL和下载页/Feed均为DwenChen/TabDo。
+- 验证：启动失败/正常首帧及完整引导2项源码E2E通过，.artifacts/runs/2026-10-23T14-02-31-335Z-e2e；初次执行被测试fixture参数声明拦截，修正后通过，失败归档保留。
+- 验证：pnpm build、修改文件ESLint、git diff --check及usage-guide回归清单通过。
+- 验证：pnpm preview:sync及pnpm test:preview:resources通过；157个原资料文件同步时逐文件保留，97个程序文件、236个插件文件和1676个媒体依赖一致。引导HTML/CSS/JS/preload均在物理路径存在。
+- 验证：以源码Electron入口加载已同步预览物理目录的启动探针通过，.artifacts/runs/2026-10-23T14-08-25-641Z-e2e；直接查看physical-guide-welcome.png，内容、样式与按钮可见，点击退出与缺资源失败边界均通过。未启动成品主程序或读写预览资料。
+- 验证：按当前用户明确授权执行pnpm preview:reset --confirm-reset；备份157个资料文件，manifest前后摘要完全相同；重置后data/legacy均为空且预览进程数为0，未再次启动预览消耗首次状态。
+
+## 2026-10-23 · 对齐关于页使用引导标题并移除冗长介绍
+
+记录：[guide-entry-compact-layout](../../docs/history/entries/2026-10-23-06-guide-entry-layout.json)；版本：未发布。
+
+- 按用户截图反馈移除使用引导标题前的装饰图标与flex间距，使其与本版项目等分节标题左对齐；同步删除未使用的图标素材及safelist。
+- 删除从全屏分步提示到自动进入下一步的整段介绍，保留练习目录及退出清理说明和现有操作入口。
+- 复用既有源码引导专项补充关于页当前可见区域截图，不为低影响样式新增独立测试。
+
+- 验证：pnpm test:e2e tests/e2e/usage-guide.spec.ts通过，归档.artifacts/runs/2026-10-23T13-34-12-964Z-e2e；直接查看设置插件的about-guide-entry.png当前可见区域，两个分节标题左对齐，冗长介绍已移除。截图透明留白不作为DWM材质验收。
+- 验证：pnpm build:setting通过（含vue-tsc）；修改文件ESLint通过；usage-guide回归分组清单确认完成。
+- 验证：用户确认退出预览后，进程检查为0；pnpm preview:sync及pnpm test:preview:resources通过，153个已有资料文件逐文件保留，程序与内置插件资源一致。维护检查与差异检查通过。
+
+## 2026-10-23 · 隔离引导使用后台教学接口，修复测试切换视图时的主进程异常
+
+记录：[guide-demo-and-repaint-crash](../../docs/history/entries/2026-10-23-05-guide-demo-and-crash.json)；版本：未发布。
+
+- 按用户反馈修复延迟重绘读取已释放视图的 webContents，回调校验原会话及布局；测试入口遇到未捕获异常时失败退出，避免原生错误框阻塞桌面。
+- 按用户明确要求，在隔离引导中使用按次运行的后台脚本模拟 OCR、公式、翻译与 Everything；正式实例继续走真实服务。
+- 欢迎页、设置、工具显示教学演示标识；教学启用开关不下载模型或校验凭据，识别结果为固定样例，搜索范围仅限本次练习目录。
+- 新增设置启用教学接口步骤，实际开启两项开关、复制 OCR 与公式结果、切换搜索分类后自动推进；脚本取消、超时、断开均释放且不产生过程文件。
+- 按用户遮挡反馈，将隔离实例的当前教学设置与工具窗口临时置顶，提示覆盖层保持在上方；不改变正式实例窗口。
+
+- 验证：pnpm test main/usageGuideDemo.test.ts main/builtinProviderService.test.ts main/usageGuideVerification.test.ts main/viewRepaint.test.ts：17项通过；.artifacts/runs/2026-10-23T13-17-10-522Z-unit。
+- 验证：重绘修复后的原23步源码引导专项通过：.artifacts/runs/2026-10-23T13-07-33-639Z-e2e。此前失败与崩溃记录保留，不视为通过。
+- 验证：24步教学接口源码专项通过：.artifacts/runs/2026-10-23T13-21-52-207Z-e2e；开启两项教学开关、OCR与公式复制、模拟图片搜索、重进与退出清理均完成，其他步骤明确跳过。首次模拟搜索因渲染进程访问限制失败，改为鉴权主进程代理后通过；失败归档保留。
+- 验证：pnpm test：104文件697项通过，.artifacts/runs/2026-10-23T13-23-46-061Z-unit；物理脚本加载器调整后相关12项再次通过，.artifacts/runs/2026-10-23T13-25-10-761Z-unit。
+- 验证：pnpm build通过（包含主进程/渲染器/设置页类型检查与构建）；专项ESLint错误修复后通过；git diff --check通过。
+- 验证：pnpm preview:sync通过，152个已有资料文件逐文件保留；pnpm test:preview:resources通过，97个程序文件、236个内置插件文件、1676个媒体依赖均一致，教学脚本按物理资源展开。未发现残留源码测试或教学脚本进程。
+- 验证：pnpm maintain与pnpm maintain:check通过，维护索引及Bug台账已同步。
+
+## 2026-10-23 · 将使用引导升级为全屏桌面交互教学，并移入关于
+
+记录：[fullscreen-guided-walkthrough](../../docs/history/entries/2026-10-23-04-guided-walkthrough.json)；版本：未发布。
+
+- 保留前轮全部未提交成果，按用户反馈重写引导体验：独立全屏透明覆盖窗口、工具镂空、侧边提示卡、具体设置项定位和真实操作结果自动推进。
+- 在桌面排他创建带所有权标记的专属练习目录，工具文件选择和默认输出只在隔离实例临时定位；进程退出后双重校验并清理所属目录，桌面其他文件保留。
+- 移除全部系统指令课程；设置教学伴随工具直达通用设置、快捷键和提供商页签，真实保存、识别记录、文件发布和用户选中等作为判定证据。
+- 取消侧栏的使用引导菜单，改为设置→关于中的入口；旧路由兼容跳转到关于。跳过与完成分别统计，不提供手动伪造完成入口。
+
+- 验证：pnpm test main/usageGuide.test.ts main/usageGuideVerification.test.ts：7项通过，归档.artifacts/runs/2026-10-23T10-07-25-853Z-unit；覆盖桌面清理所有权、旧结果不冒充完成、真实配置与识别证据。
+- 验证：全量单测102文件689项通过，.artifacts/runs/2026-10-23T10-12-39-824Z-unit；23步源码专项最终通过，.artifacts/runs/2026-10-23T13-07-33-639Z-e2e。
+- 验证：源码专项验证含任务栏的实际显示器覆盖范围、鼠标真实穿透、设置保存、复制与选中、便签、桌面改名、扫码复制、媒体输出和退出清理；原生与未操作课程明确跳过。分数DPI/native-fullscreen断言、未设置改名规则的测试与切换崩溃等前置失败记录保留，崩溃修复及后续教学模拟见同日05记录。
+
+## 2026-10-23 · 首次启动使用引导与一次性隔离练习环境
+
+记录：[first-use-guide](../../docs/history/entries/2026-10-23-03-usage-guide.json)；版本：未发布。
+
+- 新增首次资料启动的使用引导，以及设置中的长期入口；已有资料升级不强制弹出。
+- 八节课程覆盖36个内置功能码，并介绍超级面板、快捷键、提供商与插件设置；系统中断操作和外部程序入口只讲解。
+- 每次使用独立Electron实例、数据根和样例副本，结束后等待进程退出再清理数据库、缓存和默认输出；可保留或删除可重建素材。
+- 新增原创图片、练习文件及三秒视频；引导不复制正式配置、密钥或第三方插件，不抢占正式实例的全局鼠标触发。
+- 用户本轮明确要求同步后还原本地预览至初始状态；执行前备份并逐文件校验旧预览数据和插件，正式资料不受影响。
+
+- 验证：pnpm test main/usageGuide.test.ts：3项通过，覆盖所有权、越界/链接拒绝、运行目录清理、素材重建与36个功能码一致性；归档.artifacts/runs/2026-10-23T09-04-43-476Z-unit。
+- 验证：pnpm test --maxWorkers=2：101个文件685项全量单测通过，归档.artifacts/runs/2026-10-23T09-10-23-817Z-unit。
+- 验证：pnpm test:e2e tests/e2e/usage-guide.spec.ts：最终专项1项通过（42.8秒），归档.artifacts/runs/2026-10-23T09-16-48-704Z-e2e。实际覆盖首次展示、两文件重命名界面、960×600图片读取、切换销毁旧页、保留重入、删除重建、标题栏关闭、宿主退出清理及已有资料重启不自动提示，正式数据库和插件文件哨兵始终保留。
+- 验证：pnpm test:e2e tests/e2e/usage-guide.spec.ts tests/e2e/settings-cleanup.spec.ts tests/e2e/tools-lifecycle.spec.ts：设置迁移及原有生命周期2项通过，引导关闭路径1项失败；原始归档.artifacts/runs/2026-10-23T09-11-54-192Z-e2e，不能将整批写成通过。关闭路径随后修复并由最终专项覆盖。
+- 验证：失败证据保留：首轮新页尚未装配就查询（09-05-49）补充真实页面等待；关闭控制页的无所属WebContents收尾等待（09-11-54、09-14-48）改为只等待system工具会话；一次与旧测试服务退出重叠的09-16-11启动失败，随后独立重跑最终通过。未放宽清理和数据保留断言。
+- 验证：pnpm typecheck、pnpm typecheck:setting、16个受影响源码/测试文件ESLint及pnpm build通过。交付编译在源码E2E后执行，不使用electron-builder或build:unpack作为E2E入口。构建日志.artifacts/work/usage-guide/build.log，保留现有循环分块与混合导入提示。
+- 验证：已直接查看引导插件明暗主题正文截图；测试底色只便于查看透明正文，不作为DWM材质验收。设置侧栏书本图标显式加入UnoCSS safelist。
+- 验证：pnpm test:regressions usage-guide --list正确选择2个单测文件和2个源码E2E；TX-72与BUG-GUIDE-CLOSE-WAIT同步记录。
+- 验证：pnpm preview:sync完成，92个程序文件核验；171个原有data文件与legacy前后逐路径/SHA-256一致，证据.artifacts/backups/preview-sync/update-1792747203360/preservation.json。pnpm test:preview:resources通过：91个程序资源、238个内置文件、1676个媒体依赖。
+- 验证：按用户本轮明确指示执行pnpm preview:reset --confirm-reset，先确认预览退出，完整迁出并校验171个旧资料文件，再创建空data/legacy；旧配置和插件原件保存在.artifacts/backups/portable-profile/2026-10-23T09-21-39-164Z-76d32a35，manifest的before/after完全一致。程序不变，未再次启动预览消耗首次引导状态。
+- 验证：收尾pnpm maintain、pnpm maintain:check与git diff --check；没有提交、push、云端构建或release。
+
 ## 2026-10-23 · 建立 TabDo 独立仓库首版，统一产品定位、开发规范及来源致谢
 
 记录：[independent-repository-v1](../../docs/history/entries/2026-10-23-02-independent-v1.json)；版本：1.0.0。
