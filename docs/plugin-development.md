@@ -1,6 +1,6 @@
 # TabDo 第三方插件开发规范
 
-本规范替代原项目的插件开发流程与保活设置约定。以 [工具子组件](tools-development.md)的资源归属和 [性能审查](performance-audit.md)为依据；TabDo 2.0 起，市场只接受 `session-v1` 插件。旧 API 名称只保留迁移兼容，新的实现统一使用 `window.tabdo`。
+本文规定 TabDo 1.0 第三方插件的清单、会话、任务、持久化与验收要求。市场仅收录声明并实现 `session-v1` 的插件，新代码统一使用 `window.tabdo`。历史 API 别名保留迁移兼容，不能作为恢复旧服务或常驻页面的依据。宿主资源原则见 [工具开发规范](tools-development.md)，性能证据见 [审查记录](performance-audit.md)。
 
 ## 清单与入口
 

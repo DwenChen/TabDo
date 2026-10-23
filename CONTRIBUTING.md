@@ -1,13 +1,24 @@
-# 贡献指南
+# 为 TabDo 贡献
 
-本仓库维护 TabDo 本地精简版，功能边界见 [架构说明](docs/architecture.md)。请先阅读 [开发与测试](docs/development.md) 及 AGENTS.md。
+TabDo 独立维护 Windows 桌面工具箱、超级面板与按需插件能力。提交修改前，请阅读 [项目定位](docs/project.md)、[开发指南](docs/development.md)和[维护流程](docs/maintenance.md)。自动化 Agent 必须同时遵守 [AGENTS.md](AGENTS.md)。
 
-所有修改还必须遵守 [维护必读](docs/maintenance.md)：为本轮留下结构化改动与验证记录，使用自动测试归档和 `pnpm maintain` 收尾；提交前自动整理，默认保留预览数据且不 push、云端构建或发布。
+## 提交问题或建议
 
-第三方插件按 [TabDo 开发规范](docs/plugin-development.md) 实现，并通过 [独立市场](https://github.com/DwenChen/TabDo-plugins) 提交。旧保活/随宿主启动设置不再支持。
+通过 [GitHub Issues](https://github.com/DwenChen/TabDo/issues)提供版本、Windows 版本、安装方式、最小复现步骤、预期和实际结果。界面问题补充缩放比例及相关截图；日志应去除令牌、服务密钥、正文和个人路径。功能建议说明具体任务与现有流程的不足。
 
-涉及内置“工具”插件时，必须先阅读并遵守 [工具子组件开发原则](docs/tools-development.md)，按会话登记资源及必要任务，并验证退出后的实际资源回收。
+## 实现与验证
 
-修改前后运行类型检查和相关单元测试；插件与窗口流程通过源码 Electron E2E 验证。测试不得使用真实用户数据目录。无需为验证执行本地打包。新增/实质修改函数按 AGENTS.md 补充 JSDoc。
+1. 检查现有改动及相关历史问题，明确受影响模块，保留工作区中的未提交内容。
+2. 按模块规范实现：内置工具遵守 [工具规范](docs/tools-development.md)，设置遵守 [设置规范](docs/settings-development.md)，插件遵守 [插件规范](docs/plugin-development.md)。
+3. 新增或实质修改函数时提供完整 JSDoc，并说明关键状态、失败边界和资源清理。
+4. 运行类型检查及相关测试；窗口和插件流程使用源码 Electron E2E，所有数据均隔离。不要为 E2E 打包应用。
+5. 为修改新增或更新 `docs/history/entries/*.json`，记录原因、行为变化、实际验证、未验收项和预览状态；修复 Bug 时同步台账与回归分组。
+6. 执行 `pnpm maintain`、`pnpm maintain:check` 和差异检查，使用仓库 hooks 提交，不使用 `--no-verify`。
 
-问题反馈请提交到 [本仓库 Issues](https://github.com/DwenChen/TabDo/issues)。版本从 1.0.0 起独立计数，遵循语义化版本规则。
+## 审阅要求
+
+PR 说明具体问题、最终行为、验证证据和已知限制。兼容现有配置、快捷键、固定项、插件数据和数据库；临时资源清理不得删除持久资料或停止全局剪贴板采集。第三方资源保留原始许可并补充 [来源记录](docs/third-party.md)。
+
+插件市场在 [TabDo-plugins](https://github.com/DwenChen/TabDo-plugins) 独立收录与发布。历史 CLI、类型资料和旧 API 名称用于兼容，不能作为恢复旧市场、保活或上游服务的依据。
+
+版本遵循语义化版本规则，本仓库从 `1.0.0` 起独立计数。日常修改默认交付到本地预览；push、云端构建、release 和数据重置各自需要当前用户明确指示。

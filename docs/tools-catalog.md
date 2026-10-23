@@ -45,6 +45,8 @@
 | 图片识别   | 文字识别       | `recognize`              | scan-text            |
 | 图片识别   | 公式识别       | `latex-recognize`        | sigma                |
 
+媒体页面内部统一为一个“裁剪”操作，支持比例预选和画面框选；`image-manual-crop` 保留原功能身份并直接进入该操作，没有新增同义普通指令。图片和视频沿用各自专属图标和原生任务栏身份。便签相邻色签整理只改变独立窗口的位置，不增加入口或修改配置。
+
 图标来自免费开源的 [Lucide](https://lucide.dev/license)，固定上游提交 [`c29c276f16590cf017126671535ad8c792be64d8`](https://github.com/lucide-icons/lucide/tree/c29c276f16590cf017126671535ad8c792be64d8)。原始 SVG 位于 `internal-plugins/system/public/icons/lucide/`，完整 ISC / Feather 许可保留在 `public/LICENSE.lucide`，逐项映射与配色见 `public/icons/sources.json`。衍生 PNG 为 128×128 白色线条与按类别配色的圆角底，每个功能独立文件和图形，工具总图标为扳手。渲染器与原生窗口均使用本地 PNG，运行时不联网。
 
 ## 任务栏与生命周期
@@ -55,4 +57,4 @@
 
 ## 验证
 
-`pnpm test:regressions tools-catalog --list` 查看专项。源码 `tools-catalog` E2E 从真实宿主逐项打开全部 14 个嵌入正文及媒体直达入口，检查分组内单条禁用、匹配规则、旧页面关闭、分离及独立内容窗口；Windows 同时通过 WM_GETICON 检查实际原生图标句柄。`tools-recorder-web` 实际录制并检查控制条任务栏与图标。跨 DPI、多屏、任务栏合并策略与用户观感仍保留人工验收；本轮实际执行结果见历史记录。
+`pnpm test:regressions tools-catalog --list` 查看专项。源码 `tools-catalog` E2E 从真实宿主逐项打开全部 14 个嵌入正文及媒体直达入口，检查分组内单条禁用、匹配规则、旧页面关闭、分离及独立内容窗口；Windows 同时通过 WM_GETICON 检查实际原生图标句柄。`tools-recorder-web` 实际录制并检查控制条任务栏与图标。跨 DPI、多屏、任务栏合并策略与用户观感仍保留人工验收；实际执行结果按日期保存在维护历史中。

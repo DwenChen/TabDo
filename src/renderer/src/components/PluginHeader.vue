@@ -156,7 +156,7 @@ onUnmounted(() => removeMenuListener?.())
         ×
       </button>
     </div>
-    <span v-else class="host-title">TabDo 本地版</span>
+    <span v-else class="host-title">TabDo</span>
     <input
       v-if="store.subInputVisible"
       ref="input"

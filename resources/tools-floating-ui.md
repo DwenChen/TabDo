@@ -1,6 +1,6 @@
 # 悬浮窗口界面来源
 
-界面复用 [ZToolsCenter/TabDo-plugins](https://github.com/ZToolsCenter/ZTools-plugins/tree/c8475ad7944ffdb78843cc5f56886d1443d0a724) 的 MIT 授权实现，版本固定为 `c8475ad7944ffdb78843cc5f56886d1443d0a724`；完整许可在同目录 `LICENSE.floating-ui`。
+界面复用 [ZToolsCenter/ZTools-plugins](https://github.com/ZToolsCenter/ZTools-plugins/tree/c8475ad7944ffdb78843cc5f56886d1443d0a724) 的 MIT 授权实现，版本固定为 `c8475ad7944ffdb78843cc5f56886d1443d0a724`；完整许可在同目录 `LICENSE.floating-ui`。
 
 - `tools-floating-base.css` 为 `plugins/clipboard-image-paintbrush/floater.css` 的原样副本。
 - `tools-floating.html` 复用 `plugins/clipboard-image-paintbrush/floater.html` 的窗口结构、SVG 图标、拖动区域与缩放手柄；本地适配颜色圆圈弹出色板、五档笔触大小点、响应式分组工具栏及受限宿主 IPC。

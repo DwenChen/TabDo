@@ -348,6 +348,100 @@ test('native dragging docks notes and OS pointer entry exposes a clickable image
     await expect(note.locator('body')).toHaveAttribute('data-edge', '')
     await movePointer(noteId, false)
     await expect(note.getByLabel('便签内容')).toBeVisible()
+    // 创建相邻色签，再用真实系统鼠标把第三张拖入组，验证自动排序与文字可见区。
+    const notePages = [note]
+    const noteIds = [noteId]
+    for (let index = 0; index < 2; index++) {
+      const existing = app.context().pages()
+      const id = await app.evaluate(
+        ({ app }, index) =>
+          process
+            .mainModule!.require(app.getAppPath() + '/src/main/core/toolsFloating.ts')
+            .openFloating({ type: 'text', text: `堆叠正文 ${index + 2}`, newWindow: true }),
+        index
+      )
+      await expect
+        .poll(() =>
+          app
+            .context()
+            .pages()
+            .some((page) => !existing.includes(page) && page.url().includes('tools-floating.html'))
+        )
+        .toBe(true)
+      const page = app
+        .context()
+        .pages()
+        .find((page) => !existing.includes(page) && page.url().includes('tools-floating.html'))!
+      await expect(page.getByLabel('便签内容')).toHaveValue(`堆叠正文 ${index + 2}`)
+      noteIds.push(id)
+      notePages.push(page)
+    }
+    for (let index = 0; index < notePages.length; index++) {
+      await app.evaluate(
+        ({ BrowserWindow, screen }, { id, index }) => {
+          const win = BrowserWindow.fromId(id)!,
+            area = screen.getDisplayMatching(win.getBounds()).workArea
+          win.setPosition(area.x, area.y + (index === 2 ? 430 : 130 + index * 10))
+        },
+        { id: noteIds[index], index }
+      )
+      await app.evaluate(() => new Promise((resolve) => setTimeout(resolve, 260)))
+      await notePages[index].evaluate(() => (window as any).floating.invoke('drag-end'))
+      await expect(notePages[index].locator('body')).toHaveAttribute('data-dock', 'collapsed')
+    }
+    await dragTabAlong(noteIds[2], -190)
+    await expect
+      .poll(() =>
+        app.evaluate(({ BrowserWindow }, ids) => {
+          const xs = ids.map((id) => BrowserWindow.fromId(id)!.getBounds().x)
+          return xs.map((x) => x - xs[0])
+        }, noteIds)
+      )
+      .toEqual([0, 3, 6])
+    const stack = await app.evaluate(
+      ({ BrowserWindow }, ids) => ids.map((id) => BrowserWindow.fromId(id)!.getBounds()),
+      noteIds
+    )
+    expect(stack[0].y).toBeLessThan(stack[1].y)
+    expect(stack[1].y).toBeLessThan(stack[2].y)
+    for (let index = 0; index < notePages.length; index++) {
+      const label = await notePages[index].locator('#note-dock-tab').textContent()
+      expect(label).toContain(String(index + 1))
+      const text = await notePages[index].locator('#note-dock-tab').evaluate((tab) => {
+        const range = document.createRange()
+        range.selectNodeContents(tab)
+        const rect = range.getBoundingClientRect()
+        return { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
+      })
+      for (let other = 0; other < stack.length; other++) {
+        if (other === index) continue
+        const overlap =
+          stack[index].x + text.x < stack[other].x + stack[other].width &&
+          stack[index].x + text.x + text.width > stack[other].x &&
+          stack[index].y + text.y < stack[other].y + stack[other].height &&
+          stack[index].y + text.y + text.height > stack[other].y
+        expect(overlap, `便签 ${index + 1} 的文字不能被便签 ${other + 1} 遮挡`).toBe(false)
+      }
+      const data = await app.evaluate(
+        async ({ BrowserWindow }, id) =>
+          (await BrowserWindow.fromId(id)!.webContents.capturePage()).toPNG().toString('base64'),
+        noteIds[index]
+      )
+      await fs.writeFile(
+        testInfo.outputPath(`note-stack-${index + 1}.png`),
+        Buffer.from(data, 'base64')
+      )
+    }
+    await notePages[1].locator('#note-dock-tab').click()
+    await expect(notePages[1].getByLabel('便签内容')).toHaveValue('堆叠正文 2')
+    for (const page of notePages.slice(1)) {
+      if (await page.locator('#note-dock-tab').isVisible())
+        await page.locator('#note-dock-tab').click()
+      await page.getByRole('button', { name: '关闭', exact: true }).click()
+      await expect.poll(() => page.isClosed()).toBe(true)
+    }
+    await note.locator('#note-dock-tab').click()
+    await expect(note.getByLabel('便签内容')).toHaveValue('真实拖动与贴靠验收')
     await note.getByRole('button', { name: '关闭', exact: true }).click()
     await expect.poll(() => note.isClosed()).toBe(true)
 

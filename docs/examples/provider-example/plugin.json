@@ -25,5 +25,6 @@
       "label": "示例 OCR",
       "description": "Mock OCR provider，仅用于演示接入流程"
     }
-  }
+  },
+  "lifecycle": "session-v1"
 }

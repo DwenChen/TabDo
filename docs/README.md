@@ -1,18 +1,44 @@
-# 项目文档入口
+# TabDo 文档
 
-Agent 和贡献者先读 [维护必读](maintenance.md)及根 [AGENTS.md](../AGENTS.md)。
+TabDo 是独立维护的 Windows 桌面工具箱，正式版本从 `1.0.0` 开始计数。文档按使用者、开发人员和自动化 Agent 的任务组织；版本及来源边界见 [项目定位](project.md)。
 
-- [项目与全部测试索引](generated/PROJECT_INDEX.md)：目录职责、所有自动化文件及历史回归分组。
-- [历次改动与验证](generated/CHANGES.md)：版本化事实记录；[原始条目](history/entries/)。
-- [Bug 台账与待验收边界](generated/BUGS.md)：已修复原因、处理及未覆盖项。
-- [历史故障回归集](../tests/regressions/README.md)：自动化场景和人工验收。
-- [架构说明](architecture.md)、[开发与预览](development.md)、[备份迁移](backup-and-migration.md)。
-- [第三方插件开发规范](plugin-development.md)、[独立插件市场](plugin-market.md)：session-v1 资源归属、提交流程和索引协议。
-- [设置开发约定](settings-development.md)：页面归类、快捷键默认值、托盘与数据目录迁移边界。
-- [内置工具开发必读](tools-development.md)：会话资源、必要任务和原生进程退出。
-- [性能审查与资源预算](performance-audit.md)：宿主、面板、插件与 37 个工具功能的逐组件审查、优化和实测边界。
-- [图片、视频与录屏移植](media-tools.md)：参考来源、三栏布局、功能与依赖、任务和格式边界。
-- [内置提供商与工具](builtin-providers.md)：集中配置、离线资源、旧插件兼容与验证边界。
-- [脚本入口索引](../scripts/README.md)。
+## 使用与数据
 
-原始本机日志、截图、数据、插件和回退资源只在 `.artifacts/`、`.local/` 留存，不放入本仓库的可提交文档。
+| 文档                                      | 内容                               |
+| ----------------------------------------- | ---------------------------------- |
+| [产品说明](../README.md)                  | 下载、首次启动、超级面板与内置工具 |
+| [工具清单](tools-catalog.md)              | 功能分类、指令身份和图标来源       |
+| [识别与翻译](builtin-providers.md)        | 内置提供商配置、离线资源和服务边界 |
+| [媒体工具](media-tools.md)                | 图片、视频、录屏及格式限制         |
+| [数据备份与迁移](backup-and-migration.md) | 完整备份、恢复、目录迁移与回滚     |
+| [版本发布与升级](release.md)              | 发布产物、版本规则及旧版本迁移     |
+
+## 开发人员
+
+从 [贡献指南](../CONTRIBUTING.md) 和 [开发指南](development.md) 开始，再根据修改范围查阅对应规范。
+
+| 文档                                        | 内容                               |
+| ------------------------------------------- | ---------------------------------- |
+| [架构](architecture.md)                     | 进程、模块职责、数据流和资源所有权 |
+| [维护流程](maintenance.md)                  | 记录、验证、提交和预览交付要求     |
+| [工具开发](tools-development.md)            | 子组件入口、界面、任务与退出清理   |
+| [设置开发](settings-development.md)         | 设置归类、默认值、快捷键和数据路径 |
+| [插件开发](plugin-development.md)           | 清单、`session-v1`、API 与验收     |
+| [插件市场](plugin-market.md)                | 索引、收录、校验与独立发布         |
+| [提供商开发](provider-development-guide.md) | 翻译及 OCR 契约与调用方式          |
+| [HTTP API](http-api.md)                     | 本机控制接口与认证                 |
+| [测试指南](../tests/README.md)              | 测试入口、数据隔离和证据归档       |
+| [脚本清单](../scripts/README.md)            | 稳定维护、预览和发布辅助入口       |
+
+## 自动化 Agent
+
+[根目录 AGENTS.md](../AGENTS.md) 定义强制约束；[Agent 执行指南](agent-guide.md) 说明任务推进、验证和交付顺序。默认使用 context-mode MCP 进行检索与分析，并遵守当前用户对远端操作的授权范围。
+
+## 维护证据与来源
+
+- [项目和测试索引](generated/PROJECT_INDEX.md)、[改动记录](generated/CHANGES.md)、[Bug 台账](generated/BUGS.md)由结构化记录生成，不直接编辑。
+- [回归分组](../tests/regressions/README.md)组织历史故障的自动化覆盖和人工验收边界。
+- [性能审查](performance-audit.md)与[交互表面审查](interaction-surfaces.md)保留测量条件和已知限制，历史结果不能替代当前验证。
+- [第三方来源与致谢](third-party.md)记录原项目、插件作者、依赖和许可位置。
+
+本机日志、截图、下载文件、配置和备份保存在忽略目录 `.artifacts/` 或 `.local/`，不纳入源码提交与发行包。

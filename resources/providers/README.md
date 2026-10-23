@@ -1,6 +1,6 @@
 # 内置提供商的上游适配代码
 
-来源：[ZToolsCenter/TabDo-plugins f-provider](https://github.com/ZToolsCenter/ZTools-plugins/tree/ae2bd2cc678b743f7683c3fb40b6606940acc3d1/plugins/f-provider)，MIT，许可证见 LICENSE。
+来源：[ZToolsCenter/ZTools-plugins f-provider](https://github.com/ZToolsCenter/ZTools-plugins/tree/ae2bd2cc678b743f7683c3fb40b6606940acc3d1/plugins/f-provider)，MIT，许可证见 LICENSE。
 
 services.cjs 保留上游翻译协议、OCR 与图片上传算法，改为工厂导出，移除插件注册副作用。宿主仅在独立、按次退出的 Electron Node 进程中加载它，不使用其设置持久化、模型下载安装或界面功能。下载安装由宿主校验 SHA-256、隔离目录和事务状态后完成。
 

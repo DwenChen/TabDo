@@ -1,4 +1,4 @@
-# TabDo 本地版 HTTP API
+# TabDo HTTP API
 
 TabDo 内置 HTTP 服务，允许第三方应用通过本地 HTTP 接口控制 TabDo。
 

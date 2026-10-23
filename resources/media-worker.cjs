@@ -1,11 +1,143 @@
 const fs = require('node:fs/promises')
 const path = require('node:path')
+const { spawn, execFile } = require('node:child_process')
 const { imageInfo, transformImage, mergeImages } = require('./media/images.cjs')
 const { videoInfo, transformVideo, mergeVideos } = require('./media/videos.cjs')
 const { publish, ffmpeg, canvasSize } = require('./media/engine.cjs')
 const controller = new AbortController()
 let started = false
 let stageId = 0
+/**
+ * 等待 IPC 写入完成，避免大批缩略图尚未送达就断开通道。
+ * @param {object} value 发送给所属父进程的消息。
+ * @returns {Promise<void>} 消息发送后的 Promise。
+ */
+function send(value) {
+  return new Promise((resolve, reject) => {
+    if (!process.connected) return reject(new Error('媒体会话已结束'))
+    process.send(value, (error) => (error ? reject(error) : resolve()))
+  })
+}
+/**
+ * 在独立的短期进程读取单个图片，原生解码崩溃仅影响该行。
+ * @param {string} file 本地图片。
+ * @param {object} request 所属读取任务。
+ * @returns {Promise<object>} 元数据、缩略图或该行错误。
+ * @throws {Error} 暂存目录创建失败时抛出。
+ */
+async function inspectIsolated(file, request) {
+  const folder = await fs.mkdtemp(path.join(request.folder, 'inspect-'))
+  const child = spawn(process.execPath, [__filename], {
+    env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+    windowsHide: true,
+    stdio: ['ignore', 'ignore', 'pipe', 'ipc']
+  })
+  let result,
+    diagnostic = ''
+  // 子进程与当前任务共同结束，超时只回收当前解码器。
+  /**
+   * 只结束本次解码器及它创建的转码子进程。
+   * @returns {void} 无返回值。
+   */
+  const cancel = () => {
+    if (child.exitCode !== null || child.signalCode !== null) return
+    if (process.platform === 'win32' && child.pid)
+      execFile(
+        'taskkill.exe',
+        ['/PID', String(child.pid), '/T', '/F'],
+        { windowsHide: true },
+        () => {}
+      )
+    else child.kill('SIGKILL')
+  }
+  controller.signal.addEventListener('abort', cancel, { once: true })
+  const timer = setTimeout(cancel, 20000)
+  child.stderr.on('data', (data) => {
+    diagnostic = (diagnostic + data).slice(-500)
+  })
+  child.on('message', (value) => {
+    if (value.type === 'result') result = value.items?.[0]
+    if (value.type === 'error') diagnostic = value.message
+  })
+  child.on('error', (error) => {
+    diagnostic = error.message
+  })
+  const closed = new Promise((resolve) =>
+    child.once('close', (code, signal) => resolve({ code, signal }))
+  )
+  child.send(
+    {
+      type: 'start',
+      request: {
+        ...request,
+        action: 'inspect',
+        includeDecoded: request.action !== 'inspect',
+        folder,
+        files: [file],
+        isolated: true
+      }
+    },
+    (error) => {
+      if (error) {
+        diagnostic = error.message
+        cancel()
+      }
+    }
+  )
+  if (controller.signal.aborted) cancel()
+  const exit = await closed
+  clearTimeout(timer)
+  controller.signal.removeEventListener('abort', cancel)
+  return (
+    result || {
+      path: file,
+      name: path.basename(file),
+      size: 0,
+      error: `此图片读取失败（退出 ${exit.code ?? exit.signal ?? '未知'}）${diagnostic ? '：' + diagnostic : '，请检查图片格式或重新添加'}`
+    }
+  )
+}
+/**
+ * 在自有临时目录生成单张效果图；不会发布文件到用户目录。
+ * @param {object} request 当前选中文件与操作参数。
+ * @returns {Promise<object[]>} 有界效果图与真实结果尺寸。
+ * @throws {Error} 读取或参数无效时抛出。
+ */
+async function renderPreview(request) {
+  const partial = request.media === 'image' && request.mode === 'merge' && request.files.length > 12
+  request = {
+    ...request,
+    files: request.files.slice(0, request.mode === 'merge' && request.media === 'image' ? 12 : 1)
+  }
+  const items = await inspect(request),
+    item = items[0]
+  if (!item || item.error) throw new Error(item?.error || '请选择可预览的文件')
+  const p = request.params || {}
+  const aggregate = ['merge', 'pdf', 'gif'].includes(request.mode) && request.media === 'image'
+  let file
+  // 合并预览约束队列与尺寸；PDF 显示首页，动图显示第一帧。
+  if (aggregate && request.mode === 'merge') {
+    file = await mergeImages(items.slice(0, 12), 'merge', p, request.folder, controller.signal)
+  } else if (request.media === 'image') {
+    file = aggregate
+      ? item.decoded || item.path
+      : await transformImage(item, request.mode, p, request.folder, controller.signal)
+  } else {
+    file = await transformVideo(item, request.mode, p, request.folder, controller.signal, true)
+  }
+  const sharp = require('./media/dependencies.cjs')('sharp')
+  const info = await imageInfo(file)
+  const thumbnail =
+    'data:image/png;base64,' +
+    (
+      await sharp(file)
+        .autoOrient()
+        .resize(1000, 700, { fit: 'inside', withoutEnlargement: true })
+        .png()
+        .toBuffer()
+    ).toString('base64')
+  return [{ ...info, thumbnail, partial }]
+}
 /**
  * 向宿主申请源目录下的自有暂存区，宿主负责取消和退出后的最终清理。
  * @param {string} source 本批次首个源文件。
@@ -72,8 +204,15 @@ async function inspect(request) {
   for (const file of request.files) await collect(file, 0)
   for (const file of files) {
     if (controller.signal.aborted) throw new Error('处理已取消')
-    const base = { path: file, name: path.basename(file), size: (await fs.stat(file)).size }
+    if (request.media === 'image' && !request.isolated) {
+      const item = await inspectIsolated(file, request)
+      result.push(item)
+      if (request.action === 'inspect') await send({ type: 'inspected', item })
+      continue
+    }
+    const base = { path: file, name: path.basename(file), size: 0 }
     try {
+      base.size = (await fs.stat(file)).size
       let decoded = file
       if (request.media === 'image' && /\.(bmp|ico|heic|heif)$/i.test(file)) {
         // Sharp 未编入对应解码器时，使用所属编码器读取首帧，仍先检查尺寸。
@@ -92,8 +231,8 @@ async function inspect(request) {
         request.media === 'image'
           ? await imageInfo(decoded)
           : await videoInfo(file, controller.signal)
-      const thumbnail =
-        request.media === 'image' && request.action === 'inspect'
+      let thumbnail =
+        request.media === 'image' && request.action === 'inspect' && !request.includeDecoded
           ? 'data:image/png;base64,' +
             (
               await require('./media/dependencies.cjs')('sharp')(decoded)
@@ -103,15 +242,25 @@ async function inspect(request) {
                 .toBuffer()
             ).toString('base64')
           : ''
+      if (request.media === 'video' && request.action === 'inspect') {
+        const frame = path.join(request.folder, `poster-${result.length}.png`)
+        await ffmpeg(
+          ['-i', file, '-frames:v', '1', '-vf', 'scale=640:-2', frame],
+          controller.signal
+        )
+        thumbnail = 'data:image/png;base64,' + (await fs.readFile(frame)).toString('base64')
+      }
       result.push({
         ...base,
         ...info,
         thumbnail,
-        ...(request.action === 'process' ? { decoded } : {})
+        ...(request.action !== 'inspect' || request.includeDecoded ? { decoded } : {})
       })
     } catch (error) {
       result.push({ ...base, error: error.message })
     }
+    if (request.action === 'inspect' && !request.isolated)
+      await send({ type: 'inspected', item: result.at(-1) })
   }
   return result
 }
@@ -189,12 +338,17 @@ process.on('message', async (message) => {
   started = true
   try {
     const items =
-      message.request.action === 'inspect'
-        ? await inspect(message.request)
-        : await execute(message.request)
-    process.send?.({ type: 'result', items })
+      message.request.action === 'preview'
+        ? await renderPreview(message.request)
+        : message.request.action === 'inspect'
+          ? await inspect(message.request)
+          : await execute(message.request)
+    await send({
+      type: 'result',
+      items: message.request.action === 'inspect' && !message.request.isolated ? [] : items
+    })
   } catch (error) {
-    process.send?.({ type: 'error', message: error.message })
+    if (process.connected) await send({ type: 'error', message: error.message }).catch(() => {})
   } finally {
     process.disconnect?.()
   }

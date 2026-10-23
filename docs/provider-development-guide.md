@@ -1,233 +1,64 @@
-# Provider（提供商）开发指南
+# Provider 开发指南
 
-TabDo 把「翻译」「OCR」等能力抽象为 **Provider（提供商）**。内置能力与第三方插件按统一契约提供，主程序负责聚合、展示与调用。内置配置、资源管理和旧 f-provider 接管规则见 [内置提供商与工具](builtin-providers.md)。默认调用仅选择仍存在且已启用的提供商；全部关闭时不会静默回退调用。
+TabDo 使用 Provider 契约统一提供翻译与 OCR 能力。宿主负责目录、启用状态、默认选择和调用调度；实现可以来自内置能力或符合 `session-v1` 的第三方插件。先阅读 [插件规范](plugin-development.md)，内置资源配置见 [识别与翻译](builtin-providers.md)。
 
-> AI 模型不纳入 provider 抽象，仍走独立的 AI 模型配置。
+## 输入与输出
 
----
+类型定义以 `src/shared/providerShared.ts` 为准。
 
-## 支持的 Provider 类型
+| 类型          | 输入                   | 输出                             |
+| ------------- | ---------------------- | -------------------------------- |
+| `translation` | `{ text, from?, to? }` | `{ text, detectedFrom? }`        |
+| `ocr`         | `{ image, lang? }`     | `{ text, blocks?, confidence? }` |
 
-| type          | 说明         | 入参                   | 返回                             |
-| ------------- | ------------ | ---------------------- | -------------------------------- |
-| `translation` | 文本翻译     | `{ text, from?, to? }` | `{ text, detectedFrom? }`        |
-| `ocr`         | 图片文字识别 | `{ image, lang? }`     | `{ text, blocks?, confidence? }` |
+OCR 的 `image` 是本地路径、data URI 或 HTTP(S) URL，实际支持范围由实现决定。翻译输入是文本，没有 `image` 字段。OCR 行框使用提交图像中的像素坐标，左上为原点；每块包含 `text`、`left`、`top`、`right`、`bottom`。无法提供坐标时返回文本，不生成虚假行框。
 
-- `translation.image` / `ocr.image` 可为：本地路径 / `data:` URI / `http(s)` URL（具体支持取决于实现）。
-- 完整契约定义见主程序源码 `src/shared/providerShared.ts`。
+AI 模型连接由独立配置管理；AI 翻译或识别适配可以作为内置 Provider 消费该配置。
 
----
+## 声明与注册
 
-## 第一步：在 plugin.json 声明 providers
-
-在插件的 `plugin.json` 中新增 `providers` 字段，声明本插件提供哪些 provider。`providers` 的 **key 为插件内唯一标识**（任意字符串，不必等于 type），value 才是 `{ type, label?, description? }`。
+在插件清单中声明稳定的插件标识、入口、preload、图标、生命周期和 Provider：
 
 ```json
 {
-  "name": "my-cloud-ocr",
-  "title": "云 OCR",
-  "providers": {
-    "ocr": {
-      "type": "ocr",
-      "label": "云 OCR",
-      "description": "基于云端 API 的图片文字识别"
-    }
-  }
-}
-```
-
-- `providers` 的 key 即「声明 key」，后续 `tabdo.registerProvider(key, handler)` 的首参必须与之一致。
-- 一个插件可同时声明多个 type（如同时提供 `translation` 和 `ocr`）。
-- **同一 type 可声明多条**，只要 key 不同即可（见下方「同一 type 多条」示例）。
-- `label` / `description` 会展示在「设置 → 提供商」对应 tab 中。
-
-声明后，安装该插件即在「设置 → 提供商 → OCR/翻译」tab 列出该 provider，用户可启用并设为默认。
-
-### 同一 type 多条
-
-当一个插件想提供多个同类渠道（如百度、谷歌两个翻译），可用不同 key 声明同一 type：
-
-```json
-{
-  "providers": {
-    "baidu": { "type": "translation", "label": "百度翻译" },
-    "google": { "type": "translation", "label": "谷歌翻译" }
-  }
-}
-```
-
-```js
-// preload.js
-tabdo.registerProvider('baidu', async (input) => {
-  /* 调用百度 */
-})
-tabdo.registerProvider('google', async (input) => {
-  /* 调用谷歌 */
-})
-```
-
-两条都会出现在「设置 → 提供商 → 翻译」，用户可分别启用并选其中一个为默认。
-
----
-
-## 第二步：在 preload 注册 handler
-
-在插件 preload 脚本中调用 `tabdo.registerProvider(key, handler)`，**首参为声明 key**（与 plugin.json 的 providers key 一致），handler 签名必须匹配该声明的 type 对应契约：
-
-```js
-// 插件 preload
-tabdo.registerProvider('ocr', async (input) => {
-  const { image, lang } = input
-  // 调用你的 OCR 服务
-  const res = await fetch('https://your-ocr-api/recognize', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ image, lang })
-  })
-  const data = await res.json()
-  return {
-    text: data.text,
-    blocks: data.blocks,
-    confidence: data.confidence
-  }
-})
-```
-
-注意事项：
-
-- `registerProvider` 首参必须是 plugin.json `providers` 中已声明的 key，否则注册会被拒绝。
-- handler 是 `async` 函数，返回值需符合该 key 声明 type 的契约；入参缺失字段请自行兜底。
-- 一个插件对同一 key 只能注册一次；不同 key 各自对应独立 handler。
-
----
-
-## 翻译 provider 示例
-
-```js
-tabdo.registerProvider('translation', async (input) => {
-  const { text, from, to } = input
-  const res = await fetch('https://your-translate-api/translate', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text, from: from || 'auto', to: to || 'zh' })
-  })
-  const data = await res.json()
-  return {
-    text: data.translated,
-    detectedFrom: data.detectedSource
-  }
-})
-```
-
----
-
-## 内置 provider
-
-主程序内置了 **Bergamot 离线翻译引擎**（type `translation`，id `builtin-bergamot`），仅支持英译中。它与插件 provider 并列展示、可设为默认，用户可随时切换。
-
-OCR 暂无内置实现，完全由插件提供。
-
----
-
-## 作为消费方调用 provider 能力
-
-任何插件（不仅是 provider 的提供方）都可以**主动发起一次翻译 / OCR**，复用用户已启用的 provider。这是 Provider 抽象的核心价值之一：能力可被跨插件复用。
-
-### 通用入口：`tabdo.providers`
-
-```js
-// 查询某个 type 下的全部渠道，每个渠道带 isDefault 标记
-const list = await tabdo.providers.getProviders('translation')
-// → [{ id, type, label, description, source, isDefault }, ...]
-
-// 单独查询默认渠道（无可用时返回 null）
-const def = await tabdo.providers.getDefaultProvider('translation')
-// → { id, type, label, ..., isDefault: true } | null
-
-// 统一调用入口：providerId 可选，缺省走该 type 的默认渠道
-const out = await tabdo.providers.invokeProvider('translation', { text: 'hello', to: 'zh' })
-// → { text: '你好', detectedFrom?: 'en' }
-```
-
-`invokeProvider` 失败会抛错（如没有可用 provider、provider 加载超时等），调用方需 `try/catch`。
-
-### 便捷封装：`tabdo.translate` / `tabdo.ocr`
-
-为最常用的两种调用提供语法糖，签名更贴近直觉：
-
-```js
-// 翻译：options: { from?, to?, providerId? }
-const result = await tabdo.translate('hello', { from: 'en', to: 'zh' })
-console.log(result.text) // 翻译结果
-console.log(result.detectedFrom) // 实际识别到的源语言（可选）
-
-// OCR：options: { lang?, providerId? }，image 为本地路径 / data URI / URL
-const ocrResult = await tabdo.ocr('/path/to/image.png', { lang: 'eng' })
-console.log(ocrResult.text)
-```
-
-- `providerId` 缺省时使用用户在该 type 下设置的默认渠道；显式传入则调用指定渠道。
-- `image` / `text` 的具体能力边界取决于所选 provider 的实现。
-
-### 默认渠道选择规则
-
-调用时若未显式指定 `providerId`，主进程按以下优先级选择：
-
-1. 用户在「设置 → 提供商」设为默认的 provider；
-2. 该 type 下第一个启用的 provider；
-3. 该 type 下第一个可用 provider（兜底）。
-
-均无可用项时抛出「没有可用的 xxx 提供商」错误。
-
----
-
-## 调用链路
-
-1. 用户在「设置 → 提供商」启用 / 设为默认某个 provider。
-2. 消费方调用 `providerManager.invoke(type, input)`：
-   - 主程序内（如超级面板选中翻译）直接调用主进程方法；
-   - 插件通过 `tabdo.providers.invokeProvider` / `tabdo.translate` / `tabdo.ocr` 发起，经统一分发器转发到同一个 `providerManager.invoke`。
-3. 主进程按默认 / 启用项选择 provider：
-   - 内置 provider：直接在主进程调用本地实现。
-   - 插件 provider：按需预加载插件，等待 `registerProvider` 完成后回调 handler。
-4. handler 返回结果按契约透传给消费方。
-
----
-
-## 调试
-
-- provider 注册失败会在插件控制台抛错（如未声明该 type）。
-- 「设置 → 提供商」tab 可确认你的 provider 是否被识别、是否启用 / 默认。
-- 翻译可在超级面板选中文本时触发验证；插件内可直接 `await tabdo.translate('hello')` / `await tabdo.ocr(imagePath)` 验证。
-
-## 完整 plugin.json 示例
-
-```json
-{
-  "name": "cloud-providers",
-  "title": "云翻译与 OCR",
-  "description": "提供云端翻译与 OCR 能力",
+  "name": "example-provider",
+  "title": "翻译示例",
   "version": "1.0.0",
   "main": "index.html",
   "preload": "preload.js",
-  "features": [
-    {
-      "code": "translate",
-      "explain": "翻译",
-      "cmds": ["翻译"]
-    }
-  ],
+  "logo": "logo.png",
+  "lifecycle": "session-v1",
+  "features": [{ "code": "settings", "cmds": ["翻译配置"] }],
   "providers": {
-    "translation": {
+    "custom-translation": {
       "type": "translation",
-      "label": "云翻译",
-      "description": "多语言云翻译"
-    },
-    "ocr": {
-      "type": "ocr",
-      "label": "云 OCR",
-      "description": "高精度图片文字识别"
+      "label": "自定义翻译"
     }
   }
 }
 ```
+
+`providers` 的 key 是插件内的声明身份，`type` 是能力类型。一个插件可以声明多个相同类型的渠道，但 key 必须不同。插件 Provider 的全局身份为 `plugin:<插件名>:<声明key>`，不得占用 `builtin-` 前缀。
+
+preload 使用 `tabdo.registerProvider(key, handler)` 注册实现，key 必须与清单一致。handler 返回匹配契约的 Promise。网络请求、模型、Worker 和子进程登记到生命周期；用户确认的计算使用有限任务，并在结束后完整清理。参数和资源只属于当前调用，不依赖页面长期保活。
+
+文档示例位于 [provider-example](examples/provider-example/README.md)；示例返回模拟结果，需要替换实现并补齐资源后才能作为正式插件交付。
+
+## 消费能力
+
+```js
+const channels = await tabdo.providers.getProviders('translation')
+const preferred = await tabdo.providers.getDefaultProvider('translation')
+const translated = await tabdo.providers.invokeProvider('translation', { text: 'Hello', to: 'zh' })
+
+const textResult = await tabdo.translate('Hello', { from: 'en', to: 'zh' })
+const imageResult = await tabdo.ocr('/path/to/image.png', { lang: 'eng' })
+```
+
+便捷 API 的 options 支持 `providerId`。未指定时，宿主优先选用仍存在且已启用的默认渠道，再选择该类型首个已启用渠道；没有启用项时返回错误，不调用已停用渠道。显式 `providerId` 直接指定目标，不经过默认选择；调用方应根据用户启用和选择状态决定是否传入，宿主校验目标是否存在及类型是否匹配。调用方处理异常，并在请求替换或退出后拒绝迟到结果。
+
+## 运行链与验收
+
+宿主按声明查找实现。内置原生能力在按次工作进程中运行；插件 Provider 按需装载，注册就绪后调用，隐藏页面以引用计数管理，并发调用的最后一项结束后释放。不要恢复旧预加载、跟随宿主启动或退出保活设置。
+
+至少验证声明与注册匹配、禁用与默认切换、异常和超时、并发调用、取消、最后一次调用后的资源归零以及用户配置保留。通过隔离数据的源码 Electron 验证真实调用链，相关单测为 `providerManager`、`providerConsumption`，源码回归见 `third-party-lifecycle` 和 `builtin-providers`。真实模型测试与识别精度分别记录，执行方法见 [内置能力验证](builtin-providers.md#验证入口)。

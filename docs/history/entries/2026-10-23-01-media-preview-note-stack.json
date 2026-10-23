@@ -1,0 +1,29 @@
+{
+  "id": "media-preview-and-note-stack",
+  "date": "2026-10-23",
+  "summary": "改善媒体批量读取容错、可视化尺寸与裁剪交互，并自动整理相邻便签色签",
+  "changes": [
+    "按文件隔离图片原生读取，解码异常仅产生该行错误；逐行回传并等待 IPC 送达后断开，连续添加串行排队，保留已读文件。工作进程异常补充退出诊断。",
+    "图片和视频常驻预览，前台更新防抖并取消、等待旧请求；效果图仅写入所属暂存目录，不向用户输出目录发布。尺寸、旋转、翻转、水印、边框、圆角等使用实际处理管线。",
+    "提供常用比例与尺寸组合、图片百分比缩放、旋转和倍速预选；统一裁剪入口，支持自由/固定比例框选、移动和四角调整，批次使用相对构图并保持固定比例。旧直达功能码保留。",
+    "视频提供播放画面、时间轴与当前位置设为截取起止点；静态构图效果复用生产视频滤镜，声音与完整编码效果仍以输出文件为准。",
+    "同屏同边缘的相邻便签在拖动释放后按数字顺序整齐排列并轻微错位，仅重叠标签留白；远处便签不移动，工作区不足时向内分列，正文和正常纸张尺寸保留。"
+  ],
+  "checks": [
+    "pnpm test:regressions media-note-interaction --list 正确列出5个单测文件与2个源码E2E；分组单测45项通过，归档 .artifacts/runs/2026-10-23T06-45-39-884Z-unit。",
+    "pnpm test main/mediaOperations.test.ts main/floatingPointer.test.ts main/noteDockLayout.test.ts：最新33项通过，归档 .artifacts/runs/2026-10-23T06-48-42-645Z-unit；包含相对构图、固定比例、视频完整显示/裁边和四边贴靠。",
+    "pnpm test main/mediaInspection.test.ts：最新1项通过，归档 .artifacts/runs/2026-10-23T06-51-12-512Z-unit。两轮各26文件含损坏与注入原生崩溃，24个正常文件均完整返回；13张合并预览限制前12张，返回96×768且源文件字节保留。",
+    "pnpm test:e2e tests/e2e/media-batch.spec.ts：最新1项通过（39.3秒），归档 .artifacts/runs/2026-10-23T06-51-29-193Z-e2e。验证尺寸预选、固定比例框选及真实输出、预览取消峰值1、播放器时间设起止点、播放器错误后逐帧回退、旧直达裁剪入口、明暗截图、输出目录和取消清理。",
+    "pnpm test:e2e tests/e2e/floating-pointer.spec.ts tests/e2e/tools-lifecycle.spec.ts：2项通过，归档 .artifacts/runs/2026-10-23T06-47-32-500Z-e2e。实际系统鼠标把第三张便签拖入组，核对编号排序、0/3/6 DIP错位、每张文字范围不与其他色签窗口相交、点击展开及正文保留；生命周期检查后台采集继续与必要任务收尾。",
+    "失败与修正均保留归档：首轮Vue模板多语句格式化后无法解析，改为独立有JSDoc的函数；次轮预览预算在防抖开始前取样，改为等待效果完成；扩展便签用例有窗口关闭等待缺口，补充逐页等待真正销毁后重跑通过。",
+    "直接查看插件WebContentsView的尺寸/裁剪/时间选择截图，核对常驻预览与固定底栏；便签单窗截图及文字矩形检查通过。截图不代表其他显示器/DPI或DWM最终视觉已验收。",
+    "pnpm typecheck、相关15个源码/测试文件ESLint、pnpm build均通过。编译用于本地交付，未使用electron-builder或build:unpack作为E2E入口；构建保留Rollup循环分块和混合导入提示。",
+    "pnpm preview:sync 完成；preservation.json确认data的171个文件前后路径与SHA-256完全一致，legacy为空且保留。pnpm test:preview:resources通过：91个程序文件、229个内置资源文件、1676个媒体依赖文件。",
+    "收尾执行 pnpm maintain、pnpm maintain:check 与 git diff --check。"
+  ],
+  "pending": [
+    "没有收到触发截图报错的原始图片，不能断言已复现该文件的具体原生解码根因；现有验证覆盖批量IPC、损坏输入和工作进程崩溃隔离。",
+    "用户真实图片/视频、特殊编解码、声音与完整压缩画质、跨屏及其他DPI的最终观感保留人工验收。PDF和图片动图预览明确只显示首张。"
+  ],
+  "preview": "已同步 .local/portable-preview，保留171个数据文件及现有配置/插件；逐文件证据 .artifacts/backups/preview-sync/update-1792738224060/preservation.json，旧程序资源保留于同目录previous-resources。请通过PreviewPortable.cmd启动手动测试。本轮未push、未云端构建、未发布release、未重置数据。"
+}

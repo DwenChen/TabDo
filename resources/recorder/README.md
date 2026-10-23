@@ -1,6 +1,6 @@
 # 内置录屏引擎
 
-初版参考 [ZToolsCenter screen-recorder](https://github.com/ZToolsCenter/ZTools-plugins/tree/af6dc6df9bae6dc61022dabeb3a1d0c54e6de8f2/plugins/screen-recorder) 2.0.1，原仓库 LICENSE 保留。本轮按用户提供的录频助手 2.1.0 及 `.asar.unpacked` 更新 x64 引擎，此来源记录不把提供文件自动归为 MIT。未引入 React/MUI 前端或另一套输入钩子。完整来源见 [媒体工具说明](../../docs/media-tools.md)。
+原始适配参考 [ZToolsCenter screen-recorder](https://github.com/ZToolsCenter/ZTools-plugins/tree/af6dc6df9bae6dc61022dabeb3a1d0c54e6de8f2/plugins/screen-recorder) 2.0.1，原仓库 LICENSE 保留。当前 x64 引擎来自录频助手 2.1.0 及其 `.asar.unpacked`，此来源记录不把提供文件自动归为 MIT。未引入 React/MUI 前端或另一套输入钩子。完整来源见 [媒体工具说明](../../docs/media-tools.md)。
 
 - `capture-x64.exe` SHA-256：`21d3b0b96c589a7e44aea94df51d4d8ff0a5da56484f3fd0aeaaacd5f48df73f`。
 - `addon-x64.node` SHA-256：`e0b6efc6c8b71eb99eb41ed29689292811f92f720ff865822e48bf57fcf8fd30`。
@@ -13,4 +13,4 @@
 
 控制条为透明窗口内的 12px 圆角矩形，支持明暗主题、拖动与停止。首次显示前启用 `setContentProtection(true)`，Windows 10 2004 及以后使用系统排除捕获能力；更早版本的保护可能表现为黑块。区域录制还会按全局 DIP 坐标把控制条放到选区外，支持负坐标显示器；全屏或用户拖入选区时依靠系统保护。源码 E2E 实际把高辨识度控制条移入绿色录区，解码 MP4 核对底图和控制条像素，不以 API 标志代替视频验证。
 
-本轮按原版重做前端与选区交互：全屏为 3–9 秒分段倒计时，窗口无倒计时；区域按真实光标所在显示器直接打开全屏可调整矩形、尺寸及声音/操作工具栏，确认才启动，Esc/失焦取消。新选区首帧隐藏加载且覆盖完整显示器，避免被 Windows 工作区裁掉任务栏附近。保存改为设置目录自动命名，排他发布后定位文件；真正退出宿主只保存、不打开资源管理器。启动操作单独登记完成 Promise，停止或宿主退出也等待尚在准备的启动链及临时目录清理。
+前端与选区交互：全屏为 3–9 秒分段倒计时，窗口无倒计时；区域按真实光标所在显示器直接打开全屏可调整矩形、尺寸及声音/操作工具栏，确认才启动，Esc/失焦取消。新选区首帧隐藏加载且覆盖完整显示器，避免被 Windows 工作区裁掉任务栏附近。保存改为设置目录自动命名，排他发布后定位文件；真正退出宿主只保存、不打开资源管理器。启动操作单独登记完成 Promise，停止或宿主退出也等待尚在准备的启动链及临时目录清理。

@@ -16,9 +16,9 @@
 
 ## 自动化测试文件
 
-共 125 个文件；文件数不等于用例数，通过状态以每轮变更记录为准。
+共 127 个文件；文件数不等于用例数，通过状态以每轮变更记录为准。
 
-### tests/main（89）
+### tests/main（91）
 
 - [tests/main/aiChatEventBatcher.test.ts](../../tests/main/aiChatEventBatcher.test.ts)
 - [tests/main/aiChatTransport.test.ts](../../tests/main/aiChatTransport.test.ts)
@@ -60,8 +60,10 @@
 - [tests/main/localMarket.test.ts](../../tests/main/localMarket.test.ts)
 - [tests/main/localSearchQuery.test.ts](../../tests/main/localSearchQuery.test.ts)
 - [tests/main/macInstallCompatibility.test.ts](../../tests/main/macInstallCompatibility.test.ts)
+- [tests/main/mediaInspection.test.ts](../../tests/main/mediaInspection.test.ts)
 - [tests/main/mediaOperations.test.ts](../../tests/main/mediaOperations.test.ts)
 - [tests/main/modelAssets.test.ts](../../tests/main/modelAssets.test.ts)
+- [tests/main/noteDockLayout.test.ts](../../tests/main/noteDockLayout.test.ts)
 - [tests/main/pluginCleanupWorker.test.ts](../../tests/main/pluginCleanupWorker.test.ts)
 - [tests/main/pluginDataPath.test.ts](../../tests/main/pluginDataPath.test.ts)
 - [tests/main/pluginDevProjectPackaging.test.ts](../../tests/main/pluginDevProjectPackaging.test.ts)
@@ -172,12 +174,13 @@
 - `tools-polish`：1 个单测文件、2 个源码 E2E 文件。
 - `tools-followup`：2 个单测文件、1 个源码 E2E 文件。
 - `native-shutdown`：3 个单测文件、2 个源码 E2E 文件。
-- `floating-pointer`：1 个单测文件、2 个源码 E2E 文件。
+- `floating-pointer`：2 个单测文件、2 个源码 E2E 文件。
 - `tools-commands`：2 个单测文件、3 个源码 E2E 文件。
 - `panel-switch`：4 个单测文件、4 个源码 E2E 文件。
 - `tools-visual`：0 个单测文件、4 个源码 E2E 文件。
 - `tools-review`：5 个单测文件、6 个源码 E2E 文件。
-- `media-tools`：4 个单测文件、4 个源码 E2E 文件。
+- `media-tools`：5 个单测文件、4 个源码 E2E 文件。
+- `media-note-interaction`：5 个单测文件、2 个源码 E2E 文件。
 - `recorder-reference`：6 个单测文件、5 个源码 E2E 文件。
 - `clipboard-trigger`：3 个单测文件、0 个源码 E2E 文件。
 - `settings-defaults`：6 个单测文件、7 个源码 E2E 文件。

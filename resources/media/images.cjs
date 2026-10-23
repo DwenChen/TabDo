@@ -3,6 +3,7 @@ const sharp = dependency('sharp')
 const fs = require('node:fs/promises')
 const path = require('node:path')
 const { number, dimension, canvasSize, ffmpeg } = require('./engine.cjs')
+const { pixelCrop } = require('./crop.cjs')
 sharp.cache(false)
 sharp.concurrency(2)
 const formats = ['png', 'jpeg', 'webp', 'tiff', 'avif', 'gif', 'bmp', 'ico', 'svg']
@@ -69,6 +70,10 @@ async function transformImage(item, mode, p, folder, signal) {
       background: p.background || '#ffffff'
     })
   } else if (mode === 'crop' || mode === 'manual') {
+    // 框选以相对坐标传递，批量处理不同尺寸时保留相同构图。
+    if (p.region) {
+      p = { ...p, ...pixelCrop(item.width, item.height, p) }
+    }
     const left = Math.round(number(p.left, 0, 0, item.width - 1)),
       top = Math.round(number(p.top, 0, 0, item.height - 1))
     const width = Math.round(number(p.width, item.width - left, 1, item.width - left)),

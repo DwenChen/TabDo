@@ -241,6 +241,32 @@ test('media tools preserve the reference layout, process actual files, themes an
       await tools.getByRole('button', { name: label.trim(), exact: true }).click()
       await expect(tools.locator('.parameter-title')).toHaveText(label.trim())
     }
+    await expect(tools.getByRole('button', { name: '手动裁剪', exact: true })).toHaveCount(0)
+    await tools.getByRole('button', { name: '修改尺寸', exact: true }).click()
+    await tools.getByLabel('常用尺寸', { exact: true }).selectOption('portrait')
+    await expect(tools.locator('.preview-caption')).toHaveText('输出 1080 × 1920', {
+      timeout: 20000
+    })
+    await capture(tools, 'image-size-preset.png')
+    await tools.getByLabel('高度', { exact: true }).fill('')
+    await tools.getByLabel('缩放方式', { exact: true }).selectOption('inside')
+    await tools.getByRole('button', { name: '裁剪', exact: true }).click()
+    await tools.getByRole('button', { name: '1:1', exact: true }).click()
+    await expect(tools.locator('.preview-caption')).toHaveText('输出 64 × 64', { timeout: 15000 })
+    const crop = (await tools.locator('.manual-crop').boundingBox())!
+    await tools.mouse.move(crop.x + 2, crop.y + 2)
+    await tools.mouse.down()
+    await tools.mouse.move(crop.x + crop.width * 0.52, crop.y + crop.height * 0.52, { steps: 8 })
+    await tools.mouse.up()
+    await expect(tools.locator('.crop-box')).toBeVisible()
+    const cropGeometry = await tools.locator('.crop-box').boundingBox()
+    expect(Math.abs(cropGeometry!.width - cropGeometry!.height)).toBeLessThan(2)
+    await expect(tools.locator('.preview-caption')).toHaveText(/输出/, { timeout: 15000 })
+    await capture(tools, 'image-crop-frame.png')
+    await tools.getByRole('button', { name: /^开始处理/ }).click()
+    await expect(tools.getByRole('status')).toHaveText('处理完成：2 项成功', { timeout: 30000 })
+    const cropped = await sharp(path.join(output, '绿色-crop.png')).metadata()
+    expect(cropped.width).toBe(cropped.height)
     await tools.getByRole('button', { name: '修改尺寸', exact: true }).click()
     // 延迟交付真实读图结果，验证快速换图取消旧请求且不会并行堆积进程。
     await tools.evaluate(() => {
@@ -271,7 +297,7 @@ test('media tools preserve the reference layout, process actual files, themes an
         }
       }
     })
-    await tools.getByRole('button', { name: '手动裁剪', exact: true }).click()
+    await tools.getByRole('button', { name: '裁剪', exact: true }).click()
     await expect.poll(() => tools.evaluate(() => (window as any).__previewBudget.active)).toBe(1)
     await tools.evaluate(async () => {
       const rows = document.querySelectorAll('.media-row')
@@ -280,6 +306,10 @@ test('media tools preserve the reference layout, process actual files, themes an
         await new Promise(requestAnimationFrame)
       }
     })
+    await expect
+      .poll(() => tools.evaluate(() => (window as any).__previewBudget.calls))
+      .toBeGreaterThan(1)
+    await expect(tools.locator('.preview-caption')).toHaveText(/输出/, { timeout: 15000 })
     await expect.poll(() => tools.evaluate(() => (window as any).__previewBudget.active)).toBe(0)
     const budget = await tools.evaluate(() => (window as any).__previewBudget)
     expect(budget.peak).toBe(1)
@@ -312,6 +342,27 @@ test('media tools preserve the reference layout, process actual files, themes an
     tools = await launch('video-batch', [video])
     await expect(tools.locator('.media-row')).toHaveCount(1, { timeout: 20000 })
     await expect(tools.locator('.media-row')).toContainText('160 × 120')
+    await expect(tools.locator('.media-preview video')).toBeVisible()
+    await tools.getByRole('button', { name: '时长裁剪', exact: true }).click()
+    await tools.getByLabel('预览时间', { exact: true }).fill('0.4')
+    await tools.getByRole('button', { name: '当前位置设为起点', exact: true }).click()
+    await expect(tools.getByLabel('开始位置（秒）', { exact: true })).toHaveValue('0.4')
+    await tools.getByLabel('预览时间', { exact: true }).fill('1.2')
+    await tools.getByRole('button', { name: '当前位置设为终点', exact: true }).click()
+    await expect(tools.getByLabel('片段时长（秒）', { exact: true })).toHaveValue('0.8')
+    await capture(tools, 'video-time-selection.png')
+    await tools.getByRole('button', { name: '画面裁剪', exact: true }).click()
+    await tools.getByRole('button', { name: '1:1', exact: true }).click()
+    await expect(tools.locator('.preview-caption')).toHaveText('输出 120 × 120', { timeout: 15000 })
+    await capture(tools, 'video-crop-frame.png')
+    await tools.getByRole('button', { name: '视频压缩', exact: true }).click()
+    await tools
+      .locator('.media-preview video')
+      .evaluate((video) => video.dispatchEvent(new Event('error')))
+    await expect(tools.locator('.media-preview')).toContainText('逐帧预览')
+    await tools.getByLabel('预览时间', { exact: true }).fill('0.8')
+    await expect(tools.locator('.preview-caption')).toHaveText('输出 960 × 720', { timeout: 15000 })
+    await expect(tools.locator('.media-preview img')).toBeVisible()
     await tools.getByRole('button', { name: '设置', exact: true }).click()
     await expect(tools.getByLabel('与源文件同级目录', { exact: true })).toBeChecked()
     await tools.getByRole('button', { name: '关闭设置', exact: true }).click()
@@ -378,6 +429,9 @@ test('media tools preserve the reference layout, process actual files, themes an
     expect(
       (await fs.readdir(clipboardOutput)).filter((file) => file.startsWith('.tabdo-media-'))
     ).toHaveLength(0)
+    tools = await launch('image-manual-crop', [first])
+    await expect(tools.locator('nav button.selected')).toHaveText('裁剪')
+    await expect(tools.locator('.crop-box')).toBeVisible({ timeout: 15000 })
     tools = await launch('screen-recorder')
     await expect(tools.locator('.source').first()).toBeVisible({ timeout: 20000 })
     await expect(tools.locator('.countdown-options button')).toHaveText([

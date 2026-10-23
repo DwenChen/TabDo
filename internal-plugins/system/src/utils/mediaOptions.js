@@ -11,8 +11,7 @@ export const imageActions = [
   ['flip', '翻转'],
   ['merge', '合并为图片'],
   ['pdf', '合并为 PDF'],
-  ['gif', '合并为 GIF'],
-  ['manual', '手动裁剪']
+  ['gif', '合并为 GIF']
 ]
 export const videoActions = [
   ['compress', '视频压缩'],
@@ -30,6 +29,17 @@ export const videoActions = [
   ['audio', '音频处理'],
   ['frame', '帧提取']
 ]
+export const sizePresets = [
+  ['custom', '自定义尺寸', 0, 0],
+  ['square', '方形 · 1:1 · 1080 × 1080', 1080, 1080],
+  ['landscape', '横屏 · 16:9 · 1920 × 1080', 1920, 1080],
+  ['portrait', '竖屏 · 9:16 · 1080 × 1920', 1080, 1920],
+  ['photo', '照片 · 4:3 · 1600 × 1200', 1600, 1200],
+  ['camera', '相机 · 3:2 · 1800 × 1200', 1800, 1200],
+  ['social', '竖版 · 4:5 · 1080 × 1350', 1080, 1350],
+  ['hd', '高清 · 16:9 · 1280 × 720', 1280, 720]
+]
+export const cropRatios = ['自由', '原图', '1:1', '4:3', '3:2', '16:9', '9:16', '4:5', '3:4', '2:3']
 /**
  * 创建统一参数控件的纯数据描述。
  * @param {string} key 参数名。
@@ -79,20 +89,16 @@ export function mediaFields(media, mode) {
     case 'resize':
       return [
         ...dimensions,
-        ...(image
-          ? [
-              field('fit', '缩放方式', 'select', {
-                options: [
-                  ['inside', '自动等比缩放'],
-                  ['contain', '完整显示（留白）'],
-                  ['cover', '填满画面（裁边）'],
-                  ['fill', '拉伸填满'],
-                  ['outside', '至少覆盖']
-                ]
-              }),
-              field('background', '留白颜色', 'color')
-            ]
-          : [])
+        field('fit', '缩放方式', 'select', {
+          options: [
+            ['inside', '自动等比缩放'],
+            ['contain', '完整显示（留白）'],
+            ['cover', '填满画面（裁边）'],
+            ['fill', '拉伸填满'],
+            ...(image ? [['outside', '至少覆盖']] : [])
+          ]
+        }),
+        field('background', '留白颜色', 'color')
       ]
     case 'crop':
     case 'manual':
@@ -245,6 +251,8 @@ export function mediaDefaults(media, mode) {
     quality: 80,
     maxSize: '',
     format: mode === 'gif' ? 'gif' : mode === 'audio' ? 'mp3' : media === 'image' ? 'png' : 'mp4',
+    sizePreset: 'custom',
+    cropRatio: '自由',
     width: ['gif', 'merge'].includes(mode) ? 800 : '',
     height: ['gif', 'merge'].includes(mode) ? 600 : '',
     fit: 'inside',

@@ -1,0 +1,29 @@
+{
+  "id": "independent-repository-v1",
+  "date": "2026-10-23",
+  "version": "1.0.0",
+  "summary": "建立 TabDo 独立仓库首版，统一产品定位、开发规范及来源致谢",
+  "reason": "用户明确要求删除旧 fork 仓库、创建独立 TabDo 仓库，并完成 push、云端构建和 release。",
+  "changes": [
+    "应用版本设为1.0.0，正式发行序列与旧fork开发版本分开，保留Git历史、许可及原始维护记录。",
+    "重写README、架构、开发、贡献和维护入口，新增Agent执行、项目定位、发布升级及第三方来源文档，核对原插件作者署名。",
+    "保留开始时媒体工具与便签未提交改动，纳入首版候选验证。",
+    "发布工作流统一TabDo命名，单测使用自动归档入口并保留云端验证证据。"
+  ],
+  "checks": [
+    "已核实旧仓库DwenChen/TabDo（ID 1415714024）为ZToolsCenter/ZTools的fork，当前账号有admin权限，无未关闭议题及下游fork。git bundle verify通过；完整历史位于.artifacts/backups/tabdo-before-independent-v1.bundle。五个旧版本20个资产共1291836856字节已核对大小与SHA-256，元数据、初始25个工作区文件及补丁保留在.artifacts/backups/tabdo-before-independent-v1/。",
+    "旧本地发行标签转存refs/archive/tabdo-fork/tags/，保留对象和备份，不推送旧发行标签，不覆盖任何旧仓库发布对象。",
+    "pnpm test --maxWorkers=2：100个文件、682项全部通过，归档.artifacts/runs/2026-10-23T07-42-18-281Z-unit。",
+    "pnpm test:e2e完整首轮：29项通过、performance-budget一项面板结果等待超时、builtin-models按默认条件跳过；失败截图/trace和真实退出码保留于.artifacts/runs/2026-10-23T07-44-00-273Z-e2e，不能表述为整套一次通过。",
+    "设置TABDO_MODEL_TEST_ASSETS指向已有v1.1.1归档后，pnpm test:e2e tests/e2e/performance-budget.spec.ts tests/e2e/builtin-models.spec.ts：2项通过（2.3分钟），归档.artifacts/runs/2026-10-23T07-53-11-799Z-e2e。未调整产品逻辑或放宽断言；性能回归确认实际30秒闲置回收、缓存预算、页面/任务释放及六次preload均为1，离线引擎实际执行并清理。合并两次结果覆盖31个场景。",
+    "pnpm typecheck、pnpm typecheck:setting、16个受影响源码/测试文件ESLint、pnpm build均通过。编译仅用于交付资源，E2E全程直接加载源码，未使用electron-builder或build:unpack。当前本机Node24.15.0、pnpm11.25.0，云端继续固定Node22、pnpm9.15.9；保留现有Rollup循环分块/混合导入及本机pnpm配置提示。",
+    "Markdown本地链接核对通过，发布YAML解析通过，确认版本1.0.0、单测自动归档及win-x64制品路径一致。保留原始LICENSE并新增TabDo修改版权行。",
+    "pnpm preview:sync及pnpm test:preview:resources通过：91个程序文件、229个内置资源文件、1676个媒体依赖文件匹配；171个data文件前后路径与SHA-256一致，legacy为空并保留。证据.artifacts/backups/preview-sync/update-1792741594402/preservation.json。",
+    "本地收尾执行pnpm maintain、pnpm maintain:check与git diff --check，保留提交和推送hooks；远端迁移及发布结果待完成后补充。"
+  ],
+  "pending": [
+    "云端构建、发布及成品核验尚未完成。",
+    "真实媒体、特殊编解码、声音设备、多屏、其他DPI和原生材质最终观感需要人工验收。"
+  ],
+  "preview": "已同步1.0.0程序资源到.local/portable-preview，保留171个数据文件、配置与已安装插件；通过PreviewPortable.cmd启动。未重置任何资料，回滚资源保留于.artifacts/backups/preview-sync/update-1792741594402/previous-resources。"
+}

@@ -12,6 +12,7 @@ import {
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import { applyToolsWindowIdentity, getToolsWindowIcon } from './toolsWindowIdentity'
+import { layoutDockTabs } from '../../shared/noteDockLayout'
 
 // 便签贴靠开关只作用于本次运行的所有便签窗口：独立窗口不持有历史，也不读写用户配置。
 let dockPreference = true
@@ -61,6 +62,7 @@ interface FloatingEntry {
     expanded: boolean
     fullBounds: Rectangle
     offset: number
+    inset?: number
   }
 }
 const windows = new Map<number, FloatingEntry>()
@@ -233,8 +235,16 @@ function collapsedDockBounds(dock: FloatingEntry['dock'], area: Rectangle): Rect
   return {
     width,
     height,
-    x: vertical ? (dock!.edge === 'left' ? area.x : area.x + area.width - width) : dock!.offset,
-    y: vertical ? dock!.offset : dock!.edge === 'top' ? area.y : area.y + area.height - height
+    x: vertical
+      ? dock!.edge === 'left'
+        ? area.x + (dock!.inset || 0)
+        : area.x + area.width - width - (dock!.inset || 0)
+      : dock!.offset,
+    y: vertical
+      ? dock!.offset
+      : dock!.edge === 'top'
+        ? area.y + (dock!.inset || 0)
+        : area.y + area.height - height - (dock!.inset || 0)
   }
 }
 
@@ -253,6 +263,46 @@ function setDockExpanded(entry: FloatingEntry, expanded: boolean): void {
   const target = expanded ? expandedDockBounds(dock, area) : collapsedDockBounds(dock, area)
   animateDockBounds(entry, target)
   publishDock(entry)
+  if (!expanded) arrangeDockStack(entry)
+}
+
+/**
+ * 在释放拖动后整理同屏同边的相邻色签，不更改正文、编号或正常纸张尺寸。
+ * @param entry 本次释放的便签。
+ * @returns 无返回值。
+ */
+function arrangeDockStack(entry: FloatingEntry): void {
+  const dock = entry.dock
+  if (!dock || dock.expanded) return
+  const display = screen.getDisplayMatching(dock.fullBounds)
+  const vertical = dock.edge === 'left' || dock.edge === 'right'
+  const members = [...windows.values()].filter(
+    (other) =>
+      !other.window.isDestroyed() &&
+      !other.dragging &&
+      other.dock?.expanded === false &&
+      other.dock.edge === dock.edge &&
+      screen.getDisplayMatching(other.dock.fullBounds).id === display.id
+  )
+  const area = display.workArea
+  const layout = layoutDockTabs(
+    members.map((other) => ({
+      id: other.window.id,
+      label: other.content.label || '',
+      offset: other.dock!.offset
+    })),
+    entry.window.id,
+    vertical ? area.y : area.x,
+    vertical ? area.height : area.width,
+    vertical
+  )
+  // 位置一次性计算，防止逐个移动时反复触发相邻组整理。
+  for (const position of layout) {
+    const other = members.find((item) => item.window.id === position.id)!
+    other.dock!.offset = position.offset
+    other.dock!.inset = position.inset
+    animateDockBounds(other, collapsedDockBounds(other.dock, area))
+  }
 }
 
 /**
@@ -316,6 +366,7 @@ function moveCollapsedDock(entry: FloatingEntry, value: any): boolean {
     Math.max(lower, Math.min(vertical ? value.y : value.x, Math.max(lower, upper)))
   )
   dock.offset = offset
+  dock.inset = 0
   // 展开位置随用户移动后的标签更新，开关解除与追加正文也沿用新位置。
   dock.fullBounds = expandedDockBounds(dock, area)
   // 拖动过程中直接跟随，不做插值，手感更贴手。
@@ -426,25 +477,9 @@ function updateDock(entry: FloatingEntry): void {
     return
   }
   const vertical = edge === 'left' || edge === 'right'
-  const spacing = vertical ? 88 : 96
   const lower = vertical ? area.y : area.x,
     upper = lower + (vertical ? area.height - 80 : area.width - 88)
-  let offset = Math.max(lower, Math.min(vertical ? bounds.y : bounds.x, upper))
-  const occupied = [...windows.values()]
-    .filter(
-      (other) =>
-        other !== entry &&
-        other.dock?.edge === edge &&
-        screen.getDisplayMatching(other.dock.fullBounds).id === screen.getDisplayMatching(bounds).id
-    )
-    .map((other) => other.dock!.offset)
-  if (occupied.some((value) => Math.abs(value - offset) < spacing)) {
-    for (let candidate = lower + 8; candidate <= upper; candidate += spacing)
-      if (occupied.every((value) => Math.abs(value - candidate) >= spacing)) {
-        offset = candidate
-        break
-      }
-  }
+  const offset = Math.max(lower, Math.min(vertical ? bounds.y : bounds.x, upper))
   entry.dock = { edge, expanded: true, fullBounds: bounds, offset }
   publishDock(entry)
 }
@@ -534,6 +569,7 @@ async function operate(sender: WebContents, action: string, value: any): Promise
       entry.dockArmed = true
       updateDock(entry)
       if (entry.dock?.expanded) setDockExpanded(entry, false)
+      else arrangeDockStack(entry)
     }
     return true
   }

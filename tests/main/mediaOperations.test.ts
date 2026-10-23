@@ -39,6 +39,8 @@ describe('isolated image operations', () => {
     ['resize', { width: '50%', height: '' }, 48, 32],
     ['crop', { left: 5, top: 6, width: 20, height: 30 }, 20, 30],
     ['manual', { left: 1, top: 2, width: 60, height: 40 }, 60, 40],
+    ['crop', { region: { x: 0.25, y: 0.25, width: 0.5, height: 0.5 } }, 48, 32],
+    ['crop', { region: { x: 0, y: 0, width: 1, height: 1 }, cropRatio: '1:1' }, 64, 64],
     ['rotate', { angle: 90 }, 64, 96],
     ['flip', { direction: 'vertical' }, 96, 64],
     ['pad', { top: 2, bottom: 4, left: 6, right: 8 }, 110, 70],
@@ -187,7 +189,10 @@ describe('real video transformations', () => {
       ['compress', { crf: 28 }],
       ['cut', { start: 0.2, duration: 0.5 }],
       ['crop', { ratio: '1:1' }],
+      ['crop', { region: { x: 0.25, y: 0.25, width: 0.5, height: 0.5 }, cropRatio: '1:1' }],
       ['resize', { width: 48, height: '' }],
+      ['resize', { width: 48, height: 48, fit: 'contain', background: '#ffffff' }],
+      ['resize', { width: 48, height: 48, fit: 'cover' }],
       ['rotate', { angle: 90 }],
       ['speed', { speed: 2 }],
       ['flip', { direction: 'horizontal' }],
@@ -212,7 +217,7 @@ describe('real video transformations', () => {
       if (['resize', 'rotate', 'crop'].includes(mode)) {
         const meta = await videoInfo(output, signal)
         expect(mode === 'resize' ? meta.width : mode === 'rotate' ? meta.width : meta.height).toBe(
-          mode === 'resize' ? 48 : 64
+          mode === 'resize' ? 48 : 'region' in params ? 32 : 64
         )
       }
       if (mode === 'audio' && 'audioMode' in params && params.audioMode === 'mute')

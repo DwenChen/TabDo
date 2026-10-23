@@ -1,40 +1,19 @@
-# Provider 示例插件
+# Provider 文档示例
 
-这是一个最小可参考的 provider 插件骨架，演示如何通过 `providers` 声明 + `tabdo.registerProvider` 接入「翻译」与「OCR」能力。
+本目录演示 `providers` 声明与 `tabdo.registerProvider` 注册，采用 `session-v1` 清单。handler 返回模拟翻译和 OCR 结果，不连接实际服务；需要替换实现并补齐入口、图标及许可后才能交付插件。
 
-> 此目录为文档示例，handler 使用 mock 实现，不可作为正式插件直接安装运行。真实接入请参考 `docs/provider-development-guide.md` 替换 handler 逻辑。
+## 文件与契约
 
-## 文件说明
+- `plugin.json`：声明翻译与 OCR。声明 key 在此恰好等于 type，实际插件可用不同 key 注册多个同类渠道。
+- `preload.js`：注册模拟 handler，展示输入和输出结构。
 
-- `plugin.json` —— 声明了 `providers.translation` 与 `providers.ocr`（此处 key 恰好等于 type，作为最简兼容示例；多声明见下方说明）。
-- `preload.js` —— 调用 `tabdo.registerProvider` 注册两个 provider 的 mock 实现。
+翻译输入为文本，OCR 输入为图片；契约、默认渠道和生命周期要求见 [Provider 开发指南](../../provider-development-guide.md)与[插件规范](../../plugin-development.md)。
 
-## 同一 type 多条声明
+## 接入流程
 
-当一个插件要提供多个同类渠道（如百度、谷歌两个翻译），用不同 key 声明同一 type 即可：
+1. 在清单声明能力，在 preload 用相同 key 注册 handler。
+2. 从设置添加本地开发插件，确认能力出现在“提供商”中。
+3. 启用并选择默认渠道，由消费者调用 `tabdo.translate`、`tabdo.ocr` 或 `tabdo.providers.invokeProvider`。
+4. 使用隔离数据验证错误、超时、并发及最后一次调用后的页面与子进程释放，并确认持久资料保留。
 
-```json
-"providers": {
-  "baidu":  { "type": "translation", "label": "百度翻译" },
-  "google": { "type": "translation", "label": "谷歌翻译" }
-}
-```
-
-```js
-tabdo.registerProvider('baidu', async (input) => {
-  /* ... */
-})
-tabdo.registerProvider('google', async (input) => {
-  /* ... */
-})
-```
-
-详见主程序 `docs/provider-development-guide.md`。
-
-## 接入后会怎样
-
-安装声明了 `providers` 的插件后：
-
-1. 「设置 → 提供商」的「翻译」「OCR」tab 会自动列出该 provider。
-2. 用户可启用 / 设为默认。
-3. 消费方（如超级面板选中翻译）调用 `providerManager.invoke(type, input)` 时会路由到默认 provider。
+可安装的完整会话示例由 [TabDo-plugins](https://github.com/DwenChen/TabDo-plugins)维护。

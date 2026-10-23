@@ -173,7 +173,8 @@
   },
   "floating-pointer": {
     "unit": [
-      "tests/main/floatingPointer.test.ts"
+      "tests/main/floatingPointer.test.ts",
+      "tests/main/noteDockLayout.test.ts"
     ],
     "e2e": [
       "tests/e2e/floating-pointer.spec.ts",
@@ -234,6 +235,7 @@
   "media-tools": {
     "unit": [
       "tests/main/mediaOperations.test.ts",
+      "tests/main/mediaInspection.test.ts",
       "tests/main/recorderLayout.test.ts",
       "tests/scripts/mediaRuntimeDependencies.test.ts",
       "tests/scripts/portablePreviewResources.test.ts"
@@ -243,6 +245,19 @@
       "tests/e2e/recorder-overlay.spec.ts",
       "tests/e2e/tools-recorder-web.spec.ts",
       "tests/e2e/tools-lifecycle.spec.ts"
+    ]
+  },
+  "media-note-interaction": {
+    "unit": [
+      "tests/main/mediaOperations.test.ts",
+      "tests/main/mediaInspection.test.ts",
+      "tests/main/noteDockLayout.test.ts",
+      "tests/main/floatingPointer.test.ts",
+      "tests/scripts/portablePreviewResources.test.ts"
+    ],
+    "e2e": [
+      "tests/e2e/media-batch.spec.ts",
+      "tests/e2e/floating-pointer.spec.ts"
     ]
   },
   "recorder-reference": {

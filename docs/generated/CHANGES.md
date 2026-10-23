@@ -2,6 +2,46 @@
 
 > 自动生成；原始记录在 [entries](../history/entries/)。
 
+## 2026-10-23 · 建立 TabDo 独立仓库首版，统一产品定位、开发规范及来源致谢
+
+记录：[independent-repository-v1](../../docs/history/entries/2026-10-23-02-independent-v1.json)；版本：1.0.0。
+
+- 应用版本设为1.0.0，正式发行序列与旧fork开发版本分开，保留Git历史、许可及原始维护记录。
+- 重写README、架构、开发、贡献和维护入口，新增Agent执行、项目定位、发布升级及第三方来源文档，核对原插件作者署名。
+- 保留开始时媒体工具与便签未提交改动，纳入首版候选验证。
+- 发布工作流统一TabDo命名，单测使用自动归档入口并保留云端验证证据。
+
+- 验证：已核实旧仓库DwenChen/TabDo（ID 1415714024）为ZToolsCenter/ZTools的fork，当前账号有admin权限，无未关闭议题及下游fork。git bundle verify通过；完整历史位于.artifacts/backups/tabdo-before-independent-v1.bundle。五个旧版本20个资产共1291836856字节已核对大小与SHA-256，元数据、初始25个工作区文件及补丁保留在.artifacts/backups/tabdo-before-independent-v1/。
+- 验证：旧本地发行标签转存refs/archive/tabdo-fork/tags/，保留对象和备份，不推送旧发行标签，不覆盖任何旧仓库发布对象。
+- 验证：pnpm test --maxWorkers=2：100个文件、682项全部通过，归档.artifacts/runs/2026-10-23T07-42-18-281Z-unit。
+- 验证：pnpm test:e2e完整首轮：29项通过、performance-budget一项面板结果等待超时、builtin-models按默认条件跳过；失败截图/trace和真实退出码保留于.artifacts/runs/2026-10-23T07-44-00-273Z-e2e，不能表述为整套一次通过。
+- 验证：设置TABDO_MODEL_TEST_ASSETS指向已有v1.1.1归档后，pnpm test:e2e tests/e2e/performance-budget.spec.ts tests/e2e/builtin-models.spec.ts：2项通过（2.3分钟），归档.artifacts/runs/2026-10-23T07-53-11-799Z-e2e。未调整产品逻辑或放宽断言；性能回归确认实际30秒闲置回收、缓存预算、页面/任务释放及六次preload均为1，离线引擎实际执行并清理。合并两次结果覆盖31个场景。
+- 验证：pnpm typecheck、pnpm typecheck:setting、16个受影响源码/测试文件ESLint、pnpm build均通过。编译仅用于交付资源，E2E全程直接加载源码，未使用electron-builder或build:unpack。当前本机Node24.15.0、pnpm11.25.0，云端继续固定Node22、pnpm9.15.9；保留现有Rollup循环分块/混合导入及本机pnpm配置提示。
+- 验证：Markdown本地链接核对通过，发布YAML解析通过，确认版本1.0.0、单测自动归档及win-x64制品路径一致。保留原始LICENSE并新增TabDo修改版权行。
+- 验证：pnpm preview:sync及pnpm test:preview:resources通过：91个程序文件、229个内置资源文件、1676个媒体依赖文件匹配；171个data文件前后路径与SHA-256一致，legacy为空并保留。证据.artifacts/backups/preview-sync/update-1792741594402/preservation.json。
+- 验证：本地收尾执行pnpm maintain、pnpm maintain:check与git diff --check，保留提交和推送hooks；远端迁移及发布结果待完成后补充。
+
+## 2026-10-23 · 改善媒体批量读取容错、可视化尺寸与裁剪交互，并自动整理相邻便签色签
+
+记录：[media-preview-and-note-stack](../../docs/history/entries/2026-10-23-01-media-preview-note-stack.json)；版本：未发布。
+
+- 按文件隔离图片原生读取，解码异常仅产生该行错误；逐行回传并等待 IPC 送达后断开，连续添加串行排队，保留已读文件。工作进程异常补充退出诊断。
+- 图片和视频常驻预览，前台更新防抖并取消、等待旧请求；效果图仅写入所属暂存目录，不向用户输出目录发布。尺寸、旋转、翻转、水印、边框、圆角等使用实际处理管线。
+- 提供常用比例与尺寸组合、图片百分比缩放、旋转和倍速预选；统一裁剪入口，支持自由/固定比例框选、移动和四角调整，批次使用相对构图并保持固定比例。旧直达功能码保留。
+- 视频提供播放画面、时间轴与当前位置设为截取起止点；静态构图效果复用生产视频滤镜，声音与完整编码效果仍以输出文件为准。
+- 同屏同边缘的相邻便签在拖动释放后按数字顺序整齐排列并轻微错位，仅重叠标签留白；远处便签不移动，工作区不足时向内分列，正文和正常纸张尺寸保留。
+
+- 验证：pnpm test:regressions media-note-interaction --list 正确列出5个单测文件与2个源码E2E；分组单测45项通过，归档 .artifacts/runs/2026-10-23T06-45-39-884Z-unit。
+- 验证：pnpm test main/mediaOperations.test.ts main/floatingPointer.test.ts main/noteDockLayout.test.ts：最新33项通过，归档 .artifacts/runs/2026-10-23T06-48-42-645Z-unit；包含相对构图、固定比例、视频完整显示/裁边和四边贴靠。
+- 验证：pnpm test main/mediaInspection.test.ts：最新1项通过，归档 .artifacts/runs/2026-10-23T06-51-12-512Z-unit。两轮各26文件含损坏与注入原生崩溃，24个正常文件均完整返回；13张合并预览限制前12张，返回96×768且源文件字节保留。
+- 验证：pnpm test:e2e tests/e2e/media-batch.spec.ts：最新1项通过（39.3秒），归档 .artifacts/runs/2026-10-23T06-51-29-193Z-e2e。验证尺寸预选、固定比例框选及真实输出、预览取消峰值1、播放器时间设起止点、播放器错误后逐帧回退、旧直达裁剪入口、明暗截图、输出目录和取消清理。
+- 验证：pnpm test:e2e tests/e2e/floating-pointer.spec.ts tests/e2e/tools-lifecycle.spec.ts：2项通过，归档 .artifacts/runs/2026-10-23T06-47-32-500Z-e2e。实际系统鼠标把第三张便签拖入组，核对编号排序、0/3/6 DIP错位、每张文字范围不与其他色签窗口相交、点击展开及正文保留；生命周期检查后台采集继续与必要任务收尾。
+- 验证：失败与修正均保留归档：首轮Vue模板多语句格式化后无法解析，改为独立有JSDoc的函数；次轮预览预算在防抖开始前取样，改为等待效果完成；扩展便签用例有窗口关闭等待缺口，补充逐页等待真正销毁后重跑通过。
+- 验证：直接查看插件WebContentsView的尺寸/裁剪/时间选择截图，核对常驻预览与固定底栏；便签单窗截图及文字矩形检查通过。截图不代表其他显示器/DPI或DWM最终视觉已验收。
+- 验证：pnpm typecheck、相关15个源码/测试文件ESLint、pnpm build均通过。编译用于本地交付，未使用electron-builder或build:unpack作为E2E入口；构建保留Rollup循环分块和混合导入提示。
+- 验证：pnpm preview:sync 完成；preservation.json确认data的171个文件前后路径与SHA-256完全一致，legacy为空且保留。pnpm test:preview:resources通过：91个程序文件、229个内置资源文件、1676个媒体依赖文件。
+- 验证：收尾执行 pnpm maintain、pnpm maintain:check 与 git diff --check。
+
 ## 2026-10-22 · 放大鼠标主体并改为透明背景，改善 TabDo 托盘与任务栏图标
 
 记录：[transparent-mouse-icon](../../docs/history/entries/2026-10-22-03-transparent-icon.json)；版本：2.0.1。

@@ -289,6 +289,24 @@ describe('floating native pointer observation', () => {
     expect(second.getBounds()).toMatchObject({ width: 300, height: 280 })
     expect(second.webContents.send).toHaveBeenCalledWith('tools-floating-dock-preference', false)
   })
+  it('packs nearby collapsed notes by label on drag release without changing paper size or distant tabs', async () => {
+    const notes = [await open(), await open(), await open(), await open()]
+    const send = mocks.handlers.get('tools-floating')!
+    for (const index of [2, 0, 1, 3]) {
+      notes[index].bounds.x = 0
+      notes[index].bounds.y = index === 3 ? 700 : 150 + index * 10
+      await send({ sender: notes[index].webContents }, 'drag-end')
+      await vi.advanceTimersByTimeAsync(280)
+    }
+    expect(notes[0].getBounds().y).toBeLessThan(notes[1].getBounds().y)
+    expect(notes[1].getBounds().y).toBeLessThan(notes[2].getBounds().y)
+    expect(notes[3].getBounds().y).toBe(700)
+    expect(notes.map((note) => note.getBounds().width)).toEqual([18, 18, 18, 18])
+    expect(new Set(notes.slice(0, 3).map((note) => note.getBounds().x)).size).toBe(3)
+    await send({ sender: notes[1].webContents }, 'undock')
+    await vi.advanceTimersByTimeAsync(280)
+    expect(notes[1].getBounds()).toMatchObject({ width: 300, height: 280 })
+  })
 
   it('does not dock while dragging is paused and collapses immediately on release', async () => {
     const win = await open()

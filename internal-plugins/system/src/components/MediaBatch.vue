@@ -1,6 +1,13 @@
 <script setup>
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
-import { imageActions, videoActions, mediaFields, mediaDefaults } from '@/utils/mediaOptions'
+import {
+  imageActions,
+  videoActions,
+  mediaFields,
+  mediaDefaults,
+  sizePresets,
+  cropRatios
+} from '@/utils/mediaOptions'
 import MediaIcon from './MediaIcon.vue'
 const props = defineProps({
   action: { type: Object, required: true },
@@ -9,7 +16,7 @@ const props = defineProps({
 const actions = computed(() => (props.media === 'image' ? imageActions : videoActions))
 const mode = ref(
   props.action.code === 'image-manual-crop'
-    ? 'manual'
+    ? 'crop'
     : props.action.code === 'image-merge'
       ? 'merge'
       : 'compress'
@@ -33,7 +40,17 @@ const state = reactive({}),
   imageInput = ref(''),
   progress = ref(''),
   viewer = ref(null),
-  manualPreview = ref('')
+  manualPreview = ref(''),
+  effectPreview = ref(null),
+  previewError = ref(''),
+  previewBusy = ref(false),
+  showOriginal = ref(false),
+  previewTime = ref(0),
+  playerFailed = ref(false),
+  player = ref(null)
+const videoUrl = computed(() =>
+  active.value ? window.toolsProvider.fileUrl(active.value.path) : ''
+)
 watch(
   mode,
   (value) => {
@@ -45,6 +62,7 @@ const parameters = computed(() => state[mode.value])
 const fields = computed(() =>
   mediaFields(props.media, mode.value).filter(
     (field) =>
+      !(mode.value === 'crop') &&
       !(
         mode.value === 'watermark' &&
         parameters.value.watermarkType === 'image' &&
@@ -68,18 +86,130 @@ let disposed = false,
   readingPending = Promise.resolve(),
   disposal,
   version = 0,
-  dragStart
-watch([mode, () => active.value?.path], () => {
-  previewVersion++
-  previewController?.abort()
-  manualPreview.value = ''
-  if (mode.value === 'manual' && active.value) void preview(active.value.path, true)
+  dragStart,
+  previewTimer,
+  sourcePath = '',
+  pendingReads = 0
+const cropping = computed(() => mode.value === 'crop')
+const spatialVideo = computed(() =>
+  ['crop', 'resize', 'rotate', 'flip', 'watermark'].includes(mode.value)
+)
+watch(
+  [
+    mode,
+    () => active.value?.path,
+    () => items.value.length,
+    () => JSON.stringify(parameters.value),
+    previewTime,
+    playerFailed,
+    busy
+  ],
+  () => {
+    clearTimeout(previewTimer)
+    previewVersion++
+    previewController?.abort()
+    effectPreview.value = null
+    previewError.value = ''
+    if (sourcePath !== active.value?.path) {
+      manualPreview.value = ''
+      sourcePath = ''
+    }
+    if (active.value && !active.value.error && !busy.value)
+      previewTimer = setTimeout(() => {
+        void preview(active.value.path, true)
+      }, 250)
+  }
+)
+watch([cropping, () => active.value?.path], () => {
+  if (cropping.value && active.value?.width) applyCropRatio(parameters.value.cropRatio || '自由')
+  previewTime.value = 0
 })
+watch(
+  () => active.value?.path,
+  () => {
+    playerFailed.value = false
+  }
+)
+watch([mode, () => JSON.stringify(parameters.value)], () => {
+  if (!busy.value) message.value = ''
+})
+
+/**
+ * 将常用画布组合填入尺寸，并选择完整显示或填满的明确缩放方式。
+ * @returns {void} 无返回值。
+ */
+function applySizePreset() {
+  const preset = sizePresets.find((item) => item[0] === parameters.value.sizePreset)
+  if (!preset?.[2]) return
+  parameters.value.width = preset[2]
+  parameters.value.height = preset[3]
+  parameters.value.fit = 'contain'
+}
+/**
+ * 按原图百分比缩放，另一边由编码器保持比例。
+ * @param {number} scale 目标百分比。
+ * @returns {void} 无返回值。
+ */
+function applyScale(scale) {
+  parameters.value.width = scale + '%'
+  parameters.value.height = ''
+  parameters.value.sizePreset = 'custom'
+}
+/**
+ * 使用当前文件居中建立指定比例的最大裁剪框。
+ * @param {string} ratio 比例预选。
+ * @returns {void} 无返回值。
+ */
+function applyCropRatio(ratio) {
+  if (!active.value?.width) return
+  const item = active.value,
+    p = parameters.value
+  p.cropRatio = ratio
+  const parts = ratio.split(':').map(Number)
+  const aspect = parts.length === 2 ? parts[0] / parts[1] : item.width / item.height
+  const width = Math.min(item.width, item.height * aspect),
+    height = width / aspect
+  p.region = {
+    x: (1 - width / item.width) / 2,
+    y: (1 - height / item.height) / 2,
+    width: width / item.width,
+    height: height / item.height
+  }
+}
+/**
+ * 将时间轴位置同步到播放器，不自动启动播放。
+ * @returns {void} 无返回值。
+ */
+function seekPreview() {
+  if (player.value) player.value.currentTime = Number(previewTime.value)
+}
+/**
+ * 以当前播放位置设置截取起点或终点，并保留有效时间区间。
+ * @param {boolean} end 是否设置终点。
+ * @returns {void} 无返回值。
+ */
+function markTime(end = false) {
+  const time = Math.min(
+    active.value.duration - 0.01,
+    player.value?.currentTime ?? Number(previewTime.value)
+  )
+  const p = parameters.value
+  if (end && time <= Number(p.start || 0)) {
+    message.value = '终点需要晚于起点'
+    return
+  }
+  if (end) p.duration = +(time - Number(p.start || 0)).toFixed(2)
+  else {
+    p.start = +time.toFixed(2)
+    p.duration = ''
+  }
+  message.value = ''
+}
 
 /**
  * 用独立读图任务生成有界预览，不保留大原图或未释放的对象 URL。
  * @param {string} file 待预览的文件。
- * @param {boolean} manual 是否显示在手动裁剪区域。
+ * @param {boolean} manual 是否更新常驻处理预览，否则打开大图。
  * @returns {Promise<void>} 预览加载后的 Promise。
  */
 async function preview(file, manual = false) {
@@ -89,6 +219,10 @@ async function preview(file, manual = false) {
   const cancellation = new AbortController()
   previewController = cancellation
   const selectedFile = active.value?.path
+  const operation = mode.value
+  const params = JSON.parse(JSON.stringify(parameters.value))
+  const files =
+    operation === 'merge' && props.media === 'image' ? items.value.map((item) => item.path) : [file]
   const previous = previewPending
   let complete
   previewPending = new Promise((resolve) => {
@@ -98,20 +232,26 @@ async function preview(file, manual = false) {
     // 等旧进程关闭后再启动最新预览，快速切换最多保留一个实际读图进程。
     await previous
     if (disposed || cancellation.signal.aborted) return
-    if (props.media === 'video') {
+    if (props.media === 'video' && !manual) {
       viewer.value = { url: window.toolsProvider.fileUrl(file), title: file, video: true }
       return
     }
-    const result = await window.toolsMedia.run(
-      {
-        action: 'inspect',
-        media: 'image',
-        files: file === '@clipboard' ? [] : [file],
-        image: file === '@clipboard' ? imageInput.value : undefined,
-        preview: true
-      },
-      cancellation.signal
-    )
+    previewBusy.value = true
+    const result =
+      sourcePath === file && manualPreview.value && manual
+        ? [{ thumbnail: manualPreview.value }]
+        : props.media === 'video'
+          ? [{ thumbnail: active.value.thumbnail }]
+          : await window.toolsMedia.run(
+              {
+                action: 'inspect',
+                media: 'image',
+                files: file === '@clipboard' ? [] : [file],
+                image: files.includes('@clipboard') ? imageInput.value : undefined,
+                preview: true
+              },
+              cancellation.signal
+            )
     if (
       disposed ||
       request !== previewVersion ||
@@ -120,15 +260,36 @@ async function preview(file, manual = false) {
     )
       return
     if (manual) {
-      if (selectedFile === active.value?.path && mode.value === 'manual')
-        manualPreview.value = result[0].thumbnail
+      if (selectedFile !== active.value?.path) return
+      manualPreview.value = result[0].thumbnail
+      sourcePath = file
+      if (props.media === 'video' && !spatialVideo.value && !playerFailed.value) return
+      if (operation === 'resize' && !params.width && !params.height) return
+      if (operation === 'thumbnail' && !params.cover) return
+      if (operation === 'watermark') params.watermark = await makeWatermark(params)
+      if (cancellation.signal.aborted || disposed) return
+      const effect = await window.toolsMedia.run(
+        {
+          action: 'preview',
+          media: props.media,
+          files: files.filter((x) => x !== '@clipboard'),
+          image: files.includes('@clipboard') ? imageInput.value : undefined,
+          mode: operation,
+          params: { ...params, previewTime: previewTime.value },
+          preview: true
+        },
+        cancellation.signal
+      )
+      if (!disposed && !cancellation.signal.aborted && request === previewVersion)
+        effectPreview.value = effect[0]
     } else viewer.value = { url: result[0].thumbnail, title: result[0].name }
   } catch (error) {
     if (!disposed && !cancellation.signal.aborted && request === previewVersion)
-      message.value = error.message
+      previewError.value = error.message
   } finally {
     if (previewController === cancellation) previewController = null
     complete()
+    if (request === previewVersion) previewBusy.value = false
   }
 }
 
@@ -162,28 +323,40 @@ function choose(directory = false) {
  */
 async function add(files) {
   if (busy.value || disposed) return
-  const current = ++version
-  readingController?.abort()
+  const current = version
+  const image = imageInput.value
   const cancellation = new AbortController()
-  readingController = cancellation
   const previous = readingPending
   let complete
   readingPending = new Promise((resolve) => {
     complete = resolve
   })
   reading.value = true
+  pendingReads++
   try {
-    // 替换读取时先结束旧元数据进程，过时请求既不回填，也不占用媒体任务槽位。
+    // 连续添加串行排队，保留前一批选择；退出时才取消当前读取。
     await previous
-    if (disposed || cancellation.signal.aborted) return
+    if (disposed || cancellation.signal.aborted || current !== version) return
+    readingController = cancellation
+    /**
+     * 将流式读取的文件立即加入队列，同一路径只显示一次。
+     * @param {object} item 文件元数据或错误。
+     * @returns {void} 无返回值。
+     */
+    const append = (item) => {
+      if (disposed || current !== version || cancellation.signal.aborted) return
+      if (!items.value.some((row) => row.path === item.path)) items.value.push(item)
+      selected.value ||= items.value[0]?.path || ''
+    }
     const result = await window.toolsMedia.run(
-      { action: 'inspect', media: props.media, files, image: imageInput.value },
-      cancellation.signal
+      { action: 'inspect', media: props.media, files, image },
+      cancellation.signal,
+      (event) => {
+        if (event.type === 'inspected') append(event.item)
+      }
     )
     if (disposed || current !== version) return
-    const existing = new Set(items.value.map((x) => x.path))
-    items.value.push(...result.filter((x) => !existing.has(x.path)))
-    selected.value ||= items.value[0]?.path || ''
+    result.forEach(append)
     message.value = result.length ? '' : '未找到支持的媒体文件'
   } catch (error) {
     if (!disposed && !cancellation.signal.aborted && current === version)
@@ -191,7 +364,8 @@ async function add(files) {
   } finally {
     if (readingController === cancellation) readingController = null
     complete()
-    if (!disposed && current === version) reading.value = false
+    pendingReads--
+    if (!disposed) reading.value = pendingReads > 0
   }
 }
 /**
@@ -373,31 +547,64 @@ async function execute() {
   }
 }
 /**
- * 选择手动裁剪起点，使用真实图片像素坐标。
+ * 记录裁剪框选、移动或四角调整的相对坐标起点。
  * @param {PointerEvent} event 指针事件。
  * @returns {void} 无返回值。
  */
 function cropDown(event) {
-  if (!active.value) return
+  if (!active.value || busy.value || event.button !== 0) return
   const rect = event.currentTarget.getBoundingClientRect()
-  dragStart = { x: event.clientX - rect.left, y: event.clientY - rect.top, rect }
+  const r = parameters.value.region || { x: 0, y: 0, width: 1, height: 1 }
+  dragStart = {
+    x: (event.clientX - rect.left) / rect.width,
+    y: (event.clientY - rect.top) / rect.height,
+    rect,
+    region: { ...r },
+    handle: event.target.dataset.handle || (event.target.closest('.crop-box') ? 'move' : 'draw')
+  }
   event.currentTarget.setPointerCapture(event.pointerId)
 }
 /**
- * 把可见选择框同步为有界原图矩形。
+ * 把可见选择框同步为有界相对矩形，固定比例在原图像素空间计算。
  * @param {PointerEvent} event 移动事件。
  * @returns {void} 无返回值。
  */
 function cropMove(event) {
   if (!dragStart || !active.value) return
-  const { rect, x, y } = dragStart
-  const endX = Math.max(0, Math.min(rect.width, event.clientX - rect.left)),
-    endY = Math.max(0, Math.min(rect.height, event.clientY - rect.top)),
-    p = parameters.value
-  p.left = Math.floor((Math.min(x, endX) / rect.width) * active.value.width)
-  p.top = Math.floor((Math.min(y, endY) / rect.height) * active.value.height)
-  p.width = Math.max(1, Math.round((Math.abs(endX - x) / rect.width) * active.value.width))
-  p.height = Math.max(1, Math.round((Math.abs(endY - y) / rect.height) * active.value.height))
+  const { rect, x, y, region: r, handle } = dragStart
+  const endX = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width))
+  const endY = Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height))
+  const p = parameters.value
+  if (handle === 'move') {
+    p.region = {
+      ...r,
+      x: Math.max(0, Math.min(1 - r.width, r.x + endX - x)),
+      y: Math.max(0, Math.min(1 - r.height, r.y + endY - y))
+    }
+    return
+  }
+  const originX = handle === 'draw' ? x : handle.includes('w') ? r.x + r.width : r.x
+  const originY = handle === 'draw' ? y : handle.includes('n') ? r.y + r.height : r.y
+  let width = Math.max(1 / active.value.width, Math.abs(endX - originX))
+  let height = Math.max(1 / active.value.height, Math.abs(endY - originY))
+  const parts = p.cropRatio?.split(':').map(Number)
+  const aspect =
+    parts?.length === 2
+      ? parts[0] / parts[1]
+      : p.cropRatio === '原图'
+        ? active.value.width / active.value.height
+        : 0
+  if (aspect) {
+    const normalized = (aspect * active.value.height) / active.value.width
+    width = Math.min(width, height * normalized)
+    height = width / normalized
+  }
+  p.region = {
+    x: endX < originX ? originX - width : originX,
+    y: endY < originY ? originY - height : originY,
+    width,
+    height
+  }
 }
 /**
  * 调整合并顺序，保持文件、预览和输出队列一致。
@@ -428,6 +635,7 @@ function dispose() {
   disposed = true
   previewVersion++
   previewController?.abort()
+  clearTimeout(previewTimer)
   readingController?.abort()
   version++
   items.value = []
@@ -435,6 +643,7 @@ function dispose() {
   dragStart = null
   viewer.value = null
   manualPreview.value = ''
+  effectPreview.value = null
   // 旧页面只等前台读图收束；必要处理批次仍由独立任务作用域持有。
   disposal = Promise.allSettled([readingPending, previewPending]).then(() => {})
   return disposal
@@ -468,25 +677,51 @@ onUnmounted(dispose)
       :aria-label="actions.find((x) => x[0] === mode)?.[1] + '参数'"
     >
       <div class="parameter-title">{{ actions.find((x) => x[0] === mode)?.[1] }}</div>
-      <div
-        v-if="mode === 'manual' && active"
-        class="manual-crop"
-        @pointerdown="cropDown"
-        @pointermove="cropMove"
-        @pointerup="dragStart = null"
-        @pointercancel="dragStart = null"
-      >
-        <img :src="manualPreview || active.thumbnail" alt="拖动框选裁剪范围" draggable="false" />
-        <div
-          v-if="parameters.width && parameters.height"
-          class="crop-box"
-          :style="{
-            left: (parameters.left / active.width) * 100 + '%',
-            top: (parameters.top / active.height) * 100 + '%',
-            width: (parameters.width / active.width) * 100 + '%',
-            height: (parameters.height / active.height) * 100 + '%'
-          }"
-        />
+      <template v-if="mode === 'resize'">
+        <label class="parameter"
+          ><span>常用尺寸</span
+          ><select v-model="parameters.sizePreset" aria-label="常用尺寸" @change="applySizePreset">
+            <option v-for="[key, label] in sizePresets" :key="key" :value="key">{{ label }}</option>
+          </select></label
+        >
+        <div v-if="media === 'image'" class="preset-buttons" aria-label="按原图缩放">
+          <button v-for="scale in [25, 50, 75, 100]" :key="scale" @click="applyScale(scale)">
+            {{ scale }}%
+          </button>
+        </div>
+      </template>
+      <template v-if="cropping">
+        <span class="control-label">裁剪比例</span>
+        <div class="preset-buttons" aria-label="裁剪比例">
+          <button
+            v-for="ratio in cropRatios"
+            :key="ratio"
+            :aria-pressed="parameters.cropRatio === ratio"
+            @click="applyCropRatio(ratio)"
+          >
+            {{ ratio }}
+          </button>
+        </div>
+        <p>在右侧画面拖动框选；拖动框内移动，拖动四角调整。批量图片按相同构图裁剪。</p>
+        <button @click="applyCropRatio(parameters.cropRatio)">重置裁剪框</button>
+      </template>
+      <div v-if="mode === 'rotate'" class="preset-buttons">
+        <button
+          v-for="[angle, label] in [
+            [-90, '左转 90°'],
+            [90, '右转 90°'],
+            [180, '旋转 180°']
+          ]"
+          :key="angle"
+          @click="parameters.angle = angle"
+        >
+          {{ label }}
+        </button>
+      </div>
+      <div v-if="mode === 'speed'" class="preset-buttons">
+        <button v-for="speed in [0.5, 1, 1.5, 2, 4]" :key="speed" @click="parameters.speed = speed">
+          {{ speed }}×
+        </button>
       </div>
       <label
         v-for="field in fields"
@@ -544,7 +779,6 @@ onUnmounted(dispose)
             : '留空的一边自动等比计算。'
         }}
       </p>
-      <p v-if="mode === 'manual'">在图片上拖动框选；点击右侧文件可切换。</p>
       <p v-if="mode === 'merge' || mode === 'pdf' || (mode === 'gif' && media === 'image')">
         按右侧队列顺序合并，可用箭头调整。
       </p>
@@ -562,6 +796,108 @@ onUnmounted(dispose)
           ＋ 添加
         </button>
       </header>
+      <section v-if="active && !active.error" class="media-preview" aria-label="处理预览">
+        <div class="preview-heading">
+          <strong>{{ cropping ? '框选裁剪范围' : showOriginal ? '原始画面' : '处理预览' }}</strong
+          ><button
+            v-if="media === 'image' && !cropping"
+            :aria-pressed="showOriginal"
+            @click="showOriginal = !showOriginal"
+          >
+            {{ showOriginal ? '查看效果' : '查看原图' }}
+          </button>
+        </div>
+        <div
+          v-if="cropping"
+          class="manual-crop"
+          :style="{ width: Math.min(400, (180 * active.width) / active.height) + 'px' }"
+          @pointerdown="cropDown"
+          @pointermove="cropMove"
+          @pointerup="dragStart = null"
+          @pointercancel="dragStart = null"
+        >
+          <img :src="manualPreview || active.thumbnail" alt="拖动框选裁剪范围" draggable="false" />
+          <div
+            v-if="parameters.region"
+            class="crop-box"
+            :style="{
+              left: parameters.region.x * 100 + '%',
+              top: parameters.region.y * 100 + '%',
+              width: parameters.region.width * 100 + '%',
+              height: parameters.region.height * 100 + '%'
+            }"
+          >
+            <span
+              v-for="handle in ['nw', 'ne', 'sw', 'se']"
+              :key="handle"
+              :class="['crop-handle', handle]"
+              :data-handle="handle"
+            />
+          </div>
+        </div>
+        <video
+          v-else-if="media === 'video' && !spatialVideo && !playerFailed"
+          ref="player"
+          class="preview-media"
+          :src="videoUrl"
+          :poster="active.thumbnail"
+          controls
+          :playbackRate="mode === 'speed' ? Number(parameters.speed) : 1"
+          :muted="mode === 'audio' && parameters.audioMode === 'mute'"
+          @error="playerFailed = true"
+        />
+        <img
+          v-else
+          class="preview-media"
+          :src="
+            showOriginal
+              ? manualPreview || active.thumbnail
+              : effectPreview?.thumbnail || manualPreview || active.thumbnail
+          "
+          :alt="showOriginal ? '原始画面' : '处理效果'"
+        />
+        <div class="preview-caption" aria-live="polite">
+          {{
+            previewBusy
+              ? '正在更新预览…'
+              : previewError ||
+                (effectPreview
+                  ? `输出 ${effectPreview.width} × ${effectPreview.height}${effectPreview.partial ? '（预览前 12 张）' : ''}`
+                  : `${active.width} × ${active.height}`)
+          }}
+        </div>
+        <template v-if="media === 'video'">
+          <label class="timeline"
+            >查看时间 {{ Number(previewTime).toFixed(1) }} /
+            {{ active.duration.toFixed(1) }} 秒<input
+              v-model.number="previewTime"
+              aria-label="预览时间"
+              type="range"
+              min="0"
+              :max="Math.max(0, active.duration - 0.01)"
+              step="0.01"
+              @input="seekPreview"
+          /></label>
+          <div v-if="['cut', 'gif', 'audio', 'frame'].includes(mode)" class="time-marks">
+            <button @click="markTime(false)">当前位置设为起点</button
+            ><button v-if="mode !== 'frame'" @click="markTime(true)">当前位置设为终点</button
+            ><span
+              >从 {{ parameters.start || 0 }} 秒{{
+                parameters.duration
+                  ? ' 到 ' +
+                    (Number(parameters.start || 0) + Number(parameters.duration)).toFixed(2) +
+                    ' 秒'
+                  : ' 到结束'
+              }}</span
+            >
+          </div>
+        </template>
+        <p v-if="media === 'image' && ['pdf', 'gif'].includes(mode)">
+          显示首张画面，完整合并按下方队列顺序。
+        </p>
+        <p v-if="media === 'video'">画面用于构图预览；压缩画质、声音和完整片段以输出文件为准。</p>
+        <p v-if="playerFailed">此格式使用逐帧预览，拖动时间轴查看画面。</p>
+      </section>
       <div class="queue-scroll">
         <div v-if="!items.length" class="media-empty">
           <svg
@@ -591,13 +927,14 @@ onUnmounted(dispose)
             alt="预览原图"
             role="button"
             tabindex="0"
-            @click.stop="preview(item.path)"
-            @keydown.enter="preview(item.path)"
+            @click.stop="selected = item.path"
+            @dblclick.stop="preview(item.path)"
+            @keydown.enter="selected = item.path"
           /><button
             v-else
             class="video-symbol"
             aria-label="预览视频"
-            @click.stop="preview(item.path)"
+            @click.stop="selected = item.path"
           >
             ▶
           </button>
@@ -616,7 +953,7 @@ onUnmounted(dispose)
               class="result-link"
               @click.stop="reveal(item.result.path)"
             >
-              已完成 · {{ item.result.name }}
+              上次输出 · {{ item.result.name }}
             </button>
           </div>
           <div class="row-tools">
@@ -877,6 +1214,8 @@ p {
   cursor: crosshair;
   margin-bottom: 12px;
   line-height: 0;
+  max-width: 100%;
+  margin: 0 auto;
 }
 .manual-crop img {
   width: 100%;
@@ -888,7 +1227,123 @@ p {
   border: 1px solid var(--primary-color);
   background: color-mix(in srgb, var(--primary-color) 15%, transparent);
   box-sizing: border-box;
-  pointer-events: none;
+  cursor: move;
+  box-shadow: 0 0 0 1px #fff8;
+}
+.crop-handle {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  background: var(--primary-color);
+  border: 1px solid white;
+}
+.crop-handle.nw {
+  left: -4px;
+  top: -4px;
+  cursor: nwse-resize;
+}
+.crop-handle.ne {
+  right: -4px;
+  top: -4px;
+  cursor: nesw-resize;
+}
+.crop-handle.sw {
+  left: -4px;
+  bottom: -4px;
+  cursor: nesw-resize;
+}
+.crop-handle.se {
+  right: -4px;
+  bottom: -4px;
+  cursor: nwse-resize;
+}
+.preset-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 12px;
+}
+.preset-buttons button {
+  font-size: 11px;
+  min-height: 27px;
+}
+button[aria-pressed='true'] {
+  color: var(--primary-color);
+  background: var(--bg-accent-light);
+  border-color: var(--primary-color);
+}
+.control-label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+.media-preview {
+  flex: none;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 8px;
+  margin-bottom: 7px;
+  min-width: 0;
+  max-height: 62%;
+  overflow: auto;
+}
+.preview-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 5px;
+  font-size: 12px;
+}
+.preview-heading button {
+  font-size: 11px;
+  min-height: 25px;
+  padding: 2px 6px;
+}
+.preview-media {
+  display: block;
+  width: 100%;
+  height: 170px;
+  object-fit: contain;
+  background: var(--bg-hover);
+  border-radius: 6px;
+}
+.preview-caption {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 5px;
+  overflow-wrap: anywhere;
+  max-height: 46px;
+  overflow: auto;
+}
+.media-preview p {
+  margin: 4px 0 0;
+  font-size: 10px;
+}
+.timeline {
+  display: flex;
+  flex-direction: column;
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+.timeline input {
+  width: 100%;
+  margin: 0;
+}
+.time-marks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-size: 11px;
+}
+.time-marks button {
+  font-size: 10px;
+  padding: 2px 4px;
+  min-height: 25px;
+}
+.time-marks span {
+  width: 100%;
+  color: var(--text-secondary);
 }
 .media-queue {
   min-width: 0;

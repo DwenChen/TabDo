@@ -3,6 +3,7 @@ const path = require('node:path')
 const { number, ffmpeg, videoInfo } = require('./engine.cjs')
 const { watermark } = require('./images.cjs')
 const sharp = require('./dependencies.cjs')('sharp')
+const { pixelCrop } = require('./crop.cjs')
 
 /**
  * 将任意有界倍速拆为兼容的 atempo 链。
@@ -68,10 +69,25 @@ async function auxiliary(file, allowed) {
  * @param {object} p 参数。
  * @param {string} folder 本次暂存目录。
  * @param {AbortSignal} signal 取消信号。
+ * @param {boolean} preview 是否仅渲染当前操作的一帧效果图。
  * @returns {Promise<string>} 完整结果或帧目录。
  * @throws {Error} 参数、编码或取消失败时抛出。
  */
-async function transformVideo(item, mode, p, folder, signal) {
+async function transformVideo(item, mode, p, folder, signal, preview = false) {
+  // 静态预览复用真实视频滤镜，只输出一帧且限制显示尺寸。
+  if (preview) {
+    if (['crop', 'resize', 'rotate', 'flip', 'watermark'].includes(mode)) {
+      // 几何与水印继续复用下方的生产参数构造。
+    } else {
+      const output = path.join(folder, 'preview.png')
+      const time = number(p.previewTime ?? p.start, 0, 0, Math.max(0, item.duration - 0.01))
+      await ffmpeg(
+        ['-ss', String(time), '-i', item.path, '-frames:v', '1', '-vf', 'scale=960:-2', output],
+        signal
+      )
+      return output
+    }
+  }
   const args = [],
     filters = []
   let ext = 'mp4',
@@ -80,6 +96,8 @@ async function transformVideo(item, mode, p, folder, signal) {
     const start = number(p.start, 0, 0, item.duration)
     if (start) args.push('-ss', String(start))
   }
+  if (preview)
+    args.push('-ss', String(number(p.previewTime, 0, 0, Math.max(0, item.duration - 0.01))))
   args.push('-i', item.path)
   if (['cut', 'gif', 'audio'].includes(mode) && p.duration !== '' && p.duration != null)
     args.push('-t', String(number(p.duration, item.duration, 0.01, item.duration)))
@@ -94,14 +112,19 @@ async function transformVideo(item, mode, p, folder, signal) {
     )
   else if (mode === 'cut') args.push('-c:v', 'libx264', '-preset', 'veryfast')
   else if (mode === 'crop') {
-    const ratio = String(p.ratio || '16:9').match(/^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/)
-    if (!ratio) throw new Error('请填写宽高比，例如 16:9')
-    const value = number(ratio[1], 16, 0.01, 1000) / number(ratio[2], 9, 0.01, 1000)
-    filters.push(
-      item.width / item.height > value
-        ? `crop=trunc(ih*${value}/2)*2:ih`
-        : `crop=iw:trunc(iw/${value}/2)*2`
-    )
+    if (p.region) {
+      const rect = pixelCrop(item.width, item.height, p, 2)
+      filters.push(`crop=${rect.width}:${rect.height}:${rect.left}:${rect.top}`)
+    } else {
+      const ratio = String(p.ratio || '16:9').match(/^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/)
+      if (!ratio) throw new Error('请填写宽高比，例如 16:9')
+      const value = number(ratio[1], 16, 0.01, 1000) / number(ratio[2], 9, 0.01, 1000)
+      filters.push(
+        item.width / item.height > value
+          ? `crop=trunc(ih*${value}/2)*2:ih`
+          : `crop=iw:trunc(iw/${value}/2)*2`
+      )
+    }
   } else if (mode === 'convert') {
     ext = ['mp4', 'mkv', 'mov', 'webm', 'avi', 'flv', 'wmv'].includes(p.format) ? p.format : 'mp4'
     args.push(
@@ -112,7 +135,20 @@ async function transformVideo(item, mode, p, folder, signal) {
     const width = p.width === '' ? -2 : Math.round(number(p.width, -2, 2, 8192) / 2) * 2,
       height = p.height === '' ? -2 : Math.round(number(p.height, -2, 2, 8192) / 2) * 2
     if (width === -2 && height === -2) throw new Error('至少填写宽度或高度')
-    filters.push(`scale=${width}:${height}`)
+    if (width > 0 && height > 0 && p.fit !== 'fill') {
+      const background = /^#[\da-f]{6}$/i.test(p.background || '')
+        ? '0x' + p.background.slice(1)
+        : 'white'
+      if (p.fit === 'cover')
+        filters.push(
+          `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}`
+        )
+      else if (p.fit === 'contain')
+        filters.push(
+          `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:${background}`
+        )
+      else filters.push(`scale=${width}:${height}:force_original_aspect_ratio=decrease`)
+    } else filters.push(`scale=${width}:${height}`)
   } else if (mode === 'speed') {
     const speed = number(p.speed, 2, 0.1, 16)
     filters.push(`setpts=PTS/${speed}`)
@@ -228,6 +264,14 @@ async function transformVideo(item, mode, p, folder, signal) {
     return output
   } else throw new Error('不支持的视频操作')
   if (filters.length) args.push('-vf', filters.join(','))
+  if (preview) {
+    const output = path.join(folder, 'preview.png')
+    // 预览沿用几何和 overlay 滤镜，移除音轨输出以免额外编码。
+    const mapAudio = args.indexOf('0:a?')
+    if (mapAudio >= 0) args.splice(mapAudio - 1, 2)
+    await ffmpeg([...args, '-frames:v', '1', '-an', output], signal)
+    return output
+  }
   if (!['gif', 'thumbnail'].includes(mode) && !args.includes('-c:v'))
     args.push('-c:v', 'libx264', '-preset', 'veryfast')
   if (!audio) args.push('-an')

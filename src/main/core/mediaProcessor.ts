@@ -41,7 +41,7 @@ const modes = {
 interface Request {
   id: string
   media: 'image' | 'video'
-  action: 'inspect' | 'process'
+  action: 'inspect' | 'process' | 'preview'
   files: string[]
   mode?: string
   params?: Record<string, unknown>
@@ -68,7 +68,7 @@ export async function runMedia(
     !request ||
     !/^[\w-]{1,80}$/.test(request.id) ||
     !['image', 'video'].includes(request.media) ||
-    !['inspect', 'process'].includes(request.action) ||
+    !['inspect', 'process', 'preview'].includes(request.action) ||
     !Array.isArray(request.files) ||
     request.files.length > 1000 ||
     request.files.some(
@@ -79,7 +79,7 @@ export async function runMedia(
   )
     throw new Error('媒体任务参数无效')
   if (
-    request.action === 'process' &&
+    request.action !== 'inspect' &&
     (!modes[request.media].includes(request.mode || '') ||
       (request.output && !path.isAbsolute(request.output)) ||
       (request.outputMode && !['source', 'custom'].includes(request.outputMode)))
@@ -130,7 +130,10 @@ export async function runMedia(
   }
   sender?.once('destroyed', cancel)
   controller.signal.addEventListener('abort', stopChild, { once: true })
-  const deadline = setTimeout(cancel, request.action === 'inspect' ? 120000 : 600000)
+  const deadline = setTimeout(
+    cancel,
+    request.action === 'process' ? 600000 : request.action === 'preview' ? 30000 : 120000
+  )
   try {
     const output =
       request.action === 'process'
@@ -217,6 +220,7 @@ export async function runMedia(
           )
       }
     }
+    const inspected: object[] = []
     let result: object[] | undefined,
       failure = '',
       diagnostic = ''
@@ -249,8 +253,13 @@ export async function runMedia(
         message?: string
       }) => {
         if (value.type === 'output-stage') void prepareOutput(value)
-        else if (value.type === 'result') result = value.items?.map(normalize)
-        else if (value.type === 'error') failure = value.message || '处理失败'
+        else if (value.type === 'result')
+          result = request.action === 'inspect' ? inspected : value.items?.map(normalize)
+        else if (value.type === 'inspected' && value.item) {
+          const item = normalize(value.item)
+          inspected.push(item)
+          if (!controller.signal.aborted) progress({ type: 'inspected', item })
+        } else if (value.type === 'error') failure = value.message || '处理失败'
         else if (!controller.signal.aborted)
           progress(value.item ? { ...value, item: normalize(value.item) } : value)
       }
@@ -270,7 +279,12 @@ export async function runMedia(
     if (controller.signal.aborted) stopChild()
     await childClosed
     if (controller.signal.aborted) throw new Error('媒体任务已取消或超时，已完成的输出保留')
-    if (failure || !result) throw new Error(failure || diagnostic || '媒体进程意外结束')
+    if (failure || !result)
+      throw new Error(
+        failure ||
+          diagnostic ||
+          `媒体进程意外结束（退出 ${current.exitCode ?? current.signalCode ?? '未知'}）`
+      )
     return result
   } finally {
     // 只有进程链结束后才清理本次 mkdtemp 目录，永不清理用户输出目录或源文件。
