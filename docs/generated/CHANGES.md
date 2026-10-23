@@ -2,7 +2,7 @@
 
 > 自动生成；原始记录在 [entries](../history/entries/)。
 
-## 2026-10-24 · 准备提交全屏实操教学更新并执行1.1.0发行流程
+## 2026-10-24 · 发布TabDo1.1.0全屏实操教学并核验云端成品
 
 记录：[guide-v110-release](../../docs/history/entries/2026-10-24-01-guide-release.json)；版本：1.1.0。
 
@@ -15,6 +15,15 @@
 - 验证：1.1.0版本候选重新执行pnpm test，107文件729项全部通过，归档.artifacts/runs/2026-10-23T16-19-49-883Z-unit；pnpm build含Node/Web类型检查及设置、工具、宿主编译通过，另行typecheck:setting通过。日志.artifacts/work/guide-redesign/release-unit.log及release-build.log。
 - 验证：提交范围只读审查通过，近期使用引导基础链及重做应完整纳入，无个人资料、配置、已安装插件、日志或构建输出；原创练习素材7份共179894字节。
 - 验证：1.1.0执行preview:sync及test:preview:resources通过，98项程序同步，97程序/236内置资源/1676媒体依赖核验；data与legacy仍空，0份资料前后保持，不启动成品或再次重置。程序回滚副本.artifacts/backups/preview-sync/update-1792772485863/previous-resources。
+- 验证：pnpm maintain、maintain:check及差异检查通过，91个已审查文件经pre-commit提交756ce1df8fc6585b8313055360a53b03678712eb并经pre-push推送main；全新v1.1.0标签经hook单独推送，远端main及标签均核对为该提交。
+- 验证：标签push触发唯一云端运行39986556716，运行SHA与候选一致。普通main推送没有重复派发，未覆盖1.0.0。
+- 验证：云端首轮Node/Web/设置页类型检查通过；单测728通过、Everything原生IPC测试夹具10秒启动超时1项失败，打包和发布未执行。诊断.artifacts/work/guide-release/cloud-failure-summary.json、cloud-failure.log及运行attempt1原始证据保留。相同用例以CI参数本机复验通过，归档.artifacts/runs/2026-10-23T16-28-04-744Z-unit；未改源码或断言，重试失败作业一次，仍为同一SHA和run的attempt2。
+- 验证：云端attempt2构建与发布均成功，Node22/pnpm9.15.9执行107文件729项单测全通过；build job120528911197、publish job120531305903。成功原始日志.artifacts/work/guide-release/cloud-build-success.log；verification（12515104522）和win-x64（12516690830）制品归属同一候选SHA，工作流与制品元数据收据workflow-evidence.json。
+- 验证：v1.1.0于2026-10-24 00:34:22（Asia/Shanghai）正式发布，release ID422076565，非草稿、非预发布；标签与target_commitish均为756ce1df8fc6585b8313055360a53b03678712eb。未移动既有标签或覆盖1.0.0。
+- 验证：四项正式资产全部实际下载到.artifacts/downloads/TabDo-v1.1.0并核对GitHub SHA-256：安装包129338245字节、免安装ZIP176267610字节、blockmap135638字节、latest.yml4719字节；更新清单版本、文件名、大小与SHA-512均匹配。收据.artifacts/work/guide-release/release-verification.json。
+- 验证：ZIP共490个条目（441文件），ASAR3623条；应用与PE版本、安装/更新身份、许可、图标、5项引导物理资源、115个内置public文件及新运行时标记通过静态核验，136项文件比较。源文件按精确发行Git提交及eol规则比较，收据.artifacts/work/guide-release/package-verification-1.1.0.json。私有探针初始Windows ASAR虚拟根分隔符及文件API路径格式已修正；本机LICENSE旧CRLF工作副本与发布LF差异经正文及提交字节核对一致，未改发布资产。
+- 验证：本地预览补充替换已验收云端TabDo.exe，FileVersion1.1.0、ProductVersion1.1.0.0；原exe备份.artifacts/backups/guide-v110-executable/2026-10-23T16-41-42-433Z-79975720。切换前确认退出，data/legacy前后均空且指纹一致；最终test:preview:resources再次通过97程序/236内置/1676媒体依赖。未启动成品，首次欢迎状态保留。
+- 验证：收尾执行pnpm maintain、pnpm maintain:check与git diff --check，通过hooks单独提交推送发行验收记录；v1.1.0保持原云端构建提交。
 
 ## 2026-10-23 · 重做全屏实操教学、剪贴板会话与首次启动选择
 
