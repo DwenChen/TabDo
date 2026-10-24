@@ -19,7 +19,13 @@
 - 验证：pnpm build含Node/Web类型检查、设置与工具构建及宿主编译通过；最后公共脚本注释更新后补跑build:tools。编译仅用于程序交付，E2E均通过源码入口与隔离资料执行。
 - 验证：pnpm preview:sync成功同步1.1.1程序资源，逐文件保留现有113个data/legacy文件，未重置或启动成品；回滚程序资源位于.artifacts/backups/preview-sync/update-1792810847926/previous-resources。
 - 验证：pnpm test:preview:resources通过，预览归档中旧全屏资源与guide-samples均已移除，13个教程资源逐文件与源码一致；收据.artifacts/work/local-tutorial/preview-tutorial.json。
-- 验证：pnpm maintain、maintain:check、usage-guide回归清单与git diff --check通过；已读取当前远端发行列表，v1.1.1尚不存在。后续推送与云端产物核验另行据实追加。
+- 验证：pnpm maintain、maintain:check、usage-guide回归清单与git diff --check通过；已读取当前远端发行列表，v1.1.1尚不存在。推送与云端产物核验已完成，见后续条目。
+- 验证：88个已审阅文件通过pre-commit提交82e23f2613d92a7cace8552caf7851bb530573cf，经pre-push推送main；全新v1.1.1注释标签解引用为同一提交。只以标签push触发一次云端工作流，未移动既有标签或覆盖已发布版本。
+- 验证：云端运行40056793620的build作业120761428146与publish作业120762141094均首次成功；Node22/pnpm9.15.9执行维护校验、两组宿主与设置类型检查、101文件687单测及Windows打包。verification制品12545956643与win-x64制品12545637926归属候选SHA，收据.artifacts/work/local-tutorial/workflow-evidence.json。
+- 验证：v1.1.1于2026-10-24 11:08:38（Asia/Shanghai）正式发布，release ID422482993；非草稿、非预发布，标签解引用与target_commitish均为候选82e23f2613d92a7cace8552caf7851bb530573cf。
+- 验证：四项资产实际下载并全部核对GitHub SHA-256：setup.exe129156440字节、ZIP176079037字节、blockmap135739字节和latest.yml5537字节；更新清单版本1.1.1、所引用安装包文件名、大小与SHA-512一致。收据.artifacts/work/local-tutorial/release-verification.json。
+- 验证：ZIP共491条目、ASAR3617条目；核对应用版本、许可证、更新仓库身份、46项源文件/教程资源及编译教程正文，旧全屏资源与guide-samples为0，不含项目个人资料目录。私有核验脚本的Windows ASAR路径分隔符已规范化后通过，未修改发布产物。收据.artifacts/work/local-tutorial/package-verification.json。
+- 验证：安装包与主exe的FileVersion均1.1.1；云端主exe同步到固定预览前确认退出，原exe已备份，data/legacy共113文件前后路径及SHA-256完全一致。主程序ProductVersion1.1.1.0；再次test:preview:resources通过91程序、244内置、1676媒体依赖核验。未启动成品或重置资料，收据.artifacts/work/local-tutorial/preview-executable.json。
 
 ## 2026-10-24 · 清理历史版本与预览资料备份、下载包和运行缓存
 
