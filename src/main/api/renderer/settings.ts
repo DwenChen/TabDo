@@ -284,9 +284,7 @@ export class SettingsAPI {
       const data = databaseAPI.dbGet('settings-general')
       console.log('[Settings] 加载到的设置:', data)
       // 应用托盘图标显示设置（默认显示，在 if(data) 块外确保首次启动也能创建托盘）
-      windowManager.setTrayIconVisible(
-        process.env.TABDO_USAGE_GUIDE !== '1' && (data?.showTrayIcon ?? true)
-      )
+      windowManager.setTrayIconVisible(data?.showTrayIcon ?? true)
       console.log('[Settings] 启动时应用托盘图标显示设置:', data?.showTrayIcon ?? true)
       dndManager.loadConfig()
 

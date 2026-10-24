@@ -1,6 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import globalInputManager from '../../src/main/core/globalInputManager'
-import databaseAPI from '../../src/main/api/shared/database'
 
 const state = vi.hoisted(() => ({
   trigger: null as (() => { shouldBlock: boolean }) | null,
@@ -131,29 +129,6 @@ beforeEach(async () => {
 afterEach(() => vi.restoreAllMocks())
 
 describe('最近复制匹配跟随配置的超级面板触发键', () => {
-  it('隔离教学临时交接鼠标，拒绝迟到触发并恢复正式配置', async () => {
-    configure('back', 450)
-    const retiredCallback = state.trigger!
-    manager.setGuideInputSuspended(true)
-    expect(state.monitoring).toBe(false)
-    expect(globalInputManager.release).toHaveBeenCalledWith('clipboard-quick-match')
-    expect(globalInputManager.release).toHaveBeenCalledWith('super-panel-dismiss')
-    expect(retiredCallback()).toEqual({ shouldBlock: false })
-    expect(state.recent).not.toHaveBeenCalled()
-    // 暂停期间允许更新期望设置，但不能抢走练习实例的鼠标输入。
-    configure('forward', 0)
-    expect(state.monitoring).toBe(false)
-    vi.mocked(databaseAPI.dbGet).mockReturnValue({
-      superPanelMouseButton: 'forward',
-      superPanelLongPressMs: 0,
-      clipboardQuickMatchSeconds: 8
-    })
-    manager.setGuideInputSuspended(false)
-    expect(state.start).toHaveBeenLastCalledWith('forward', 0, expect.any(Function))
-    await fire()
-    expect(state.recent).toHaveBeenCalledWith(8000)
-  })
-
   it.each(triggerModes)('%s / %dms 无选区时使用有效主动复制内容', async (button, delay) => {
     configure(button, delay)
     expect(state.start).toHaveBeenLastCalledWith(button, delay, expect.any(Function))

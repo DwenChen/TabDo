@@ -102,12 +102,7 @@ const handleConfirm = () => {
 
 <template>
   <div v-if="show" class="dialog-overlay" @click="emit('cancel')">
-    <div
-      ref="dialogContentRef"
-      class="dialog-content"
-      data-guide="clipboard-favorite-dialog"
-      @click.stop
-    >
+    <div ref="dialogContentRef" class="dialog-content" @click.stop>
       <div class="dialog-header">
         <h3>添加收藏</h3>
         <button class="dialog-close" @click="emit('cancel')">✕</button>
@@ -142,9 +137,7 @@ const handleConfirm = () => {
       </div>
       <div class="dialog-footer">
         <button class="btn-cancel" @click="emit('cancel')">取消</button>
-        <button class="btn-confirm" data-guide="clipboard-favorite-confirm" @click="handleConfirm">
-          确定
-        </button>
+        <button class="btn-confirm" @click="handleConfirm">确定</button>
       </div>
     </div>
   </div>

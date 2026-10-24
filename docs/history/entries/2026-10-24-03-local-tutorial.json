@@ -1,0 +1,28 @@
+{
+  "id": "local-illustrated-tutorial",
+  "date": "2026-10-24",
+  "version": "1.1.1",
+  "summary": "彻底移除全屏引导，以12章本地图文教程替代并发布补丁版",
+  "changes": [
+    "按本次用户指示替换不稳定全屏引导，并授权push、云端构建和release；不推导数据重置授权。",
+    "删除全屏教学、隔离子进程、运行资料与样例管理、焦点豁免、模拟提供商和Everything接口及专用资源；首次启动不再自动展示。",
+    "关于页新增本地图文教程入口，旧路由保留为教程页面；12章、70项操作步骤、24条问题说明与12张原创SVG，具备章节目录、全文关键词筛选、上下章及返回。",
+    "保留原配置、旧引导状态及遗留目录、历史和已安装插件，不再主动读取或清理旧练习资料。既有未提交清理记录保持。"
+  ],
+  "checks": [
+    "已检查Git状态与既有清理记录；依次阅读维护、索引、Bug台账、模块与发布要求。按功能链盘点后删除29个全屏引导专用文件、页面标记及模拟服务分支；rg确认运行源码、资源和测试中不再存在旧环境变量、IPC及教学DOM标记。",
+    "Node/Web类型检查、设置插件类型检查通过；相关改动ESLint为0错误（resources/preload.js按仓库配置忽略，另以node --check通过），公共preload及tools-files语法检查通过。",
+    "首次完整单测暴露一条仍调用已删除教学接口的遗留用例，按功能移除后重跑完整pnpm test --maxWorkers=2：101文件687项全部通过，归档.artifacts/runs/2026-10-24T02-57-00-595Z-unit。",
+    "首次教程E2E夹具误从插件页调用宿主launch，改为主渲染器真实入口后通过；最终pnpm test:e2e运行local-tutorial、settings-cleanup与native-shutdown三项全部通过，归档.artifacts/runs/2026-10-24T02-58-23-058Z-e2e。",
+    "源码E2E从真实设置关于入口读取全部12章与插图，阻断外网后检查目录、全文关键词筛选、空结果、翻页、返回和明暗截图；新资料与带旧引导标记重启均无全屏或练习目录，旧状态、显式空固定列表、数据库与插件文件哨兵保留。未把源码服务请求视为离线成品执行。",
+    "pnpm build含Node/Web类型检查、设置与工具构建及宿主编译通过；最后公共脚本注释更新后补跑build:tools。编译仅用于程序交付，E2E均通过源码入口与隔离资料执行。",
+    "pnpm preview:sync成功同步1.1.1程序资源，逐文件保留现有113个data/legacy文件，未重置或启动成品；回滚程序资源位于.artifacts/backups/preview-sync/update-1792810847926/previous-resources。",
+    "pnpm test:preview:resources通过，预览归档中旧全屏资源与guide-samples均已移除，13个教程资源逐文件与源码一致；收据.artifacts/work/local-tutorial/preview-tutorial.json。",
+    "pnpm maintain、maintain:check、usage-guide回归清单与git diff --check通过；已读取当前远端发行列表，v1.1.1尚不存在。后续推送与云端产物核验另行据实追加。"
+  ],
+  "pending": [
+    "声音、多屏、其他DPI、原生材质最终观感与安装升级保留设备人工验收。",
+    "push、云端构建、正式Release与全部产物核验待完成。"
+  ],
+  "preview": "1.1.1程序资源已同步，113个既有data/legacy文件逐文件保留；13项教程资源与源码一致，旧全屏资源已不在程序包。未重置或启动成品。云端版本exe待验收后同步。"
+}

@@ -12,7 +12,6 @@ const query = ref(props.action.type === 'over' ? props.action.payload : ''),
   regex = ref(false),
   matchCase = ref(false)
 const instance = ref(window.tabdo.dbStorage.getItem('everything-instance') || '')
-const demo = ref(false)
 const state = ref('checking'),
   message = ref('正在检测本地 Everything…'),
   executable = ref(''),
@@ -112,7 +111,6 @@ async function search(append = false) {
       })
     if (disposed || request !== version) return
     state.value = result.state
-    demo.value = result.demo === true
     executable.value = result.executable || ''
     const messages = {
       ready: `共 ${result.total || 0} 条结果`,
@@ -455,9 +453,6 @@ onMounted(async () => {
 </script>
 <template>
   <div class="search-workspace" @keydown="keydown">
-    <p v-if="demo" class="demo-notice" role="status">
-      教学演示 · Everything 接口模拟，仅搜索本次桌面练习目录，无须安装或启动 Everything。
-    </p>
     <main
       ref="shell"
       class="finder-shell"
@@ -674,15 +669,6 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.demo-notice {
-  flex: 0 0 auto;
-  margin: 0;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border-color);
-  font-size: 12px;
-  line-height: 1.6;
-  color: var(--text-secondary);
-}
 /* Finder/index.vue */
 
 .finder-shell {

@@ -8,7 +8,6 @@ const props = defineProps({ action: { type: Object, required: true } })
 const mode = ref(props.action.code === 'latex-recognize' ? 'formula' : 'ocr')
 const api = window.tabdo.internal.providers
 const capabilities = ref([])
-const demo = ref(false)
 const configuration = ref({ enabled: {}, defaultId: {}, params: {} })
 const selected = ref('')
 const translator = ref('')
@@ -96,7 +95,6 @@ async function refresh() {
     api.getAll('ocr')
   ])
   if (disposed || version !== refreshVersion) return
-  demo.value = state.demo === true
   capabilities.value = [
     ...state.capabilities,
     ...[...(translations.data || []), ...(ocrs.data || [])]
@@ -437,13 +435,9 @@ onMounted(async () => {
 <template>
   <div
     class="provider-tools"
-    :class="{ 'is-demo': demo }"
     @dragover.prevent
     @drop.prevent="readImage($event.dataTransfer.files[0])"
   >
-    <p v-if="demo" class="demo-notice" role="status">
-      教学演示 · 后台返回固定样例，当前图片未进行真实识别，无须安装模型或填写密钥。
-    </p>
     <div class="recognition-stage">
       <section class="pane pane-image" aria-label="识别图片">
         <div class="pane-heading">
@@ -641,25 +635,6 @@ onMounted(async () => {
   </div>
 </template>
 <style scoped>
-.provider-tools.is-demo {
-  display: flex;
-  flex-direction: column;
-}
-.provider-tools.is-demo .recognition-stage {
-  flex: 1;
-  height: auto;
-  min-height: 0;
-}
-.demo-notice {
-  flex: 0 0 auto;
-  margin: 0 0 10px;
-  padding: 8px 10px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  font-size: 12px;
-  line-height: 1.6;
-  color: var(--text-secondary);
-}
 .provider-tools {
   height: 100vh;
   width: 100%;

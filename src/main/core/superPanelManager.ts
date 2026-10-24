@@ -75,7 +75,6 @@ class SuperPanelManager {
   private searchRequestId = 0
   private activeSearchRequestId: number | null = null
   private translationController: AbortController | null = null
-  private guideInputSuspended = false
   private config: SuperPanelConfig = {
     enabled: true,
     mouseButton: 'middle',
@@ -102,27 +101,6 @@ class SuperPanelManager {
       globalInputManager.release('clipboard-quick-match')
       globalInputManager.release('super-panel-dismiss')
     })
-  }
-
-  /**
-   * 将鼠标教学的触发权临时交给所属练习实例，退出后恢复当前配置。
-   * @param suspended 是否暂停本实例的面板鼠标输入。
-   * @returns 无返回值；不修改持久设置，也不停止全局剪贴板采集。
-   */
-  setGuideInputSuspended(suspended: boolean): void {
-    if (this.guideInputSuspended === suspended) return
-    this.guideInputSuspended = suspended
-    // 取消已排队的选区捕获，防止旧实例的异步结果抢回教学窗口。
-    this.hideWindow()
-    if (suspended) {
-      this.stopMonitor()
-      globalInputManager.release('clipboard-quick-match')
-      globalInputManager.release('super-panel-dismiss')
-      return
-    }
-    this.loadConfig()
-    this.updateClipboardQuickMatch(this.clipboardQuickMatchSeconds)
-    this.setupOutsideDismiss()
   }
 
   /**
@@ -185,7 +163,7 @@ class SuperPanelManager {
     this.clipboardQuickMatchSeconds = Number.isFinite(seconds)
       ? Math.max(0, Math.min(300, Math.round(seconds)))
       : 5
-    if (this.guideInputSuspended || !this.clipboardQuickMatchSeconds) return
+    if (!this.clipboardQuickMatchSeconds) return
     if (
       this.config.enabled &&
       this.config.mouseButton === 'middle' &&
@@ -215,7 +193,6 @@ class SuperPanelManager {
    * @returns 显示匹配面板时拦截原始中键；过期或屏蔽窗口时返回 false。
    */
   private onRecentClipboardTrigger(): MouseMonitorResult {
-    if (this.guideInputSuspended) return { shouldBlock: false }
     try {
       const copied = clipboardManager.getRecentCopiedContent(this.clipboardQuickMatchSeconds * 1000)
       const content = this.convertLastCopiedContent(copied)
@@ -350,11 +327,10 @@ class SuperPanelManager {
   }
 
   /**
-   * 在本实例持有触发权时启动鼠标监听，教学交接期间保持暂停。
+   * 按当前配置启动本实例的鼠标监听。
    * @returns 无返回值；原生注册失败只记录诊断。
    */
   private startMonitor(): void {
-    if (this.guideInputSuspended) return
     // 先停止已有的监听
     if (MouseMonitor.isMonitoring) {
       MouseMonitor.stop()
@@ -425,7 +401,6 @@ class SuperPanelManager {
    * @returns 是否拦截原始鼠标事件。
    */
   private onMouseTrigger(): MouseMonitorResult {
-    if (this.guideInputSuspended) return { shouldBlock: false }
     try {
       // 1. 记录鼠标位置
       const cursorPoint = screen.getCursorScreenPoint()
@@ -578,9 +553,6 @@ class SuperPanelManager {
     }
 
     const win = new BrowserWindow(windowConfig)
-
-    // 真实面板须位于教学工具上方，覆盖层仍负责提示和透明镂空。
-    if (process.env.TABDO_USAGE_GUIDE === '1') win.setAlwaysOnTop(true, 'pop-up-menu')
 
     // macOS: 不在 Dock 中显示。跳过进程类型变换，避免异步变换在面板显示后隐藏/重排窗口。
     if (process.platform === 'darwin') {

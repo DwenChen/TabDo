@@ -6,81 +6,7 @@ window.toolsLifecycle = lifecycle
 const { clipboard, webUtils, ipcRenderer } = require('electron')
 const { readImage, createFilesBridge } = require('./tools-files.cjs')
 const { pathToFileURL } = require('node:url')
-// 仅保存用户真实确认的导入文件身份；弱引用随 File 和所属文档一起释放。
-const guideSelectedFilePaths = new WeakMap()
 window.toolsFiles = createFilesBridge(lifecycle)
-// HTML 图片选择框也遵循本次临时桌面位置，正式工具继续使用浏览器原行为。
-if (process.env.TABDO_USAGE_GUIDE === '1') {
-  const fs = require('node:fs/promises'),
-    path = require('node:path')
-  let selectingGuideFile = false
-  let guideFileInputStopped = false
-  /**
-   * 用真实系统文件对话框为图片输入选择桌面样例，不自动代替用户选择文件。
-   * @param {MouseEvent} event 文件输入点击事件。
-   * @returns {Promise<void>} 用户选择与文件交付结束后的 Promise。
-   */
-  const chooseGuideFile = async (event) => {
-    const input = event.target
-    if (
-      !(input instanceof HTMLInputElement) ||
-      input.type !== 'file' ||
-      !input.accept.includes('image')
-    )
-      return
-    event.preventDefault()
-    event.stopImmediatePropagation()
-    // 重复点击只保留当前真实选择；退出后的旧文档不得再弹出新对话框。
-    if (selectingGuideFile || guideFileInputStopped || lifecycle.signal.aborted) return
-    selectingGuideFile = true
-    try {
-      const paths = window.tabdo.showOpenDialog({
-        defaultPath: window.tabdo.getPath('desktop'),
-        properties: input.multiple ? ['openFile', 'multiSelections'] : ['openFile'],
-        filters: [{ name: '练习图片', extensions: ['png', 'jpg', 'jpeg', 'webp', 'bmp'] }]
-      })
-      if (!paths?.length || guideFileInputStopped || lifecycle.signal.aborted || !input.isConnected)
-        return
-      const transfer = new DataTransfer()
-      let total = 0
-      for (const file of paths.slice(0, 20)) {
-        const stat = await fs.stat(file)
-        total += stat.size
-        if (!stat.isFile() || stat.size > 50 * 1024 * 1024 || total > 100 * 1024 * 1024)
-          throw new Error('请选择小于 50MB、合计不超过 100MB 的图片文件')
-        // 前台导入跟随本会话取消，用户选图不会创建退出保活任务。
-        if (guideFileInputStopped || lifecycle.signal.aborted || !input.isConnected) return
-        const bytes = await fs.readFile(file, { signal: lifecycle.signal })
-        if (guideFileInputStopped || lifecycle.signal.aborted || !input.isConnected) return
-        const extension = path.extname(file).toLowerCase()
-        transfer.items.add(
-          new File([bytes], path.basename(file), {
-            type:
-              extension === '.jpg' || extension === '.jpeg'
-                ? 'image/jpeg'
-                : 'image/' + extension.slice(1)
-          })
-        )
-      }
-      input.files = transfer.files
-      // JS File 没有 Chromium 原生路径；把实际 FileList 身份关联到真实选择路径。
-      for (let index = 0; index < input.files.length; index++)
-        guideSelectedFilePaths.set(input.files[index], paths[index])
-      input.dispatchEvent(new Event('change', { bubbles: true }))
-    } catch (error) {
-      if (!guideFileInputStopped && !lifecycle.signal.aborted)
-        console.warn('选择练习图片失败:', error)
-    } finally {
-      // 选择、取消和读取失败均释放当前请求，下一次点击可以重新选同一文件。
-      selectingGuideFile = false
-    }
-  }
-  window.addEventListener('click', chooseGuideFile, true)
-  lifecycle.addCleanup(() => {
-    guideFileInputStopped = true
-    window.removeEventListener('click', chooseGuideFile, true)
-  })
-}
 window.toolsMedia = {
   /**
    * 在独立进程执行读图或已登记的媒体批次，所属监听随请求结束释放。
@@ -211,12 +137,12 @@ window.toolsProvider = {
     return image.isEmpty() || clipboard.readText().trim() ? '' : image.toDataURL()
   },
   /**
-   * 获取拖入或教学选择器明确导入的本地文件路径，正式原生 File 仍交由 Electron 解析。
+   * 通过 Electron 获取用户拖入或选择的原生 File 对应的本地文件路径。
    * @param {File} file 用户选择的文件对象。
    * @returns {string} 文件的本地绝对路径。
    */
   filePath(file) {
-    return guideSelectedFilePaths.get(file) || webUtils.getPathForFile(file)
+    return webUtils.getPathForFile(file)
   },
   /**
    * 读取宿主传入的图片路径，为页面提供可显示的 data URI。

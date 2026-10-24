@@ -16,9 +16,9 @@
 
 ## 自动化测试文件
 
-共 136 个文件；文件数不等于用例数，通过状态以每轮变更记录为准。
+共 129 个文件；文件数不等于用例数，通过状态以每轮变更记录为准。
 
-### tests/main（98）
+### tests/main（92）
 
 - [tests/main/aiChatEventBatcher.test.ts](../../tests/main/aiChatEventBatcher.test.ts)
 - [tests/main/aiChatTransport.test.ts](../../tests/main/aiChatTransport.test.ts)
@@ -101,12 +101,6 @@
 - [tests/main/toolsRenameRules.test.ts](../../tests/main/toolsRenameRules.test.ts)
 - [tests/main/updateSource.test.ts](../../tests/main/updateSource.test.ts)
 - [tests/main/updaterWindow.test.ts](../../tests/main/updaterWindow.test.ts)
-- [tests/main/usageGuide.test.ts](../../tests/main/usageGuide.test.ts)
-- [tests/main/usageGuideDemo.test.ts](../../tests/main/usageGuideDemo.test.ts)
-- [tests/main/usageGuideFileInput.test.ts](../../tests/main/usageGuideFileInput.test.ts)
-- [tests/main/usageGuideFocus.test.ts](../../tests/main/usageGuideFocus.test.ts)
-- [tests/main/usageGuideRuntime.test.ts](../../tests/main/usageGuideRuntime.test.ts)
-- [tests/main/usageGuideVerification.test.ts](../../tests/main/usageGuideVerification.test.ts)
 - [tests/main/uwpCache.test.ts](../../tests/main/uwpCache.test.ts)
 - [tests/main/viewRepaint.test.ts](../../tests/main/viewRepaint.test.ts)
 - [tests/main/webQuickOpen.test.ts](../../tests/main/webQuickOpen.test.ts)
@@ -134,7 +128,7 @@
 - [tests/scripts/projectMaintenance.test.ts](../../tests/scripts/projectMaintenance.test.ts)
 - [tests/scripts/updateMetadata.test.ts](../../tests/scripts/updateMetadata.test.ts)
 
-### tests/e2e（29）
+### tests/e2e（28）
 
 - [tests/e2e/builtin-models.spec.ts](../../tests/e2e/builtin-models.spec.ts)
 - [tests/e2e/builtin-providers.spec.ts](../../tests/e2e/builtin-providers.spec.ts)
@@ -142,6 +136,7 @@
 - [tests/e2e/floating-pointer.spec.ts](../../tests/e2e/floating-pointer.spec.ts)
 - [tests/e2e/lens-browser-upload.spec.ts](../../tests/e2e/lens-browser-upload.spec.ts)
 - [tests/e2e/local-edition.spec.ts](../../tests/e2e/local-edition.spec.ts)
+- [tests/e2e/local-tutorial.spec.ts](../../tests/e2e/local-tutorial.spec.ts)
 - [tests/e2e/media-batch.spec.ts](../../tests/e2e/media-batch.spec.ts)
 - [tests/e2e/native-shutdown.spec.ts](../../tests/e2e/native-shutdown.spec.ts)
 - [tests/e2e/overlay-surfaces.spec.ts](../../tests/e2e/overlay-surfaces.spec.ts)
@@ -163,12 +158,10 @@
 - [tests/e2e/tools-polish.spec.ts](../../tests/e2e/tools-polish.spec.ts)
 - [tests/e2e/tools-recorder-web.spec.ts](../../tests/e2e/tools-recorder-web.spec.ts)
 - [tests/e2e/tools-screenshot.spec.ts](../../tests/e2e/tools-screenshot.spec.ts)
-- [tests/e2e/usage-guide-startup.spec.ts](../../tests/e2e/usage-guide-startup.spec.ts)
-- [tests/e2e/usage-guide.spec.ts](../../tests/e2e/usage-guide.spec.ts)
 
 ## 历史回归分组
 
-- `usage-guide`：12 个单测文件、3 个源码 E2E 文件。
+- `usage-guide`：6 个单测文件、2 个源码 E2E 文件。
 - `performance`：11 个单测文件、8 个源码 E2E 文件。
 - `recorder-web`：6 个单测文件、6 个源码 E2E 文件。
 - `tools-expanded`：5 个单测文件、3 个源码 E2E 文件。

@@ -15,7 +15,6 @@ const emit = defineEmits(['update:activeTab'])
       v-for="tab in TAB_DEFINITIONS"
       :key="tab.key"
       class="tab-item"
-      :data-guide="`clipboard-tab-${tab.key}`"
       :class="{ active: activeTab === tab.key }"
       @click="emit('update:activeTab', tab.key)"
     >

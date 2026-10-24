@@ -36,8 +36,6 @@ import {
   type CommandAliasStore
 } from '@shared/commandShared'
 import { normalizeSearchWallpaperConfig, type SearchWallpaperConfig } from '@shared/searchWallpaper'
-import { handleUsageGuide } from '../../core/usageGuide'
-import { searchUsageGuideDemo } from '../../core/usageGuideDemo'
 
 /**
  * 权限错误类
@@ -96,13 +94,6 @@ export class InternalPluginAPI {
    * @returns 无返回值
    */
   private setupIPC(): void {
-    ipcMain.handle('internal:usage-guide', (event, action, code) =>
-      handleUsageGuide(event, this.pluginManager!, action, code)
-    )
-    ipcMain.handle('internal:usage-guide-demo-search', (event, request) => {
-      this.requireTools(event)
-      return searchUsageGuideDemo(event.sender, request)
-    })
     ipcMain.handle('internal:tools-media', (event, request) => {
       this.requireTools(event)
       return runMedia(event.sender.id, request, (value) => {

@@ -1,22 +1,15 @@
 {
   "usage-guide": {
     "unit": [
-      "tests/main/usageGuide.test.ts",
-      "tests/main/usageGuideVerification.test.ts",
-      "tests/main/usageGuideRuntime.test.ts",
-    "tests/main/usageGuideFocus.test.ts",
-      "tests/main/usageGuideFileInput.test.ts",
       "tests/main/pluginDialogGetPath.test.ts",
       "tests/main/superPanelClipboardTrigger.test.ts",
-      "tests/main/usageGuideDemo.test.ts",
       "tests/main/builtinProviderService.test.ts",
       "tests/main/viewRepaint.test.ts",
       "tests/scripts/portablePreviewResources.test.ts",
       "tests/main/internalPluginDefaults.test.ts"
     ],
     "e2e": [
-      "tests/e2e/usage-guide.spec.ts",
-      "tests/e2e/usage-guide-startup.spec.ts",
+      "tests/e2e/local-tutorial.spec.ts",
       "tests/e2e/settings-cleanup.spec.ts"
     ]
   },

@@ -1,6 +1,8 @@
 const electron = require('electron')
 const runtimePath = require('node:path')
-const runtimeFile = require('node:fs').existsSync(runtimePath.join(__dirname, 'plugin-lifecycle.cjs'))
+const runtimeFile = require('node:fs').existsSync(
+  runtimePath.join(__dirname, 'plugin-lifecycle.cjs')
+)
   ? runtimePath.join(__dirname, 'plugin-lifecycle.cjs')
   : runtimePath.join(process.resourcesPath, 'app.asar.unpacked/resources/plugin-lifecycle.cjs')
 const { ToolLifecycle } = require(runtimeFile)
@@ -280,7 +282,9 @@ const osType = electron.ipcRenderer.sendSync('get-os-type')
  * @returns {object} ZBrowserClient 实例（带 run 方法）
  */
 function createZBrowserClient() {
-  const { ZBrowserClient } = require(runtimePath.join(runtimePath.dirname(runtimeFile), 'zbrowser/client'))
+  const { ZBrowserClient } = require(
+    runtimePath.join(runtimePath.dirname(runtimeFile), 'zbrowser/client')
+  )
   const client = new ZBrowserClient()
   client.run = async function (ubrowserIdOrOptions, options) {
     if (this._queue.length === 0) throw new Error('no actions run')
@@ -774,8 +778,7 @@ window.tabdo = {
   // 获取文件系统图标（返回 base64 Data URL，同步）
   getFileIcon: (filePath) => electron.ipcRenderer.sendSync('get-file-icon', filePath),
   // 插件跳转
-  redirect: (label, payload) =>
-    electron.ipcRenderer.sendSync('tabdo-redirect', { label, payload }),
+  redirect: (label, payload) => electron.ipcRenderer.sendSync('tabdo-redirect', { label, payload }),
   // 跳转到快捷键设置
   redirectHotKeySetting: (cmdLabel) =>
     electron.ipcRenderer.sendSync('tabdo-redirect-hotkey-setting', cmdLabel),
@@ -991,8 +994,6 @@ window.tabdo = {
      * @param {string} [code] 可选练习功能码。
      * @returns {Promise<object>} 引导状态或操作结果。
      */
-    usageGuide: async (action, code) =>
-      electron.ipcRenderer.invoke('internal:usage-guide', action, code),
     // ==================== 数据库 API (ZTOOLS/ 命名空间) ====================
     dbPut: async (key, value) => await electron.ipcRenderer.invoke('internal:db-put', key, value),
     backupRun: async (action) => electron.ipcRenderer.invoke('internal:backup-run', action),

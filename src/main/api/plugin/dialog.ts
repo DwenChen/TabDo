@@ -1,6 +1,5 @@
 import { ipcMain, dialog, app } from 'electron'
 import fs from 'fs'
-import path from 'node:path'
 import type { PluginManager } from '../../managers/pluginManager'
 import detachedWindowManager from '../../core/detachedWindowManager'
 import pluginWindowManager from '../../core/pluginWindowManager'
@@ -53,7 +52,7 @@ export class PluginDialogAPI {
   }
 
   /**
-   * 注册受限路径及原生文件对话框入口，教学期间为真实模态窗口让出覆盖层。
+   * 注册受限路径及原生文件对话框入口，并在对话框存活期间抑制失焦隐藏。
    * @returns 无返回值；注册的处理器由应用 IPC 生命周期持有。
    */
   private setupIPC(): void {
@@ -128,9 +127,6 @@ export class PluginDialogAPI {
     // 显示文件保存对话框
     ipcMain.on('show-save-dialog', (event, options: any) => {
       try {
-        // 仅练习实例临时定位到桌面专属目录，正式实例保留全部原默认值。
-        if (process.env.TABDO_USAGE_GUIDE === '1')
-          options = { ...options, defaultPath: pathForGuideDialog(options?.defaultPath) }
         // 判断插件是在主窗口还是分离窗口
         const targetWindow =
           detachedWindowManager.getWindowByPluginWebContents(event.sender.id) || this.mainWindow
@@ -139,11 +135,9 @@ export class PluginDialogAPI {
           event.returnValue = undefined
           return
         }
-        // 展示前让出教学覆盖层，取消和异常均由包装器恢复；正式实例保持原行为。
+        // 原生对话框存活期间抑制失焦隐藏，保留真实选择和取消结果。
         windowManager
-          .withBlurHideSuppressed(() =>
-            runPluginNativeDialog(() => dialog.showSaveDialog(targetWindow, options))
-          )
+          .withBlurHideSuppressed(() => dialog.showSaveDialog(targetWindow, options))
           .then((data: Electron.SaveDialogReturnValue) => {
             event.returnValue = data.canceled ? undefined : data.filePath
           })
@@ -160,8 +154,6 @@ export class PluginDialogAPI {
     // 显示文件打开对话框
     ipcMain.on('show-open-dialog', (event, options: Electron.OpenDialogSyncOptions) => {
       try {
-        if (process.env.TABDO_USAGE_GUIDE === '1')
-          options = { ...options, defaultPath: app.getPath('desktop') }
         // 判断插件是在主窗口还是分离窗口
         const targetWindow =
           detachedWindowManager.getWindowByPluginWebContents(event.sender.id) || this.mainWindow
@@ -170,11 +162,9 @@ export class PluginDialogAPI {
           event.returnValue = []
           return
         }
-        // 文件打开与保存共用同一模态边界，避免全屏提示遮住系统选择器。
+        // 文件打开与保存共用同一模态边界，避免选择过程中隐藏所属窗口。
         windowManager
-          .withBlurHideSuppressed(() =>
-            runPluginNativeDialog(() => dialog.showOpenDialog(targetWindow, options))
-          )
+          .withBlurHideSuppressed(() => dialog.showOpenDialog(targetWindow, options))
           .then((data: Electron.OpenDialogReturnValue) => {
             event.returnValue = data.canceled ? [] : data.filePaths
           })
@@ -191,26 +181,3 @@ export class PluginDialogAPI {
 }
 
 export default new PluginDialogAPI()
-
-/**
- * 只在隔离教学实际打开对话框时加载覆盖层协作，避免正式 API 初始化循环依赖。
- * @param operation 已解析好所属窗口的真实对话框调用。
- * @returns 用户实际选择或取消的结果。
- * @throws 教学协作或原生对话框失败时透传错误。
- */
-async function runPluginNativeDialog<T>(operation: () => Promise<T>): Promise<T> {
-  if (process.env.TABDO_USAGE_GUIDE !== '1') return operation()
-  const { withUsageGuideNativeDialog } = await import('../../core/usageGuide')
-  return withUsageGuideNativeDialog(operation)
-}
-
-/**
- * 保留保存文件名，仅把练习对话框的默认父目录临时改为练习输出。
- * @param original 调用方建议的文件名或路径。
- * @returns 本次桌面练习中的默认保存路径。
- */
-function pathForGuideDialog(original?: string): string {
-  return original
-    ? path.join(app.getPath('pictures'), path.basename(original))
-    : app.getPath('pictures')
-}

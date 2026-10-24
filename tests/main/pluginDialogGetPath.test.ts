@@ -6,7 +6,6 @@ const mockGetPath = vi.hoisted(() => vi.fn())
 const mockMkdirSync = vi.hoisted(() => vi.fn())
 const mockOpenDialog = vi.hoisted(() => vi.fn())
 const mockSaveDialog = vi.hoisted(() => vi.fn())
-const mockGuideDialog = vi.hoisted(() => vi.fn((operation: () => Promise<unknown>) => operation()))
 const ipcHandlers = new Map<string, (...args: any[]) => void>()
 
 vi.mock('electron', () => ({
@@ -34,9 +33,6 @@ vi.mock('../../src/main/managers/windowManager', () => ({
 vi.mock('../../src/main/core/pluginWindowManager', () => ({
   default: { getPluginNameByWebContentsId: vi.fn(() => undefined) }
 }))
-vi.mock('../../src/main/core/usageGuide', () => ({
-  withUsageGuideNativeDialog: mockGuideDialog
-}))
 
 import { PluginDialogAPI } from '../../src/main/api/plugin/dialog'
 import { getPluginDataPath } from '../../src/main/core/appData/appDataPaths'
@@ -54,7 +50,6 @@ describe('plugin dialog get-path', () => {
     mockGetPath.mockReset().mockImplementation((name: string) => `/mock/${name}`)
     mockOpenDialog.mockReset()
     mockSaveDialog.mockReset()
-    mockGuideDialog.mockClear()
     vi.mocked(windowManager.withBlurHideSuppressed).mockImplementation((operation) => operation())
   })
 
@@ -98,18 +93,17 @@ describe('plugin dialog get-path', () => {
     expect(event.returnValue).toBe('/mock/home')
   })
 
-  it('open/save use the guide modal boundary and preserve actual selections and cancellations', async () => {
-    vi.stubEnv('TABDO_USAGE_GUIDE', '1')
+  it('open/save suppress blur and preserve actual selections and cancellations', async () => {
     makeApi({ getPluginInfoByWebContents: vi.fn(() => null) })
     const opened = { sender: { id: 7 }, returnValue: null }
     mockOpenDialog.mockResolvedValueOnce({ canceled: false, filePaths: ['/chosen/image.png'] })
     ipcHandlers.get('show-open-dialog')?.(opened, { properties: ['openFile'] })
     await vi.waitFor(() => expect(opened.returnValue).toEqual(['/chosen/image.png']))
-    expect(mockGuideDialog).toHaveBeenCalledOnce()
+    expect(windowManager.withBlurHideSuppressed).toHaveBeenCalledOnce()
     const saved = { sender: { id: 7 }, returnValue: null }
     mockSaveDialog.mockResolvedValueOnce({ canceled: true })
     ipcHandlers.get('show-save-dialog')?.(saved, { defaultPath: '标注.png' })
     await vi.waitFor(() => expect(saved.returnValue).toBeUndefined())
-    expect(mockGuideDialog).toHaveBeenCalledTimes(2)
+    expect(windowManager.withBlurHideSuppressed).toHaveBeenCalledTimes(2)
   })
 })

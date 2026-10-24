@@ -43,11 +43,8 @@ export class UpdaterAPI {
     })
 
     this.setupIPC()
-    // 引导不检查或安装应用更新，避免一次性体验产生新的宿主实例。
-    this.setAutoCheck(
-      process.env.TABDO_USAGE_GUIDE !== '1' &&
-        databaseAPI.dbGet('settings-general')?.autoCheckUpdate !== false
-    )
+    // 按用户保存的自动更新偏好启动检查。
+    this.setAutoCheck(databaseAPI.dbGet('settings-general')?.autoCheckUpdate !== false)
   }
 
   private handleUpdateDownloaded(info: PlatformUpdateInfo, showWindow: boolean): void {

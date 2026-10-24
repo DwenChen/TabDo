@@ -63,7 +63,6 @@ function enabled(entry: BuiltinCapability): boolean {
 function engineText(entry: BuiltinCapability): string {
   const engine = entry.engine && state.value.engines[entry.engine]
   if (!engine) return ''
-  if (engine.demo) return '教学演示：后台接口模拟，无须下载或安装模型'
   if (engine.status === 'downloading')
     return `正在下载${engine.percent === undefined ? '…' : ` ${engine.percent}%`}`
   if (engine.status === 'error') return engine.error || '下载失败，请重试'
@@ -231,9 +230,6 @@ onUnmounted(() => {
           : '配置图片文字与公式识别能力。离线资源按需下载，运行结束后释放引擎。'
       }}
     </p>
-    <p v-if="state.demo" class="demo-notice" role="status">
-      教学演示：开关和参数只用于本次练习。识别、翻译返回固定样例，无须安装模型或填写真实密钥。
-    </p>
     <p v-if="loading">正在加载提供商…</p>
     <section
       v-for="entry in loading ? [] : cards"
@@ -278,7 +274,7 @@ onUnmounted(() => {
           ></label>
         </div>
       </div>
-      <p>{{ state.demo ? '正式使用时：' + entry.description : entry.description }}</p>
+      <p>{{ entry.description }}</p>
       <div v-if="entry.engine" class="engine-state" role="status">
         <span>{{ engineText(entry) }}</span>
         <button
@@ -388,13 +384,6 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-.demo-notice {
-  padding: 10px 12px;
-  border: 1px solid var(--divider-color);
-  border-radius: 8px;
-  line-height: 1.7;
-  color: var(--text-secondary);
-}
 .provider-scroll {
   height: 100%;
   overflow-y: auto;

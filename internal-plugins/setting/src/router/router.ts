@@ -49,7 +49,7 @@ const homeRoutes: MenuRouterItemType[] = [
   {
     path: '/usageGuide',
     name: 'UsageGuide',
-    redirect: { name: 'About', query: { guide: '1' } }
+    component: () => import('@/views/UsageGuide/UsageGuide.vue')
   },
   {
     path: '/plugins',

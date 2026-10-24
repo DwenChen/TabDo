@@ -833,7 +833,7 @@ onMounted(() => {
     <div class="setting-group">
       <h3 class="setting-group-title">超级面板</h3>
 
-      <div class="setting-item" data-guide="panel-trigger">
+      <div class="setting-item">
         <div class="setting-label">
           <span>鼠标按键弹出</span>
           <span class="setting-desc">选择触发超级面板的鼠标按键</span>

@@ -77,27 +77,27 @@ afterEach(async () => {
 })
 
 describe('portable preview runtime resources', () => {
-  it('requires guide HTML, CSS and scripts at their physical sibling paths', async () => {
+  it('requires runtime HTML, CSS and scripts at their physical sibling paths', async () => {
     const files = [
-      'usage-guide.html',
-      'usage-guide.css',
-      'usage-guide-ui.js',
-      'usage-guide-preload.cjs'
+      'runtime-page.html',
+      'runtime-page.css',
+      'runtime-page-ui.js',
+      'runtime-page-preload.cjs'
     ]
-    for (const file of files) await write(project, 'resources/' + file, 'guide fixture ' + file)
+    for (const file of files) await write(project, 'resources/' + file, 'runtime fixture ' + file)
     await archiveFixture(false)
     await expect(verifyPortableResources(project, preview)).rejects.toThrow(
-      'resources/usage-guide.html'
+      'resources/runtime-page.html'
     )
     await archiveFixture()
     expect(await verifyPortableResources(project, preview)).toMatchObject({ programFiles: 8 })
     for (const file of files)
       expect(await fs.readFile(path.join(archive + '.unpacked/resources', file), 'utf8')).toBe(
-        'guide fixture ' + file
+        'runtime fixture ' + file
       )
-    await fs.unlink(path.join(archive + '.unpacked/resources/usage-guide.html'))
+    await fs.unlink(path.join(archive + '.unpacked/resources/runtime-page.html'))
     await expect(verifyPortableResources(project, preview)).rejects.toThrow(
-      'resources/usage-guide.html'
+      'resources/runtime-page.html'
     )
   })
   it('requires recorder executables to be physically unpacked', async () => {

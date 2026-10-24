@@ -288,7 +288,6 @@ onBeforeUnmount(resetDragState)
       v-for="(item, index) in items"
       :key="getItemKey(item, index)"
       class="clipboard-item"
-      data-guide="clipboard-item"
       :data-content="item.type === 'text' ? item.content : undefined"
       :class="{
         selected: selectedItems.has(item),

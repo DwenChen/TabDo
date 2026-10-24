@@ -58,7 +58,7 @@ onMounted(async () => {
     <h1>TabDo</h1>
     <p>v{{ version }}</p>
     <p>围绕超级面板与插件工作流精简的本地工具箱。所有数据由你备份、保管和迁移。</p>
-    <section id="usage-guide-entry"><UsageGuide /></section>
+    <section id="usage-guide-entry"><UsageGuide compact /></section>
     <section>
       <h3>本版项目</h3>
       <p>DwenChen / TabDo</p>
