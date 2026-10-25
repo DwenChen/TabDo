@@ -19,6 +19,15 @@
 - 验证：pnpm build通过，包含宿主Node/Web类型检查、设置/工具插件及宿主编译，仅用于预览交付；既有设置跨chunk循环依赖警告保留。第一次preview:sync因预览仍在运行而拒绝替换，用户明确回复已退出后重试，未强制结束进程或在线替换资源。
 - 验证：preview:sync已同步1.2.1资源，原有173个data/legacy文件路径和SHA-256完全一致；收据.artifacts/backups/preview-sync/update-1792905118862/preservation.json，原资源回退位于同目录previous-resources。test:preview:resources通过95程序、246内置和1676媒体资源，未启动成品或重置资料。
 - 验证：候选推送前再次审校最终文档并通过docs:check、maintain:check及差异检查；只暂存本轮文档、教程、门禁脚本/测试、hooks/工作流和版本说明，不包含日志、备份、下载、个人资料或凭据。
+- 验证：正式ZIP内编译教程已按候选源码逐段检查187段文字，包含12章77步及问题解答，不仅检查章节标题。
+- 验证：推送hook实际执行文档门禁并通过；云端Verify documentation before cloud build和Verify documentation before release两项均成功。发布前文档审校与必要更新已作为强制规范和实际流程生效。
+- 验证：本轮已审阅文件通过pre-commit提交073902ec3998db1a7b7a7d01e67214471d635d56，经pre-push推送main；仅以workflow_dispatch触发一次Release TabDo工作流40164802020，没有另推标签或覆盖旧版。
+- 验证：云端build作业121083556732与publish作业121084143456首次成功；verification制品12587409547已下载，核对104文件704项单测全部通过，win-x64制品12587304701归属候选SHA。收据.artifacts/work/docs-release/cloud-verification.json。
+- 验证：v1.2.1正式Release ID423163831，非草稿、非预发布且为latest，发布时间2026-10-25T05:18:20Z；标签解引用及target_commitish均为候选提交。
+- 验证：四项资产全部实际下载并核对GitHub SHA-256及大小：latest.yml 7653字节；TabDo-1.2.1-win-x64-setup.exe 129168406字节；TabDo-1.2.1-win-x64-setup.exe.blockmap 135653字节；TabDo-1.2.1-win-x64.zip 176095615字节。latest.yml版本、所引用安装包文件名、大小及SHA-512一致，收据.artifacts/work/docs-release/release-verification.json。
+- 验证：ZIP共497条目、ASAR共3621条目，核对版本、更新仓库、许可及55项源文件/内置资源；中转UI、preload、图标和编译后的勾选/排序/自动提示教程均存在，无本机资料或旧全屏资源。收据.artifacts/work/docs-release/package-verification.json。
+- 验证：云端TabDo.exe已同步固定预览，FileVersion为1.2.1；原exe备份位于.artifacts/backups/docs-release-executable/1792905712491，data/legacy共173文件前后路径和SHA-256完全一致。再次pnpm test:preview:resources通过95程序、246内置及1676媒体资源核对，未启动成品或重置资料。收据.artifacts/work/docs-release/preview-executable.json。
+- 验证：发布核验记录经pnpm maintain、maintain:check和差异检查后以独立文档提交推送；发布标签保持指向已构建的候选提交。
 
 ## 2026-10-25 · 按1.2.0审校README、开发规范与本地图文教程
 
