@@ -2,6 +2,42 @@
 
 > 自动生成；原始记录在 [entries](../history/entries/)。
 
+## 2026-10-25 · 发布文档与本地教程修订，并强制发布前文档校验
+
+记录：[release-tabdo-1.2.1-documentation-gate](../../docs/history/entries/2026-10-25-05-release-1.2.1.json)；版本：1.2.1。
+
+- 当前用户授权本轮push、云端构建和Release，并要求将远端操作前的文档检查更新列为必须规范；保留前一轮尚未提交的文档与教程修改。
+- 版本更新为1.2.1，不覆盖已发布1.2.0；发布重写后的README、开发规范和12章77步本地教程。
+- AGENTS及维护/发布/开发/贡献规范明确文档人工审校与必要更新为强制前置条件；新增docs:check检查当前本地链接/锚点、工具统计/功能码/分类及教程正文/插图，推送hook、云端构建和发布作业均接入。
+- 补充隔离单测覆盖文档门禁的正常、失效链接/锚点、清单漂移、过期教程和缺失插图，加入documentation回归分组；自动门禁不替代人工行为与语言审校。
+
+- 验证：已依次阅读维护、变更索引、Bug台账与发布规范；git fetch后本地main和origin/main一致，原有文档修改保留，hooks保持启用，未获得或执行数据重置。
+- 验证：已对照当前源码人工审校README、开发/插件/设置/悬浮规范、两份教程、更新说明和本轮记录。pnpm docs:check通过30份文档195个本地链接与锚点、37功能码/13分类/29普通指令、12章77步及插图一致性；自动检查不代替行为及语言审校。
+- 验证：本轮完整pnpm test --maxWorkers=2通过104文件704项，含文档门禁5个隔离场景，归档.artifacts/runs/2026-10-25T05-06-38-038Z-unit。
+- 验证：本轮local-tutorial源码E2E通过，归档.artifacts/runs/2026-10-25T05-08-13-442Z-e2e；检查真实关于入口、所有章节与插图、搜索、离线阅读及重启后资料保留，不为E2E打包。
+- 验证：首次ESLint发现直接执行的ESM脚本被要求写TypeScript返回类型；按仓库同类ESM约定保留JSDoc签名并说明规则适用边界，复查pnpm lint零错误。设置页类型、Prettier和差异检查通过；documentation分组确认1个单测文件与1个源码专项。
+- 验证：pnpm build通过，包含宿主Node/Web类型检查、设置/工具插件及宿主编译，仅用于预览交付；既有设置跨chunk循环依赖警告保留。第一次preview:sync因预览仍在运行而拒绝替换，用户明确回复已退出后重试，未强制结束进程或在线替换资源。
+- 验证：preview:sync已同步1.2.1资源，原有173个data/legacy文件路径和SHA-256完全一致；收据.artifacts/backups/preview-sync/update-1792905118862/preservation.json，原资源回退位于同目录previous-resources。test:preview:resources通过95程序、246内置和1676媒体资源，未启动成品或重置资料。
+- 验证：候选推送前再次审校最终文档并通过docs:check、maintain:check及差异检查；只暂存本轮文档、教程、门禁脚本/测试、hooks/工作流和版本说明，不包含日志、备份、下载、个人资料或凭据。
+
+## 2026-10-25 · 按1.2.0审校README、开发规范与本地图文教程
+
+记录：[docs-review-and-local-tutorial-rewrite](../../docs/history/entries/2026-10-25-04-docs-review.json)；版本：未发布。
+
+- 重写产品入口、运行与交付说明，区分普通免安装与仓库隔离预览；补充忽略安装脚本后需要显式安装FFmpeg运行文件的环境步骤。
+- 对照清单纠正37个功能码、13分类、29个普通指令，删除现行文档中仍描述全屏自动引导和文本转入便签的过期说明。
+- 明确临时常驻会话与独立内容窗口的生命周期边界，新增悬浮内容模块规范，拆分重复长段并保留资源、数据和许可约束。
+- 审校全部12章应用内教程，拆分中转操作、补充常驻/置顶区别与批量类型规则，同步77步仓库教程；保留原章标识与插图。
+- 整理文档导航、贡献、维护、设置、数据迁移和发布说明，统一术语、代码路径、Markdown与验证表述；历史记录和旧版发布事实保留原样。
+
+- 验证：开始时工作区干净，保留已发布1.2.0的版本与标签；本轮没有获得新的远端发布指示，不推送、不触发云端构建或Release。
+- 验证：已依次读取维护流程、变更索引、Bug台账与相关规范，对照当前清单、临时常驻API、中转宿主、预览入口、依赖安装器与本地教程源码审校。
+- 验证：本轮检查29份当前文档的192个本地链接和锚点，全部存在；对照清单核对37功能码、13分类、29普通指令，逐条核对12章77步及所有问题解答与仓库教程一致，12张插图均存在。收据.artifacts/work/docs-review/docs-check.json。外部网址未作网络可达性承诺。
+- 验证：pnpm test:e2e tests/e2e/local-tutorial.spec.ts --workers=1通过，归档.artifacts/runs/2026-10-25T04-51-00-341Z-e2e。从源码真实关于入口检查全部章节、插图、搜索、离线阅读和重启后配置及插件保持，保留明暗截图。未为E2E打包。
+- 验证：修改教程源的ESLint、设置页类型检查及Markdown/TS/JSON的Prettier检查通过。pnpm build完成宿主Node/Web类型检查、设置/工具插件与宿主编译，仅用于预览交付；既有设置跨chunk循环依赖警告保留。本轮未重跑完整单测，不将1.2.0发布时的699项结果算作本轮执行。
+- 验证：pnpm preview:sync已同步重写教程，173个原有data/legacy文件前后路径与SHA-256完全一致，收据.artifacts/backups/preview-sync/update-1792903992305/preservation.json；回退程序位于同目录previous-resources。未启动成品或重置资料。
+- 验证：pnpm test:preview:resources通过，核对95程序、246内置插件及1676媒体资源；预览UsageGuide-Dxy6vLOl.js中的整列勾选、手动排序、禁止提示时长、常驻/置顶区别和备份说明逐项存在。pnpm maintain、maintain:check和git diff --check通过。
+
 ## 2026-10-25 · 发布悬浮中转、宿主临时常驻与剪贴板交互优化版本
 
 记录：[release-tabdo-1.2.0](../../docs/history/entries/2026-10-25-03-release-1.2.0.json)；版本：1.2.0。

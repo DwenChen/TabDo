@@ -27,6 +27,8 @@ jobs:
       - run: pnpm --dir internal-plugins/setting install --ignore-workspace --frozen-lockfile
       - name: Verify repository maintenance records
         run: pnpm maintain:check
+      - name: Verify documentation before cloud build
+        run: pnpm docs:check
       - run: pnpm typecheck
       - run: pnpm typecheck:setting
       - name: Run unit tests with archived results
@@ -69,6 +71,8 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Verify documentation before release
+        run: pnpm docs:check
       - name: Resolve release version
         id: version
         run: |

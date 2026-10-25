@@ -16,7 +16,7 @@
 
 ## 自动化测试文件
 
-共 133 个文件；文件数不等于用例数，通过状态以每轮变更记录为准。
+共 134 个文件；文件数不等于用例数，通过状态以每轮变更记录为准。
 
 ### tests/main（94）
 
@@ -123,8 +123,9 @@
 - [tests/renderer/settingsSubInputResources.test.ts](../../tests/renderer/settingsSubInputResources.test.ts)
 - [tests/renderer/toolFeatureGroups.test.ts](../../tests/renderer/toolFeatureGroups.test.ts)
 
-### tests/scripts（4）
+### tests/scripts（5）
 
+- [tests/scripts/documentation.test.ts](../../tests/scripts/documentation.test.ts)
 - [tests/scripts/mediaRuntimeDependencies.test.ts](../../tests/scripts/mediaRuntimeDependencies.test.ts)
 - [tests/scripts/portablePreviewResources.test.ts](../../tests/scripts/portablePreviewResources.test.ts)
 - [tests/scripts/projectMaintenance.test.ts](../../tests/scripts/projectMaintenance.test.ts)
@@ -196,5 +197,6 @@
 - `branding`：0 个单测文件、1 个源码 E2E 文件。
 - `tabdo-release`：9 个单测文件、6 个源码 E2E 文件。
 - `clipboard-interactions`：4 个单测文件、4 个源码 E2E 文件。
+- `documentation`：1 个单测文件、1 个源码 E2E 文件。
 - `relay-feedback`：0 个单测文件、2 个源码 E2E 文件。
 - `floating-relay`：5 个单测文件、4 个源码 E2E 文件。

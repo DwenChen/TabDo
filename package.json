@@ -1,6 +1,6 @@
 {
   "name": "TabDo",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "TabDo：鼠标驱动的本地工具箱、超级面板与按需插件",
   "main": "./out/main/index.js",
   "author": "DwenChen",
@@ -40,6 +40,7 @@
     "updater": "node scripts/updater.mjs",
     "test": "node scripts/run-tests.cjs unit",
     "test:e2e": "node scripts/run-tests.cjs e2e",
+    "docs:check": "node scripts/check-docs.mjs",
     "maintain": "node scripts/project-maintenance.cjs prepare",
     "maintain:check": "node scripts/project-maintenance.cjs check",
     "preview:sync": "node scripts/sync-portable-preview.cjs",
