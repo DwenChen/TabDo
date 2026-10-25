@@ -16,6 +16,13 @@
 - 验证：pnpm build包含宿主Node/Web类型检查、设置/工具插件和宿主编译全部通过；既有设置跨chunk循环依赖警告保留。编译用于预览交付，E2E仍直接加载源码。
 - 验证：pnpm preview:sync同步1.2.0程序资源，原有data/legacy共173文件前后路径与SHA-256完全一致，收据.artifacts/backups/preview-sync/update-1792902275792/preservation.json；原程序资源保留在同目录previous-resources。未启动成品或重置资料。
 - 验证：pnpm test:preview:resources通过，核对95程序、246内置插件及1676媒体资源；pnpm maintain、maintain:check与git diff --check通过。候选暂存只包含本轮源码、图标、文档、测试和版本说明，不包含日志、备份、资料或凭据。
+- 验证：72个已审阅文件通过pre-commit提交30103ded159be05e32939a3455ae3a7268e60d1f，经pre-push推送main；仅以workflow_dispatch触发一次Release TabDo工作流40161913915，没有另推标签或覆盖旧版。
+- 验证：云端build作业121075078609与publish作业121075924042首次成功；verification制品12586527844已下载，核对103文件699项单测全部通过，win-x64制品12586574696归属候选SHA。收据.artifacts/work/relay-release/cloud-verification.json。
+- 验证：v1.2.0正式Release ID423147855，非草稿、非预发布且为latest，发布时间2026-10-25T04:32:11Z；标签解引用及target_commitish均为候选提交。
+- 验证：四项资产全部实际下载并核对GitHub SHA-256及大小：latest.yml 6717字节；TabDo-1.2.0-win-x64-setup.exe 129168211字节；TabDo-1.2.0-win-x64-setup.exe.blockmap 135741字节；TabDo-1.2.0-win-x64.zip 176095300字节。latest.yml版本、所引用安装包文件名、大小及SHA-512一致，收据.artifacts/work/relay-release/release-verification.json。
+- 验证：ZIP共497条目、ASAR共3621条目，核对版本、更新仓库、许可及55项源文件/内置资源；中转UI、preload、图标和编译后的勾选/排序/自动提示教程均存在，无本机资料或旧全屏资源。收据.artifacts/work/relay-release/package-verification.json。
+- 验证：云端TabDo.exe已同步固定预览，FileVersion为1.2.0；原exe备份位于.artifacts/backups/relay-release-executable/1792902846367，data/legacy共173文件前后路径和SHA-256完全一致。再次pnpm test:preview:resources通过95程序、246内置及1676媒体资源核对，未启动成品或重置资料。收据.artifacts/work/relay-release/preview-executable.json。
+- 验证：发布核验记录经pnpm maintain、maintain:check和差异检查后以独立文档提交推送；发布标签保持指向已构建的候选提交。
 
 ## 2026-10-25 · 剪贴板与中转提示自动消失，扩大勾选区域并恢复右侧排序手柄
 

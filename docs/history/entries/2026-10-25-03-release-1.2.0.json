@@ -14,8 +14,27 @@
     "pnpm lint、pnpm typecheck:setting和4份修改的公共JS/preload语法检查通过。远端正式版为1.1.1，候选1.2.0尚未存在。",
     "pnpm build包含宿主Node/Web类型检查、设置/工具插件和宿主编译全部通过；既有设置跨chunk循环依赖警告保留。编译用于预览交付，E2E仍直接加载源码。",
     "pnpm preview:sync同步1.2.0程序资源，原有data/legacy共173文件前后路径与SHA-256完全一致，收据.artifacts/backups/preview-sync/update-1792902275792/preservation.json；原程序资源保留在同目录previous-resources。未启动成品或重置资料。",
-    "pnpm test:preview:resources通过，核对95程序、246内置插件及1676媒体资源；pnpm maintain、maintain:check与git diff --check通过。候选暂存只包含本轮源码、图标、文档、测试和版本说明，不包含日志、备份、资料或凭据。"
+    "pnpm test:preview:resources通过，核对95程序、246内置插件及1676媒体资源；pnpm maintain、maintain:check与git diff --check通过。候选暂存只包含本轮源码、图标、文档、测试和版本说明，不包含日志、备份、资料或凭据。",
+    "72个已审阅文件通过pre-commit提交30103ded159be05e32939a3455ae3a7268e60d1f，经pre-push推送main；仅以workflow_dispatch触发一次Release TabDo工作流40161913915，没有另推标签或覆盖旧版。",
+    "云端build作业121075078609与publish作业121075924042首次成功；verification制品12586527844已下载，核对103文件699项单测全部通过，win-x64制品12586574696归属候选SHA。收据.artifacts/work/relay-release/cloud-verification.json。",
+    "v1.2.0正式Release ID423147855，非草稿、非预发布且为latest，发布时间2026-10-25T04:32:11Z；标签解引用及target_commitish均为候选提交。",
+    "四项资产全部实际下载并核对GitHub SHA-256及大小：latest.yml 6717字节；TabDo-1.2.0-win-x64-setup.exe 129168211字节；TabDo-1.2.0-win-x64-setup.exe.blockmap 135741字节；TabDo-1.2.0-win-x64.zip 176095300字节。latest.yml版本、所引用安装包文件名、大小及SHA-512一致，收据.artifacts/work/relay-release/release-verification.json。",
+    "ZIP共497条目、ASAR共3621条目，核对版本、更新仓库、许可及55项源文件/内置资源；中转UI、preload、图标和编译后的勾选/排序/自动提示教程均存在，无本机资料或旧全屏资源。收据.artifacts/work/relay-release/package-verification.json。",
+    "云端TabDo.exe已同步固定预览，FileVersion为1.2.0；原exe备份位于.artifacts/backups/relay-release-executable/1792902846367，data/legacy共173文件前后路径和SHA-256完全一致。再次pnpm test:preview:resources通过95程序、246内置及1676媒体资源核对，未启动成品或重置资料。收据.artifacts/work/relay-release/preview-executable.json。",
+    "发布核验记录经pnpm maintain、maintain:check和差异检查后以独立文档提交推送；发布标签保持指向已构建的候选提交。"
   ],
-  "pending": ["待提交推送与云端发布及产物核验；多屏、其他DPI及原生材质最终观感保留设备人工验收。"],
-  "preview": "1.2.0程序资源已同步，173个原有资料文件保持；主exe版本待已验收云端正式产物同步。通过PreviewPortable.cmd使用已有配置与插件，未启动或重置资料。"
+  "pending": ["多屏、其他DPI、原生材质最终观感、声音设备及安装升级保留实际设备人工验收。"],
+  "preview": "1.2.0程序资源与已验收云端主exe均已同步；95程序/246内置/1676媒体资源核验通过，173个原有data/legacy文件逐文件保持。通过PreviewPortable.cmd手动使用已有资料；未启动成品或重置配置与已安装插件。",
+  "release": {
+    "releaseId": 423147855,
+    "tag": "v1.2.0",
+    "commit": "30103ded159be05e32939a3455ae3a7268e60d1f",
+    "run": "https://github.com/DwenChen/TabDo/actions/runs/40161913915",
+    "url": "https://github.com/DwenChen/TabDo/releases/tag/v1.2.0",
+    "publishedAt": "2026-10-25T04:32:11Z",
+    "attempt": 1,
+    "verification": ".artifacts/work/relay-release/release-verification.json",
+    "packageVerification": ".artifacts/work/relay-release/package-verification.json",
+    "cloudVerification": ".artifacts/work/relay-release/cloud-verification.json"
+  }
 }
