@@ -16,6 +16,20 @@
       <header class="window-header" id="note-header" hidden title="拖拽移动便签">
         <span class="input-status" id="note-label">便签</span>
         <div class="btns">
+          <button class="btn" id="note-undo" title="撤销 (Ctrl+Z)" aria-label="撤销">
+            <svg viewBox="0 0 24 24">
+              <path
+                d="M7 7h7a7 7 0 0 1 7 7v4h-2v-4a5 5 0 0 0-5-5H7l4 4-1.4 1.4L3.2 8l6.4-6.4L11 3z"
+              />
+            </svg>
+          </button>
+          <button class="btn" id="note-redo" title="重做 (Ctrl+Y)" aria-label="重做">
+            <svg viewBox="0 0 24 24">
+              <path
+                d="M17 7h-7a7 7 0 0 0-7 7v4h2v-4a5 5 0 0 1 5-5h7l-4 4 1.4 1.4L20.8 8l-6.4-6.4L13 3z"
+              />
+            </svg>
+          </button>
           <button
             class="btn"
             id="note-top"
@@ -440,7 +454,7 @@
           min="12"
           max="32"
           step="1"
-          value="16"
+          value="14"
       /></label>
       <label class="dock-toggle"
         ><input id="note-dock-toggle" type="checkbox" aria-label="贴靠屏幕边缘" checked />

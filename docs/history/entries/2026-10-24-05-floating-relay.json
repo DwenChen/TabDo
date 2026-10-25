@@ -1,0 +1,30 @@
+{
+  "id": "floating-relay-and-host-residency",
+  "date": "2026-10-24",
+  "summary": "统一宿主临时常驻入口，新增悬浮中转并调整材质、品牌及便签编辑",
+  "changes": [
+    "保留本轮开始前已有未提交改动；Windows 11缺省材质改为云母，其余系统无材质，已有选择不覆盖。超级面板默认图标使用TabDo品牌资源。",
+    "便签撤销/重做移至右上角，右键移除撤销、重做和全选，保留剪切复制粘贴。",
+    "临时常驻能力由开发者声明，用户开关统一由宿主标题栏右上角提供，使用窗口加号图标，正文不能自动启用常驻。",
+    "悬浮中转接收指定文本、图片、文件和打开后的复制，提供排序、取消全选、缩略图预览、复制和拖出，关闭清理会话内容但保留剪贴板记录。图片固定与标记保持独立。",
+    "新增悬浮中转普通与文本/图片/文件匹配指令，保留悬浮图片匹配；同步模块文档和本地图文教程。"
+  ],
+  "checks": [
+    "开始时存在上一轮未提交内容，本轮在其上增量修改并保留；不push、不云端构建、不release、不重置真实或预览资料。",
+    "pnpm typecheck通过；pnpm test --maxWorkers=2最终103文件698项全通过，归档.artifacts/runs/2026-10-24T06-47-13-125Z-unit。旧常驻接口测试最初4项失败，按声明能力与宿主点击的新契约更新为6项后通过，保留失败证据。",
+    "源码floating-relay最终通过，归档.artifacts/runs/2026-10-24T06-49-13-858Z-e2e：空入口不载历史、系统文本图片文件追加、两种排序、全选/取消、缩略图放大、复制后紧接外部复制不丢失、关闭销毁图片副本且保留用户文件、重开为空、普通及匹配指令、宿主固定常驻开关。",
+    "floating-relay通过真实Windows鼠标跨窗口拖动：一条文本实际进入独立原生窗口textarea，图片PNG和用户TXT一起进入drop.files；未以DOM派发或startDrag标志代替实际接收。初版正文起拖不稳定，增加明确手柄后真实接收通过。",
+    "clipboard-interactions通过，归档.artifacts/runs/2026-10-24T06-47-13-064Z-e2e：便签顶部撤销/重做、原生右键仅剪切复制粘贴、字号、多选文本/图片原生拖出、常驻默认关闭/分离/隐藏保留/取消及明确关闭释放。早期失败包括旧按钮位置断言及采集迟到混入新窗口，均已修正重跑。",
+    "tools-expanded与tools-polish通过，归档.artifacts/runs/2026-10-24T06-42-45-581Z-e2e；local-tutorial与tools-lifecycle通过，归档.artifacts/runs/2026-10-24T06-39-36-230Z-e2e。这些归档中其他失败项已由后续专项修正，不宣称整轮全通过。",
+    "全部E2E使用scripts/preview-main.cjs源码与隔离data/legacy，未为E2E打包。真实接收测试设置可见独立窗口并转换DIP至系统物理坐标；当前Windows单屏及1.375缩放，其他环境不作已验收承诺。",
+    "本地图文教程正文和clipboard/notes两张SVG示意更新；超级面板默认图标与resources/icons/icon-tabdo.png的SHA-256相同。",
+    "pnpm build通过（Node/Web类型、设置插件及工具插件、Electron宿主编译），仅用于交付预览；设置构建原有两个跨chunk循环依赖警告保留，不影响本次退出状态。39个改动JS/TS/Vue文件ESLint零错误零警告，公共preload、便签与中转JS/preload的node --check通过，git diff --check通过。",
+    "pnpm test:regressions floating-relay --list确认4个单测文件与4个源码E2E文件；pnpm maintain、maintain:check均通过。各专项真实结果和失败修正见上文。",
+    "pnpm preview:sync成功更新1.1.1程序资源，163个既有data/legacy文件更新前后路径与SHA-256完全一致；收据.artifacts/backups/preview-sync/update-1792824758498/preservation.json，回退程序在同目录previous-resources。未启动成品、重置资料或修改已安装插件。",
+    "pnpm test:preview:resources通过，核验95程序资源、246内置插件文件和1676媒体依赖；同步器同时核对96项暂存程序清单。本轮中转HTML/JS/CSS/preload及教程SVG、工具新图标均已交付，构建警告与设备人工边界如上记录。"
+  ],
+  "pending": [
+    "其他DPI、多屏、DWM最终材质观感与其他外部接收应用需人工验收。"
+  ],
+  "preview": "已同步.local/portable-preview，使用PreviewPortable.cmd手动测试。原有163个data/legacy文件逐文件保持，配置、收藏、历史和已安装插件未重置；程序与内置资源核验通过。未push、未云端构建、未发布release。"
+}

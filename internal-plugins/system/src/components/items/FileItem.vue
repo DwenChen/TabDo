@@ -7,11 +7,12 @@ defineProps({
   isFavoriteTab: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['toggle-expand', 'delete-favorite'])
+const emit = defineEmits(['toggle-expand', 'delete-favorite', 'relay'])
 </script>
 
 <template>
   <div class="item-content">
+    <button class="relay-file" @click.stop="emit('relay')" @dblclick.stop>悬浮中转</button>
     <div class="file-list" :class="{ collapsed: !isExpanded }">
       <div
         v-for="(file, idx) in item.files"
@@ -240,6 +241,16 @@ const emit = defineEmits(['toggle-expand', 'delete-favorite'])
 </template>
 
 <style scoped>
+.relay-file {
+  float: right;
+  font: inherit;
+  font-size: 12px;
+  color: var(--primary-color);
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  padding: 4px 6px;
+}
 .item-content {
   padding: 5px 10px;
 }

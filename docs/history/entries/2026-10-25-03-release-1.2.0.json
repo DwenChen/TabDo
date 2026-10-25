@@ -1,0 +1,21 @@
+{
+  "id": "release-tabdo-1.2.0",
+  "date": "2026-10-25",
+  "version": "1.2.0",
+  "summary": "发布悬浮中转、宿主临时常驻与剪贴板交互优化版本",
+  "changes": [
+    "当前用户明确授权push、云端构建和release；保留前几轮全部功能与修复，不推导数据重置授权。",
+    "版本由1.1.1更新为1.2.0，更新发布说明；按现有Release TabDo流程发布Windows x64安装包、免安装ZIP及更新元数据。"
+  ],
+  "checks": [
+    "已依次读取维护流程、改动索引、Bug台账与发布规范，检查Git状态和现有未提交文件。git fetch后main与origin/main一致，hooks保持启用。",
+    "发布候选完整pnpm test --maxWorkers=2通过103文件699项，归档.artifacts/runs/2026-10-25T04-20-06-403Z-unit。",
+    "发布候选6个受影响源码E2E全部通过：clipboard-interactions、floating-relay、local-tutorial、tools-expanded、tools-lifecycle与tools-polish，归档.artifacts/runs/2026-10-25T04-21-07-174Z-e2e。使用scripts/preview-main.cjs和隔离data/legacy，不为E2E打包。",
+    "pnpm lint、pnpm typecheck:setting和4份修改的公共JS/preload语法检查通过。远端正式版为1.1.1，候选1.2.0尚未存在。",
+    "pnpm build包含宿主Node/Web类型检查、设置/工具插件和宿主编译全部通过；既有设置跨chunk循环依赖警告保留。编译用于预览交付，E2E仍直接加载源码。",
+    "pnpm preview:sync同步1.2.0程序资源，原有data/legacy共173文件前后路径与SHA-256完全一致，收据.artifacts/backups/preview-sync/update-1792902275792/preservation.json；原程序资源保留在同目录previous-resources。未启动成品或重置资料。",
+    "pnpm test:preview:resources通过，核对95程序、246内置插件及1676媒体资源；pnpm maintain、maintain:check与git diff --check通过。候选暂存只包含本轮源码、图标、文档、测试和版本说明，不包含日志、备份、资料或凭据。"
+  ],
+  "pending": ["待提交推送与云端发布及产物核验；多屏、其他DPI及原生材质最终观感保留设备人工验收。"],
+  "preview": "1.2.0程序资源已同步，173个原有资料文件保持；主exe版本待已验收云端正式产物同步。通过PreviewPortable.cmd使用已有配置与插件，未启动或重置资料。"
+}

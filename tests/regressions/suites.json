@@ -8,10 +8,7 @@
       "tests/scripts/portablePreviewResources.test.ts",
       "tests/main/internalPluginDefaults.test.ts"
     ],
-    "e2e": [
-      "tests/e2e/local-tutorial.spec.ts",
-      "tests/e2e/settings-cleanup.spec.ts"
-    ]
+    "e2e": ["tests/e2e/local-tutorial.spec.ts", "tests/e2e/settings-cleanup.spec.ts"]
   },
   "performance": {
     "unit": [
@@ -318,6 +315,39 @@
       "tests/e2e/settings-cleanup.spec.ts",
       "tests/e2e/plugin-host-regressions.spec.ts",
       "tests/e2e/tabdo-market.spec.ts"
+    ]
+  },
+  "clipboard-interactions": {
+    "unit": [
+      "tests/main/temporaryResidencyApi.test.ts",
+      "tests/main/floatingPointer.test.ts",
+      "tests/main/clipboardSelectionState.test.ts",
+      "tests/main/clipboardWriteContentApi.test.ts"
+    ],
+    "e2e": [
+      "tests/e2e/clipboard-interactions.spec.ts",
+      "tests/e2e/tools-polish.spec.ts",
+      "tests/e2e/tools-expanded.spec.ts",
+      "tests/e2e/tools-lifecycle.spec.ts"
+    ]
+  },
+  "relay-feedback": {
+    "unit": [],
+    "e2e": ["tests/e2e/floating-relay.spec.ts", "tests/e2e/clipboard-interactions.spec.ts"]
+  },
+  "floating-relay": {
+    "unit": [
+      "tests/main/temporaryResidencyApi.test.ts",
+      "tests/main/windowMaterialDefaults.test.ts",
+      "tests/main/clipboardWriteContentApi.test.ts",
+      "tests/main/floatingPointer.test.ts",
+      "tests/main/clipboardSelectionState.test.ts"
+    ],
+    "e2e": [
+      "tests/e2e/floating-relay.spec.ts",
+      "tests/e2e/clipboard-interactions.spec.ts",
+      "tests/e2e/tools-expanded.spec.ts",
+      "tests/e2e/local-tutorial.spec.ts"
     ]
   }
 }

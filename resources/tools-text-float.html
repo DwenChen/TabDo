@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: file:"
+    />
+    <title>悬浮中转</title>
+    <link rel="stylesheet" href="tools-text-float.css" />
+  </head>
+  <body>
+    <header>
+      <span>悬浮中转</span
+      ><button id="top" aria-label="保持置顶" aria-pressed="true" title="取消置顶">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5v6h2v-6h5v-2z" />
+        </svg></button
+      ><button id="close" aria-label="关闭">×</button>
+    </header>
+    <div class="actions">
+      <button id="copy" disabled>复制选中</button><button id="clear" disabled>清空</button>
+      <button id="up" aria-label="上移条目" title="上移条目 (Alt+↑)" disabled>↑</button>
+      <button id="down" aria-label="下移条目" title="下移条目 (Alt+↓)" disabled>↓</button
+      ><select id="sort" aria-label="条目排序">
+        <option value="newest">从新到旧</option>
+        <option value="oldest">从旧到新</option>
+        <option value="manual">手动排序</option></select
+      ><span id="count" role="status"></span>
+    </div>
+    <p id="empty">从剪贴板转入条目，或复制新的文本、图片、文件</p>
+    <main id="entries" role="listbox" aria-label="悬浮中转条目" aria-multiselectable="true"></main>
+    <footer>
+      <span id="status" role="status">左侧勾选 · 正文拖出 · 右侧手柄排序</span>
+    </footer>
+    <dialog id="preview">
+      <button id="preview-close" aria-label="关闭图片预览">×</button
+      ><img id="preview-image" alt="图片放大预览" />
+    </dialog>
+    <script src="tools-text-float.js"></script>
+  </body>
+</html>

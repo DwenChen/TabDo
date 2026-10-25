@@ -4,6 +4,7 @@ import os from 'os'
 /**
  * 检测是否为 Windows 11
  * Windows 11 的版本号为 10.0.22000 或更高
+ * @returns 是否支持 Windows 11 材质。
  */
 export function isWindows11(): boolean {
   if (process.platform !== 'win32') {
@@ -27,10 +28,11 @@ export function isWindows11(): boolean {
 
 /**
  * 获取 Windows 默认窗口材质
- * Windows 11 默认使用亚克力材质，其他系统默认无材质
+ * Windows 11 默认使用云母材质，其他系统默认无材质。
+ * @returns 当前系统首次启动的默认材质，不覆盖已有偏好。
  */
 export function getDefaultWindowMaterial(): 'mica' | 'acrylic' | 'none' {
-  return isWindows11() ? 'acrylic' : 'none'
+  return isWindows11() ? 'mica' : 'none'
 }
 
 /**

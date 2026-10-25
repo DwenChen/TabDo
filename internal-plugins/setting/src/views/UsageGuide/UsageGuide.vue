@@ -30,7 +30,7 @@ function choose(id: string): void {
   <div v-if="compact" class="usage-guide-entry">
     <h3>使用引导</h3>
     <p>12 章本地图文教程，按步骤学习常用工具，也可搜索需要的操作。断网可阅读。</p>
-    <button class="primary" @click="router.push({ name: 'UsageGuide' })">阅读本地图文教程</button>
+    <button class="btn" @click="router.push({ name: 'UsageGuide' })">阅读本地图文教程</button>
   </div>
   <main v-else class="usage-guide" aria-label="本地图文教程">
     <header class="guide-header">
@@ -180,7 +180,7 @@ input {
   color: var(--text-color);
   background: var(--card-bg);
 }
-button {
+button:not(.btn) {
   font: inherit;
   color: var(--text-color);
   background: var(--card-bg);

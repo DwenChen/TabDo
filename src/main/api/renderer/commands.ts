@@ -765,6 +765,7 @@ export class AppsAPI {
             'qrcode-scan',
             'image-annotate',
             'float-content',
+            'floating-relay',
             'sticky-note',
             'local-search',
             'screen-recorder',

@@ -4,6 +4,7 @@ import {
   hasNativeTextSelection,
   shouldUseNativeCopy
 } from '../utils/nativeCopy.js'
+import { getClipboardTransferError } from '../utils/clipboardPayload.js'
 
 /**
  * 维护多选、范围选择及复制粘贴快捷键。
@@ -12,9 +13,17 @@ import {
  * @param activeTab activeTab 参数。
  * @param writeItems writeItems 参数。
  * @param onDeleteItems onDeleteItems 参数。
- * @returns 处理结果；仅更新状态的操作无返回值。
+ * @param onInvalidSelection 混合内容类型时的可见禁止反馈，可省略。
+ * @returns {object} 响应式选择状态与复制、粘贴及导航操作。
  */
-export function useSelection(filteredData, tabs, activeTab, writeItems, onDeleteItems) {
+export function useSelection(
+  filteredData,
+  tabs,
+  activeTab,
+  writeItems,
+  onDeleteItems,
+  onInvalidSelection
+) {
   const activeItem = ref(null)
   const selectionAnchor = ref(null)
   const selectedItemSet = ref(new Set())
@@ -89,16 +98,20 @@ export function useSelection(filteredData, tabs, activeTab, writeItems, onDelete
   watch(() => filteredData.value.slice(), syncSelection, { immediate: true })
 
   /**
-   * 从锚点扩展同类型条目的范围选择。
-   * @param index index 参数。
-   * @returns 处理结果；仅更新状态的操作无返回值。
+   * 从锚点扩展同类型范围，混合类型时保留原选择并提供禁止反馈。
+   * @param {number} index 当前可见条目的下标。
+   * @returns {boolean} 是否完成允许的选择操作。
    */
   const selectRange = (index) => {
     const item = filteredData.value[index]
     const anchorIndex = filteredData.value.indexOf(selectionAnchor.value)
-    if (!item || anchorIndex < 0 || selectionAnchor.value.type !== item.type) {
+    if (item && anchorIndex >= 0 && selectionAnchor.value.type !== item.type) {
+      onInvalidSelection?.(getClipboardTransferError([selectionAnchor.value.type, item.type]))
+      return false
+    }
+    if (!item || anchorIndex < 0) {
       selectSingle(index)
-      return
+      return true
     }
 
     const direction = anchorIndex <= index ? 1 : -1
@@ -113,12 +126,13 @@ export function useSelection(filteredData, tabs, activeTab, writeItems, onDelete
     }
 
     replaceSelection(rangeItems, item, selectionAnchor.value)
+    return true
   }
 
   /**
-   * 切换单个条目的选中状态。
-   * @param index index 参数。
-   * @returns 处理结果；仅更新状态的操作无返回值。
+   * 切换同类型条目的选择，混合类型时拒绝且保留原选择。
+   * @param {number} index 当前可见条目的下标。
+   * @returns {boolean} 是否成功更新选择。
    */
   const toggleItem = (index) => {
     const item = filteredData.value[index]
@@ -128,8 +142,8 @@ export function useSelection(filteredData, tabs, activeTab, writeItems, onDelete
 
     const currentItems = selectedItems.value
     if (currentItems.length > 0 && currentItems[0].type !== item.type) {
-      selectSingle(index)
-      return true
+      onInvalidSelection?.(getClipboardTransferError([currentItems[0].type, item.type]))
+      return false
     }
 
     const nextSelection = new Set(selectedItemSet.value)
@@ -161,7 +175,7 @@ export function useSelection(filteredData, tabs, activeTab, writeItems, onDelete
 
     if (event.shiftKey) {
       clearNativeTextSelection()
-      selectRange(index)
+      return selectRange(index)
     } else if (event.metaKey || event.ctrlKey) {
       return toggleItem(index)
     } else {
@@ -171,14 +185,15 @@ export function useSelection(filteredData, tabs, activeTab, writeItems, onDelete
   }
 
   /**
-   * 处理选择复选框的点击。
-   * @param event event 参数。
-   * @param index index 参数。
-   * @returns 处理结果；仅更新状态的操作无返回值。
+   * 处理复选框点击，禁止混合时阻止浏览器把复选框错误切为选中。
+   * @param {MouseEvent} event 原始点击事件。
+   * @param {number} index 可见条目下标。
+   * @returns {boolean} 是否完成允许的选择操作。
    */
   const handleToggleClick = (event, index) => {
-    if (event.shiftKey) return handleItemClick(event, index)
-    return toggleItem(index)
+    const changed = event.shiftKey ? handleItemClick(event, index) : toggleItem(index)
+    if (!changed) event.preventDefault?.()
+    return changed
   }
 
   /**

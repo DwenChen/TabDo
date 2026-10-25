@@ -725,8 +725,9 @@ async function loadSettings(): Promise<void> {
       superPanelBlockedApps.value = data.superPanelBlockedApps ?? []
       superPanelTranslateEnabled.value = data.superPanelTranslateEnabled ?? false
       superPanelAutoTranslate.value = data.superPanelAutoTranslate ?? true
-      // 窗口材质由主进程启动时保证一定有值，无需兜底
-      windowMaterial.value = data.windowMaterial
+      // 仅缺失时读取宿主系统默认材质，保留用户明确选择的“无”等偏好。
+      windowMaterial.value =
+        data.windowMaterial ?? (await window.tabdo.internal.getWindowMaterial())
       acrylicLightOpacity.value = data.acrylicLightOpacity ?? 78
       acrylicDarkOpacity.value = data.acrylicDarkOpacity ?? 50
       // 开发者工具位置
@@ -895,7 +896,7 @@ onMounted(() => {
               <span class="setting-desc">在指定应用窗口中不触发超级面板</span>
             </div>
             <div class="setting-control">
-              <button class="btn btn-sm" @click="handleAddBlockedApp">添加当前窗口</button>
+              <button class="btn" @click="handleAddBlockedApp">添加当前窗口</button>
             </div>
           </div>
           <div v-if="superPanelBlockedApps.length > 0" class="blocked-apps-tags">
@@ -1573,6 +1574,21 @@ onMounted(() => {
 /* 文本输入框 - 只设置布局，颜色由 global.css 控制 */
 :deep(.input) {
   min-width: 250px;
+  appearance: none;
+  background: var(--control-bg);
+  height: 34px;
+  box-sizing: border-box;
+  line-height: 20px;
+  padding-block: 5px;
+}
+
+/* 同一表单行的普通按钮、输入和选择器采用一致高度与材质。 */
+.setting-control .btn,
+.setting-control :deep(.select-trigger) {
+  height: 34px;
+  box-sizing: border-box;
+  line-height: 20px;
+  padding-block: 5px;
 }
 
 /* 头像控制 */

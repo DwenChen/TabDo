@@ -320,7 +320,7 @@ body[data-kind='text'] .frame::after {
   background: transparent;
   color: inherit;
   font:
-    16px/1.8 'Segoe UI',
+    14px/1.8 'Segoe UI',
     sans-serif;
   user-select: text;
 }

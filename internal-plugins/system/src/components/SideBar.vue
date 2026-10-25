@@ -1,9 +1,10 @@
 <script setup>
 defineProps({
-  selectedCount: { type: Number, default: 0 }
+  selectedCount: { type: Number, default: 0 },
+  relaying: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['copy', 'paste', 'clear'])
+const emit = defineEmits(['copy', 'paste', 'clear', 'relay'])
 </script>
 
 <template>
@@ -39,6 +40,21 @@ const emit = defineEmits(['copy', 'paste', 'clear'])
             d="M128 112L352 112C360.8 112 368 119.2 368 128L368 176L416 176L416 128C416 92.7 387.3 64 352 64L128 64C92.7 64 64 92.7 64 128L64 448C64 483.3 92.7 512 128 512L240 512L240 464L128 464C119.2 464 112 456.8 112 448L112 128C112 119.2 119.2 112 128 112zM304 184C304 170.7 293.3 160 280 160L168 160C154.7 160 144 170.7 144 184C144 197.3 154.7 208 168 208L273.6 208C282.4 199.4 292.6 192.2 303.8 186.9C303.9 186 304 185 304 184zM512 528L352 528C343.2 528 336 520.8 336 512L336 288C336 279.2 343.2 272 352 272L453.5 272C457.7 272 461.8 273.7 464.8 276.7L523.3 335.2C526.3 338.2 528 342.3 528 346.5L528 512C528 520.8 520.8 528 512 528zM288 288L288 512C288 547.3 316.7 576 352 576L512 576C547.3 576 576 547.3 576 512L576 346.5C576 329.5 569.3 313.2 557.3 301.2L498.8 242.7C486.8 230.7 470.5 224 453.5 224L352 224C316.7 224 288 252.7 288 288z"
             fill="currentColor"
           />
+        </svg>
+        <span v-if="selectedCount > 1" class="selection-count">{{ selectedCount }}</span>
+      </button>
+      <button
+        class="sidebar-btn relay-btn"
+        :class="{ 'has-selection': selectedCount > 0 }"
+        :data-tooltip="selectedCount ? `转入悬浮中转 ${selectedCount} 项` : '打开悬浮中转'"
+        :aria-busy="relaying"
+        :disabled="relaying"
+        aria-label="悬浮中转"
+        @click="emit('relay')"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <rect x="3" y="4" width="18" height="16" rx="3" />
+          <path d="M7 9h10m-3-3 3 3-3 3M17 15H7m3-3-3 3 3 3" />
         </svg>
         <span v-if="selectedCount > 1" class="selection-count">{{ selectedCount }}</span>
       </button>
@@ -124,6 +140,11 @@ const emit = defineEmits(['copy', 'paste', 'clear'])
 .sidebar-btn svg {
   width: 20px;
   height: 20px;
+}
+.relay-btn.has-selection {
+  color: var(--primary-color);
+  border-color: var(--primary-color);
+  background: var(--bg-accent-light);
 }
 
 .selection-count {

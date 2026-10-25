@@ -22,3 +22,25 @@ export interface PluginScope {
    */
   dispose(): Promise<void>
 }
+
+/** 当前插件页面的临时窗口属性，作为 tabdo API 的组成部分。 */
+export interface PluginWindowSession {
+  /**
+   * enableTemporaryResident的兼容别名，仅声明能力，不直接启用常驻。
+   * @param enabled 是否支持特性。
+   * @returns 当前用户开关状态；窗口关闭后失效。
+   * @throws 调用会话无效时拒绝。
+   */
+  setTemporaryResident(enabled: boolean): Promise<boolean>
+  /**
+   * 声明当前会话支持宿主标题栏开关；声明不会启用常驻。
+   * @param enabled 是否提供此能力，默认true。
+   * @returns 当前用户开关状态，由宿主标题栏点击改变。
+   */
+  enableTemporaryResident(enabled?: boolean): Promise<boolean>
+  /**
+   * 读取当前页面临时常驻属性。
+   * @returns 本会话状态。
+   */
+  isTemporaryResident(): Promise<boolean>
+}

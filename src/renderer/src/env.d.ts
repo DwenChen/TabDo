@@ -72,6 +72,8 @@ declare global {
       }
     }
     tabdo: {
+      temporaryResidency: (toggle?: boolean) => Promise<{ supported: boolean; enabled: boolean }>
+      onTemporaryResidencyChanged: (callback: () => void) => () => void
       getApps: () => Promise<Array<{ name: string; path: string; icon?: string }>>
       getSystemSettings: () => Promise<any[]>
       isWindows: () => Promise<boolean>

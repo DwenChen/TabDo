@@ -1,0 +1,29 @@
+{
+  "id": "relay-single-item-management-and-residency-release",
+  "date": "2026-10-24",
+  "summary": "补全中转入口多选反馈、单条管理和手动排序，修复取消临时常驻未回收",
+  "changes": [
+    "保留工作区既有未提交内容；剪贴板侧栏中转按钮显示选择数量、选中样式与转交状态，并转入全部选中条目。",
+    "中转窗口取消多选、复选框及全选，Ctrl/Shift也只选一个；混合文本、图片、文件的复制或拖出明确禁止，普通文件集合保留文件传输语义。",
+    "增加单条删除与清空，清理会话图片及容量，不删除原文件和剪贴板历史；清空后继续接收新复制。",
+    "支持独立手柄拖动排序、上移/下移与Alt方向键；手动排序后新复制追加末尾，仍可切回时间排序。",
+    "用户取消临时常驻立即关闭所属独立会话并进入原有回收链，已登记任务正常收尾，配置和插件不受影响。"
+  ],
+  "checks": [
+    "开始时已有上一轮未提交内容，在其上增量修改，未回滚或清理用户文件；本轮不push、不云端构建、不release、不重置资料。",
+    "pnpm typecheck通过；完整pnpm test --maxWorkers=2最终103文件699项全通过，归档.artifacts/runs/2026-10-24T07-20-01-041Z-unit。相关3文件11项先行验证通过，归档.artifacts/runs/2026-10-24T07-16-22-437Z-unit。",
+    "floating-relay最终源码E2E通过，归档.artifacts/runs/2026-10-24T07-21-23-665Z-e2e：Ctrl单选且无复选框/全选、上移与真实拖动排序、手动追加、不同类型选择禁止提示、宿主绕过UI混合复制拒绝、单条删除清理PNG、清空后继续采集、保留原文件、取消常驻无需隐藏即关闭正文与标题栏。",
+    "中转源码专项通过真实Windows系统鼠标向独立原生窗口拖动，文本实际进入textarea，TXT与PNG分别进入drop.files；中转只交付当前一条，不再一起拖出不同条目。",
+    "clipboard-interactions、tools-polish和local-tutorial源码专项通过见.artifacts/runs/2026-10-24T07-18-49-331Z-e2e的3项通过；同轮floating-relay因隐藏界面暂停刷新而未找到历史的测试夹具失败，切换真实分类刷新后单独重跑通过，不宣称该轮全部通过。",
+    "clipboard-interactions确认侧栏多选显示2项和选中样式，点击侧栏按钮真实转入两条；其早期失败因新复制生成同文历史而触发夹具严格定位，改用原始条目后通过。保留失败归档.artifacts/runs/2026-10-24T07-16-22-344Z-e2e。",
+    "全部E2E从scripts/preview-main.cjs直接加载源码并隔离data/legacy，不为E2E打包；直接保留稳定中转和工具正文截图。更新当前规范、教程正文、剪贴板SVG及TX-84回归记录。",
+    "43个改动JS/TS/Vue文件ESLint零错误零警告，中转JS/preload的node --check及git diff --check通过。pnpm build通过（类型、设置/工具插件及Electron宿主），仅用于预览交付；设置构建原有两个跨chunk循环依赖警告保留，未扩展到无关重构。",
+    "pnpm test:regressions floating-relay --list确认5个单测文件和4个源码专项；pnpm maintain与maintain:check通过。",
+    "pnpm preview:sync成功更新本地1.1.1免安装预览；165个原有data/legacy文件前后路径及SHA-256完全相同，收据.artifacts/backups/preview-sync/update-1792826739365/preservation.json；未启动成品或重置配置、历史、收藏及已安装插件。",
+    "pnpm test:preview:resources通过，核对95项程序资源、246个内置插件文件与1676项媒体依赖；本轮中转单选、删除/清空、手动排序、侧栏状态与常驻取消的程序资源已同步。"
+  ],
+  "pending": [
+    "其他DPI、多屏、原生材质观感及其他外部接收软件仍需人工验收。"
+  ],
+  "preview": "已同步.local/portable-preview，使用PreviewPortable.cmd手动测试。165个既有data/legacy文件逐文件保留，配置和已安装插件未改动；资源核验通过。不push、不云端构建、不release。"
+}

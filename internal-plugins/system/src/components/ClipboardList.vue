@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import TextItem from './items/TextItem.vue'
 import ImageItem from './items/ImageItem.vue'
 import FileItem from './items/FileItem.vue'
+import { getClipboardTransferError } from '@/utils/clipboardPayload'
 
 const props = defineProps({
   items: { type: Array, required: true },
@@ -27,10 +28,62 @@ const emit = defineEmits([
   'reorder-favorite',
   'float-image',
   'float-text',
+  'relay',
+  'transfer-error',
   'annotate-image'
 ])
 
 const listRef = ref(null)
+/**
+ * 拖出当前条目或整个选择集；文本交给系统文本拖放，图片使用宿主原生多文件拖放。
+ * @param {DragEvent} event 用户开始拖动的事件。
+ * @param {object} item 被拖动的条目。
+ * @returns {void} 完成拖放载荷设置，不改动历史与系统剪贴板。
+ */
+function dragContent(event, item) {
+  // 左侧整列仅供勾选，不能冒泡为条目的外部拖出操作。
+  if (event.target.closest('.selection-area')) {
+    event.preventDefault()
+    return
+  }
+  const items = props.selectedItems.has(item)
+    ? props.items.filter((entry) => props.selectedItems.has(entry))
+    : [item]
+  // 拒绝混合选择，避免过滤后只拖出其中一种内容却让用户误以为全部成功。
+  const error = getClipboardTransferError(items.map((entry) => entry.type))
+  if (error) {
+    event.preventDefault()
+    event.dataTransfer.effectAllowed = 'none'
+    emit('transfer-error', error)
+    return
+  }
+  if (item.type === 'text') {
+    event.dataTransfer.effectAllowed = 'copy'
+    event.dataTransfer.setData(
+      'text/plain',
+      items
+        .filter((entry) => entry.type === 'text')
+        .map((entry) => entry.content)
+        .join('\n')
+    )
+    return
+  }
+  const paths = [
+    ...new Set(
+      items
+        .flatMap((entry) =>
+          entry.type === 'file'
+            ? (entry.files || []).map((file) => file.path)
+            : entry.type === 'image'
+              ? [entry.imagePath]
+              : []
+        )
+        .filter(Boolean)
+    )
+  ]
+  event.preventDefault()
+  if (paths.length) window.tabdo.startDrag(paths)
+}
 const draggedIndex = ref(null)
 const dropTargetIndex = ref(null)
 const dropPosition = ref(null)
@@ -299,21 +352,33 @@ onBeforeUnmount(resetDragState)
       }"
       role="option"
       :aria-selected="selectedItems.has(item)"
+      draggable="true"
+      title="拖动条目到其他输入窗口；多选后可一起拖出"
+      @dragstart="dragContent($event, item)"
       @click="emit('select', $event, index)"
       @dblclick="emit('dblclick', index)"
       @contextmenu="emit('contextmenu', $event, item, index)"
       @dragover="handleDragOver($event, index)"
       @drop="handleDrop"
     >
-      <input
-        class="selection-checkbox"
-        type="checkbox"
-        :checked="selectedItems.has(item)"
-        :aria-label="`选择第 ${index + 1} 条记录`"
-        @click.stop="emit('toggle-selection', $event, index)"
+      <label
+        class="selection-area"
+        draggable="true"
+        title="勾选条目"
+        @click.stop
         @dblclick.stop
-        @keydown.space.stop
-      />
+        @dragstart.prevent.stop
+      >
+        <input
+          class="selection-checkbox"
+          type="checkbox"
+          :checked="selectedItems.has(item)"
+          :aria-label="`选择第 ${index + 1} 条记录`"
+          @click.stop="emit('toggle-selection', $event, index)"
+          @dblclick.stop
+          @keydown.space.stop
+        />
+      </label>
       <button
         v-if="canReorder"
         class="drag-handle"
@@ -354,6 +419,7 @@ onBeforeUnmount(resetDragState)
         @delete-favorite="emit('delete-favorite', index)"
         @float-image="emit('float-image', item, $event)"
         @annotate-image="emit('annotate-image', item, $event)"
+        @relay="emit('relay', item)"
       />
       <FileItem
         v-else-if="item.type === 'file'"
@@ -362,6 +428,7 @@ onBeforeUnmount(resetDragState)
         :is-favorite-tab="activeTab === 'favorite'"
         @toggle-expand="emit('toggle-expand', item.id)"
         @delete-favorite="emit('delete-favorite', index)"
+        @relay="emit('relay', item)"
       />
     </div>
 
@@ -410,14 +477,14 @@ onBeforeUnmount(resetDragState)
 
 .clipboard-item {
   position: relative;
-  padding-left: 30px;
+  padding-left: 40px;
   background: var(--bg-surface);
   border-bottom: 1px solid var(--border-color);
   cursor: pointer;
 }
 
 .clipboard-item.is-sortable {
-  padding-left: 56px;
+  padding-left: 66px;
 }
 
 .clipboard-item.is-dragging {
@@ -447,7 +514,7 @@ onBeforeUnmount(resetDragState)
 .drag-handle {
   position: absolute;
   top: 50%;
-  left: 30px;
+  left: 40px;
   width: 24px;
   height: 32px;
   display: flex;
@@ -482,17 +549,24 @@ onBeforeUnmount(resetDragState)
   height: 20px;
 }
 
-.selection-checkbox {
+.selection-area {
   position: absolute;
-  top: 50%;
-  left: 7px;
+  inset: 0 auto 0 0;
+  width: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  z-index: 2;
+}
+
+.selection-checkbox {
   width: 16px;
   height: 16px;
   margin: 0;
-  transform: translateY(-50%);
   accent-color: var(--primary-color);
   cursor: pointer;
-  z-index: 2;
 }
 
 .clipboard-item:hover {

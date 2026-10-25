@@ -108,6 +108,7 @@
       </button>
 
       <!-- 置顶按钮 -->
+      <TemporaryResidencyButton />
       <button :class="['toolbar-btn', { active: isPinned }]" title="置顶窗口" @click="togglePin">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
           <!-- 未激活：线性图标 -->
@@ -180,6 +181,7 @@ import {
   toggleMainPushSetting
 } from '../../composables/useMainPushSetting'
 import AdaptiveIcon from '../common/AdaptiveIcon.vue'
+import TemporaryResidencyButton from '../common/TemporaryResidencyButton.vue'
 import { CommonKeyboardModifier, readModifiers } from '@renderer/utils/convertKeyboardEvent'
 import type { AiRequestStatus, AiRequestStatusChange } from '@shared/aiRequestStatus'
 

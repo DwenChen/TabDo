@@ -379,6 +379,25 @@ async function requestPluginPayment(input, callback) {
 
 window.tabdo = {
   lifecycle: pluginLifecycle,
+  /**
+   * 兼容声明当前会话的常驻能力，不直接启用用户开关。
+   * @param {boolean} enabled 是否支持此特性。
+   * @returns {Promise<boolean>} 当前用户开关状态。
+   */
+  setTemporaryResident: (enabled) =>
+    electron.ipcRenderer.invoke('plugin:temporary-resident', enabled),
+  /**
+   * 声明能力，由宿主在标题栏右上角提供开关，默认不常驻。
+   * @param {boolean} enabled 是否提供此特性，默认true。
+   * @returns {Promise<boolean>} 当前用户开关状态。
+   */
+  enableTemporaryResident: (enabled = true) =>
+    electron.ipcRenderer.invoke('plugin:temporary-resident', enabled),
+  /**
+   * 读取当前窗口的临时常驻属性。
+   * @returns {Promise<boolean>} 当前会话是否临时常驻。
+   */
+  isTemporaryResident: () => electron.ipcRenderer.invoke('plugin:temporary-resident'),
   requestPayment: requestPluginPayment,
   getPaymentRecords: (query = {}) => ipcInvoke('getPaymentRecords', toIpcCloneable(query)),
   getAppName: () => 'TabDo',

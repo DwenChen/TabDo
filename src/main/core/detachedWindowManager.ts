@@ -2,7 +2,7 @@ import { app, BrowserWindow, ipcMain, Menu, WebContentsView } from 'electron'
 import { fileURLToPath, pathToFileURL } from 'url'
 import { v4 as uuidv4 } from 'uuid'
 import databaseAPI from '../api/shared/database'
-import { applyWindowMaterial } from '../utils/windowUtils'
+import { applyWindowMaterial, getDefaultWindowMaterial } from '../utils/windowUtils'
 import { GLOBAL_SCROLLBAR_CSS } from './globalStyles.js'
 import lmdbInstance from './lmdb/lmdbInstance'
 import devToolsShortcut, { getDevToolsMode } from '../utils/devToolsShortcut'
@@ -13,6 +13,7 @@ import { getDetachedWindowSizeKey } from '../../shared/pluginRuntimeNamespace'
 import { getPreloadPath, getRendererPath } from '../utils/appBundlePath'
 import type { AiRequestStatus } from '../../shared/aiRequestStatus'
 import { isToolsPluginPath, releaseToolsView } from './toolsLifecycle'
+import { isTemporaryResident, setTemporaryResident } from './temporaryResidency'
 import { applyToolsWindowIdentity, getToolsWindowIcon } from './toolsWindowIdentity'
 import {
   STANDARD_DETACHED_WINDOW_TITLEBAR_HEIGHT,
@@ -118,17 +119,21 @@ class DetachedWindowManager {
 
   /**
    * 应用窗口材质（Windows 11）
+   * @param win 当前分离窗口。
+   * @returns 材质应用结束后的Promise，读取失败使用系统默认值。
    */
   private async applyWindowMaterial(win: BrowserWindow): Promise<void> {
     try {
       const settings = await lmdbInstance.promises.get('ZTOOLS/settings-general')
-      const material = (settings?.data?.windowMaterial as 'mica' | 'acrylic' | 'none') || 'none'
+      const material =
+        (settings?.data?.windowMaterial as 'mica' | 'acrylic' | 'none') ||
+        getDefaultWindowMaterial()
 
       console.log('[DetachedWindow] 分离窗口应用材质:', material)
       applyWindowMaterial(win, material)
     } catch (error) {
-      console.error('[DetachedWindow] 读取窗口材质配置失败，使用默认值 (mica):', error)
-      applyWindowMaterial(win, 'none')
+      console.error('[DetachedWindow] 读取窗口材质配置失败，使用系统默认值:', error)
+      applyWindowMaterial(win, getDefaultWindowMaterial())
     }
   }
 
@@ -399,10 +404,11 @@ class DetachedWindowManager {
       this.detachedWindowMap.set(windowId, windowInfo)
 
       /**
-       * 插件独立窗口隐藏或最小化时退役旧会话；必要任务结束后销毁空窗口。
+       * 普通窗口隐藏或最小化时退役；用户临时常驻期间保留当前独立会话。
        * @returns 无返回值。
        */
       const releaseHiddenTools = (): void => {
+        if (isTemporaryResident(pluginView.webContents)) return
         // 立即从可复用窗口中移除，旧任务不能污染随后新打开的工具。
         this.detachedWindowMap.delete(windowId)
         pluginWindowManager.releaseParent(pluginView.webContents)
@@ -419,7 +425,11 @@ class DetachedWindowManager {
       win.on('minimize', releaseHiddenTools)
 
       // 关闭仅卸下工具页面，必要任务仍可在独立运行时内完成保存。
-      win.on('close', () => releaseHiddenTools())
+      win.on('close', () => {
+        // 用户关闭和宿主退出总是释放，临时常驻不能阻止明确退出。
+        setTemporaryResident(pluginView.webContents, false)
+        releaseHiddenTools()
+      })
 
       // 监听窗口关闭
       win.on('closed', () => {
@@ -806,6 +816,23 @@ class DetachedWindowManager {
       if (windowInfo.view.webContents.id === webContentsId) {
         return windowInfo.window
       }
+    }
+    return null
+  }
+
+  /**
+   * 将宿主标题栏映射到所属正文，拒绝插件页面冒充标题栏操作。
+   * @param sender 发起宿主操作的页面。
+   * @returns 同窗口的插件正文，身份不匹配时为空。
+   */
+  public getPluginForTitlebar(sender: Electron.WebContents): Electron.WebContents | null {
+    for (const info of this.detachedWindowMap.values()) {
+      if (
+        !info.window.isDestroyed() &&
+        info.window.webContents === sender &&
+        !info.view.webContents.isDestroyed()
+      )
+        return info.view.webContents
     }
     return null
   }

@@ -1,0 +1,20 @@
+{
+  "id": "relay-feedback-hit-area-and-reorder-handle",
+  "date": "2026-10-25",
+  "summary": "剪贴板与中转提示自动消失，扩大勾选区域并恢复右侧排序手柄",
+  "changes": [
+    "根据用户补充截图定位剪贴板底部弹窗与中转底部红色反馈，两处增加自动清除和重复触发重置计时，退出清理计时器。",
+    "剪贴板与中转左侧整列均可勾选，不再触发正文拖出；中转排序手柄恢复到删除按钮左侧，保留正文拖出和多选。",
+    "同步工具规范、指令清单、本地教程与TX-86回归分组。"
+  ],
+  "checks": [
+    "开始时保留已有未提交内容；未重置预览资料，未push、未云端构建、未release。",
+    "pnpm test:e2e floating-relay与clipboard-interactions两个源码专项全部通过，归档.artifacts/runs/2026-10-25T04-09-20-337Z-e2e。验证排序结果提示自动清除、禁止提示4秒清除、相同错误重新触发后重置计时、左侧边缘勾选、左列系统拖动不交付内容、删除按钮左侧手柄排序，以及真实文本/文件/图片拖放、删除清空、关闭销毁和取消常驻回收。",
+    "所有E2E从scripts/preview-main.cjs加载源码并隔离data/legacy，不为测试打包。node --check与改动Vue/E2E的ESLint通过，pnpm test:regressions relay-feedback --list确认2个专项。",
+    "pnpm build通过，包含Node/Web类型检查、设置/工具插件与宿主编译，仅用于预览交付；原有设置跨chunk循环依赖警告保留。pnpm maintain、maintain:check及git diff --check通过。",
+    "pnpm preview:sync已更新1.1.1本地预览，173个原有data/legacy文件的路径与SHA-256前后完全一致；收据.artifacts/backups/preview-sync/update-1792901489784/preservation.json，程序回退位于同目录previous-resources。",
+    "pnpm test:preview:resources通过，独立核对95项程序资源、246个内置插件文件与1676项媒体依赖。提示计时、整列勾选和右侧手柄均已同步，未启动成品或改动已有配置与已安装插件。"
+  ],
+  "pending": ["其他DPI、多屏及外部接收软件仍需人工验收。"],
+  "preview": "已同步.local/portable-preview，可通过PreviewPortable.cmd手动测试；保留已有配置、历史和已安装插件。未push、未云端构建、未release。"
+}

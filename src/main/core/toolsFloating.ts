@@ -4,6 +4,7 @@ import {
   clipboard,
   dialog,
   ipcMain,
+  Menu,
   nativeImage,
   screen,
   type Rectangle,
@@ -27,8 +28,10 @@ function readDockPreference(): boolean {
 
 interface FloatingContent {
   id?: string
-  type: 'text' | 'image'
+  type: 'text' | 'image' | 'text-list' | 'relay'
+  entries?: import('./toolsTextFloat').RelayInput[]
   text?: string
+  texts?: string[]
   image?: string
   color?: string
   edit?: boolean
@@ -41,6 +44,7 @@ interface FloatingEntry {
   ready: boolean
   pendingText: string[]
   focused: number
+  closing?: boolean
   adjustingDock?: boolean
   observedBounds?: Rectangle
   boundsChangedAt?: number
@@ -490,7 +494,9 @@ function updateDock(entry: FloatingEntry): void {
  */
 function recentNote(): FloatingEntry | undefined {
   return [...windows.values()]
-    .filter((entry) => entry.content.type === 'text' && !entry.window.isDestroyed())
+    .filter(
+      (entry) => entry.content.type === 'text' && !entry.closing && !entry.window.isDestroyed()
+    )
     .sort((left, right) => right.focused - left.focused)[0]
 }
 
@@ -516,6 +522,11 @@ async function operate(sender: WebContents, action: string, value: any): Promise
   const entry = windows.get(sender.id)
   if (!entry) throw new Error('悬浮窗口已关闭')
   const { window, content } = entry
+  if (content.type === 'text' && (action === 'note-undo' || action === 'note-redo')) {
+    if (action === 'note-undo') window.webContents.undo()
+    else window.webContents.redo()
+    return true
+  }
   if (action === 'init')
     return { ...content, top: window.isAlwaysOnTop(), dockEnabled: entry.dockEnabled }
   if (action === 'ready') {
@@ -691,12 +702,21 @@ async function operate(sender: WebContents, action: string, value: any): Promise
 }
 
 /**
- * 将文字追加到最近便签，或按明确意图创建独立图片窗口和新便签。
+ * 按独立文本条目、便签或图片意图创建窗口，旧便签载荷继续兼容追加。
  * @param input 用户选中或从剪贴板历史明确打开的内容。
  * @returns 接收内容的目标窗口标识。
  * @throws {Error} 输入无效或窗口加载失败时抛出。
  */
 export async function openFloating(input: FloatingContent): Promise<number> {
+  if (input?.type === 'text-list' || input?.type === 'relay') {
+    // 旧文本载荷兼容到中转；中转按需加载，不持有剪贴板页面运行时。
+    const { openRelay } = await import('./toolsTextFloat')
+    return openRelay(
+      input.type === 'relay'
+        ? input.entries || []
+        : (input.texts || []).map((text) => ({ type: 'text', text }))
+    )
+  }
   if (!registered) {
     ipcMain.handle('tools-floating', (event, action, value) => operate(event.sender, action, value))
     registered = true
@@ -810,6 +830,9 @@ export async function openFloating(input: FloatingContent): Promise<number> {
   })
   // 独立窗口可在剪贴板退役后继续可见；隐藏、最小化或关闭立即销毁运行时。
   const senderId = window.webContents.id
+  window.once('close', () => {
+    entry.closing = true
+  })
   window.once('closed', () => {
     windows.delete(senderId)
     cancelDockAnimation(entry)
@@ -826,6 +849,19 @@ export async function openFloating(input: FloatingContent): Promise<number> {
     if (!window.isDestroyed()) window.close()
   })
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  // 编辑命令显式绑定所属页面，其他独立窗口获得焦点也不能复制或粘贴到错误目标。
+  window.webContents.on('context-menu', (_event, params) => {
+    if (!params.isEditable) return
+    Menu.buildFromTemplate([
+      { label: '剪切', enabled: params.editFlags.canCut, click: () => window.webContents.cut() },
+      { label: '复制', enabled: params.editFlags.canCopy, click: () => window.webContents.copy() },
+      {
+        label: '粘贴',
+        enabled: params.editFlags.canPaste,
+        click: () => window.webContents.paste()
+      }
+    ]).popup({ window })
+  })
   window.webContents.on('will-navigate', (event) => event.preventDefault())
   try {
     await window.loadFile(path.join(resource, 'tools-floating.html'))

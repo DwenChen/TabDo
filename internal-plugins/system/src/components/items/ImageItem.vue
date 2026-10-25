@@ -4,7 +4,7 @@ defineProps({
   isFavoriteTab: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['delete-favorite', 'float-image', 'annotate-image'])
+const emit = defineEmits(['delete-favorite', 'float-image', 'annotate-image', 'relay'])
 </script>
 
 <template>
@@ -15,10 +15,11 @@ const emit = defineEmits(['delete-favorite', 'float-image', 'annotate-image'])
         :key="source"
         class="image-tile"
       >
-        <img :src="source" :alt="`图片 ${item.id} ${index + 1}`" />
+        <img :src="source" :alt="`图片 ${item.id} ${index + 1}`" draggable="false" />
         <div class="image-actions">
           <button @click.stop="emit('float-image', source)">悬浮固定</button
           ><button @click.stop="emit('annotate-image', source)">标记图片</button>
+          <button @click.stop="emit('relay')">悬浮中转</button>
         </div>
       </div>
     </div>

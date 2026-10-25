@@ -84,12 +84,12 @@ const emit = defineEmits(['toggle-expand', 'delete-favorite', 'float-text'])
       <span class="meta-count">{{ item.charCount }} 字符</span>
       <button
         class="float-btn"
-        title="悬浮文本"
-        aria-label="悬浮文本"
+        title="悬浮中转"
+        aria-label="悬浮中转"
         @click.stop="emit('float-text')"
         @dblclick.stop
       >
-        悬浮固定
+        悬浮中转
       </button>
     </div>
   </div>

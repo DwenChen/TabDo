@@ -40,6 +40,22 @@ export interface PluginMarketDownloadProgress {
 }
 
 const api = {
+  /**
+   * 读取或由用户点击切换所属插件的临时常驻状态。
+   * @param toggle 是否切换用户开关，默认仅查询。
+   * @returns 当前会话的能力与开关状态。
+   */
+  temporaryResidency: (toggle = false) => ipcRenderer.invoke('host:temporary-resident', toggle),
+  /**
+   * 订阅当前宿主会话能力或状态改变。
+   * @param callback 状态改变时刷新按钮的处理器。
+   * @returns 取消本次监听的函数。
+   */
+  onTemporaryResidencyChanged: (callback: () => void) => {
+    const listener = (): void => callback()
+    ipcRenderer.on('temporary-residency-changed', listener)
+    return () => ipcRenderer.removeListener('temporary-residency-changed', listener)
+  },
   getApps: () => ipcRenderer.invoke('get-apps'),
   getSystemSettings: () => ipcRenderer.invoke('get-system-settings'),
   isWindows: () => ipcRenderer.invoke('is-windows'),
@@ -587,6 +603,8 @@ declare global {
       }
     }
     tabdo: {
+      temporaryResidency: (toggle?: boolean) => Promise<{ supported: boolean; enabled: boolean }>
+      onTemporaryResidencyChanged: (callback: () => void) => () => void
       getApps: () => Promise<Command[]>
       getSystemSettings: () => Promise<any[]>
       isWindows: () => Promise<boolean>

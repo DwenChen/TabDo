@@ -2,6 +2,7 @@ import { createHash } from 'crypto'
 import { clipboard, nativeImage } from 'electron'
 import { existsSync, promises as fs } from 'fs'
 import path from 'path'
+import { clipboardEvents } from '../core/clipboardEvents'
 
 import os from 'os'
 import { v4 as uuidv4 } from 'uuid'
@@ -291,8 +292,12 @@ class ClipboardManager {
     this.config = { ...this.config, ...config }
   }
 
-  // 处理剪贴板变化（原生事件已去重，直接处理）
+  /**
+   * 捕获一次系统复制并分别广播临时中转与持久历史，保留采集开始时间。
+   * @returns 捕获与必要保存结束后的Promise；格式或保存失败记录日志。
+   */
   private async handleClipboardChange(): Promise<void> {
+    const capturedAt = Date.now()
     try {
       let item: Partial<ClipboardItem> | null = null
 
@@ -315,6 +320,7 @@ class ClipboardManager {
       }
 
       if (item) {
+        clipboardEvents.emit('captured', { ...item, capturedAt })
         // 连续复制相同内容时跳过记录（保留顺序去重）
         if (item.hash && item.hash === this.lastSavedHash) {
           console.log('[Clipboard] 连续重复内容，跳过保存:', item.preview)
@@ -944,6 +950,7 @@ class ClipboardManager {
     // 先登记 hash，随后到达的采集事件按重复内容跳过，不会写入第二条记录。
     this.lastSavedHash = item.hash
     await this.saveItem(item)
+    clipboardEvents.emit('captured', { ...item, capturedAt: timestamp })
     pluginManager?.sendPluginMessage('clipboard-change', item)
   }
 

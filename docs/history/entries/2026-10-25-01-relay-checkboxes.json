@@ -1,0 +1,27 @@
+{
+  "id": "relay-checkbox-selection-and-simple-rows",
+  "date": "2026-10-25",
+  "summary": "移除中转条目两侧操作手柄，恢复左侧勾选多选",
+  "changes": [
+    "按用户最新要求移除逐条排序与拖出图标，左侧改为勾选框；保留删除按钮。",
+    "恢复勾选、Ctrl切换、Shift范围和全选快捷键；同类型选择按显示顺序合并复制或拖出，混合文本图片文件仍禁止并明确反馈。",
+    "直接拖动正文进行外部粘贴，Alt拖动或上移/下移按钮继续支持手动排序；删除与清空仍只清理中转内容。"
+  ],
+  "checks": [
+    "开始时存在前几轮未提交内容，按用户最新要求恢复勾选多选，保留其他改动。未push、未云端构建、未release，未重置用户或预览资料。",
+    "3个相关单测文件18项通过，归档.artifacts/runs/2026-10-25T03-09-49-501Z-unit；本轮不把上轮699项结论当作当前全量执行结果。",
+    "floating-relay源码专项最终通过，归档.artifacts/runs/2026-10-25T03-17-26-659Z-e2e：两侧手柄不存在、左侧复选框勾选两条、按显示顺序合并复制、Shift范围及Ctrl+A取消全选、Alt正文拖动和按钮排序、删除/清空、混合选择复制与拖出可见禁止反馈。",
+    "最终floating-relay实际用Windows系统鼠标从正文拖动两条选中文本到独立窗口textarea，核对中转第二条与中转第一条由空行分隔；TXT与PNG分别进入drop.files，未以DOM派发或调用标志代替接收。",
+    "原生拖放早期出现未接收结果，失败归档保留。排查后夹具在每次系统拖动前显式聚焦源窗口，避免CDP点击不等同于Windows激活；原生拖放改用单向IPC和同步本地图标，不在鼠标手势期间等待系统图标查询，最终实收通过。",
+    "clipboard-interactions通过见.artifacts/runs/2026-10-25T03-06-26-138Z-e2e中的1项通过；local-tutorial通过见.artifacts/runs/2026-10-25T03-11-51-973Z-e2e中的1项通过，两个归档的其他失败均保留并由后续专项修正，不宣称整轮全通过。",
+    "所有E2E从scripts/preview-main.cjs加载源码并隔离data/legacy，不为测试打包。改动TS和E2E的ESLint零错误零警告，中转JS/preload的node --check通过。",
+    "当前规范、清单、教程正文与剪贴板SVG已同步，TX-85标明恢复多选并替代旧单选要求；pnpm test:regressions floating-relay --list确认5个单测文件与4个源码专项，pnpm maintain、maintain:check和git diff --check通过。",
+    "最后宿主拖放通道调整后再次执行相关3文件18项单测并通过，归档.artifacts/runs/2026-10-25T03-19-36-615Z-unit；pnpm build最终通过（Node/Web类型、设置与工具插件、宿主编译），仅用于预览交付，原有设置跨chunk循环依赖警告保留。",
+    "pnpm preview:sync更新1.1.1本地预览，169个既有data/legacy文件前后路径和SHA-256逐项一致，收据.artifacts/backups/preview-sync/update-1792898472668/preservation.json，回退程序位于同目录previous-resources。未重置配置、收藏、历史或已安装插件，未启动成品。",
+    "pnpm test:preview:resources通过，核对95项程序资源、246个内置插件文件与1676项媒体依赖；复选框界面、已移除的手柄、批量操作和原生拖放通道均已同步。"
+  ],
+  "pending": [
+    "其他DPI、多屏和外部接收软件的拖放兼容性仍需人工验收。"
+  ],
+  "preview": "已同步.local/portable-preview，通过PreviewPortable.cmd手动测试。169个原有data/legacy文件逐文件保持，配置和已安装插件保留。未push、未云端构建、未发布release。"
+}

@@ -415,7 +415,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useSuperPanelDrag } from '../composables/useSuperPanelDrag'
-import defaultAvatar from '../assets/image/default.png'
+import defaultAvatar from '../assets/logo.png'
 
 interface CommandItem {
   name: string

@@ -1,0 +1,32 @@
+{
+  "id": "clipboard-interactions-and-residency",
+  "date": "2026-10-24",
+  "summary": "优化便签编辑、独立文本悬浮、剪贴板多选拖出与临时常驻，统一设置控件",
+  "changes": [
+    "便签默认14px，字号完成编辑后校验，原生右键提供剪切复制粘贴与撤销。",
+    "剪贴板文本与悬浮内容指令使用独立文本条目窗口，支持追加、选中、多选、复制与拖出，和便签互不混用。",
+    "图片悬浮按钮处理当前多选图片；文本使用标准文本拖放，图片通过宿主原生多文件拖出。收藏排序继续使用独立手柄。",
+    "提供setTemporaryResident/isTemporaryResident会话属性接口；剪贴板右上角启用时转入独立窗口，临时隐藏或最小化保留，明确关闭及退出仍释放，不保存状态。",
+    "通用表单控件统一34px高度与材质背景，关于教程入口沿用普通按钮；同步子组件、插件、设置开发规范。",
+    "同时修正关闭中的便签仍被追加路由命中、连续新建不能立即重置编号的边界；文本浮窗限定1000条/100万字符，初始化追加不提前显示空窗。"
+  ],
+  "checks": [
+    "初始Git状态干净；已依序阅读维护流程、改动索引、Bug台账与相关模块规范；本轮未获远端授权，不push、不云端构建、不release、不重置预览资料。",
+    "pnpm test --maxWorkers=2最终102文件691项全部通过，归档.artifacts/runs/2026-10-24T04-57-57-893Z-unit；最终便签关闭路由调整后另跑floatingPointer与temporaryResidencyApi共17项通过，归档.artifacts/runs/2026-10-24T05-04-06-270Z-unit。",
+    "首轮全量单测暴露文本浮窗静态导入提前初始化LMDB，导致旧窗口替身失败；改为按文本类型动态加载后全量通过。失败归档.artifacts/runs/2026-10-24T04-56-34-852Z-unit保留。",
+    "源码clipboard-interactions最终通过，归档.artifacts/runs/2026-10-24T05-05-07-057Z-e2e：便签14px、清空后连续输入18、原生上下文菜单复制与粘贴；独立文本条目多选复制/追加与初始化并发有序，同便签相互隔离。",
+    "专项通过真实系统鼠标跨窗口拖动：两条原始文本到独立原生窗口textarea、两张PNG到drop.files并核对收到文件名；未以DOM派发或startDrag调用标志代替实际接收。两张选中图片一键分别悬浮。",
+    "临时常驻实际迁移当前页面，最小化和隐藏后页面仍在；取消后隐藏销毁，重新进入默认关闭，常驻时明确关闭仍销毁。第三方API单测验证调用者身份、分离失败不保活、会话状态隔离。",
+    "早期源码专项失败分别暴露脚本top全局命名冲突、preload错误转发新IPC，以及未等待原生复制完成就写入下一份剪贴板的测试竞态；已修正并重跑。原生拖放夹具额外置顶以排除桌面其他程序遮挡，不改变产品置顶默认值。",
+    "相邻tools-polish通过，归档.artifacts/runs/2026-10-24T05-00-57-151Z-e2e；tools-expanded、tools-lifecycle、local-tutorial通过见.artifacts/runs/2026-10-24T04-56-16-208Z-e2e中的3项通过（同轮另外2项失败已专项修正）；教程正文最终更新后local-tutorial再次通过，归档.artifacts/runs/2026-10-24T05-02-45-237Z-e2e。",
+    "真实设置入口检查明暗×三材质控件外框34px与数字框背景、关于页全部普通按钮样式一致，保留文本浮窗、便签编辑与关于页直接截图。当前Windows单屏1397×786 DIP、scaleFactor1.375；WebContents透明通道不代表DWM最终观感。",
+    "pnpm build最终通过（Node/Web与设置类型检查、两内置插件构建、宿主编译）；该构建只用于预览交付，所有E2E独立从scripts/preview-main.cjs加载源码与隔离data/legacy。改动文件ESLint零错误零警告，公共preload、便签与新文本浮窗脚本node --check通过。",
+    "pnpm test:regressions clipboard-interactions --list确认4个单测文件、4个源码专项；pnpm maintain、maintain:check和git diff --check通过。",
+    "pnpm preview:sync成功同步程序资源，原有data/legacy共157个文件前后路径及内容SHA-256完全一致；收据.artifacts/backups/preview-sync/update-1792818410097/preservation.json，程序回滚副本在同目录previous-resources。未启动成品或重置数据。",
+    "pnpm test:preview:resources通过，核验96程序文件、244内置插件文件及1676媒体依赖；新增文本浮窗HTML/JS/CSS/preload及更新便签与公共preload的物理展开字节逐一与源码相同。"
+  ],
+  "pending": [
+    "其他DPI、多屏与触摸、Windows DWM材质最终观感，以及其他外部接收应用对文本/多文件拖放的兼容性需设备人工验收。"
+  ],
+  "preview": "已同步.local/portable-preview，使用PreviewPortable.cmd手动测试。157个既有data/legacy文件逐文件保持，配置、历史、收藏及已安装插件未重置。预览资源核验通过；未push、未云端构建、未发布release。"
+}

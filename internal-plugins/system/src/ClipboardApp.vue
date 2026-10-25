@@ -6,7 +6,7 @@ import { useClipboardData } from '@/composables/useClipboardData'
 import { useSelection } from '@/composables/useSelection'
 import { useContextMenu } from '@/composables/useContextMenu'
 import { useFavoriteDialog } from '@/composables/useFavoriteDialog'
-import { buildClipboardPayload } from '@/utils/clipboardPayload'
+import { buildClipboardPayload, getClipboardTransferError } from '@/utils/clipboardPayload'
 import TabBar from '@/components/TabBar.vue'
 import ClipboardList from '@/components/ClipboardList.vue'
 import SideBar from '@/components/SideBar.vue'
@@ -18,8 +18,83 @@ import ConfirmDialog from '@/components/ConfirmDialog.vue'
 const activeTab = ref('all')
 const searchText = ref('')
 const floatingMessage = ref('')
+const relaying = ref(false)
+let reloadWhenVisible = false
+let floatingMessageTimer = null
 /**
- * 将选中的文本按列表顺序整体追加到便签，或打开明确选择的图片窗口。
+ * 显示短暂反馈并重置计时，避免旧提示或旧计时器遮挡后续操作。
+ * @param {string} message 当前反馈。
+ * @param {number} duration 显示毫秒数，0表示等待操作完成后替换。
+ * @returns {void} 更新提示并登记属于当前页面的清理计时器。
+ */
+function showFloatingMessage(message, duration = 4000) {
+  clearTimeout(floatingMessageTimer)
+  floatingMessageTimer = null
+  floatingMessage.value = message
+  // 操作中的反馈由完成或失败替换，其他反馈到期自动清除。
+  if (message && duration > 0)
+    floatingMessageTimer = setTimeout(() => {
+      floatingMessage.value = ''
+      floatingMessageTimer = null
+    }, duration)
+}
+/**
+ * 常驻窗口不可见时暂停界面查询，宿主剪贴板采集仍独立工作。
+ * @returns {void} 可见时刷新，否则只登记下一次显示需要刷新。
+ */
+function handleClipboardChange() {
+  if (document.hidden) reloadWhenVisible = true
+  else doReload()
+}
+/**
+ * 恢复可见时读取最新历史，避免隐藏期间持续拉取列表。
+ * @returns {void} 没有待刷新内容时不执行查询。
+ */
+function handleVisibilityChange() {
+  if (!document.hidden && reloadWhenVisible) {
+    reloadWhenVisible = false
+    doReload()
+  }
+}
+/**
+ * 把明确选中的文本、图片或文件转入中转，空入口只打开窗口。
+ * @param {object|null} target 可见按钮指向的条目，省略时使用当前选择集。
+ * @returns {Promise<void>} 转交结束后更新提示，失败显示宿主原因。
+ */
+async function relayItems(target = null) {
+  if (relaying.value) return
+  const items =
+    target && !selectedItemSet.value.has(target)
+      ? [target]
+      : filteredData.value.filter((item) => selectedItemSet.value.has(item))
+  hideContextMenu()
+  relaying.value = true
+  showFloatingMessage(items.length ? `正在转入 ${items.length} 项…` : '正在打开悬浮中转…', 0)
+  try {
+    await window.toolsLifecycle.runTask(() =>
+      window.tabdo.internal.tools.openFloating({
+        type: 'relay',
+        entries: items.map((item) => ({
+          type: item.type,
+          text: item.content,
+          image: item.imagePath || item.content,
+          files: item.files?.map((file) => file.path)
+        }))
+      })
+    )
+    if (!window.toolsLifecycle.signal.aborted)
+      showFloatingMessage(
+        items.length ? `已转入悬浮中转 ${items.length} 项` : '已打开悬浮中转',
+        3000
+      )
+  } catch (error) {
+    if (!window.toolsLifecycle.signal.aborted) showFloatingMessage(error.message)
+  } finally {
+    if (!window.toolsLifecycle.signal.aborted) relaying.value = false
+  }
+}
+/**
+ * 悬浮全部选中图片或标记明确的一张图片，中转走独立入口。
  * @param edit 是否直接进入图片标注。
  * @param target 可见图片按钮指向的条目。
  * @param source 多图条目中明确选择的一张图片。
@@ -39,29 +114,39 @@ async function floatItem(edit = false, target = null, source = null) {
             )
           : [item]
         await window.tabdo.internal.tools.openFloating({
-          type: 'text',
-          // 纸色由宿主统一按新窗口顺序分配，追加不改变已有纸色。
-          text: texts.map((entry) => entry.content).join('\n\n')
+          type: 'text-list',
+          texts: texts.map((entry) => entry.content)
         })
       } else {
-        const paths = source
-          ? [source]
-          : item.category === 'image' && item.type === 'file'
-            ? item.files.map((file) => file.path)
-            : [item.imagePath || item.content]
-        if (paths.length > 1) {
-          floatingMessage.value = '请使用各图片下方的按钮选择要悬浮或标记的图片'
-          return
-        }
+        // 标记仍针对明确的一张；悬浮按钮以被点击条目是否属于选择集决定批量范围。
+        const images =
+          !edit && selectedItemSet.value.has(item)
+            ? filteredData.value.filter(
+                (entry) =>
+                  selectedItemSet.value.has(entry) &&
+                  (entry.type === 'image' || entry.category === 'image')
+              )
+            : [item]
+        const paths = [
+          ...new Set(
+            images.flatMap((entry) =>
+              edit && source
+                ? [source]
+                : entry.category === 'image' && entry.type === 'file'
+                  ? entry.files.map((file) => file.path)
+                  : [entry.imagePath || entry.content]
+            )
+          )
+        ]
         for (const file of paths) {
           const image = file.startsWith('data:image/') ? file : window.toolsProvider.readImage(file)
           await window.tabdo.internal.tools.openFloating({ type: 'image', image, edit })
         }
       }
     })
-    if (!window.toolsLifecycle.signal.aborted) floatingMessage.value = '已打开独立悬浮窗口'
+    if (!window.toolsLifecycle.signal.aborted) showFloatingMessage('已打开独立悬浮窗口', 3000)
   } catch (error) {
-    if (!window.toolsLifecycle.signal.aborted) floatingMessage.value = error.message
+    if (!window.toolsLifecycle.signal.aborted) showFloatingMessage(error.message)
   }
 }
 // ---- Composables ----
@@ -105,6 +190,12 @@ const isSuccessfulWrite = (result) => result === true || result?.success === tru
  */
 const writeClipboardItems = async (items, shouldPaste = true) => {
   if (!items.length) return
+  // 在任何宿主写入、隐藏或粘贴前拒绝混合载荷，不静默丢弃其中一种内容。
+  const error = getClipboardTransferError(items.map((item) => item.type))
+  if (error) {
+    showFloatingMessage(error)
+    return
+  }
 
   // 复制会先隐藏窗口；整条写入/粘贴链必须登记后再发起宿主调用。
   return window.toolsLifecycle.runTask(async () => {
@@ -115,7 +206,7 @@ const writeClipboardItems = async (items, shouldPaste = true) => {
       } else {
         const payload = buildClipboardPayload(items)
         if (!payload) {
-          console.error('无法合并选中的剪贴板内容')
+          showFloatingMessage('所选内容无法复制，请重新选择有效条目')
           return
         }
         result = await window.tabdo.clipboard.writeContent(payload, shouldPaste)
@@ -158,7 +249,14 @@ const {
   handleToggleClick,
   copySelected,
   pasteSelected
-} = useSelection(filteredData, tabs, activeTab, writeClipboardItems, handleDeleteSelected)
+} = useSelection(
+  filteredData,
+  tabs,
+  activeTab,
+  writeClipboardItems,
+  handleDeleteSelected,
+  showFloatingMessage
+)
 
 const { contextMenu, showContextMenu, hideContextMenu } = useContextMenu()
 const { favoriteDialog, openFavoriteDialog, confirmFavorite, cancelFavoriteDialog } =
@@ -380,8 +478,11 @@ const handleGlobalKeydown = (event) => {
 }
 
 onMounted(async () => {
+  // 组件只声明能力，开关由宿主固定在标题栏右上角。
+  void window.tabdo.enableTemporaryResident(true)
   window.addEventListener('keydown', handleGlobalKeydown)
   window.addEventListener('click', hideContextMenu)
+  document.addEventListener('visibilitychange', handleVisibilityChange)
 
   await loadFavorites()
   // 挂载过程可能已经退出，迟到的初始化不得重新登记监听或改变宿主输入框。
@@ -398,15 +499,21 @@ onMounted(async () => {
   )
 
   if (window.toolsLifecycle.signal.aborted) return
-  window.tabdo.clipboard.onChange(() => doReload())
+  window.tabdo.clipboard.onChange(handleClipboardChange)
   focusSearchInput()
 })
 
 onUnmounted(() => {
+  // 页面退出后不保留提示计时器或迟到的界面更新。
+  clearTimeout(floatingMessageTimer)
+  floatingMessageTimer = null
+  if (!window.toolsLifecycle.signal.aborted)
+    void window.tabdo.enableTemporaryResident(false).catch(() => {})
   // 全局采集器由宿主持有，这里只解除当前界面订阅。
   window.tabdo.clipboard.onChange(null)
   window.removeEventListener('keydown', handleGlobalKeydown)
   window.removeEventListener('click', hideContextMenu)
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
 })
 </script>
 
@@ -419,11 +526,13 @@ onUnmounted(() => {
     :data-favorite-dialog="favoriteDialog.show"
   >
     <div class="main-content">
-      <TabBar
-        :active-tab="activeTab"
-        :favorite-count="favorites.length"
-        @update:active-tab="activeTab = $event"
-      />
+      <div class="clipboard-topbar">
+        <TabBar
+          :active-tab="activeTab"
+          :favorite-count="favorites.length"
+          @update:active-tab="activeTab = $event"
+        />
+      </div>
       <ClipboardList
         ref="clipboardListRef"
         :items="filteredData"
@@ -444,7 +553,9 @@ onUnmounted(() => {
         @reorder-favorite="handleReorderFavorite"
         @scroll="handleScroll"
         @float-image="(item, source) => floatItem(false, item, source)"
-        @float-text="floatItem(false, $event)"
+        @float-text="relayItems($event)"
+        @relay="relayItems($event)"
+        @transfer-error="showFloatingMessage($event)"
         @annotate-image="(item, source) => floatItem(true, item, source)"
       />
       <span v-if="floatingMessage" class="floating-status" role="status">{{
@@ -454,8 +565,10 @@ onUnmounted(() => {
 
     <SideBar
       :selected-count="selectedCount"
+      :relaying="relaying"
       @copy="copySelected"
       @paste="pasteSelected"
+      @relay="relayItems()"
       @clear="handleClearClick"
     />
 
@@ -466,13 +579,11 @@ onUnmounted(() => {
       :can-favorite="
         activeTab !== 'favorite' && ['text', 'image', 'file'].includes(contextMenu.item?.type)
       "
-      :can-float="
-        contextMenu.item?.type === 'text' ||
-        contextMenu.item?.type === 'image' ||
-        contextMenu.item?.category === 'image'
-      "
+      :can-float="contextMenu.item?.type === 'image' || contextMenu.item?.category === 'image'"
+      :can-relay="['text', 'image', 'file'].includes(contextMenu.item?.type)"
       :can-annotate="contextMenu.item?.type === 'image' || contextMenu.item?.category === 'image'"
       @float="floatItem(false)"
+      @relay="relayItems(contextMenu.item)"
       @annotate="floatItem(true)"
       @favorite="handleOpenFavoriteDialog"
       @delete="handleDeleteItem"
@@ -504,6 +615,15 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+.clipboard-topbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.clipboard-topbar :deep(.tab-bar) {
+  flex: 1;
+  min-width: 0;
+}
 .floating-status {
   position: absolute;
   bottom: 8px;

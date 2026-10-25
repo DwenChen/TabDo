@@ -2,6 +2,126 @@
 
 > 自动生成；原始记录在 [entries](../history/entries/)。
 
+## 2026-10-25 · 发布悬浮中转、宿主临时常驻与剪贴板交互优化版本
+
+记录：[release-tabdo-1.2.0](../../docs/history/entries/2026-10-25-03-release-1.2.0.json)；版本：1.2.0。
+
+- 当前用户明确授权push、云端构建和release；保留前几轮全部功能与修复，不推导数据重置授权。
+- 版本由1.1.1更新为1.2.0，更新发布说明；按现有Release TabDo流程发布Windows x64安装包、免安装ZIP及更新元数据。
+
+- 验证：已依次读取维护流程、改动索引、Bug台账与发布规范，检查Git状态和现有未提交文件。git fetch后main与origin/main一致，hooks保持启用。
+- 验证：发布候选完整pnpm test --maxWorkers=2通过103文件699项，归档.artifacts/runs/2026-10-25T04-20-06-403Z-unit。
+- 验证：发布候选6个受影响源码E2E全部通过：clipboard-interactions、floating-relay、local-tutorial、tools-expanded、tools-lifecycle与tools-polish，归档.artifacts/runs/2026-10-25T04-21-07-174Z-e2e。使用scripts/preview-main.cjs和隔离data/legacy，不为E2E打包。
+- 验证：pnpm lint、pnpm typecheck:setting和4份修改的公共JS/preload语法检查通过。远端正式版为1.1.1，候选1.2.0尚未存在。
+- 验证：pnpm build包含宿主Node/Web类型检查、设置/工具插件和宿主编译全部通过；既有设置跨chunk循环依赖警告保留。编译用于预览交付，E2E仍直接加载源码。
+- 验证：pnpm preview:sync同步1.2.0程序资源，原有data/legacy共173文件前后路径与SHA-256完全一致，收据.artifacts/backups/preview-sync/update-1792902275792/preservation.json；原程序资源保留在同目录previous-resources。未启动成品或重置资料。
+- 验证：pnpm test:preview:resources通过，核对95程序、246内置插件及1676媒体资源；pnpm maintain、maintain:check与git diff --check通过。候选暂存只包含本轮源码、图标、文档、测试和版本说明，不包含日志、备份、资料或凭据。
+
+## 2026-10-25 · 剪贴板与中转提示自动消失，扩大勾选区域并恢复右侧排序手柄
+
+记录：[relay-feedback-hit-area-and-reorder-handle](../../docs/history/entries/2026-10-25-02-relay-feedback-hit-area.json)；版本：未发布。
+
+- 根据用户补充截图定位剪贴板底部弹窗与中转底部红色反馈，两处增加自动清除和重复触发重置计时，退出清理计时器。
+- 剪贴板与中转左侧整列均可勾选，不再触发正文拖出；中转排序手柄恢复到删除按钮左侧，保留正文拖出和多选。
+- 同步工具规范、指令清单、本地教程与TX-86回归分组。
+
+- 验证：开始时保留已有未提交内容；未重置预览资料，未push、未云端构建、未release。
+- 验证：pnpm test:e2e floating-relay与clipboard-interactions两个源码专项全部通过，归档.artifacts/runs/2026-10-25T04-09-20-337Z-e2e。验证排序结果提示自动清除、禁止提示4秒清除、相同错误重新触发后重置计时、左侧边缘勾选、左列系统拖动不交付内容、删除按钮左侧手柄排序，以及真实文本/文件/图片拖放、删除清空、关闭销毁和取消常驻回收。
+- 验证：所有E2E从scripts/preview-main.cjs加载源码并隔离data/legacy，不为测试打包。node --check与改动Vue/E2E的ESLint通过，pnpm test:regressions relay-feedback --list确认2个专项。
+- 验证：pnpm build通过，包含Node/Web类型检查、设置/工具插件与宿主编译，仅用于预览交付；原有设置跨chunk循环依赖警告保留。pnpm maintain、maintain:check及git diff --check通过。
+- 验证：pnpm preview:sync已更新1.1.1本地预览，173个原有data/legacy文件的路径与SHA-256前后完全一致；收据.artifacts/backups/preview-sync/update-1792901489784/preservation.json，程序回退位于同目录previous-resources。
+- 验证：pnpm test:preview:resources通过，独立核对95项程序资源、246个内置插件文件与1676项媒体依赖。提示计时、整列勾选和右侧手柄均已同步，未启动成品或改动已有配置与已安装插件。
+
+## 2026-10-25 · 移除中转条目两侧操作手柄，恢复左侧勾选多选
+
+记录：[relay-checkbox-selection-and-simple-rows](../../docs/history/entries/2026-10-25-01-relay-checkboxes.json)；版本：未发布。
+
+- 按用户最新要求移除逐条排序与拖出图标，左侧改为勾选框；保留删除按钮。
+- 恢复勾选、Ctrl切换、Shift范围和全选快捷键；同类型选择按显示顺序合并复制或拖出，混合文本图片文件仍禁止并明确反馈。
+- 直接拖动正文进行外部粘贴，Alt拖动或上移/下移按钮继续支持手动排序；删除与清空仍只清理中转内容。
+
+- 验证：开始时存在前几轮未提交内容，按用户最新要求恢复勾选多选，保留其他改动。未push、未云端构建、未release，未重置用户或预览资料。
+- 验证：3个相关单测文件18项通过，归档.artifacts/runs/2026-10-25T03-09-49-501Z-unit；本轮不把上轮699项结论当作当前全量执行结果。
+- 验证：floating-relay源码专项最终通过，归档.artifacts/runs/2026-10-25T03-17-26-659Z-e2e：两侧手柄不存在、左侧复选框勾选两条、按显示顺序合并复制、Shift范围及Ctrl+A取消全选、Alt正文拖动和按钮排序、删除/清空、混合选择复制与拖出可见禁止反馈。
+- 验证：最终floating-relay实际用Windows系统鼠标从正文拖动两条选中文本到独立窗口textarea，核对中转第二条与中转第一条由空行分隔；TXT与PNG分别进入drop.files，未以DOM派发或调用标志代替接收。
+- 验证：原生拖放早期出现未接收结果，失败归档保留。排查后夹具在每次系统拖动前显式聚焦源窗口，避免CDP点击不等同于Windows激活；原生拖放改用单向IPC和同步本地图标，不在鼠标手势期间等待系统图标查询，最终实收通过。
+- 验证：clipboard-interactions通过见.artifacts/runs/2026-10-25T03-06-26-138Z-e2e中的1项通过；local-tutorial通过见.artifacts/runs/2026-10-25T03-11-51-973Z-e2e中的1项通过，两个归档的其他失败均保留并由后续专项修正，不宣称整轮全通过。
+- 验证：所有E2E从scripts/preview-main.cjs加载源码并隔离data/legacy，不为测试打包。改动TS和E2E的ESLint零错误零警告，中转JS/preload的node --check通过。
+- 验证：当前规范、清单、教程正文与剪贴板SVG已同步，TX-85标明恢复多选并替代旧单选要求；pnpm test:regressions floating-relay --list确认5个单测文件与4个源码专项，pnpm maintain、maintain:check和git diff --check通过。
+- 验证：最后宿主拖放通道调整后再次执行相关3文件18项单测并通过，归档.artifacts/runs/2026-10-25T03-19-36-615Z-unit；pnpm build最终通过（Node/Web类型、设置与工具插件、宿主编译），仅用于预览交付，原有设置跨chunk循环依赖警告保留。
+- 验证：pnpm preview:sync更新1.1.1本地预览，169个既有data/legacy文件前后路径和SHA-256逐项一致，收据.artifacts/backups/preview-sync/update-1792898472668/preservation.json，回退程序位于同目录previous-resources。未重置配置、收藏、历史或已安装插件，未启动成品。
+- 验证：pnpm test:preview:resources通过，核对95项程序资源、246个内置插件文件与1676项媒体依赖；复选框界面、已移除的手柄、批量操作和原生拖放通道均已同步。
+
+## 2026-10-24 · 补全中转入口多选反馈、单条管理和手动排序，修复取消临时常驻未回收
+
+记录：[relay-single-item-management-and-residency-release](../../docs/history/entries/2026-10-24-06-relay-management.json)；版本：未发布。
+
+- 保留工作区既有未提交内容；剪贴板侧栏中转按钮显示选择数量、选中样式与转交状态，并转入全部选中条目。
+- 中转窗口取消多选、复选框及全选，Ctrl/Shift也只选一个；混合文本、图片、文件的复制或拖出明确禁止，普通文件集合保留文件传输语义。
+- 增加单条删除与清空，清理会话图片及容量，不删除原文件和剪贴板历史；清空后继续接收新复制。
+- 支持独立手柄拖动排序、上移/下移与Alt方向键；手动排序后新复制追加末尾，仍可切回时间排序。
+- 用户取消临时常驻立即关闭所属独立会话并进入原有回收链，已登记任务正常收尾，配置和插件不受影响。
+
+- 验证：开始时已有上一轮未提交内容，在其上增量修改，未回滚或清理用户文件；本轮不push、不云端构建、不release、不重置资料。
+- 验证：pnpm typecheck通过；完整pnpm test --maxWorkers=2最终103文件699项全通过，归档.artifacts/runs/2026-10-24T07-20-01-041Z-unit。相关3文件11项先行验证通过，归档.artifacts/runs/2026-10-24T07-16-22-437Z-unit。
+- 验证：floating-relay最终源码E2E通过，归档.artifacts/runs/2026-10-24T07-21-23-665Z-e2e：Ctrl单选且无复选框/全选、上移与真实拖动排序、手动追加、不同类型选择禁止提示、宿主绕过UI混合复制拒绝、单条删除清理PNG、清空后继续采集、保留原文件、取消常驻无需隐藏即关闭正文与标题栏。
+- 验证：中转源码专项通过真实Windows系统鼠标向独立原生窗口拖动，文本实际进入textarea，TXT与PNG分别进入drop.files；中转只交付当前一条，不再一起拖出不同条目。
+- 验证：clipboard-interactions、tools-polish和local-tutorial源码专项通过见.artifacts/runs/2026-10-24T07-18-49-331Z-e2e的3项通过；同轮floating-relay因隐藏界面暂停刷新而未找到历史的测试夹具失败，切换真实分类刷新后单独重跑通过，不宣称该轮全部通过。
+- 验证：clipboard-interactions确认侧栏多选显示2项和选中样式，点击侧栏按钮真实转入两条；其早期失败因新复制生成同文历史而触发夹具严格定位，改用原始条目后通过。保留失败归档.artifacts/runs/2026-10-24T07-16-22-344Z-e2e。
+- 验证：全部E2E从scripts/preview-main.cjs直接加载源码并隔离data/legacy，不为E2E打包；直接保留稳定中转和工具正文截图。更新当前规范、教程正文、剪贴板SVG及TX-84回归记录。
+- 验证：43个改动JS/TS/Vue文件ESLint零错误零警告，中转JS/preload的node --check及git diff --check通过。pnpm build通过（类型、设置/工具插件及Electron宿主），仅用于预览交付；设置构建原有两个跨chunk循环依赖警告保留，未扩展到无关重构。
+- 验证：pnpm test:regressions floating-relay --list确认5个单测文件和4个源码专项；pnpm maintain与maintain:check通过。
+- 验证：pnpm preview:sync成功更新本地1.1.1免安装预览；165个原有data/legacy文件前后路径及SHA-256完全相同，收据.artifacts/backups/preview-sync/update-1792826739365/preservation.json；未启动成品或重置配置、历史、收藏及已安装插件。
+- 验证：pnpm test:preview:resources通过，核对95项程序资源、246个内置插件文件与1676项媒体依赖；本轮中转单选、删除/清空、手动排序、侧栏状态与常驻取消的程序资源已同步。
+
+## 2026-10-24 · 统一宿主临时常驻入口，新增悬浮中转并调整材质、品牌及便签编辑
+
+记录：[floating-relay-and-host-residency](../../docs/history/entries/2026-10-24-05-floating-relay.json)；版本：未发布。
+
+- 保留本轮开始前已有未提交改动；Windows 11缺省材质改为云母，其余系统无材质，已有选择不覆盖。超级面板默认图标使用TabDo品牌资源。
+- 便签撤销/重做移至右上角，右键移除撤销、重做和全选，保留剪切复制粘贴。
+- 临时常驻能力由开发者声明，用户开关统一由宿主标题栏右上角提供，使用窗口加号图标，正文不能自动启用常驻。
+- 悬浮中转接收指定文本、图片、文件和打开后的复制，提供排序、取消全选、缩略图预览、复制和拖出，关闭清理会话内容但保留剪贴板记录。图片固定与标记保持独立。
+- 新增悬浮中转普通与文本/图片/文件匹配指令，保留悬浮图片匹配；同步模块文档和本地图文教程。
+
+- 验证：开始时存在上一轮未提交内容，本轮在其上增量修改并保留；不push、不云端构建、不release、不重置真实或预览资料。
+- 验证：pnpm typecheck通过；pnpm test --maxWorkers=2最终103文件698项全通过，归档.artifacts/runs/2026-10-24T06-47-13-125Z-unit。旧常驻接口测试最初4项失败，按声明能力与宿主点击的新契约更新为6项后通过，保留失败证据。
+- 验证：源码floating-relay最终通过，归档.artifacts/runs/2026-10-24T06-49-13-858Z-e2e：空入口不载历史、系统文本图片文件追加、两种排序、全选/取消、缩略图放大、复制后紧接外部复制不丢失、关闭销毁图片副本且保留用户文件、重开为空、普通及匹配指令、宿主固定常驻开关。
+- 验证：floating-relay通过真实Windows鼠标跨窗口拖动：一条文本实际进入独立原生窗口textarea，图片PNG和用户TXT一起进入drop.files；未以DOM派发或startDrag标志代替实际接收。初版正文起拖不稳定，增加明确手柄后真实接收通过。
+- 验证：clipboard-interactions通过，归档.artifacts/runs/2026-10-24T06-47-13-064Z-e2e：便签顶部撤销/重做、原生右键仅剪切复制粘贴、字号、多选文本/图片原生拖出、常驻默认关闭/分离/隐藏保留/取消及明确关闭释放。早期失败包括旧按钮位置断言及采集迟到混入新窗口，均已修正重跑。
+- 验证：tools-expanded与tools-polish通过，归档.artifacts/runs/2026-10-24T06-42-45-581Z-e2e；local-tutorial与tools-lifecycle通过，归档.artifacts/runs/2026-10-24T06-39-36-230Z-e2e。这些归档中其他失败项已由后续专项修正，不宣称整轮全通过。
+- 验证：全部E2E使用scripts/preview-main.cjs源码与隔离data/legacy，未为E2E打包。真实接收测试设置可见独立窗口并转换DIP至系统物理坐标；当前Windows单屏及1.375缩放，其他环境不作已验收承诺。
+- 验证：本地图文教程正文和clipboard/notes两张SVG示意更新；超级面板默认图标与resources/icons/icon-tabdo.png的SHA-256相同。
+- 验证：pnpm build通过（Node/Web类型、设置插件及工具插件、Electron宿主编译），仅用于交付预览；设置构建原有两个跨chunk循环依赖警告保留，不影响本次退出状态。39个改动JS/TS/Vue文件ESLint零错误零警告，公共preload、便签与中转JS/preload的node --check通过，git diff --check通过。
+- 验证：pnpm test:regressions floating-relay --list确认4个单测文件与4个源码E2E文件；pnpm maintain、maintain:check均通过。各专项真实结果和失败修正见上文。
+- 验证：pnpm preview:sync成功更新1.1.1程序资源，163个既有data/legacy文件更新前后路径与SHA-256完全一致；收据.artifacts/backups/preview-sync/update-1792824758498/preservation.json，回退程序在同目录previous-resources。未启动成品、重置资料或修改已安装插件。
+- 验证：pnpm test:preview:resources通过，核验95程序资源、246内置插件文件和1676媒体依赖；同步器同时核对96项暂存程序清单。本轮中转HTML/JS/CSS/preload及教程SVG、工具新图标均已交付，构建警告与设备人工边界如上记录。
+
+## 2026-10-24 · 优化便签编辑、独立文本悬浮、剪贴板多选拖出与临时常驻，统一设置控件
+
+记录：[clipboard-interactions-and-residency](../../docs/history/entries/2026-10-24-04-clipboard-interactions.json)；版本：未发布。
+
+- 便签默认14px，字号完成编辑后校验，原生右键提供剪切复制粘贴与撤销。
+- 剪贴板文本与悬浮内容指令使用独立文本条目窗口，支持追加、选中、多选、复制与拖出，和便签互不混用。
+- 图片悬浮按钮处理当前多选图片；文本使用标准文本拖放，图片通过宿主原生多文件拖出。收藏排序继续使用独立手柄。
+- 提供setTemporaryResident/isTemporaryResident会话属性接口；剪贴板右上角启用时转入独立窗口，临时隐藏或最小化保留，明确关闭及退出仍释放，不保存状态。
+- 通用表单控件统一34px高度与材质背景，关于教程入口沿用普通按钮；同步子组件、插件、设置开发规范。
+- 同时修正关闭中的便签仍被追加路由命中、连续新建不能立即重置编号的边界；文本浮窗限定1000条/100万字符，初始化追加不提前显示空窗。
+
+- 验证：初始Git状态干净；已依序阅读维护流程、改动索引、Bug台账与相关模块规范；本轮未获远端授权，不push、不云端构建、不release、不重置预览资料。
+- 验证：pnpm test --maxWorkers=2最终102文件691项全部通过，归档.artifacts/runs/2026-10-24T04-57-57-893Z-unit；最终便签关闭路由调整后另跑floatingPointer与temporaryResidencyApi共17项通过，归档.artifacts/runs/2026-10-24T05-04-06-270Z-unit。
+- 验证：首轮全量单测暴露文本浮窗静态导入提前初始化LMDB，导致旧窗口替身失败；改为按文本类型动态加载后全量通过。失败归档.artifacts/runs/2026-10-24T04-56-34-852Z-unit保留。
+- 验证：源码clipboard-interactions最终通过，归档.artifacts/runs/2026-10-24T05-05-07-057Z-e2e：便签14px、清空后连续输入18、原生上下文菜单复制与粘贴；独立文本条目多选复制/追加与初始化并发有序，同便签相互隔离。
+- 验证：专项通过真实系统鼠标跨窗口拖动：两条原始文本到独立原生窗口textarea、两张PNG到drop.files并核对收到文件名；未以DOM派发或startDrag调用标志代替实际接收。两张选中图片一键分别悬浮。
+- 验证：临时常驻实际迁移当前页面，最小化和隐藏后页面仍在；取消后隐藏销毁，重新进入默认关闭，常驻时明确关闭仍销毁。第三方API单测验证调用者身份、分离失败不保活、会话状态隔离。
+- 验证：早期源码专项失败分别暴露脚本top全局命名冲突、preload错误转发新IPC，以及未等待原生复制完成就写入下一份剪贴板的测试竞态；已修正并重跑。原生拖放夹具额外置顶以排除桌面其他程序遮挡，不改变产品置顶默认值。
+- 验证：相邻tools-polish通过，归档.artifacts/runs/2026-10-24T05-00-57-151Z-e2e；tools-expanded、tools-lifecycle、local-tutorial通过见.artifacts/runs/2026-10-24T04-56-16-208Z-e2e中的3项通过（同轮另外2项失败已专项修正）；教程正文最终更新后local-tutorial再次通过，归档.artifacts/runs/2026-10-24T05-02-45-237Z-e2e。
+- 验证：真实设置入口检查明暗×三材质控件外框34px与数字框背景、关于页全部普通按钮样式一致，保留文本浮窗、便签编辑与关于页直接截图。当前Windows单屏1397×786 DIP、scaleFactor1.375；WebContents透明通道不代表DWM最终观感。
+- 验证：pnpm build最终通过（Node/Web与设置类型检查、两内置插件构建、宿主编译）；该构建只用于预览交付，所有E2E独立从scripts/preview-main.cjs加载源码与隔离data/legacy。改动文件ESLint零错误零警告，公共preload、便签与新文本浮窗脚本node --check通过。
+- 验证：pnpm test:regressions clipboard-interactions --list确认4个单测文件、4个源码专项；pnpm maintain、maintain:check和git diff --check通过。
+- 验证：pnpm preview:sync成功同步程序资源，原有data/legacy共157个文件前后路径及内容SHA-256完全一致；收据.artifacts/backups/preview-sync/update-1792818410097/preservation.json，程序回滚副本在同目录previous-resources。未启动成品或重置数据。
+- 验证：pnpm test:preview:resources通过，核验96程序文件、244内置插件文件及1676媒体依赖；新增文本浮窗HTML/JS/CSS/preload及更新便签与公共preload的物理展开字节逐一与源码相同。
+
 ## 2026-10-24 · 彻底移除全屏引导，以12章本地图文教程替代并发布补丁版
 
 记录：[local-illustrated-tutorial](../../docs/history/entries/2026-10-24-03-local-tutorial.json)；版本：1.1.1。

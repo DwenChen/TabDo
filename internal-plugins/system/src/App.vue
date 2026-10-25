@@ -39,7 +39,9 @@ onUnmounted(() => window.tabdo.onPluginEnter(null))
   <BreakFolder v-else-if="action?.code === 'folder-break'" :key="revision" :action="action" />
   <QrScanner v-else-if="action?.code === 'qrcode-scan'" :key="revision" :action="action" />
   <FloatingLauncher
-    v-else-if="['image-annotate', 'float-content', 'sticky-note'].includes(action?.code)"
+    v-else-if="
+      ['image-annotate', 'float-content', 'floating-relay', 'sticky-note'].includes(action?.code)
+    "
     :key="revision"
     :action="action"
   />

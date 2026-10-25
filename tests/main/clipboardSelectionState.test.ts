@@ -44,4 +44,22 @@ describe('clipboard explicit selection', () => {
     expect(write.mock.calls[0][1]).toBe(false)
     scope.stop()
   })
+  it('rejects mixed content selection visibly and keeps the original checkbox selection', () => {
+    const scope = effectScope(),
+      invalid = vi.fn(),
+      preventDefault = vi.fn()
+    const items = ref([
+      { id: 't', type: 'text' },
+      { id: 'f', type: 'file' }
+    ])
+    const state = scope.run(() =>
+      useSelection(items, ref([{ key: 'all' }]), ref('all'), vi.fn(), vi.fn(), invalid)
+    )!
+    state.handleToggleClick({}, 0)
+    state.handleToggleClick({ preventDefault }, 1)
+    expect(state.selectedItems.value.map((item) => item.id)).toEqual(['t'])
+    expect(invalid).toHaveBeenCalledWith(expect.stringContaining('不能混合'))
+    expect(preventDefault).toHaveBeenCalledOnce()
+    scope.stop()
+  })
 })

@@ -386,149 +386,23 @@ test('expanded tools classify image files, rename safely, scan QR and own floati
     await floating.getByRole('button', { name: '关闭', exact: true }).click()
     await expect.poll(() => floating.isClosed()).toBe(true)
 
-    tools = await launch('clipboard')
-    await tools.locator('.tab-item').getByText('文本', { exact: true }).click()
-    await expect(tools.getByRole('button', { name: '文字便签', exact: true })).toHaveCount(0)
-    const textItem = tools.locator('.clipboard-item').filter({ hasText: '悬浮便签测试文字' })
-    await textItem.getByRole('button', { name: '悬浮文本', exact: true }).click()
+    // 文本悬浮与便签分离，具体选择与追加由 clipboard-interactions 专项覆盖。
+    tools = await launch('floating-relay', { type: 'over', payload: '匹配文字优先于剪贴板图片' })
     await expect
       .poll(() =>
         app
           .context()
           .pages()
-          .some((page) => page.url().includes('tools-floating.html'))
+          .some((page) => page.url().includes('tools-text-float.html'))
       )
       .toBe(true)
-    const note = app
+    const matchedText = app
       .context()
       .pages()
-      .find((page) => page.url().includes('tools-floating.html'))!
-    await expect(note.getByLabel('便签内容')).toHaveValue('悬浮便签测试文字')
-    await expect(note.locator('.frame')).toHaveCSS('background-color', 'rgb(243, 240, 189)')
-    const noteSize = await note.evaluate(() => [innerWidth, innerHeight])
-    expect(Math.abs(noteSize[0] - 300)).toBeLessThanOrEqual(1)
-    expect(Math.abs(noteSize[1] - 280)).toBeLessThanOrEqual(1)
-    await note.getByRole('button', { name: '保持置顶', exact: true }).click()
-    await expect(note.locator('#note-top')).toHaveAttribute('aria-pressed', 'false')
-    await note.getByRole('button', { name: '保持置顶', exact: true }).click()
-    const west = (await note.locator('[data-resize="w"]').boundingBox())!
-    await note.mouse.move(west.x + 2, west.y + west.height / 2)
-    await note.mouse.down()
-    await note.mouse.move(west.x + 52, west.y + west.height / 2, { steps: 5 })
-    await note.mouse.up()
-    await expect.poll(() => note.evaluate(() => innerWidth)).toBeLessThan(280)
-
-    await note.getByRole('button', { name: '便签选项' }).click()
-    await note.getByRole('button', { name: '天空蓝', exact: true }).click()
-    await expect(note.locator('.frame')).toHaveCSS('background-color', 'rgb(189, 215, 243)')
-    await note.getByLabel('便签内容').fill('本窗口临时编辑的便签\n关闭即结束，剪贴板原文保持不变。')
-    await expect(note.locator('.frame')).toHaveCSS('clip-path', /polygon/)
-    await note.getByRole('button', { name: '便签选项' }).click()
-    await capture(note, 'tools-floating-note.png')
-    // 剪贴板追加保留编辑内容；有多个窗口时路由到最近聚焦的便签。
-    await textItem.getByRole('button', { name: '悬浮文本', exact: true }).click()
-    await expect(note.getByLabel('便签内容')).toHaveValue(
-      '本窗口临时编辑的便签\n关闭即结束，剪贴板原文保持不变。\n\n悬浮便签测试文字'
-    )
-    expect(
-      app
-        .context()
-        .pages()
-        .filter((page) => page.url().includes('tools-floating.html'))
-    ).toHaveLength(1)
-    await note.getByRole('button', { name: '新建便签', exact: true }).click()
-    await expect
-      .poll(
-        () =>
-          app
-            .context()
-            .pages()
-            .filter((page) => page.url().includes('tools-floating.html')).length
-      )
-      .toBe(2)
-    const secondNote = app
-      .context()
-      .pages()
-      .find((page) => page !== note && page.url().includes('tools-floating.html'))!
-    await expect(secondNote.getByLabel('便签内容')).toHaveValue('')
-    await expect(secondNote.locator('.frame')).toHaveCSS('background-color', 'rgb(193, 243, 189)')
-    await textItem.getByRole('button', { name: '悬浮文本', exact: true }).click()
-    await expect(secondNote.getByLabel('便签内容')).toHaveValue('悬浮便签测试文字')
-    const firstTitle = await note.title()
-    await app.evaluate(
-      ({ BrowserWindow }, title) =>
-        BrowserWindow.getAllWindows()
-          .find((window) => window.getTitle() === title)!
-          .focus(),
-      firstTitle
-    )
-    await expect
-      .poll(() => app.evaluate(({ BrowserWindow }) => BrowserWindow.getFocusedWindow()?.getTitle()))
-      .toBe(firstTitle)
-    await textItem.getByRole('button', { name: '悬浮文本', exact: true }).click()
-    await expect(note.getByLabel('便签内容')).toHaveValue(
-      '本窗口临时编辑的便签\n关闭即结束，剪贴板原文保持不变。\n\n悬浮便签测试文字\n\n悬浮便签测试文字'
-    )
-    await expect(secondNote.getByLabel('便签内容')).toHaveValue('悬浮便签测试文字')
-    await note.getByRole('button', { name: '关闭', exact: true }).click()
-    await expect.poll(() => note.isClosed()).toBe(true)
-    await textItem.getByRole('button', { name: '悬浮文本', exact: true }).click()
-    await expect(secondNote.getByLabel('便签内容')).toHaveValue(
-      '悬浮便签测试文字\n\n悬浮便签测试文字'
-    )
-    expect(
-      app
-        .context()
-        .pages()
-        .filter((page) => page.url().includes('tools-floating.html'))
-    ).toHaveLength(1)
-    await secondNote.getByRole('button', { name: '关闭', exact: true }).click()
-    await expect.poll(() => secondNote.isClosed()).toBe(true)
-    expect(
-      await app.evaluate(({ app }) =>
-        process
-          .mainModule!.require(app.getAppPath() + '/src/main/api/shared/database.ts')
-          .default.dbGet('tools-floating-notes')
-      )
-    ).toBeFalsy()
-    await expect(tools.getByText('悬浮便签测试文字', { exact: true })).toBeVisible()
-    await textItem.getByRole('button', { name: '悬浮文本', exact: true }).click()
-    await expect
-      .poll(() =>
-        app
-          .context()
-          .pages()
-          .some((page) => page.url().includes('tools-floating.html'))
-      )
-      .toBe(true)
-    const reopened = app
-      .context()
-      .pages()
-      .find((page) => page.url().includes('tools-floating.html'))!
-    await expect(reopened.getByLabel('便签内容')).toHaveValue('悬浮便签测试文字')
-    // 上一组便签全部关闭后重新创建会重置编号与配色，回到第一张黄色便签。
-    await expect(reopened.locator('#note-label')).toHaveText('便签 1')
-    await expect(reopened.locator('.frame')).toHaveCSS('background-color', 'rgb(243, 240, 189)')
-    await reopened.getByRole('button', { name: '关闭', exact: true }).click()
-    await expect.poll(() => reopened.isClosed()).toBe(true)
-
-    // 剪贴板仍有图片时，匹配到的文字必须优先创建文字便签。
-    tools = await launch('float-content', { type: 'over', payload: '匹配文字优先于剪贴板图片' })
-    await expect
-      .poll(() =>
-        app
-          .context()
-          .pages()
-          .some((page) => page.url().includes('tools-floating.html'))
-      )
-      .toBe(true)
-    const matchedNote = app
-      .context()
-      .pages()
-      .find((page) => page.url().includes('tools-floating.html'))!
-    await expect(matchedNote.getByLabel('便签内容')).toHaveValue('匹配文字优先于剪贴板图片')
-    await matchedNote.getByRole('button', { name: '关闭', exact: true }).click()
-    await expect.poll(() => matchedNote.isClosed()).toBe(true)
+      .find((page) => page.url().includes('tools-text-float.html'))!
+    await expect(matchedText.locator('.entry pre')).toHaveText(['匹配文字优先于剪贴板图片'])
+    await matchedText.getByRole('button', { name: '关闭', exact: true }).click()
+    await expect.poll(() => matchedText.isClosed()).toBe(true)
 
     // 独立指令创建空白便签；编辑区内 Ctrl+N 可主动再建一张。
     tools = await launch('sticky-note')
@@ -843,7 +717,11 @@ test('expanded tools classify image files, rename safely, scan QR and own floati
     ).toBe(true)
     const floatingCommands = plugin!.features.find((entry) => entry.code === 'float-content')!
       .cmds as any[]
-    expect(floatingCommands.find((cmd) => cmd.type === 'over')?.label).toBe('悬浮文字')
+    expect(
+      (plugin!.features.find((entry) => entry.code === 'floating-relay')!.cmds as any[]).find(
+        (cmd) => cmd.type === 'over'
+      )?.label
+    ).toBe('悬浮中转')
     expect(floatingCommands.find((cmd) => cmd.type === 'img')?.label).toBe('悬浮图片')
     await capture(panel, 'tools-translation-scroll.png')
     expect(

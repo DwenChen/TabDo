@@ -83,3 +83,5 @@ export const buildClipboardPayload = (items) => {
  * @returns 处理结果；仅更新状态的操作无返回值。
  */
 const itemImageContent = (item) => item.imagePath || item.content?.replace(/^file:\/\//, '') || ''
+import { getClipboardTransferError } from '@shared/clipboardTransfer'
+export { getClipboardTransferError }

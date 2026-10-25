@@ -1,0 +1,233 @@
+:root {
+  color-scheme: light dark;
+  --surface: #f8f9fa;
+  --text: #222;
+  --border: #d7dcdf;
+  --selected: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  --accent: var(--plugin-primary-color, #059669);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface: #26282b;
+    --text: #eee;
+    --border: #44484d;
+    --accent: var(--plugin-primary-color, #34d399);
+  }
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  color: var(--text);
+  font:
+    13px/1.6 'Segoe UI',
+    'Microsoft YaHei',
+    sans-serif;
+}
+header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  -webkit-app-region: drag;
+}
+header span {
+  flex: 1;
+}
+button {
+  font: inherit;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 9px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+button:focus-visible,
+.entry:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+button[aria-pressed='true'] {
+  color: var(--accent);
+}
+header button svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+  vertical-align: middle;
+}
+select {
+  font: inherit;
+  color: inherit;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  min-width: 0;
+  padding: 4px 0;
+}
+#empty {
+  font-size: 12px;
+  opacity: 0.7;
+  margin: 8px 14px;
+}
+.thumbnail {
+  padding: 2px;
+  border: 0;
+  cursor: zoom-in;
+}
+.thumbnail img {
+  display: block;
+  max-width: 96px;
+  max-height: 64px;
+  object-fit: contain;
+}
+dialog {
+  width: calc(100% - 24px);
+  height: calc(100% - 24px);
+  padding: 32px 8px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+}
+dialog::backdrop {
+  background: #0008;
+}
+dialog img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+#preview-close {
+  position: absolute;
+  right: 6px;
+  top: 3px;
+}
+[hidden] {
+  display: none !important;
+}
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+}
+#count {
+  margin-left: auto;
+  font-size: 11px;
+  white-space: nowrap;
+}
+#up,
+#down {
+  width: 24px;
+  padding: 3px 0;
+}
+main {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 10px;
+}
+.entry {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 8px 8px 8px 40px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.entry[aria-selected='true'] {
+  background: var(--selected);
+  border-color: var(--accent);
+}
+.entry button {
+  flex: none;
+}
+.delete-entry,
+.reorder-handle {
+  border: 0;
+  padding: 0 3px;
+  background: transparent;
+  opacity: 0.65;
+}
+.delete-entry {
+  font-size: 17px;
+  line-height: 1.2;
+}
+.reorder-handle {
+  font-size: 17px;
+  line-height: 1.2;
+  cursor: grab;
+  user-select: none;
+}
+.reorder-handle:active {
+  cursor: grabbing;
+}
+.reorder-handle:hover {
+  color: var(--accent);
+  opacity: 1;
+}
+.delete-entry:hover {
+  color: #d33;
+  opacity: 1;
+}
+.entry.drop-before {
+  box-shadow: 0 -3px var(--accent);
+}
+.entry.drop-after {
+  box-shadow: 0 3px var(--accent);
+}
+#status.error {
+  color: #d33;
+  opacity: 1;
+}
+.selection-area {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+}
+.selection-area input {
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.entry-content {
+  flex: 1;
+  min-width: 0;
+  cursor: grab;
+}
+.entry pre {
+  flex: 1;
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 0;
+  font: inherit;
+  user-select: text;
+}
+footer {
+  min-height: 30px;
+  padding: 6px 10px;
+  font-size: 11px;
+  opacity: 0.65;
+}

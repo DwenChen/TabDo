@@ -5,14 +5,18 @@ defineProps({
   y: { type: Number, default: 0 },
   canFavorite: { type: Boolean, default: false },
   canFloat: { type: Boolean, default: false },
+  canRelay: { type: Boolean, default: false },
   canAnnotate: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['favorite', 'delete', 'float', 'annotate'])
+const emit = defineEmits(['favorite', 'delete', 'float', 'annotate', 'relay'])
 </script>
 
 <template>
   <div v-if="show" class="context-menu" :style="{ left: x + 'px', top: y + 'px' }" @click.stop>
+    <div v-if="canRelay" class="context-menu-item" @click="emit('relay')">
+      ⇄ <span>悬浮中转</span>
+    </div>
     <div v-if="canFloat" class="context-menu-item" @click="emit('float')">
       📌 <span>悬浮固定</span>
     </div>

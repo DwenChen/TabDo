@@ -16,9 +16,9 @@
 
 ## 自动化测试文件
 
-共 129 个文件；文件数不等于用例数，通过状态以每轮变更记录为准。
+共 133 个文件；文件数不等于用例数，通过状态以每轮变更记录为准。
 
-### tests/main（92）
+### tests/main（94）
 
 - [tests/main/aiChatEventBatcher.test.ts](../../tests/main/aiChatEventBatcher.test.ts)
 - [tests/main/aiChatTransport.test.ts](../../tests/main/aiChatTransport.test.ts)
@@ -94,6 +94,7 @@
 - [tests/main/systemPaths.test.ts](../../tests/main/systemPaths.test.ts)
 - [tests/main/systemPluginOpenFolderRegex.test.ts](../../tests/main/systemPluginOpenFolderRegex.test.ts)
 - [tests/main/tabdoProfileCompatibility.test.ts](../../tests/main/tabdoProfileCompatibility.test.ts)
+- [tests/main/temporaryResidencyApi.test.ts](../../tests/main/temporaryResidencyApi.test.ts)
 - [tests/main/terminalLauncher.test.ts](../../tests/main/terminalLauncher.test.ts)
 - [tests/main/toolsFiles.test.ts](../../tests/main/toolsFiles.test.ts)
 - [tests/main/toolsHostLifecycle.test.ts](../../tests/main/toolsHostLifecycle.test.ts)
@@ -105,6 +106,7 @@
 - [tests/main/viewRepaint.test.ts](../../tests/main/viewRepaint.test.ts)
 - [tests/main/webQuickOpen.test.ts](../../tests/main/webQuickOpen.test.ts)
 - [tests/main/windowManagerMacActivation.test.ts](../../tests/main/windowManagerMacActivation.test.ts)
+- [tests/main/windowMaterialDefaults.test.ts](../../tests/main/windowMaterialDefaults.test.ts)
 - [tests/main/windowsExplorerCommands.test.ts](../../tests/main/windowsExplorerCommands.test.ts)
 - [tests/main/windowsInstallCompatibility.test.ts](../../tests/main/windowsInstallCompatibility.test.ts)
 - [tests/main/windowsLauncherWorkingDirectory.test.ts](../../tests/main/windowsLauncherWorkingDirectory.test.ts)
@@ -128,12 +130,14 @@
 - [tests/scripts/projectMaintenance.test.ts](../../tests/scripts/projectMaintenance.test.ts)
 - [tests/scripts/updateMetadata.test.ts](../../tests/scripts/updateMetadata.test.ts)
 
-### tests/e2e（28）
+### tests/e2e（30）
 
 - [tests/e2e/builtin-models.spec.ts](../../tests/e2e/builtin-models.spec.ts)
 - [tests/e2e/builtin-providers.spec.ts](../../tests/e2e/builtin-providers.spec.ts)
+- [tests/e2e/clipboard-interactions.spec.ts](../../tests/e2e/clipboard-interactions.spec.ts)
 - [tests/e2e/console-pipe.spec.ts](../../tests/e2e/console-pipe.spec.ts)
 - [tests/e2e/floating-pointer.spec.ts](../../tests/e2e/floating-pointer.spec.ts)
+- [tests/e2e/floating-relay.spec.ts](../../tests/e2e/floating-relay.spec.ts)
 - [tests/e2e/lens-browser-upload.spec.ts](../../tests/e2e/lens-browser-upload.spec.ts)
 - [tests/e2e/local-edition.spec.ts](../../tests/e2e/local-edition.spec.ts)
 - [tests/e2e/local-tutorial.spec.ts](../../tests/e2e/local-tutorial.spec.ts)
@@ -191,3 +195,6 @@
 - `overlay-surfaces`：0 个单测文件、1 个源码 E2E 文件。
 - `branding`：0 个单测文件、1 个源码 E2E 文件。
 - `tabdo-release`：9 个单测文件、6 个源码 E2E 文件。
+- `clipboard-interactions`：4 个单测文件、4 个源码 E2E 文件。
+- `relay-feedback`：0 个单测文件、2 个源码 E2E 文件。
+- `floating-relay`：5 个单测文件、4 个源码 E2E 文件。

@@ -62,26 +62,30 @@ onMounted(async () => {
     <section>
       <h3>本版项目</h3>
       <p>DwenChen / TabDo</p>
-      <button @click="open(GITHUB_REPOSITORY_URL)">访问本仓库</button>
-      <button @click="open(GITHUB_REPOSITORY_URL + '/issues')">反馈问题</button>
+      <button class="btn" @click="open(GITHUB_REPOSITORY_URL)">访问本仓库</button>
+      <button class="btn" @click="open(GITHUB_REPOSITORY_URL + '/issues')">反馈问题</button>
     </section>
     <section>
       <h3>更新</h3>
       <p>更新来源：DwenChen/TabDo 的 GitHub Releases</p>
       <label><input v-model="automatic" type="checkbox" @change="save" /> 自动检查更新</label>
       <p>
-        <button :disabled="checking" @click="check">{{ checking ? '检查中…' : '检查更新' }}</button>
+        <button class="btn" :disabled="checking" @click="check">
+          {{ checking ? '检查中…' : '检查更新' }}
+        </button>
       </p>
     </section>
     <section>
       <h3>致谢</h3>
       <p>本项目基于 ZToolsCenter/ZTools，感谢原作者 Zing 与社区贡献者提供的基础功能。</p>
-      <button @click="open('https://github.com/ZToolsCenter/ZTools')">原项目</button>
+      <button class="btn" @click="open('https://github.com/ZToolsCenter/ZTools')">原项目</button>
       <p>
         感谢原插件开发项目与插件市场提供的设计基础，TabDo 插件按新的生命周期规范独立开发与维护。
       </p>
-      <button @click="open('https://github.com/ZToolsCenter/ZTools-plugins')">原插件市场</button>
-      <button @click="open('https://github.com/ZToolsCenter/ztools-plugin-cli')">
+      <button class="btn" @click="open('https://github.com/ZToolsCenter/ZTools-plugins')">
+        原插件市场
+      </button>
+      <button class="btn" @click="open('https://github.com/ZToolsCenter/ztools-plugin-cli')">
         原插件开发项目
       </button>
       <p>保留原项目 MIT 许可证与版权声明。</p>
@@ -110,12 +114,12 @@ section {
   border-top: 1px solid var(--divider-color);
   margin-top: 24px;
 }
-button {
-  padding: 9px 14px;
-  border: 1px solid var(--divider-color);
-  border-radius: 8px;
-  background: var(--card-bg);
-  color: var(--text-color);
-  cursor: pointer;
+:deep(.btn) {
+  height: 34px;
+  box-sizing: border-box;
+  padding: 5px 14px;
+  font: inherit;
+  font-size: 14px;
+  line-height: 20px;
 }
 </style>

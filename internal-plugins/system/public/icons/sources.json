@@ -146,7 +146,7 @@
     },
     {
       "code": "float-content",
-      "name": "悬浮内容",
+      "name": "悬浮图片",
       "group": "悬浮与便签",
       "icon": "picture-in-picture-2",
       "color": "#149878"
@@ -262,6 +262,14 @@
       "group": "",
       "icon": "wrench",
       "color": "#149878"
+    },
+    {
+      "code": "floating-relay",
+      "name": "悬浮中转",
+      "group": "悬浮与便签",
+      "icon": "original-window-transfer",
+      "color": "#059669",
+      "source": "原创窗口与双向箭头SVG，TabDo MIT；不使用Lucide图形"
     }
   ]
 }

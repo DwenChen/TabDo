@@ -320,16 +320,11 @@
     },
     {
       "code": "float-content",
-      "explain": "悬浮内容",
+      "explain": "悬浮图片",
       "icon": "icons/float-content.png",
       "mainHide": true,
       "cmds": [
-        "悬浮内容",
-        {
-          "type": "over",
-          "label": "悬浮文字",
-          "minLength": 1
-        },
+        "悬浮图片",
         {
           "type": "img",
           "label": "悬浮图片"
@@ -347,6 +342,30 @@
           "minLength": 1,
           "maxLength": 1,
           "label": "悬浮图片"
+        }
+      ],
+      "group": "悬浮与便签"
+    },
+    {
+      "code": "floating-relay",
+      "explain": "悬浮中转",
+      "icon": "icons/floating-relay.png",
+      "mainHide": true,
+      "cmds": [
+        "悬浮中转",
+        {
+          "type": "over",
+          "label": "悬浮中转",
+          "minLength": 1
+        },
+        {
+          "type": "img",
+          "label": "悬浮中转"
+        },
+        {
+          "type": "files",
+          "label": "悬浮中转",
+          "minLength": 1
         }
       ],
       "group": "悬浮与便签"

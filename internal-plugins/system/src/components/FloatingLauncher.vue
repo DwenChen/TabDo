@@ -45,13 +45,27 @@ async function open(content) {
 async function current() {
   try {
     const action = props.action
+    if (
+      action.code === 'floating-relay' ||
+      (action.code === 'float-content' && ['over', 'regex'].includes(action.type))
+    ) {
+      const entries = ['over', 'regex'].includes(action.type)
+        ? [{ type: 'text', text: action.payload }]
+        : action.type === 'img'
+          ? [{ type: 'image', image: action.payload }]
+          : action.type === 'files'
+            ? [{ type: 'file', files: action.payload.map((file) => file.path) }]
+            : []
+      await open({ type: 'relay', entries })
+      return
+    }
     if (action.code === 'sticky-note') {
       await open({ type: 'text', text: '', newWindow: true })
       return
     }
     // 文本选区拥有优先权，不能被剪贴板上残留的图片覆盖。
     if (action.code !== 'image-annotate' && ['over', 'regex'].includes(action.type)) {
-      await open({ type: 'text', text: action.payload })
+      await open({ type: 'text-list', texts: [action.payload] })
       return
     }
     const source =
@@ -61,15 +75,19 @@ async function current() {
           ? window.toolsProvider.readImage(action.payload[0].path)
           : window.toolsProvider.clipboardImage()
     if (source) await open({ type: 'image', image: source, edit: action.code === 'image-annotate' })
-    else if (action.code === 'image-annotate')
-      message.value = '请先复制图片，或从剪贴板图片右键选择“标记图片”'
+    else if (['image-annotate', 'float-content'].includes(action.code))
+      message.value =
+        action.code === 'image-annotate'
+          ? '请先复制图片，或从剪贴板图片右键选择“标记图片”'
+          : '请先复制图片，或从剪贴板图片选择“悬浮固定”'
     else
       await open({
-        type: 'text',
-        text:
+        type: 'text-list',
+        texts: [
           action.type === 'over' || action.type === 'regex'
             ? action.payload
             : window.toolsProvider.clipboardText()
+        ]
       })
   } catch (error) {
     message.value = error.message

@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useWindowStore } from '../stores/windowStore'
 import AdaptiveIcon from './common/AdaptiveIcon.vue'
+import TemporaryResidencyButton from './common/TemporaryResidencyButton.vue'
 import {
   convertToElectronKeyboardEvent,
   readModifiers,
@@ -167,8 +168,12 @@ onUnmounted(() => removeMenuListener?.())
       @dblclick.stop
     />
     <span v-if="error" class="action-error" role="alert">{{ error }}</span>
-    <nav v-if="!isBuiltinPlugin" @dblclick.stop>
+    <nav @dblclick.stop>
+      <TemporaryResidencyButton
+        :key="store.currentPlugin?.path + ':' + store.currentPlugin?.cmdName"
+      />
       <button
+        v-if="!isBuiltinPlugin"
         class="plugin-actions"
         :class="{ loading: store.pluginLoading, 'ai-active': store.aiRequestStatus !== 'idle' }"
         title="插件操作"

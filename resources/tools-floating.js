@@ -398,6 +398,11 @@ $('redo').onclick = () => {
   if (undone.length) shapes.push(undone.pop())
   render()
 }
+// 保留编辑区焦点，原生撤销历史才能精确作用于当前便签。
+for (const action of ['undo', 'redo']) {
+  $(`note-${action}`).onmousedown = (event) => event.preventDefault()
+  $(`note-${action}`).onclick = () => invoke(`note-${action}`)
+}
 $('clear').onclick = () => {
   finishText(false)
   shapes = []
@@ -430,17 +435,17 @@ $('note-dock-toggle').onchange = async () => {
   if (typeof enabled === 'boolean') $('note-dock-toggle').checked = enabled
 }
 /**
- * 按输入框取值应用便签正文字号，未修改时保持默认 16 像素。
+ * 在编辑完成后校验便签字号，允许清空并连续手动输入。
  * @returns {void} 无返回值。
  */
 function applyNoteFontSize() {
   const requested = Number($('note-font-size').value)
-  const size = Math.max(12, Math.min(32, Number.isFinite(requested) ? Math.round(requested) : 16))
+  const size = Math.max(12, Math.min(32, requested > 0 ? Math.round(requested) : 14))
   $('note-font-size').value = String(size)
   $('note').style.fontSize = `${size}px`
 }
-$('note-font-size').oninput = applyNoteFontSize
 $('note-font-size').onchange = applyNoteFontSize
+$('note-font-size').onblur = applyNoteFontSize
 document.addEventListener('pointerdown', (event) => {
   if (!event.target.closest('.color-control, #color-palette')) togglePalette(false)
   if (!event.target.closest('#note-options, #note-more')) {

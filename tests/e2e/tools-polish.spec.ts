@@ -440,7 +440,31 @@ test('tool polish separates image floating, docks multi-text notes and restores 
     await textItem.locator('.selection-checkbox').check()
     await secondText.locator('.selection-checkbox').check()
     await expect(textItem.locator('.selection-checkbox')).toBeChecked()
-    await textItem.getByRole('button', { name: '悬浮文本', exact: true }).click()
+    await textItem.getByRole('button', { name: '悬浮中转', exact: true }).click()
+    await expect
+      .poll(() =>
+        app
+          .context()
+          .pages()
+          .some((page) => page.url().includes('tools-text-float.html'))
+      )
+      .toBe(true)
+    const textFloat = app
+      .context()
+      .pages()
+      .find((page) => page.url().includes('tools-text-float.html'))!
+    await textFloat.getByRole('combobox', { name: '条目排序' }).selectOption('oldest')
+    await expect(textFloat.locator('.entry pre')).toHaveText([
+      '第二条选中的便签文字',
+      '悬浮便签测试文字'
+    ])
+    await textFloat.getByRole('button', { name: '关闭', exact: true }).click()
+    // 便签贴靠专项从独立便签创建链验证，不再依赖剪贴板文字转交。
+    await app.evaluate(({ app }) =>
+      process
+        .mainModule!.require(app.getAppPath() + '/src/main/core/toolsFloating.ts')
+        .openFloating({ type: 'text', text: '', newWindow: true })
+    )
     await expect
       .poll(() =>
         app
@@ -453,9 +477,7 @@ test('tool polish separates image floating, docks multi-text notes and restores 
       .context()
       .pages()
       .find((page) => page.url().includes('tools-floating.html'))!
-    await expect(note.getByLabel('便签内容')).toHaveValue(
-      '第二条选中的便签文字\n\n悬浮便签测试文字'
-    )
+    await expect(note.getByLabel('便签内容')).toHaveValue('')
     await expect(note.locator('#note-label')).toHaveText('便签 1')
     await expect(note.locator('.frame')).toHaveCSS('background-color', 'rgb(243, 240, 189)')
     const noteSize = await note.evaluate(() => [innerWidth, innerHeight])
@@ -527,8 +549,10 @@ test('tool polish separates image floating, docks multi-text notes and restores 
     // 便签字号可调：改为 22 像素后正文立即跟随。
     await openNoteOptions()
     await note.getByLabel('便签字号').fill('22')
+    await note.getByLabel('便签字号').dispatchEvent('change')
     await expect(note.getByLabel('便签内容')).toHaveCSS('font-size', '22px')
     await note.getByLabel('便签字号').fill('16')
+    await note.getByLabel('便签字号').dispatchEvent('change')
     await expect(note.getByLabel('便签内容')).toHaveCSS('font-size', '16px')
     // 贴靠开关：关闭后移动到边缘不再登记贴靠，重新开启后恢复。
     const dockSwitch = note.getByLabel('贴靠屏幕边缘')
@@ -554,7 +578,12 @@ test('tool polish separates image floating, docks multi-text notes and restores 
     await moveNotePointer(false)
     await expect(note.getByLabel('便签内容')).toBeVisible()
     await note.getByRole('button', { name: '关闭', exact: true }).click()
-    await textItem.getByRole('button', { name: '悬浮文本', exact: true }).click()
+    await expect.poll(() => note.isClosed() && nextNote.isClosed()).toBe(true)
+    await app.evaluate(({ app }) =>
+      process
+        .mainModule!.require(app.getAppPath() + '/src/main/core/toolsFloating.ts')
+        .openFloating({ type: 'text', text: '', newWindow: true })
+    )
     await expect
       .poll(() =>
         app
