@@ -19,6 +19,13 @@
 - 验证：已人工核对README、开发/发布/设置/工具/Provider规范、应用内与仓库教程、更新说明和当轮记录。README与package版本更新为1.2.2，两份教程第2章选文步骤同步加入中文跳过说明；工具清单、快捷键、数据路径及生命周期行为仍准确。
 - 验证：候选提交前再次审校受影响文档，通过pnpm maintain、maintain:check、docs:check和git diff --check；文档门禁核对30文件、196链接、37功能/13分类/29普通指令、12章77步。
 - 验证：本地1.2.2免安装预览同步成功，189个data/legacy文件逐项保持，96项暂存程序核验；收据.artifacts/backups/preview-sync/update-1792982093287/preservation.json。test:preview:resources核对95程序、246内置和1676媒体资源通过。
+- 验证：候选经pre-commit提交966a26f34dd76b05b875be7cba6dd27ba7d924a1，pre-push文档与维护门禁实际通过后推送main；触发前再次确认文档准确并通过docs:check、maintain:check，仅workflow_dispatch触发一次Release TabDo运行40260011964。
+- 验证：云端build作业121370136075与publish作业121371332321全部成功，构建前和发布前文档门禁均通过；verification制品12623713545核实105文件719项单测全通过，win-x64制品12623682691归属候选SHA。证据.artifacts/work/selection-release/cloud-status.json和cloud-verification.json。
+- 验证：v1.2.2正式Release ID423809720，非草稿、非预发布且为latest，发布时间2026-10-26T02:42:46Z；标签解引用和target_commitish均为966a26f34dd76b05b875be7cba6dd27ba7d924a1，地址https://github.com/DwenChen/TabDo/releases/tag/v1.2.2。
+- 验证：四项资产全部实际下载并核对GitHub SHA-256及大小：latest.yml 8420字节、TabDo-1.2.2-win-x64-setup.exe 129168752字节、setup.exe.blockmap 135662字节、TabDo-1.2.2-win-x64.zip 176095879字节；更新清单版本、文件名、大小与安装包SHA-512一致。收据.artifacts/work/selection-release/release-verification.json。
+- 验证：首次下载Actions验证压缩包因Accept头返回415；改用GitHub连接工具成功下载10628字节验证制品。四项发行文件沿用首次已完成的摘要校验，不重复下载或重算SHA-256；失败及恢复日志均保留，未重新构建或覆盖Release。
+- 验证：正式ZIP 497条目、ASAR 3621条目：核对应用1.2.2、更新仓库、许可、中文跳过与取消判断、方向SVG及CSS、通用设置说明；编译教程逐段匹配12章77步187段正文与插图，排除本机data/legacy和开发工件。收据.artifacts/work/selection-release/package-verification.json。
+- 验证：云端TabDo.exe仅替换已退出预览的主程序，FileVersion由1.2.1更新为1.2.2，原exe备份.artifacts/backups/selection-release-executable/1792982921961；此步不操作data/legacy、配置或插件，前述189文件保留检查来自程序资源同步。再次test:preview:resources通过95程序、246内置与1676媒体资源，未启动成品。收据.artifacts/work/selection-release/preview-executable.json。
 
 ## 2026-10-26 · 优化语言方向箭头，中文选文默认跳过自动翻译
 
