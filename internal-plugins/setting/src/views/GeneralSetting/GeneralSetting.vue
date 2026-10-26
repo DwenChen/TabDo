@@ -870,7 +870,7 @@ onMounted(() => {
       <div class="setting-item">
         <div class="setting-label">
           <span>选中文本自动翻译</span>
-          <span class="setting-desc">使用默认翻译服务和语言，显示选中文本的译文</span>
+          <span class="setting-desc">使用默认翻译服务和语言，中文为主的选文不自动翻译</span>
         </div>
         <div class="setting-control">
           <label class="toggle">

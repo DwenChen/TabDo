@@ -2,6 +2,61 @@
 
 > 自动生成；原始记录在 [entries](../history/entries/)。
 
+## 2026-10-26 · 发布语言方向图标与中文选区自动翻译优化
+
+记录：[release-tabdo-1.2.2-selection-translation](../../docs/history/entries/2026-10-26-02-release-1.2.2.json)；版本：1.2.2。
+
+- 当前用户明确授权本轮push、云端构建与Release；版本递增为1.2.2，不覆盖已发布的1.2.1。
+- 发布细线方向箭头和中文选文默认跳过自动翻译，取消旧请求并阻止迟到结果；所有指令保持原有搜索实现。
+- 对照最终源码审校README、设置/提供商/发布及开发规范、应用内和仓库教程、更新说明及当轮记录，补充中文选文跳过规则；教程保持12章77步。
+- 保留并随维护文档纳入此前本地清理事实记录，不提交备份、测试日志、截图、下载或个人资料。
+
+- 验证：已读取当前AGENTS、维护流程、改动索引、Bug台账及发布规范；Git fetch确认main与origin/main一致，HEAD为a3dc461e，hooks保持启用。
+- 验证：GitHub API确认latest为v1.2.1，v1.2.2尚不存在，近期发布工作流已完成；收据.artifacts/work/selection-release/remote-before.json。
+- 验证：本轮完整pnpm test --maxWorkers=2通过105文件719项，自动归档.artifacts/runs/2026-10-26T02-31-51-984Z-unit；非历史通过记录。
+- 验证：本轮selection-translation、builtin-providers与local-tutorial三个源码Electron专项全部通过，自动归档.artifacts/runs/2026-10-26T02-32-36-184Z-e2e；直接加载scripts/preview-main.cjs，显式隔离data/legacy，不为E2E打包。
+- 验证：pnpm build通过，包含Node/Web/设置类型检查、两份内置插件及宿主编译；相关7个JS/TS/Vue文件ESLint零错误零警告。既有Rollup跨chunk循环依赖、静态/动态导入与pnpm配置警告保留。
+- 验证：已人工核对README、开发/发布/设置/工具/Provider规范、应用内与仓库教程、更新说明和当轮记录。README与package版本更新为1.2.2，两份教程第2章选文步骤同步加入中文跳过说明；工具清单、快捷键、数据路径及生命周期行为仍准确。
+- 验证：候选提交前再次审校受影响文档，通过pnpm maintain、maintain:check、docs:check和git diff --check；文档门禁核对30文件、196链接、37功能/13分类/29普通指令、12章77步。
+- 验证：本地1.2.2免安装预览同步成功，189个data/legacy文件逐项保持，96项暂存程序核验；收据.artifacts/backups/preview-sync/update-1792982093287/preservation.json。test:preview:resources核对95程序、246内置和1676媒体资源通过。
+
+## 2026-10-26 · 优化语言方向箭头，中文选文默认跳过自动翻译
+
+记录：[selection-translation-and-language-direction](../../docs/history/entries/2026-10-26-01-selection-translation.json)；版本：未发布。
+
+- 翻译服务配置以20px细线SVG替代文字箭头，对齐两侧语言下拉框中心。
+- 超级面板自动翻译先判断文字，中文占主要部分、空白及仅数字标点时跳过；包含少量英文缩写的中文仍跳过，含假名日文继续翻译。切换到中文先取消旧请求并抑制迟到结果，主动翻译不变。
+- 按用户最新指示撤回所有指令搜索相关改动，原有搜索实现保持原样。
+- 同步提供商说明和TX-87/TX-88回归分组；保留此前历史清理条目和生成索引的未提交改动。
+
+- 验证：开始时仅有此前历史清理记录及生成索引的未提交改动，完整保留；按用户补充撤回搜索实现与相关文档，git diff确认所有指令、共享指令操作、设置规范和两份教程均无差异。
+- 验证：pnpm test tests/main/selectionTranslation.test.ts tests/main/superPanelClipboardTrigger.test.ts tests/main/builtinProviderService.test.ts --maxWorkers=2通过，3文件39项，归档.artifacts/runs/2026-10-26T02-18-43-355Z-unit。
+- 验证：pnpm test:e2e selection-translation与builtin-providers两个源码专项通过，归档.artifacts/runs/2026-10-26T02-19-44-357Z-e2e；真实宿主自动翻译入口验证中文不调用、英文及日文调用、中文替换后取消旧请求和迟到结果、控制器回收，提供商使用替身不请求外网。builtin-providers覆盖主动翻译中文、配置语言、识别与资源释放。
+- 验证：截图复核发现仅emulateMedia会与Electron主题不一致；增强普通材质背景断言后的首次运行失败，保留.artifacts/runs/2026-10-26T02-22-46-117Z-e2e。最终联合nativeTheme和页面配色覆盖重跑通过，归档.artifacts/runs/2026-10-26T02-24-00-745Z-e2e，明暗截图已直接查看，20px箭头居中误差不超过2px且无横向溢出。该失败属于测试主题驱动不完整，未扩展改动产品主题系统。
+- 验证：pnpm build通过：Node/Web/设置类型检查、设置及工具插件和Electron宿主编译。保留既有两个设置跨chunk循环依赖、宿主静态/动态导入分块和pnpm配置警告，未为E2E打包或运行electron-builder/build:unpack。
+- 验证：修改范围ESLint零错误零警告，git diff --check通过；pnpm test:regressions selection-translation --list确认3个单测和2个源码专项。未运行全量单测或全量E2E。
+- 验证：pnpm maintain、maintain:check、docs:check通过；文档检查30文件、195链接和12章教程无错误。最终专项测试文件ESLint零错误零警告，git diff --check通过。
+- 验证：pnpm preview:sync成功同步本地1.2.1程序，核对96项暂存程序文件，189个既有data/legacy文件逐文件保持；收据.artifacts/backups/preview-sync/update-1792981511718/preservation.json。未启动成品、重置资料或更改已安装插件。
+- 验证：pnpm test:preview:resources通过，核对95项程序资源、246个内置插件文件与1676项媒体依赖。搜索相关源码和教程最终无差异，未提交、push、云端构建或release。
+
+## 2026-10-25 · 清理历史程序备份、旧下载与可重建缓存，逐文件保留当前资料及原始证据
+
+记录：[cleanup-historical-artifacts-2026-10-25](../../docs/history/entries/2026-10-25-06-artifact-cleanup.json)；版本：未发布。
+
+- 按当前用户明确授权清理已确认的历史备份及临时材料，不重置资料、不启动预览、不强制结束应用，不提交或执行远端操作。
+- 删除9次预览同步的程序暂存/回退载荷及3组旧主exe备份，保留9份preservation.json和发布核验收据。
+- 删除v1.1.1/v1.2.0的8个过期发行下载文件、6个重复解包副本、39个已完成任务的一次性脚本/补丁，以及7个有相同SHA-256保留原件的游离测试/验证输出。
+- 在相关程序退出后清理74个Chromium可重建缓存文件及40个Vite/ESLint缓存文件；不触及Cookies、Local/Session Storage、LMDB、剪贴板、收藏、插件及插件资料。
+- 保留当前1.2.1四项原始发行文件、全部原始测试归档、发布核验JSON/日志/必要核验工具、原生构建来源、开发依赖和out/内置插件dist。仅保存路径/大小/摘要清单，未为本轮生成完整资料备份。
+
+- 验证：开始时main工作区干净，HEAD为a3dc461e；依次读取AGENTS、维护流程、改动索引、Bug台账及数据/开发文档。相关进程通过Win32_Process确认已退出，未终止用户程序。
+- 验证：删除前将105个目标解析为当前仓库内的绝对路径，逐层检查祖先和递归子项的ReparsePoint，未发现目录链接；核对文件数与逻辑大小后使用PowerShell原生Remove-Item和LiteralPath删除。计划、进程结果及逐目标日志位于.artifacts/cleanup-2026-10-25/。
+- 验证：实际删除48649个文件，逻辑大小4795686485字节（约4.80GB、4.47GiB）；不是实测释放的磁盘空间。分类明细见.artifacts/cleanup-2026-10-25/verification.json。
+- 验证：清理前后8925个受保护文件的路径、大小和SHA-256逐项完全一致，含2022个当前预览程序文件、99个预览持久资料文件、54个源码预览资料文件和5979个原始测试归档文件；完整预览文件差异仅为已批准的74个Chromium缓存文件。
+- 验证：保留用途不明确的data/temp、旧data/usage-guide及可能包含持久会话的浏览器目录，不因名称含临时、缓存或旧教程而推断可删。原有配置、数据库、历史、收藏、已安装插件及私有资料未丢失或变化。
+- 验证：pnpm test:preview:resources通过，核对95项程序资源、246个内置插件文件与1676项媒体依赖；pnpm docs:check、maintain、maintain:check及git diff --check通过。清理后相关项目进程仍为0，未启动预览或为清理重建程序/完整备份。
+- 验证：最终Git差异仅为本轮维护条目和自动生成的改动索引；没有提交、push、云端构建或发布。详细计划、删除日志及前后SHA-256清单保留在.artifacts/cleanup-2026-10-25/，属于本轮审计材料。
+
 ## 2026-10-25 · 发布文档与本地教程修订，并强制发布前文档校验
 
 记录：[release-tabdo-1.2.1-documentation-gate](../../docs/history/entries/2026-10-25-05-release-1.2.1.json)；版本：1.2.1。

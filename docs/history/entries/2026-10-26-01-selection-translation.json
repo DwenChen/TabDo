@@ -1,0 +1,24 @@
+{
+  "id": "selection-translation-and-language-direction",
+  "date": "2026-10-26",
+  "summary": "优化语言方向箭头，中文选文默认跳过自动翻译",
+  "changes": [
+    "翻译服务配置以20px细线SVG替代文字箭头，对齐两侧语言下拉框中心。",
+    "超级面板自动翻译先判断文字，中文占主要部分、空白及仅数字标点时跳过；包含少量英文缩写的中文仍跳过，含假名日文继续翻译。切换到中文先取消旧请求并抑制迟到结果，主动翻译不变。",
+    "按用户最新指示撤回所有指令搜索相关改动，原有搜索实现保持原样。",
+    "同步提供商说明和TX-87/TX-88回归分组；保留此前历史清理条目和生成索引的未提交改动。"
+  ],
+  "checks": [
+    "开始时仅有此前历史清理记录及生成索引的未提交改动，完整保留；按用户补充撤回搜索实现与相关文档，git diff确认所有指令、共享指令操作、设置规范和两份教程均无差异。",
+    "pnpm test tests/main/selectionTranslation.test.ts tests/main/superPanelClipboardTrigger.test.ts tests/main/builtinProviderService.test.ts --maxWorkers=2通过，3文件39项，归档.artifacts/runs/2026-10-26T02-18-43-355Z-unit。",
+    "pnpm test:e2e selection-translation与builtin-providers两个源码专项通过，归档.artifacts/runs/2026-10-26T02-19-44-357Z-e2e；真实宿主自动翻译入口验证中文不调用、英文及日文调用、中文替换后取消旧请求和迟到结果、控制器回收，提供商使用替身不请求外网。builtin-providers覆盖主动翻译中文、配置语言、识别与资源释放。",
+    "截图复核发现仅emulateMedia会与Electron主题不一致；增强普通材质背景断言后的首次运行失败，保留.artifacts/runs/2026-10-26T02-22-46-117Z-e2e。最终联合nativeTheme和页面配色覆盖重跑通过，归档.artifacts/runs/2026-10-26T02-24-00-745Z-e2e，明暗截图已直接查看，20px箭头居中误差不超过2px且无横向溢出。该失败属于测试主题驱动不完整，未扩展改动产品主题系统。",
+    "pnpm build通过：Node/Web/设置类型检查、设置及工具插件和Electron宿主编译。保留既有两个设置跨chunk循环依赖、宿主静态/动态导入分块和pnpm配置警告，未为E2E打包或运行electron-builder/build:unpack。",
+    "修改范围ESLint零错误零警告，git diff --check通过；pnpm test:regressions selection-translation --list确认3个单测和2个源码专项。未运行全量单测或全量E2E。",
+    "pnpm maintain、maintain:check、docs:check通过；文档检查30文件、195链接和12章教程无错误。最终专项测试文件ESLint零错误零警告，git diff --check通过。",
+    "pnpm preview:sync成功同步本地1.2.1程序，核对96项暂存程序文件，189个既有data/legacy文件逐文件保持；收据.artifacts/backups/preview-sync/update-1792981511718/preservation.json。未启动成品、重置资料或更改已安装插件。",
+    "pnpm test:preview:resources通过，核对95项程序资源、246个内置插件文件与1676项媒体依赖。搜索相关源码和教程最终无差异，未提交、push、云端构建或release。"
+  ],
+  "pending": ["真实在线翻译服务、纯汉字日文判别、其他DPI及最终视觉由人工验收。"],
+  "preview": "已同步.local/portable-preview/，版本1.2.1；通过根PreviewPortable.cmd手动测试。原有189个data/legacy文件保持，程序回退位于.artifacts/backups/preview-sync/update-1792981511718/previous-resources，未重置配置或插件。"
+}

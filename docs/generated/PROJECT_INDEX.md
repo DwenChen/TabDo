@@ -16,9 +16,9 @@
 
 ## 自动化测试文件
 
-共 134 个文件；文件数不等于用例数，通过状态以每轮变更记录为准。
+共 136 个文件；文件数不等于用例数，通过状态以每轮变更记录为准。
 
-### tests/main（94）
+### tests/main（95）
 
 - [tests/main/aiChatEventBatcher.test.ts](../../tests/main/aiChatEventBatcher.test.ts)
 - [tests/main/aiChatTransport.test.ts](../../tests/main/aiChatTransport.test.ts)
@@ -88,6 +88,7 @@
 - [tests/main/recorderLayout.test.ts](../../tests/main/recorderLayout.test.ts)
 - [tests/main/runtimeCompatibility.test.ts](../../tests/main/runtimeCompatibility.test.ts)
 - [tests/main/screenCaptureResult.test.ts](../../tests/main/screenCaptureResult.test.ts)
+- [tests/main/selectionTranslation.test.ts](../../tests/main/selectionTranslation.test.ts)
 - [tests/main/settingsOptimizedShortcutFallback.test.ts](../../tests/main/settingsOptimizedShortcutFallback.test.ts)
 - [tests/main/startupDataMigrations.test.ts](../../tests/main/startupDataMigrations.test.ts)
 - [tests/main/superPanelClipboardTrigger.test.ts](../../tests/main/superPanelClipboardTrigger.test.ts)
@@ -131,7 +132,7 @@
 - [tests/scripts/projectMaintenance.test.ts](../../tests/scripts/projectMaintenance.test.ts)
 - [tests/scripts/updateMetadata.test.ts](../../tests/scripts/updateMetadata.test.ts)
 
-### tests/e2e（30）
+### tests/e2e（31）
 
 - [tests/e2e/builtin-models.spec.ts](../../tests/e2e/builtin-models.spec.ts)
 - [tests/e2e/builtin-providers.spec.ts](../../tests/e2e/builtin-providers.spec.ts)
@@ -149,6 +150,7 @@
 - [tests/e2e/plugin-cleanup-tray.spec.ts](../../tests/e2e/plugin-cleanup-tray.spec.ts)
 - [tests/e2e/plugin-host-regressions.spec.ts](../../tests/e2e/plugin-host-regressions.spec.ts)
 - [tests/e2e/recorder-overlay.spec.ts](../../tests/e2e/recorder-overlay.spec.ts)
+- [tests/e2e/selection-translation.spec.ts](../../tests/e2e/selection-translation.spec.ts)
 - [tests/e2e/settings-cleanup.spec.ts](../../tests/e2e/settings-cleanup.spec.ts)
 - [tests/e2e/settings-window-stability.spec.ts](../../tests/e2e/settings-window-stability.spec.ts)
 - [tests/e2e/super-panel-selection.spec.ts](../../tests/e2e/super-panel-selection.spec.ts)
@@ -200,3 +202,4 @@
 - `documentation`：1 个单测文件、1 个源码 E2E 文件。
 - `relay-feedback`：0 个单测文件、2 个源码 E2E 文件。
 - `floating-relay`：5 个单测文件、4 个源码 E2E 文件。
+- `selection-translation`：3 个单测文件、2 个源码 E2E 文件。

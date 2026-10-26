@@ -20,6 +20,7 @@ import providerManager from './provider/providerManager.js'
 import { filterSuperPanelPinnedCommands } from './superPanelPinnedCommands.js'
 import { decodeFileUrlToPath } from '../utils/common'
 import { shouldKeepMainWindowHiddenForLaunch } from '../../shared/pluginLaunch'
+import { shouldAutoTranslateSelection } from '../../shared/selectionTranslation'
 import globalInputManager from './globalInputManager'
 
 // 沿用最初的 250×400 默认窗口，内容可收紧为正方形，宽度始终使用逻辑常量。
@@ -788,13 +789,19 @@ class SuperPanelManager {
   }
 
   /**
-   * 按独立开关请求选文翻译，关闭或切换选区后丢弃迟到结果。
+   * 按独立开关翻译非中文选文，关闭、跳过或切换选区后丢弃迟到结果。
    * @param text 当前选中文字。
    * @returns 请求完成后的 Promise。
    */
   private async requestTranslation(text: string): Promise<void> {
-    if (databaseAPI.dbGet('settings-general')?.superPanelAutoTranslate === false) return
+    // 先取消旧请求，中文选文或关闭开关同样不能留下前一次翻译。
     this.translationController?.abort()
+    this.translationController = null
+    if (
+      databaseAPI.dbGet('settings-general')?.superPanelAutoTranslate === false ||
+      !shouldAutoTranslateSelection(text)
+    )
+      return
     const controller = new AbortController()
     this.translationController = controller
     const revision = this.triggerRevision
@@ -806,6 +813,7 @@ class SuperPanelManager {
       )
       // 翻译服务启用与面板自动翻译各自独立，配置关闭后在途结果也不再显示。
       if (
+        controller.signal.aborted ||
         revision !== this.triggerRevision ||
         !this.requestedVisible ||
         databaseAPI.dbGet('settings-general')?.superPanelAutoTranslate === false

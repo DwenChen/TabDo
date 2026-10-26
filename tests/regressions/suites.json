@@ -353,5 +353,13 @@
       "tests/e2e/tools-expanded.spec.ts",
       "tests/e2e/local-tutorial.spec.ts"
     ]
+  },
+  "selection-translation": {
+    "unit": [
+      "tests/main/selectionTranslation.test.ts",
+      "tests/main/superPanelClipboardTrigger.test.ts",
+      "tests/main/builtinProviderService.test.ts"
+    ],
+    "e2e": ["tests/e2e/selection-translation.spec.ts", "tests/e2e/builtin-providers.spec.ts"]
   }
 }

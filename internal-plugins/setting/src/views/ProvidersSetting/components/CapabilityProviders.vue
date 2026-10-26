@@ -311,7 +311,18 @@ onUnmounted(() => {
               </option>
             </select>
           </div>
-          <span aria-hidden="true">→</span>
+          <span class="language-direction" aria-hidden="true">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.75"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M5 12h14m-5-5 5 5-5 5" />
+            </svg>
+          </span>
           <div class="field">
             <label :for="entry.id + '-to'">目标语言</label>
             <select :id="entry.id + '-to'" v-model="drafts[entry.id].to">
@@ -490,6 +501,19 @@ summary {
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   gap: 12px;
   align-items: center;
+}
+.language-direction {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: end;
+  height: 34px;
+  margin-bottom: 12px;
+  color: var(--text-secondary);
+}
+.language-direction svg {
+  width: 20px;
+  height: 20px;
 }
 textarea {
   resize: vertical;

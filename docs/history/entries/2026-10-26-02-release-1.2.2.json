@@ -1,0 +1,24 @@
+{
+  "id": "release-tabdo-1.2.2-selection-translation",
+  "date": "2026-10-26",
+  "version": "1.2.2",
+  "summary": "发布语言方向图标与中文选区自动翻译优化",
+  "changes": [
+    "当前用户明确授权本轮push、云端构建与Release；版本递增为1.2.2，不覆盖已发布的1.2.1。",
+    "发布细线方向箭头和中文选文默认跳过自动翻译，取消旧请求并阻止迟到结果；所有指令保持原有搜索实现。",
+    "对照最终源码审校README、设置/提供商/发布及开发规范、应用内和仓库教程、更新说明及当轮记录，补充中文选文跳过规则；教程保持12章77步。",
+    "保留并随维护文档纳入此前本地清理事实记录，不提交备份、测试日志、截图、下载或个人资料。"
+  ],
+  "checks": [
+    "已读取当前AGENTS、维护流程、改动索引、Bug台账及发布规范；Git fetch确认main与origin/main一致，HEAD为a3dc461e，hooks保持启用。",
+    "GitHub API确认latest为v1.2.1，v1.2.2尚不存在，近期发布工作流已完成；收据.artifacts/work/selection-release/remote-before.json。",
+    "本轮完整pnpm test --maxWorkers=2通过105文件719项，自动归档.artifacts/runs/2026-10-26T02-31-51-984Z-unit；非历史通过记录。",
+    "本轮selection-translation、builtin-providers与local-tutorial三个源码Electron专项全部通过，自动归档.artifacts/runs/2026-10-26T02-32-36-184Z-e2e；直接加载scripts/preview-main.cjs，显式隔离data/legacy，不为E2E打包。",
+    "pnpm build通过，包含Node/Web/设置类型检查、两份内置插件及宿主编译；相关7个JS/TS/Vue文件ESLint零错误零警告。既有Rollup跨chunk循环依赖、静态/动态导入与pnpm配置警告保留。",
+    "已人工核对README、开发/发布/设置/工具/Provider规范、应用内与仓库教程、更新说明和当轮记录。README与package版本更新为1.2.2，两份教程第2章选文步骤同步加入中文跳过说明；工具清单、快捷键、数据路径及生命周期行为仍准确。",
+    "候选提交前再次审校受影响文档，通过pnpm maintain、maintain:check、docs:check和git diff --check；文档门禁核对30文件、196链接、37功能/13分类/29普通指令、12章77步。",
+    "本地1.2.2免安装预览同步成功，189个data/legacy文件逐项保持，96项暂存程序核验；收据.artifacts/backups/preview-sync/update-1792982093287/preservation.json。test:preview:resources核对95程序、246内置和1676媒体资源通过。"
+  ],
+  "pending": ["真实在线服务、无假名的纯汉字日文判别、其他DPI及最终设备观感保留人工验收。"],
+  "preview": "本地1.2.2程序资源已同步，原有189个data/legacy文件保持；启动入口PreviewPortable.cmd。未启动成品或重置配置/插件，云端成品核验待完成。"
+}
