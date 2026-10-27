@@ -12,6 +12,8 @@ TabDo 由 DwenChen 独立维护，源自 ZTools 及其社区插件生态。独�
 
 [Recordly](https://github.com/webadderallorg/Recordly/tree/109ca3a13c362e969d9add25d1f93406c36dba2a)（webadderall，源自 Siddharth Vaddem 的 OpenScreen），固定提交 `109ca3a13c362e969d9add25d1f93406c36dba2a`，1.4.0。2026-10-27 移植编辑、捕获、光标与项目能力，并改为中文和 TabDo 会话、主题、快捷键。完整 AGPLv3、依赖声明与修改范围见 [组件说明](../internal-plugins/system/presentation/README.md)。来源与许可告知集中在应用“设置 → 关于”，不使用上游名称作为产品名。组合分发须同时满足 AGPLv3，不以项目原 MIT 说明覆盖上游许可。
 
+DM Sans 字体保留 SIL Open Font License 1.1，源码中的原始OFL与程序随附的 [LICENSE.DMSans.txt](../internal-plugins/system/public/LICENSE.DMSans.txt)一致；随包第三方声明使用对应本地许可路径。
+
 ## 插件作者与适配来源
 
 下表作者依据原始插件清单记录。链接指向原始项目；实际复用范围和固定版本以本仓库资源说明及许可文件为准。

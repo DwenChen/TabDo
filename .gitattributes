@@ -10,4 +10,5 @@
 internal-plugins/system/presentation/LICENSE.md whitespace=-blank-at-eol
 internal-plugins/system/public/LICENSE.Recordly.md whitespace=-blank-at-eol
 internal-plugins/system/presentation/src/assets/fonts/dm-sans/OFL.txt whitespace=-blank-at-eol
+internal-plugins/system/public/LICENSE.DMSans.txt whitespace=-blank-at-eol
 internal-plugins/system/presentation/electron/native/SystemCursorAssets.swift whitespace=-blank-at-eof

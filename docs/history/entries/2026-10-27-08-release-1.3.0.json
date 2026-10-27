@@ -9,7 +9,8 @@
     "对照当前源码审校README、开发与模块规范、工具清单、两份教程、第三方来源及组件说明；修正旧版本和仅本地交付的过期说明。",
     "应用关于页补充本版组件源码与许可直达入口；保留原MIT版权、Recordly/OpenScreen的AGPLv3及完整对应源码。",
     "沿用现有Windows x64发布工作流、安装身份与更新源，不覆盖既有发行，不重置用户资料。",
-    "供应商许可与原生源文件保留原始字节，仅对四个原文件声明Git空白属性，其他文件继续接受提交空白检查。"
+    "供应商许可与原生源文件保留原始字节，对相关原文件声明Git空白属性，其他文件继续接受提交空白检查。",
+    "补核分发目录时发现DM Sans的完整OFL仅位于对应源码，补充随程序分发的LICENSE.DMSans.txt并修正随包第三方告知的相对链接。"
   ],
   "checks": [
     "已核对Git状态并保留全部既有改动；fetch后main与origin/main一致，远端最新v1.2.2，v1.3.0尚不存在，Git hooks路径为.githooks。",
@@ -21,7 +22,9 @@
     "源码presentation-import、settings-cleanup两项通过，归档.artifacts/runs/2026-10-27T14-08-55-954Z-e2e；同轮all-commands-pinning仍假设演示录屏未默认固定而失败，已修正隔离夹具并重跑，不修改生产固定逻辑。",
     "用户确认退出后pnpm preview:sync成功，1.3.0资源同步完成，336个已有资料和插件文件逐文件保留，101项程序文件核对通过；回退资源.artifacts/backups/preview-sync/update-1793110249095/previous-resources。",
     "all-commands-pinning修正隔离夹具后通过，归档.artifacts/runs/2026-10-27T14-11-44-260Z-e2e；只搜索不点击新来源即可固定、取消固定并保留原列表。该测试ESLint通过。",
-    "pnpm test:preview:resources通过，100项程序、357项内置资源与1687项媒体运行文件布局完整。"
+    "pnpm test:preview:resources通过，100项程序、357项内置资源与1687项媒体运行文件布局完整。",
+    "初始功能候选9204497f通过提交及推送hooks并已推送main，随后补齐字体随包许可；最终发行候选以工作流收据中的SHA为准。",
+    "补充许可后build:tools通过。再次整目录同步因Windows重命名受限自动回退，确认原1.3.0程序资源恢复；随后在退出状态仅复制LICENSE.DMSans.txt和THIRD_PARTY.Recordly.md两个外部许可文件并核对内容，保留原告知副本，未操作资料目录。最终资源核验100项程序、358项内置资源与1687项媒体运行文件通过。"
   ],
   "pending": [
     "最终提交推送、云端工作流及四项发行产物核验待完成。",
