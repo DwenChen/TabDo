@@ -2,7 +2,7 @@
 
 > 自动生成；原始记录在 [entries](../history/entries/)。
 
-## 2026-10-27 · 准备并核验 TabDo 1.3.0 正式发行
+## 2026-10-27 · 完成 TabDo 1.3.0 推送、云端构建及正式发行核验
 
 记录：[release-1.3.0](../../docs/history/entries/2026-10-27-08-release-1.3.0.json)；版本：1.3.0。
 
@@ -25,6 +25,11 @@
 - 验证：pnpm test:preview:resources通过，100项程序、357项内置资源与1687项媒体运行文件布局完整。
 - 验证：初始功能候选9204497f通过提交及推送hooks并已推送main，随后补齐字体随包许可；最终发行候选以工作流收据中的SHA为准。
 - 验证：补充许可后build:tools通过。再次整目录同步因Windows重命名受限自动回退，确认原1.3.0程序资源恢复；随后在退出状态仅复制LICENSE.DMSans.txt和THIRD_PARTY.Recordly.md两个外部许可文件并核对内容，保留原告知副本，未操作资料目录。最终资源核验100项程序、358项内置资源与1687项媒体运行文件通过。
+- 验证：最终候选a0bf1a0ced4c6cf8d3b2edb2785cf678c7b11136通过提交、推送hooks后已推送main；重新审校文档并通过docs:check和maintain:check，仅手动触发一次Release TabDo工作流。
+- 验证：云端工作流https://github.com/DwenChen/TabDo/actions/runs/40520076310构建和发布作业均成功，运行SHA与候选一致；已下载verification归档核对106个测试文件、738项单测通过，退出码0。正式Release https://github.com/DwenChen/TabDo/releases/tag/v1.3.0已发布。
+- 验证：确认Release非草稿、非预发行并为latest，v1.3.0标签指向a0bf1a0ced4c6cf8d3b2edb2785cf678c7b11136；四项正式资产全部下载并在流式下载中一次核对GitHub SHA-256，latest.yml的1.3.0版本、安装文件名、大小及SHA-512均匹配。收据.artifacts/work/presentation-release/release-verification.json。
+- 验证：正式ZIP包含644项、应用ASAR含3650项，版本1.3.0、更新源DwenChen/TabDo正确，无本地data、legacy、测试、文档或临时工件。核对演示页面、桥接、预加载、四项Windows原生运行文件及manifest；MIT、AGPLv3、字体OFL及第三方告知与候选源码一致，应用包含源码与许可入口。12章77步187段教程及插图与候选一致。收据.artifacts/work/presentation-release/package-verification.json。
+- 验证：预览仅将TabDo.exe从1.2.2替换为正式ZIP中的1.3.0，原exe备份.artifacts/backups/presentation-release-executable/1793111635113，未启动程序或修改资料。最终pnpm test:preview:resources通过100项程序、358项内置资源及1687项媒体运行文件，文件版本1.3.0；数据与插件沿用此前已核对保留的336项。
 
 ## 2026-10-27 · 改进自动缩放覆盖、摄像头设置说明与演示录屏默认固定
 
