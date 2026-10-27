@@ -1,7 +1,7 @@
 const fs = require('node:fs')
 const path = require('node:path')
 const { createRequire } = require('node:module')
-const roots = ['sharp', 'pdfkit', 'ffmpeg-static']
+const roots = ['sharp', 'pdfkit', 'ffmpeg-static', 'ffprobe-static']
 
 /**
  * 找到依赖真实目录，兼容包导出限制与 pnpm 链接。

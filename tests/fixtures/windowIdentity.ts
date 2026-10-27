@@ -7,12 +7,17 @@ import type { ElectronApplication } from '@playwright/test'
  */
 export async function trackWindowIdentities(application: ElectronApplication): Promise<void> {
   await application.evaluate(({ app, BrowserWindow, nativeImage }) => {
+    // Electron 的全局窗口枚举不包含派生类；保留原生创建事件中的同一实例。
+    const windows = new Map<number, Electron.BrowserWindow>()
+    ;(globalThis as any).__testIdentityWindows = windows
     /**
      * 观察实际原生设置，保留原方法调用及错误。
      * @param window 待观察的隔离测试窗口。
      * @returns 无返回值。
      */
     const track = (window: Electron.BrowserWindow): void => {
+      windows.set(window.id, window)
+      window.once('closed', () => windows.delete(window.id))
       const original = window.setSkipTaskbar.bind(window)
       const originalIcon = window.setIcon.bind(window)
       window.setSkipTaskbar = (skip): void => {
@@ -23,6 +28,13 @@ export async function trackWindowIdentities(application: ElectronApplication): P
         originalIcon(icon)
         const image = typeof icon === 'string' ? nativeImage.createFromPath(icon) : icon
         ;(window as any).__testIconPng = image.toPNG().toString('base64')
+      }
+      if (process.platform === 'win32') {
+        const originalDetails = window.setAppDetails.bind(window)
+        window.setAppDetails = (details): void => {
+          originalDetails(details)
+          ;(window as any).__testAppId = details.appId
+        }
       }
     }
     BrowserWindow.getAllWindows().forEach(track)
@@ -46,10 +58,11 @@ export async function readWindowIdentity(
   title: string
   nativeIcons: Array<{ sent: boolean; present: boolean }>
   iconMatchesFeature?: boolean
+  appId?: string
 }> {
   return application.evaluate(
     async ({ app, BrowserWindow, nativeImage }, { id, code }) => {
-      const window = BrowserWindow.fromId(id)!
+      const window = BrowserWindow.fromId(id) ?? (globalThis as any).__testIdentityWindows?.get(id)
       const handle = window.getNativeWindowHandle()
       const hwnd =
         handle.length === 8 ? handle.readBigUInt64LE().toString() : String(handle.readUInt32LE())
@@ -76,6 +89,7 @@ export async function readWindowIdentity(
       return {
         skipTaskbar: (window as any).__testSkipTaskbar,
         title: window.getTitle(),
+        appId: (window as any).__testAppId,
         nativeIcons: JSON.parse(output),
         iconMatchesFeature: code
           ? (window as any).__testIconPng ===

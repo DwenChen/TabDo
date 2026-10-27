@@ -35,6 +35,7 @@ asarUnpack:
   - '**/node_modules/sharp/**/*'
   - '**/node_modules/@img/**/*'
   - '**/node_modules/ffmpeg-static/**/*'
+  - '**/node_modules/ffprobe-static/**/*'
 fileAssociations:
   - ext: zpx
     name: TabDo Plugin

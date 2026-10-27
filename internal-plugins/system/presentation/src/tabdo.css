@@ -1,0 +1,42 @@
+:root {
+  font-family: 'Segoe UI', 'Microsoft YaHei UI', sans-serif;
+  font-size: 13px;
+  --accent: #059669;
+  --accent-foreground: #fff;
+}
+:root.dark {
+  --accent: #34d399;
+  --accent-foreground: #052e24;
+}
+body,
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
+}
+.editor-header {
+  min-height: 50px;
+}
+.recordly-attribution {
+  font-size: 11px;
+  color: var(--muted-foreground);
+  padding: 8px 12px;
+}
+[data-window-type='hud-overlay'],
+[data-window-type='countdown'],
+[data-window-type='capture-picker'],
+[data-window-type='hud-overlay'] body,
+[data-window-type='countdown'] body,
+[data-window-type='capture-picker'] body,
+[data-window-type='hud-overlay'] #root,
+[data-window-type='countdown'] #root,
+[data-window-type='capture-picker'] #root {
+  background: transparent !important;
+}
+:root {
+  --radius: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 10px;
+  --radius-2xl: 10px;
+}

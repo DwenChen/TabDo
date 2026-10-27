@@ -1,0 +1,29 @@
+{
+  "id": "presentation-control-entry",
+  "date": "2026-10-27",
+  "summary": "演示录屏指令直达控制条并修复失焦交接",
+  "reason": "预览手测发现开始录制后控制条未出现，且希望普通指令直接进入控制条，项目和最近项目归编辑页。",
+  "changes": [
+    "保留上一轮未提交集成，普通指令直接显示原生浮动控制条；控制条提供演示编辑器入口，编辑页管理项目、最近项目与导入。",
+    "先分离所属工具会话，再在可见控制条和编辑宿主间交接；录制入口卸载编辑正文，避免主搜索窗口失焦清理控制条。不自动开启临时常驻。",
+    "可见辅助窗口按当前前台处理；全部窗口退出前台及明确关闭仍回收所属会话，不删除配置、项目或插件。",
+    "同步工具清单、开发规范、组件说明、README、更新说明、应用内及仓库教程和回归分组。"
+  ],
+  "checks": [
+    "通过 context-mode 阅读维护流程、改动索引、Bug 台账和相关模块规范，检查并保留工作区已有改动。",
+    "pnpm typecheck:node 通过。",
+    "首轮 pnpm test:e2e tests/e2e/presentation-recorder.spec.ts --workers=1 通过：无失焦抑制，原生控制条可见、编辑交接、真实录制、保存导入、MP4编码、文件重开、端口释放和临时常驻；归档 .artifacts/runs/2026-10-27T09-25-44-631Z-e2e。",
+    "补充回归初轮因同名项目按钮选择器不唯一失败，证据归档 .artifacts/runs/2026-10-27T09-29-43-015Z-e2e；限定项目导航区域后通过。",
+    "最终演示源码专项通过：编辑页项目与最近时间筛选入口、控制条关闭及最小化后的视图和媒体端口回收；归档 .artifacts/runs/2026-10-27T09-30-51-566Z-e2e。直接检查原生窗口可见性并捕获控制条、编辑主页和编辑正文，未拼接截图。",
+    "新增辅助前台交接边界测试；生命周期专项3文件14项通过，归档 .artifacts/runs/2026-10-27T09-30-51-329Z-unit；pnpm test --maxWorkers=2 全部105文件723项通过，归档 .artifacts/runs/2026-10-27T09-32-10-695Z-unit。",
+    "相邻 tools-catalog、local-tutorial 两个源码E2E通过，验证普通工具回收、图标、真实关于入口、离线教程及升级保留配置插件；归档 .artifacts/runs/2026-10-27T09-33-54-934Z-e2e。",
+    "pnpm build 完整通过，含宿主node/web及设置类型检查、设置和工具构建；仅有已有依赖循环、大chunk和动态静态混合导入提示。",
+    "宿主与测试修改范围ESLint零错误零警告；上游来源目录按现有配置排除，由构建校验。pnpm docs:check通过30份文档、200链接、39功能、14分类、30普通指令及12章77步教程；pnpm test:regressions presentation-recorder --list通过。Git diff --check通过。",
+    "pnpm maintain 与 pnpm maintain:check通过；同步前确认免安装预览已退出。pnpm preview:sync成功替换程序资源，216个既有配置、插件和资料文件逐文件保持一致，程序回退副本位于 .artifacts/backups/preview-sync/update-1793093768407/previous-resources。",
+    "pnpm test:preview:resources通过：100项程序资源、361项内置资源与1687项媒体依赖。最终测试文件导入方式经自动归档入口--list加载确认，未将发现用例计为重新执行断言。"
+  ],
+  "pending": [
+    "多屏、其他DPI、长时高分辨率录制与实体音视频设备组合仍需人工验收。"
+  ],
+  "preview": "已同步固定 .local/portable-preview，通过根 PreviewPortable.cmd 手测；216个既有配置、资料和已安装插件文件保持一致，保留完整程序回退副本，资源验证通过。无push、云端构建、release或数据重置。"
+}

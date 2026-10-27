@@ -8,6 +8,10 @@ TabDo 由 DwenChen 独立维护，源自 ZTools 及其社区插件生态。独�
 
 同时感谢 [ZTools-plugins](https://github.com/ZToolsCenter/ZTools-plugins)、[ztools-plugin-cli](https://github.com/ZToolsCenter/ztools-plugin-cli)和 [ztools-api-types](https://github.com/ZToolsCenter/ztools-api-types)。本仓库中的历史 CLI 与类型资料用于迁移参考，新的插件开发以 TabDo 文档和 `session-v1` 协议为准。
 
+## 演示录屏来源
+
+[Recordly](https://github.com/webadderallorg/Recordly/tree/109ca3a13c362e969d9add25d1f93406c36dba2a)（webadderall，源自 Siddharth Vaddem 的 OpenScreen），固定提交 `109ca3a13c362e969d9add25d1f93406c36dba2a`，1.4.0。2026-10-27 移植编辑、捕获、光标与项目能力，并改为中文和 TabDo 会话、主题、快捷键。完整 AGPLv3、依赖声明与修改范围见 [组件说明](../internal-plugins/system/presentation/README.md)。来源与许可告知集中在应用“设置 → 关于”，不使用上游名称作为产品名。组合分发须同时满足 AGPLv3，不以项目原 MIT 说明覆盖上游许可。
+
 ## 插件作者与适配来源
 
 下表作者依据原始插件清单记录。链接指向原始项目；实际复用范围和固定版本以本仓库资源说明及许可文件为准。

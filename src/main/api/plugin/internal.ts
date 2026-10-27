@@ -17,6 +17,7 @@ import {
   stopRecorder
 } from '../../core/screenRecorder'
 import { runMedia, cancelMedia } from '../../core/mediaProcessor'
+import { openPresentation, closePresentation } from '../../core/presentationRecorder'
 import builtinProviderService from '../../core/provider/builtinProviderService'
 import providerManager from '../../core/provider/providerManager.js'
 import aiModelsAPI from '../renderer/aiModels.js'
@@ -82,10 +83,30 @@ export class InternalPluginAPI {
 
   /**
    * 初始化内置插件专用 API，并注册对应的 IPC 通道。
+   * @param mainWindow 当前宿主窗口。
+   * @param pluginManager 用于核对请求所属工具会话的管理器。
+   * @returns 无返回值。
    */
   public init(mainWindow: Electron.BrowserWindow, pluginManager: PluginManager): void {
     this.mainWindow = mainWindow
     this.pluginManager = pluginManager
+    ipcMain.handle('internal:presentation-open', async (event, file?: string) => {
+      const info = pluginManager.getPluginInfoByWebContents(event.sender)
+      if (!info || !isToolsPluginPath(info.path)) throw new Error('仅工具会话可打开演示录屏')
+      // 先把同一视图交给独立宿主，控制条获取焦点不会触发主窗口的失焦退役。
+      if (!detachedWindowManager.getWindowByPluginWebContents(event.sender.id)) {
+        const detached = await pluginManager.detachCurrentPlugin({ show: Boolean(file) })
+        if (!detached.success) throw new Error(detached.error || '无法创建演示窗口')
+      }
+      try {
+        return await openPresentation(event.sender, file)
+      } catch (error) {
+        // 准备失败时恢复错误提示，不能把没有控制条的会话留在隐藏窗口。
+        detachedWindowManager.getWindowByPluginWebContents(event.sender.id)?.show()
+        throw error
+      }
+    })
+    ipcMain.handle('internal:presentation-close', (event) => closePresentation(event.sender))
     this.setupIPC()
   }
 
@@ -753,6 +774,10 @@ export class InternalPluginAPI {
         }
         try {
           // 先验证类型归属，避免错误默认请求先启用另一种能力。
+          if (type === 'formula') {
+            const data = builtinProviderService.setFormulaDefault(providerId)
+            return { success: true, data }
+          }
           if (
             !providerManager.getAllProviders(type as never).some((entry) => entry.id === providerId)
           ) {

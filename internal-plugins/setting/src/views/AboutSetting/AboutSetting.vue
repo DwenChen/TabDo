@@ -89,6 +89,23 @@ onMounted(async () => {
         原插件开发项目
       </button>
       <p>保留原项目 MIT 许可证与版权声明。</p>
+      <p>
+        演示录屏与演示编辑器基于 Recordly / OpenScreen，由 TabDo 修改。相关组件遵循
+        AGPLv3，保留版权、完整许可和源码；不提供任何担保。
+      </p>
+      <button class="btn" @click="open('https://github.com/webadderallorg/Recordly')">
+        Recordly 来源
+      </button>
+      <button
+        class="btn"
+        @click="
+          open(
+            GITHUB_REPOSITORY_URL + '/tree/v' + version + '/internal-plugins/system/presentation'
+          )
+        "
+      >
+        本版组件源码与许可
+      </button>
     </section>
   </main>
 </template>

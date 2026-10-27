@@ -43,6 +43,8 @@ interface DetachedWindowInfo {
   isAlwaysOnTop: boolean
   lastFocusTarget: 'titlebar' | 'plugin' // 记录最后一次焦点位置，用于窗口恢复
   savedFocusTarget: 'titlebar' | 'plugin' // 窗口失焦时快照的焦点状态
+  foregroundWindow?: BrowserWindow
+  releaseHiddenTools?: (force?: boolean) => void
 }
 
 export interface DetachedPluginUpgradeSnapshot {
@@ -211,6 +213,7 @@ class DetachedWindowManager {
     options: {
       width: number
       height: number
+      show?: boolean
       title: string
       logo?: string
       toolFeatureCode?: string
@@ -240,6 +243,7 @@ class DetachedWindowManager {
       const windowConfig: Electron.BrowserWindowConstructorOptions = {
         width: options.width,
         height: options.height + titlebarHeight,
+        show: options.show,
         title: options.title,
         ...(isToolsPluginPath(pluginPath) && {
           icon: getToolsWindowIcon(options.toolFeatureCode),
@@ -349,6 +353,7 @@ class DetachedWindowManager {
         })
 
         // 如果需要自动聚焦子输入框，延迟聚焦搜索框（等待 DOM 渲染完成）
+        if (options.show === false) return
         if (options.autoFocusSubInput === true) {
           setTimeout(() => {
             win.webContents.focus()
@@ -404,11 +409,22 @@ class DetachedWindowManager {
       this.detachedWindowMap.set(windowId, windowInfo)
 
       /**
-       * 普通窗口隐藏或最小化时退役；用户临时常驻期间保留当前独立会话。
+       * 所属窗口全部退出前台时退役；用户临时常驻期间允许保留独立会话。
+       * @param force 明确关闭时忽略辅助前台与临时常驻。
        * @returns 无返回值。
        */
-      const releaseHiddenTools = (): void => {
-        if (isTemporaryResident(pluginView.webContents)) return
+      const releaseHiddenTools = (force = false): void => {
+        if (!force && isTemporaryResident(pluginView.webContents)) return
+        // 所属辅助窗口仍在前台时，隐藏编辑窗口只是同一会话的界面交接。
+        const foreground = windowInfo.foregroundWindow
+        if (
+          !force &&
+          foreground &&
+          !foreground.isDestroyed() &&
+          foreground.isVisible() &&
+          !foreground.isMinimized()
+        )
+          return
         // 立即从可复用窗口中移除，旧任务不能污染随后新打开的工具。
         this.detachedWindowMap.delete(windowId)
         pluginWindowManager.releaseParent(pluginView.webContents)
@@ -421,14 +437,15 @@ class DetachedWindowManager {
           { name: pluginName, path: pluginPath, logo: options.logo }
         )
       }
-      win.on('hide', releaseHiddenTools)
-      win.on('minimize', releaseHiddenTools)
+      windowInfo.releaseHiddenTools = releaseHiddenTools
+      win.on('hide', () => releaseHiddenTools())
+      win.on('minimize', () => releaseHiddenTools())
 
       // 关闭仅卸下工具页面，必要任务仍可在独立运行时内完成保存。
       win.on('close', () => {
         // 用户关闭和宿主退出总是释放，临时常驻不能阻止明确退出。
         setTemporaryResident(pluginView.webContents, false)
-        releaseHiddenTools()
+        releaseHiddenTools(true)
       })
 
       // 监听窗口关闭
@@ -453,7 +470,8 @@ class DetachedWindowManager {
       this.setupTitlebarIPC(windowId)
 
       // 显示窗口
-      win.show()
+      // 控制条入口显式要求隐藏准备时，不在创建收尾重新显示编辑宿主。
+      if (options.show !== false) win.show()
 
       // 焦点跟踪：实时记录焦点在标题栏还是插件视图
       win.webContents.on('focus', () => {
@@ -512,6 +530,49 @@ class DetachedWindowManager {
       console.error('[DetachedWindow] 创建分离窗口失败:', error)
       return null
     }
+  }
+
+  /**
+   * 将内置工具前台交给其可见辅助窗口；全部界面隐藏后仍按普通会话规则回收。
+   * @param webContentsId 所属独立工具视图身份。
+   * @param foreground 本次会话已经显示的辅助窗口。
+   * @returns 是否成功交接；不支持的视图不会隐藏。
+   */
+  public showAuxiliaryForegroundWindow(webContentsId: number, foreground: BrowserWindow): boolean {
+    const info = [...this.detachedWindowMap.values()].find(
+      (entry) => entry.view.webContents.id === webContentsId
+    )
+    if (
+      !info ||
+      !isToolsPluginPath(info.pluginPath) ||
+      info.window.isDestroyed() ||
+      foreground.isDestroyed() ||
+      !foreground.isVisible() ||
+      foreground.isMinimized()
+    )
+      return false
+    if (info.foregroundWindow !== foreground) {
+      info.foregroundWindow = foreground
+      /**
+       * 辅助窗口退出前台后，只有仍可见的编辑窗口或用户临时常驻可以保留会话。
+       * @returns 无返回值。
+       */
+      const release = (): void => {
+        if (info.foregroundWindow !== foreground || info.window.isDestroyed()) return
+        if (!info.window.isVisible() || info.window.isMinimized()) info.releaseHiddenTools?.()
+      }
+      foreground.on('hide', release)
+      foreground.on('minimize', release)
+      foreground.once('closed', release)
+      info.window.once('closed', () => {
+        foreground.removeListener('hide', release)
+        foreground.removeListener('minimize', release)
+        foreground.removeListener('closed', release)
+      })
+    }
+    // 只在辅助窗口可见后隐藏正文，避免加载失败留下不可访问的会话。
+    info.window.hide()
+    return true
   }
 
   /**

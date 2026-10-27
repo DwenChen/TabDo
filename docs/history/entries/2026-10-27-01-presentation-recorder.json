@@ -1,0 +1,33 @@
+{
+  "id": "presentation-recorder-and-formula-defaults",
+  "date": "2026-10-27",
+  "summary": "集成演示录屏与演示编辑器，完善 OCR 和公式默认设置",
+  "changes": [
+    "文字提供商改为离线OCR引擎；离线公式与AI公式增加设为默认，使用独立defaultId.formula，保留已有OCR默认、开关与模型参数。",
+    "研究并固定Recordly 109ca3a13c362e969d9add25d1f93406c36dba2a（上游1.4.0）；复用实际录制、编辑、项目和导出源码及Windows x64原生组件，保留完整AGPLv3与依赖许可、UI致谢和改动说明。",
+    "新增演示录屏；单个.recordly文件匹配演示编辑器；原有录屏独立。编辑器显式提供保存项目与导入项目，项目继续引用原始视频等素材。",
+    "仅提供中文，补齐主页、录制、编辑、导出及设置文案；主题跟随宿主；取消上游更新、账户、共享、反馈、Discord与插件入口；解释循环光标。",
+    "六项可配置编辑动作移入TabDo快捷键页，缺失配置全部关闭；保留其他明确选择。通过宿主标题栏声明临时常驻，不自动开启或落库。",
+    "每个WebContents持有独立服务闭包、前缀IPC、辅助窗口、端口和进程；保存、录制收尾和导出按完整链登记任务。普通退出回收，常驻隐藏保留，取消常驻立即关闭。Windows只订阅宿主uiohook，不停止全局采集。",
+    "源码预览和E2E只构建服务桥接；正式工具构建包含React编辑器、WASM和静态素材；FFprobe纳入生产依赖、物理展开和免安装资源验证。",
+    "同步README、提供商说明、工具清单、设置与工具规范、许可、更新说明及两份12章77步本地图文教程。"
+  ],
+  "checks": [
+    "初始Git工作区干净；已依次阅读维护、改动、Bug和工具、设置、提供商、插件相关规范；全程使用context-mode盘点分析。",
+    "pnpm test --maxWorkers=2：105个文件、720项通过；归档.artifacts/runs/2026-10-27T07-53-44-948Z-unit。",
+    "pnpm typecheck:setting、宿主node/web类型检查、完整pnpm build与最终build:tools通过；保留已有大体积chunk/PostCSS警告。",
+    "builtin-providers源码专项通过：新标签、公式默认按钮、AI启用/设默认和OCR原选择保留；.artifacts/runs/2026-10-27T07-58-58-667Z-e2e。",
+    "演示源码专项已通过真实屏幕录制、视频解码、保存/导入、MP4实际编码（FFprobe核对视频轨和时长）、文件指令重新打开、旧服务端口释放、常驻隐藏与取消回收；证据见.artifacts/runs/2026-10-27T08-26-31-558Z-e2e。",
+    "local-tutorial源码专项通过真实关于入口、离线资源和升级重启保留配置插件；.artifacts/runs/2026-10-27T08-26-31-558Z-e2e。",
+    "tools-catalog源码专项通过分类、匹配入口及原有工具图标/退出回收；.artifacts/runs/2026-10-27T08-32-39-220Z-e2e。",
+    "实施中失败均归档：修复预加载晚require、独立账户门禁、窗口适配与WASM资源路径；测试改为等待真实媒体、编码结果和新会话就绪，修正工具清单数量及普通/匹配分类断言。",
+    "最终演示源码专项通过：主题明暗同步、循环光标实际说明、宿主配置启用后的真实快捷键播放、录制/导出/文件重开、端口回收与常驻隐藏/取消；.artifacts/runs/2026-10-27T08-50-41-904Z-e2e。",
+    "新增实际plugin.json文件入口回归：单个大写.recordly可匹配，空输入、目录、其他扩展名与多文件拒绝；commandContextShared 18项通过，.artifacts/runs/2026-10-27T08-54-35-580Z-unit。",
+    "相关15个适配文件ESLint零错误零警告；最终新增桥接与服务复核通过，Git diff --check通过；docs:check核对30份文档、200链接、39功能、14分类、30普通指令与12章77步教程。",
+    "最终预览资源核对通过：100项程序资源、361项内置资源、1687项媒体运行依赖；保存完整可回退程序副本，189个既有配置/插件/资料文件保持一致。"
+  ],
+  "pending": [
+    "长时高分辨率录制、多屏/其他DPI、实体麦克风与摄像头组合、CUDA硬件、GIF/字幕及复杂上游项目仍需人工验收。项目搬移需携带其引用的原始素材。"
+  ],
+  "preview": "已同步固定.local/portable-preview；通过PreviewPortable.cmd手测。最终同步回执.artifacts/presentation-preview-final-sync.log，保留189个既有数据文件；资源核对.artifacts/presentation-preview-final-verify.log通过。未push、云端构建、release或重置数据。"
+}

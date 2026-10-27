@@ -1,0 +1,5 @@
+export const DEFAULT_LOCALE = 'zh-CN' as const
+export const SUPPORTED_LOCALES = ['zh-CN'] as const
+export const I18N_NAMESPACES = ['common','launch','editor','timeline','settings','dialogs','shortcuts'] as const
+export type AppLocale = 'zh-CN'
+export type I18nNamespace = typeof I18N_NAMESPACES[number]

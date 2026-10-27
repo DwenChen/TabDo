@@ -25,6 +25,7 @@ import {
 import type { CommandAliasEntry, CommandAliasStore } from '@shared/commandShared'
 import AliasMappingDialog from './components/AliasMappingDialog.vue'
 import BuiltinWakeupSetting from './BuiltinWakeupSetting.vue'
+import PresentationShortcuts from './PresentationShortcuts.vue'
 import {
   BUILTIN_SHORTCUT_DEFAULTS,
   readBuiltinShortcuts,
@@ -1268,6 +1269,7 @@ useJumpFunction<ShortcutsSettingJumpFunction>(async (state) => {
                 class="shortcut-section"
               >
                 <BuiltinWakeupSetting />
+                <PresentationShortcuts />
                 <div class="category-label">内置快捷键</div>
                 <div
                   v-for="shortcut in builtInAppShortcuts"

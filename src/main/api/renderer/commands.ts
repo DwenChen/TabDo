@@ -769,6 +769,8 @@ export class AppsAPI {
             'sticky-note',
             'local-search',
             'screen-recorder',
+            'presentation-recorder',
+            'presentation-editor',
             'screen-recorder-region',
             'screen-recorder-stop',
             'image-batch',

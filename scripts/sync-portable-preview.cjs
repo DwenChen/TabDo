@@ -56,13 +56,13 @@ async function createPreviewArchive(source, destination, unpackedEntries) {
   const asar = await import('@electron/asar')
   // ASAR 使用绝对文件名匹配；显式包含 .artifacts，避免 ** 跳过隐藏目录。
   const prefix = path.resolve(source).replaceAll('\\', '/')
-  const mediaDirectories = /^(node_modules\/(sharp|pdfkit|ffmpeg-static))\//
+  const mediaDirectories = /^(node_modules\/(sharp|pdfkit|ffmpeg-static|ffprobe-static))\//
   const hasMedia = unpackedEntries.some((entry) => mediaDirectories.test(entry))
-  // 按三个完整版本树展开，避免数千个文件组合成超长 glob；同时兼容两种路径分隔符。
+  // 按四个完整版本树展开，避免数千个文件组合成超长 glob；同时兼容两种路径分隔符。
   const entries = [...new Set(unpackedEntries)].filter((entry) => !mediaDirectories.test(entry))
   await asar.createPackageWithOptions(source, destination, {
     unpackDir: hasMedia
-      ? '{node_modules/{sharp,pdfkit,ffmpeg-static},node_modules?{sharp,pdfkit,ffmpeg-static}}'
+      ? '{node_modules/{sharp,pdfkit,ffmpeg-static,ffprobe-static},node_modules?{sharp,pdfkit,ffmpeg-static,ffprobe-static}}'
       : undefined,
     unpack:
       entries.length === 0

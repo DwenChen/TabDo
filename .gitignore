@@ -24,3 +24,7 @@ _*
 # 本机活跃预览、私有配置备份、测试证据和历史临时材料
 /.local/
 /.artifacts/
+
+# 从已保留的演示组件源码构建的会话服务；构建与源码测试前生成
+/internal-plugins/system/public/presentation-backend.cjs
+/internal-plugins/system/public/presentation-preload.cjs

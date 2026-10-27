@@ -58,7 +58,7 @@ export const BUILTIN_CAPABILITIES: BuiltinCapability[] = [
   },
   {
     id: 'builtin-wechat-ocr',
-    label: '微信离线OCR引擎',
+    label: '离线OCR引擎',
     group: 'ocr',
     engine: 'wechat',
     description:

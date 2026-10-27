@@ -10,6 +10,9 @@ const QrScanner = defineAsyncComponent(() => import('./components/QrScanner.vue'
 const FloatingLauncher = defineAsyncComponent(() => import('./components/FloatingLauncher.vue'))
 const LocalSearch = defineAsyncComponent(() => import('./components/LocalSearch.vue'))
 const ScreenRecorder = defineAsyncComponent(() => import('./components/ScreenRecorder.vue'))
+const PresentationRecorder = defineAsyncComponent(
+  () => import('./components/PresentationRecorder.vue')
+)
 const WebQuickOpen = defineAsyncComponent(() => import('./components/WebQuickOpen.vue'))
 const MediaBatch = defineAsyncComponent(() => import('./components/MediaBatch.vue'))
 
@@ -46,6 +49,11 @@ onUnmounted(() => window.tabdo.onPluginEnter(null))
     :action="action"
   />
   <LocalSearch v-else-if="action?.code === 'local-search'" :key="revision" :action="action" />
+  <PresentationRecorder
+    v-else-if="['presentation-recorder', 'presentation-editor'].includes(action?.code)"
+    :key="revision"
+    :action="action"
+  />
   <ScreenRecorder
     v-else-if="
       ['screen-recorder', 'screen-recorder-region', 'screen-recorder-stop'].includes(action?.code)

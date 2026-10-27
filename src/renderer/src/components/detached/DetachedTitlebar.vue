@@ -539,6 +539,12 @@ onMounted(() => {
     applyAcrylicOverlay()
   })
 
+  // 工具在控制条与编辑器间交接时，只更新可见名称，不改动插件的持久化身份。
+  window.electron.ipcRenderer.on('update-tool-title', (title: unknown) => {
+    if (typeof title !== 'string' || !title) return
+    pluginName.value = title
+    document.title = title
+  })
   // 监听初始化事件（注意：preload 已经过滤掉了 event，第一个参数直接就是 data）
   window.electron.ipcRenderer.on('init-titlebar', (data: any) => {
     console.log('收到标题栏初始化数据:', data)

@@ -16,9 +16,9 @@
 
 ## 自动化测试文件
 
-共 136 个文件；文件数不等于用例数，通过状态以每轮变更记录为准。
+共 140 个文件；文件数不等于用例数，通过状态以每轮变更记录为准。
 
-### tests/main（95）
+### tests/main（96）
 
 - [tests/main/aiChatEventBatcher.test.ts](../../tests/main/aiChatEventBatcher.test.ts)
 - [tests/main/aiChatTransport.test.ts](../../tests/main/aiChatTransport.test.ts)
@@ -81,6 +81,7 @@
 - [tests/main/pluginUpgradeFlow.test.ts](../../tests/main/pluginUpgradeFlow.test.ts)
 - [tests/main/pluginUserPreload.test.ts](../../tests/main/pluginUserPreload.test.ts)
 - [tests/main/pluginVersion.test.ts](../../tests/main/pluginVersion.test.ts)
+- [tests/main/presentationBehavior.test.ts](../../tests/main/presentationBehavior.test.ts)
 - [tests/main/providerConsumption.test.ts](../../tests/main/providerConsumption.test.ts)
 - [tests/main/providerManager.test.ts](../../tests/main/providerManager.test.ts)
 - [tests/main/providerShared.test.ts](../../tests/main/providerShared.test.ts)
@@ -132,8 +133,9 @@
 - [tests/scripts/projectMaintenance.test.ts](../../tests/scripts/projectMaintenance.test.ts)
 - [tests/scripts/updateMetadata.test.ts](../../tests/scripts/updateMetadata.test.ts)
 
-### tests/e2e（31）
+### tests/e2e（34）
 
+- [tests/e2e/all-commands-pinning.spec.ts](../../tests/e2e/all-commands-pinning.spec.ts)
 - [tests/e2e/builtin-models.spec.ts](../../tests/e2e/builtin-models.spec.ts)
 - [tests/e2e/builtin-providers.spec.ts](../../tests/e2e/builtin-providers.spec.ts)
 - [tests/e2e/clipboard-interactions.spec.ts](../../tests/e2e/clipboard-interactions.spec.ts)
@@ -149,6 +151,8 @@
 - [tests/e2e/performance-budget.spec.ts](../../tests/e2e/performance-budget.spec.ts)
 - [tests/e2e/plugin-cleanup-tray.spec.ts](../../tests/e2e/plugin-cleanup-tray.spec.ts)
 - [tests/e2e/plugin-host-regressions.spec.ts](../../tests/e2e/plugin-host-regressions.spec.ts)
+- [tests/e2e/presentation-import.spec.ts](../../tests/e2e/presentation-import.spec.ts)
+- [tests/e2e/presentation-recorder.spec.ts](../../tests/e2e/presentation-recorder.spec.ts)
 - [tests/e2e/recorder-overlay.spec.ts](../../tests/e2e/recorder-overlay.spec.ts)
 - [tests/e2e/selection-translation.spec.ts](../../tests/e2e/selection-translation.spec.ts)
 - [tests/e2e/settings-cleanup.spec.ts](../../tests/e2e/settings-cleanup.spec.ts)
@@ -169,7 +173,7 @@
 ## 历史回归分组
 
 - `usage-guide`：6 个单测文件、2 个源码 E2E 文件。
-- `performance`：11 个单测文件、8 个源码 E2E 文件。
+- `performance`：12 个单测文件、8 个源码 E2E 文件。
 - `recorder-web`：6 个单测文件、6 个源码 E2E 文件。
 - `tools-expanded`：5 个单测文件、3 个源码 E2E 文件。
 - `clipboard`：4 个单测文件、1 个源码 E2E 文件。
@@ -193,7 +197,7 @@
 - `media-note-interaction`：5 个单测文件、2 个源码 E2E 文件。
 - `recorder-reference`：6 个单测文件、5 个源码 E2E 文件。
 - `clipboard-trigger`：3 个单测文件、0 个源码 E2E 文件。
-- `settings-defaults`：6 个单测文件、7 个源码 E2E 文件。
+- `settings-defaults`：6 个单测文件、8 个源码 E2E 文件。
 - `tools-catalog`：6 个单测文件、4 个源码 E2E 文件。
 - `overlay-surfaces`：0 个单测文件、1 个源码 E2E 文件。
 - `branding`：0 个单测文件、1 个源码 E2E 文件。
@@ -203,3 +207,4 @@
 - `relay-feedback`：0 个单测文件、2 个源码 E2E 文件。
 - `floating-relay`：5 个单测文件、4 个源码 E2E 文件。
 - `selection-translation`：3 个单测文件、2 个源码 E2E 文件。
+- `presentation-recorder`：8 个单测文件、4 个源码 E2E 文件。

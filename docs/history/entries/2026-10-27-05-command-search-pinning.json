@@ -1,0 +1,19 @@
+{
+  "id": "command-search-pinning",
+  "date": "2026-10-27",
+  "summary": "修复所有指令搜索结果固定到超级面板无反应",
+  "reason": "搜索会自动切换展示来源，但菜单的规范指令快照仅在手动点击来源时刷新，导致找不到指令而静默跳过。",
+  "changes": [
+    "菜单快照随实际展示来源及本页规范指令数据同步，使用同一份已加载数据，覆盖搜索自动来源与清空后返回原来源，不额外发起异步刷新。",
+    "新增源码Electron回归，验证从设置来源搜索演示录屏后直接固定与取消固定，原有固定项和顺序保持不变。"
+  ],
+  "checks": [
+    "已通过context-mode核对设置规范、指令页、共享菜单和现有差异。",
+    "新增源码Electron专项通过，实际从设置来源输入搜索词自动展示演示录屏，固定及取消固定成功，已有固定项目和顺序保持一致，清空搜索回到原来源；归档.artifacts/runs/2026-10-27T11-49-40-379Z-e2e。",
+    "pnpm test --maxWorkers=2通过106文件727项，归档.artifacts/runs/2026-10-27T11-51-36-675Z-unit。设置页及测试ESLint、pnpm docs:check和settings-defaults分组--list通过。",
+    "pnpm build完整通过，日志.artifacts/presentation-ui-build.log；pnpm maintain和pnpm maintain:check通过。",
+    "pnpm preview:sync同步固定免安装预览成功，280个原有配置、资料和插件文件保持一致；pnpm test:preview:resources通过，程序回退副本.artifacts/backups/preview-sync/update-1793102078699/previous-resources。"
+  ],
+  "pending": [],
+  "preview": "已同步.local/portable-preview；原有固定项、配置和插件保留，未重置数据，未push、云端构建或发布Release。"
+}

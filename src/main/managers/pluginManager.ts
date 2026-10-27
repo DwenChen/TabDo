@@ -277,6 +277,8 @@ export class PluginManager {
         'folder-break': 180,
         'file-renamer': 580,
         'screen-recorder': 440,
+        'presentation-recorder': 0,
+        'presentation-editor': 680,
         'screen-recorder-region': 0,
         'screen-recorder-stop': 0,
         'image-batch': 540,
@@ -2287,9 +2289,12 @@ export class PluginManager {
 
   /**
    * 将当前在主窗口中运行的插件视图迁移到独立窗口。
+   * @param options 可选的初始可见性；控制条工作流等待辅助窗口就绪后再显示正文。
    * @returns 分离是否成功以及可选错误信息
    */
-  public async detachCurrentPlugin(): Promise<{ success: boolean; error?: string }> {
+  public async detachCurrentPlugin(
+    options: { show?: boolean } = {}
+  ): Promise<{ success: boolean; error?: string }> {
     if (!this.mainWindow || !this.pluginView || !this.currentPluginPath) {
       return { success: false, error: '没有正在运行的插件' }
     }
@@ -2348,6 +2353,7 @@ export class PluginManager {
         {
           width: windowWidth,
           height: viewHeight,
+          show: options.show,
           title: isToolsPluginPath(this.currentPluginPath)
             ? getToolsWindowTitle(
                 this.pluginLastEnterState.get(this.currentPluginPath)?.featureCode || ''

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import settingsFillIcon from '@/assets/image/settings-fill.png'
 import { weightedSearch } from '@/utils'
 import { groupToolFeatures } from '@/utils/toolFeatureGroups'
@@ -408,7 +408,7 @@ const {
   loadSuperPanelPinned,
   // 加载
   loadAll,
-  loadPluginCommands,
+  pluginCommands,
   // 插件指令
   isCommandDisabled,
   getMenuItems,
@@ -423,6 +423,24 @@ const {
   getPluginName: () => getCurrentSource()?.name,
   getPluginPath: () => getCurrentSource()?.path,
   getPluginTitle: () => getCurrentSource()?.title || getCurrentSource()?.name
+})
+
+/**
+ * 将菜单使用的规范指令快照同步到实际展示来源，包含搜索自动切换的来源。
+ * @returns 同步完成，无返回值。
+ */
+function syncPluginCommands(): void {
+  const sourcePath = activeSource.value?.path
+  // 使用本页已加载的同一份指令数据，避免异步刷新回填旧来源或菜单静默找不到指令。
+  pluginCommands.value = sourcePath
+    ? [...commands.value, ...regexCommands.value].filter(
+        (command) => command.type === 'plugin' && command.path === sourcePath
+      )
+    : []
+}
+watch([commands, regexCommands, () => activeSource.value?.path], syncPluginCommands, {
+  immediate: true,
+  flush: 'sync'
 })
 
 // 当前选中来源的指令（系统应用/设置/本地启动）
@@ -585,13 +603,14 @@ async function loadCommands(): Promise<void> {
   }
 }
 
-// 选择来源
+/**
+ * 选择指令来源，菜单快照由实际展示来源的监听统一同步。
+ * @param source 用户选择的来源。
+ * @returns 无返回值。
+ */
 function selectSource(source: Source): void {
   selectedSource.value = source
   activeTab.value = 'text'
-  // 切换来源后刷新指令快照：插件来源加载其 canonical 指令（供打开/固定/别名取 icon 等运行时字段），
-  // 非插件来源（如系统应用）则清空缓存，避免残留上一个插件的数据。
-  void loadPluginCommands()
 }
 
 // 初始化

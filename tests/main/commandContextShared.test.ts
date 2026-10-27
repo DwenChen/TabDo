@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
 import {
   matchesFilesInput,
   matchesOverText,
@@ -6,6 +7,7 @@ import {
   matchesWindowInput,
   parseMatchPattern
 } from '../../src/shared/commandContextShared'
+import type { FilesCmdLike } from '../../src/shared/commandContextShared'
 
 describe('commandContextShared', () => {
   describe('parseMatchPattern', () => {
@@ -107,6 +109,22 @@ describe('commandContextShared', () => {
   })
 
   describe('matchesFilesInput', () => {
+    it('实际演示编辑器入口只接受单个项目文件，支持大写扩展名并拒绝目录和混合文件', () => {
+      const manifest = JSON.parse(
+        readFileSync(
+          new URL('../../internal-plugins/system/public/plugin.json', import.meta.url),
+          'utf8'
+        )
+      )
+      const command = manifest.features.find((feature) => feature.code === 'presentation-editor')
+        .cmds[0] as FilesCmdLike
+      const project = { path: 'C:/demo/项目.RECORDLY', name: '项目.RECORDLY', isDirectory: false }
+      expect(matchesFilesInput([project], command)).toBe(true)
+      expect(matchesFilesInput([], command)).toBe(false)
+      expect(matchesFilesInput([{ ...project, isDirectory: true }], command)).toBe(false)
+      expect(matchesFilesInput([{ ...project, name: '项目.mp4' }], command)).toBe(false)
+      expect(matchesFilesInput([project, project], command)).toBe(false)
+    })
     const files = [
       { path: 'C:/demo/a.txt', name: 'a.txt', isDirectory: false },
       { path: 'C:/demo/b.txt', name: 'b.txt', isDirectory: false }

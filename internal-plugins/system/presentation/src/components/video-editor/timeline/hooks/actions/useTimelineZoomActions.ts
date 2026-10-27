@@ -1,0 +1,211 @@
+import type { Span } from "dnd-timeline";
+import { useCallback, useEffect, useMemo } from "react";
+import type { ClipRegion, CursorTelemetryPoint, ZoomFocus, ZoomRegion } from "../../../types";
+import { buildInteractionZoomSuggestions } from "../../zoomSuggestionUtils";
+import { timelineNotifications } from "../utils/timelineNotifications";
+
+interface UseTimelineZoomActionsParams {
+	timeline: {
+		videoDuration: number;
+		totalMs: number;
+		currentTimeMs: number;
+	};
+	regions: {
+		zoom: ZoomRegion[];
+		clip: ClipRegion[];
+	};
+	cursorTelemetry: CursorTelemetryPoint[];
+	options: {
+		disableSuggestedZooms: boolean;
+	};
+	autoSuggestZoomsTrigger: number;
+	onAutoSuggestZoomsConsumed?: () => void;
+	onZoomAdded: (span: Span) => void;
+	onZoomSuggested?: (span: Span, focus: ZoomFocus) => void;
+}
+
+/**
+ * 在当前剪辑时间轴添加或识别缩放，保留已有片段并提示真实结果。
+ * @param params 时间轴、源轨迹、片段及变更回调。
+ * @returns 手动添加和自动识别的操作入口。
+ */
+export function useTimelineZoomActions({
+	timeline,
+	regions,
+	cursorTelemetry,
+	options,
+	autoSuggestZoomsTrigger,
+	onAutoSuggestZoomsConsumed,
+	onZoomAdded,
+	onZoomSuggested,
+}: UseTimelineZoomActionsParams) {
+	const { videoDuration, totalMs, currentTimeMs } = timeline;
+	const { zoom: zoomRegions, clip: clipRegions } = regions;
+	const { disableSuggestedZooms } = options;
+	const defaultRegionDurationMs = useMemo(() => Math.min(2000, totalMs), [totalMs]);
+
+	const canPlaceZoomAtMs = useCallback(
+		(startMs: number) => {
+			if (!videoDuration || videoDuration === 0 || totalMs === 0) {
+				return false;
+			}
+
+			const defaultDuration = Math.min(defaultRegionDurationMs, totalMs);
+			if (defaultDuration <= 0) {
+				return false;
+			}
+
+			const startPos = Math.max(0, Math.min(startMs, totalMs));
+			const activeClip =
+				clipRegions.length === 0
+					? { startMs: 0, endMs: totalMs }
+					: clipRegions.find((clip) => startPos >= clip.startMs && startPos < clip.endMs);
+			if (!activeClip) {
+				return false;
+			}
+
+			const sorted = [...zoomRegions].sort((a, b) => a.startMs - b.startMs);
+			const nextRegion = sorted.find((region) => region.startMs > startPos);
+			const gapToNextClipEdge = activeClip.endMs - startPos;
+			const gapToNextRegion = nextRegion ? nextRegion.startMs - startPos : gapToNextClipEdge;
+			const availableDuration = Math.min(gapToNextClipEdge, gapToNextRegion);
+
+			const isOverlapping = sorted.some(
+				(region) => startPos >= region.startMs && startPos < region.endMs,
+			);
+
+			return !isOverlapping && availableDuration >= defaultDuration;
+		},
+		[videoDuration, totalMs, defaultRegionDurationMs, clipRegions, zoomRegions],
+	);
+
+	const addZoomAtMs = useCallback(
+		(startMs: number) => {
+			if (!videoDuration || videoDuration === 0 || totalMs === 0) {
+				return;
+			}
+
+			const defaultDuration = Math.min(defaultRegionDurationMs, totalMs);
+			if (defaultDuration <= 0) {
+				return;
+			}
+
+			const startPos = Math.max(0, Math.min(startMs, totalMs));
+			if (!canPlaceZoomAtMs(startPos)) {
+				timelineNotifications.error(
+					"此处无法放置缩放片段",
+					"Zoom already exists here or there is not enough room before the next zoom or clip end.",
+				);
+				return;
+			}
+
+			onZoomAdded({ start: startPos, end: startPos + defaultDuration });
+		},
+		[videoDuration, totalMs, defaultRegionDurationMs, canPlaceZoomAtMs, onZoomAdded],
+	);
+
+	const handleAddZoom = useCallback(() => {
+		if (!videoDuration || videoDuration === 0 || totalMs === 0) {
+			return;
+		}
+
+		addZoomAtMs(currentTimeMs);
+	}, [videoDuration, totalMs, currentTimeMs, addZoomAtMs]);
+
+	const handleSuggestZooms = useCallback(() => {
+		if (!videoDuration || videoDuration === 0 || totalMs === 0) {
+			return;
+		}
+
+		if (disableSuggestedZooms) {
+			timelineNotifications.info(
+				"Suggested zooms are unavailable while cursor looping is enabled.",
+			);
+			return;
+		}
+
+		if (!onZoomSuggested) {
+			timelineNotifications.error("Zoom suggestion handler unavailable");
+			return;
+		}
+
+		if (cursorTelemetry.length === 0) {
+			timelineNotifications.info(
+				"没有可用的光标轨迹",
+				"Record a screencast first to generate cursor-based suggestions.",
+			);
+			return;
+		}
+
+		const defaultDuration = Math.min(defaultRegionDurationMs, totalMs);
+		if (defaultDuration <= 0) {
+			return;
+		}
+
+		const result = buildInteractionZoomSuggestions({
+			cursorTelemetry,
+			totalMs,
+			defaultDurationMs: defaultDuration,
+			clipRegions,
+			reservedSpans: zoomRegions
+				.map((region) => ({ start: region.startMs, end: region.endMs }))
+				.sort((a, b) => a.start - b.start),
+		});
+
+		if (result.status === "no-telemetry") {
+			timelineNotifications.info(
+				"No usable cursor telemetry",
+				"The recording does not include enough cursor movement data.",
+			);
+			return;
+		}
+
+		if (result.status === "no-interactions") {
+			timelineNotifications.info(
+				"未检测到可放大的操作",
+				"轨迹基本静止；可在需要强调的位置手动添加缩放。",
+			);
+			return;
+		}
+
+		if (result.status === "no-slots" || result.suggestions.length === 0) {
+			timelineNotifications.info(
+				"没有可添加自动缩放的位置",
+				"检测到的停顿位置与已有缩放片段重叠。",
+			);
+			return;
+		}
+
+		for (const region of result.suggestions) {
+			onZoomSuggested({ start: region.start, end: region.end }, region.focus);
+		}
+
+		timelineNotifications.success(`已添加 ${result.suggestions.length} 处自动缩放`);
+	}, [
+		videoDuration,
+		totalMs,
+		disableSuggestedZooms,
+		onZoomSuggested,
+		cursorTelemetry,
+		defaultRegionDurationMs,
+		zoomRegions,
+		clipRegions,
+	]);
+
+	useEffect(() => {
+		if (autoSuggestZoomsTrigger <= 0) {
+			return;
+		}
+
+		onAutoSuggestZoomsConsumed?.();
+		handleSuggestZooms();
+	}, [autoSuggestZoomsTrigger, handleSuggestZooms, onAutoSuggestZoomsConsumed]);
+
+	return {
+		defaultRegionDurationMs,
+		canPlaceZoomAtMs,
+		addZoomAtMs,
+		handleAddZoom,
+		handleSuggestZooms,
+	};
+}

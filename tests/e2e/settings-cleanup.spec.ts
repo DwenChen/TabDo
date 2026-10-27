@@ -95,7 +95,8 @@ test('初始设置、快捷键、托盘和指令符合精简版约定，目录�
       '剪贴板',
       '便签',
       '文件搜索',
-      '录屏'
+      '录屏',
+      '演示录屏'
     ])
     expect(initial.disabled).toContain('setting:function.plugin-market-search:插件市场搜索:over')
     expect(initial.disabled).toContain(

@@ -183,7 +183,8 @@ async function save(id: string): Promise<void> {
  */
 async function setDefault(id: string): Promise<void> {
   await run(id, async () => {
-    const result = await api.setDefault(props.type, id)
+    const group = BUILTIN_CAPABILITIES.find((entry) => entry.id === id)?.group
+    const result = await api.setDefault(group === 'formula' ? 'formula' : props.type, id)
     if (!result.success || !result.data) throw new Error(result.error || '设置默认失败')
     settings.value = result.data
   })
@@ -257,12 +258,19 @@ onUnmounted(() => {
         <h3>{{ entry.label }}</h3>
         <div class="actions">
           <button
-            v-if="entry.group === type"
+            v-if="entry.group === type || entry.group === 'formula'"
             :disabled="!enabled(entry) || busy.has(entry.id)"
-            :class="{ selected: settings.defaultId[type] === entry.id }"
+            :class="{
+              selected:
+                settings.defaultId[entry.group as 'ocr' | 'translation' | 'formula'] === entry.id
+            }"
             @click="setDefault(entry.id)"
           >
-            {{ settings.defaultId[type] === entry.id ? '默认' : '设为默认' }}
+            {{
+              settings.defaultId[entry.group as 'ocr' | 'translation' | 'formula'] === entry.id
+                ? '默认'
+                : '设为默认'
+            }}
           </button>
           <label class="toggle"
             ><input

@@ -2,10 +2,12 @@ const path = require('node:path')
 const { spawn } = require('node:child_process')
 const root = path.resolve(__dirname, '..')
 
-/** Start renderer, settings and tools source servers without invoking a build or packager.
+/** Start source servers and their session bridge without building or packaging the Electron app.
  * @returns {Promise<Array>} Running source servers.
  */
 async function startServers() {
+  // 只编译演示会话桥接，不生成宿主 out、插件 dist 或 Electron 成品。
+  await require('./build-presentation.cjs').build()
   const { createServer } = await import('vite')
   const renderer = await createServer({
     configFile: path.join(root, 'scripts/preview-renderer.mjs'),

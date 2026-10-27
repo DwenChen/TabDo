@@ -154,6 +154,21 @@ class BuiltinProviderService {
   }
 
   /**
+   * 保存已启用公式引擎的默认选择，与文字 OCR 分开且保留其他配置。
+   * @param id 公式能力标识。
+   * @returns 更新后的完整提供商配置。
+   * @throws 目标不属于公式能力或尚未启用时抛出。
+   */
+  setFormulaDefault(id: string): ReturnType<typeof providerManager.getSettings> {
+    if (findBuiltinCapability(id)?.group !== 'formula' || !this.isEnabled(id))
+      throw new Error('请先启用对应公式识别能力')
+    const settings = providerManager.getSettings()
+    settings.defaultId.formula = id
+    databaseAPI.dbPut('provider-settings', settings)
+    return settings
+  }
+
+  /**
    * 串行处理同一能力的启停，自动安装离线资源且不装载推理会话。
    * @param id 内置能力标识。
    * @param enabled 目标开关状态。

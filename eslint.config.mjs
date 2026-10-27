@@ -23,6 +23,9 @@ export default defineConfig(
       '.local/**',
       '.artifacts/**',
       'internal-plugins/system/public/vendor/**',
+      'internal-plugins/system/presentation/**',
+      'internal-plugins/system/public/presentation-backend.cjs',
+      'internal-plugins/system/public/presentation-preload.cjs',
       '_*',
       '_*/**'
     ]

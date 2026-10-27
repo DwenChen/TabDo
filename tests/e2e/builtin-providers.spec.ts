@@ -253,6 +253,21 @@ test('builtin providers configure in settings, reuse AI, download safely and rel
     await wechat.getByRole('button', { name: '重试下载' }).click()
     await expect(wechat.getByText('资源已安装，使用时加载引擎')).toBeVisible({ timeout: 15_000 })
     await wechat.getByRole('button', { name: '设为默认' }).click()
+    await expect(wechat.getByRole('heading', { name: '离线OCR引擎', exact: true })).toBeVisible()
+    const offlineFormula = settings.locator('[data-provider="builtin-latex"]')
+    await expect(offlineFormula.getByRole('button', { name: '设为默认' })).toBeDisabled()
+    const aiFormula = settings.locator('[data-provider="builtin-ai-latex"]')
+    await aiFormula.locator('.toggle').click()
+    await aiFormula.getByRole('button', { name: '设为默认' }).click()
+    await expect(aiFormula.getByRole('button', { name: '默认', exact: true })).toBeVisible()
+    expect(
+      await settings.evaluate(
+        async () => (await window.tabdo.internal.providers.getSettings()).data?.defaultId
+      )
+    ).toMatchObject({
+      ocr: 'builtin-wechat-ocr',
+      formula: 'builtin-ai-latex'
+    })
     await expect(settings.getByRole('heading', { name: '离线公式识别引擎' })).toBeVisible()
     await expect(settings.getByRole('heading', { name: '图片上传通道' })).toBeVisible()
     await settings.evaluate(() => {

@@ -49,6 +49,7 @@ pnpm preview:local
 - 设置、快捷键或数据路径：遵守 [设置开发规范](settings-development.md)，保留已有明确选择。
 - 第三方插件：从 [插件开发规范](plugin-development.md)开始，使用独立 [插件市场](plugin-market.md)。
 - 翻译和 OCR：遵守 [Provider 契约](provider-development-guide.md)，避免在常驻宿主中加载模型。
+- 演示录屏：宿主入口为 `src/main/core/presentationRecorder.ts`，编辑器和桥接位于 `internal-plugins/system/presentation/`，构建前自动运行 `scripts/build-presentation.cjs`；源码、原生资源与组合分发许可见[组件说明](../internal-plugins/system/presentation/README.md)。
 
   1.2.0 的会话与中转入口：
 

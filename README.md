@@ -6,7 +6,7 @@
 
 TabDo 是面向 Windows 的桌面工具箱。选中文字、图片、文件或窗口，呼出超级面板，即可选择适合当前内容的操作；在空白处呼出，则可打开固定的常用工具。
 
-项目由 DwenChen 独立维护，源自 ZTools，保留原项目与插件作者的署名和许可。当前功能说明以 **1.2.2** 为基准，逐版变化见 [更新说明](changelog.md)。
+项目由 DwenChen 独立维护，源自 ZTools，保留原项目与插件作者的署名和许可。当前功能说明以 **1.3.0** 为基准，逐版变化见 [更新说明](changelog.md)。
 
 [下载](https://github.com/DwenChen/TabDo/releases/latest) · [快速开始](#快速开始) · [内置工具](#内置工具) · [插件市场](https://github.com/DwenChen/TabDo-plugins) · [文档](docs/README.md) · [问题反馈](https://github.com/DwenChen/TabDo/issues)
 
@@ -37,7 +37,7 @@ TabDo 是面向 Windows 的桌面工具箱。选中文字、图片、文件或�
 
 1. 启动 TabDo，左键点击托盘图标打开设置。
 2. 在“通用设置 → 超级面板”选择鼠标触发方式和长按时间。
-3. 呼出面板，试用首次固定的“截图、剪贴板、便签、文件搜索、录屏”；再尝试选中文字或文件后呼出。
+3. 呼出面板，试用首次固定的“截图、剪贴板、便签、文件搜索、录屏、演示录屏”；再尝试选中文字或文件后呼出。
 4. 按需在“快捷键”启用按键，在“提供商”配置识别与翻译，在“插件市场”安装扩展。
 5. 打开“设置 → 关于 → 阅读本地图文教程”，查看完整操作步骤。教程随应用提供，断网可读，首次启动不会自动弹出。
 
@@ -67,6 +67,7 @@ TabDo 是面向 Windows 的桌面工具箱。选中文字、图片、文件或�
 | 文件搜索       | 本地文件查询与预览，可接入 Everything                           |
 | 文件整理       | 批量重命名、解散文件夹、复制路径或名称、打开目录和终端          |
 | 便签与悬浮内容 | 便签、悬浮中转、悬浮图片、图片标记及贴边色签整理                |
+| 演示录屏       | 控制条上方选择来源，按操作自动缩放；进入编辑器管理项目、编辑与导出      |
 | 录屏           | 全屏、窗口或区域录制，系统声音、麦克风、倒计时和操作效果        |
 | 图片处理       | 压缩、格式转换、尺寸、裁剪、水印、旋转，以及图片、PDF、GIF 合并 |
 | 视频处理       | 压缩、截取、裁剪、格式转换、倍速、水印、合并、音频和帧提取      |
@@ -112,7 +113,7 @@ pnpm preview:local
 
 ## 许可与致谢
 
-项目源码遵循 [MIT 许可证](LICENSE)。原项目、第三方库、模型和原生组件的版权及许可分别保留。
+原 TabDo 源码保留 [MIT 许可证](LICENSE)。演示录屏及其衍生修改适用 AGPLv3，含此组件的组合分发同时受相应开源义务约束；完整许可与固定源码见 [演示组件说明](internal-plugins/system/presentation/README.md)。其他库、模型和原生组件保留各自版权和许可。
 
 感谢 [ZToolsCenter/ZTools](https://github.com/ZToolsCenter/ZTools) 原作者 Zing、版权持有人 lzx8589561 及社区贡献者。TabDo 基于上游提交 `6c9dee8` 发展；同时感谢 [原插件市场](https://github.com/ZToolsCenter/ZTools-plugins)、[插件开发项目](https://github.com/ZToolsCenter/ztools-plugin-cli)与 [API 类型项目](https://github.com/ZToolsCenter/ztools-api-types)。
 

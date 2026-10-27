@@ -149,7 +149,7 @@ export interface ProviderSettings {
   /** 每个 type 启用的 provider id 列表 */
   enabled: Partial<Record<ProviderType, string[]>>
   /** 每个 type 的默认 provider id */
-  defaultId: Partial<Record<ProviderType, string>>
+  defaultId: Partial<Record<ProviderType | 'formula', string>>
   /** 各 provider 的自定义参数（providerId -> 参数对象） */
   params: Record<string, Record<string, unknown>>
 }

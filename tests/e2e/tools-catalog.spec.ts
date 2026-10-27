@@ -72,7 +72,10 @@ test('工具分类保留各指令操作，所有可见子组件提供任务栏�
       .click()
     const recorder = settings.locator('[data-command-group="录屏"]')
     await expect(recorder.locator('.command-tag')).toHaveText(['录屏', '区域录屏', '停止录屏'])
-    await expect(settings.locator('.command-list .command-tag')).toHaveCount(28)
+    await expect(settings.locator('.command-list .command-tag')).toHaveCount(30)
+    await expect(settings.locator('[data-command-group="演示录屏"] .command-tag')).toHaveText([
+      '演示录屏'
+    ])
     await expect(settings.getByText('Screen Recorder', { exact: true })).toHaveCount(0)
     await expect(settings.getByText('录屏助手', { exact: true })).toHaveCount(0)
 
@@ -129,6 +132,9 @@ test('工具分类保留各指令操作，所有可见子组件提供任务栏�
       )
     )
     await settings.getByRole('button', { name: /匹配指令/ }).click()
+    await expect(
+      settings.locator('[data-feature-code="presentation-editor"] .tag-files')
+    ).toHaveCount(1)
     const qr = settings.locator('[data-feature-code="qrcode-scan"]')
     await expect(qr.locator('.tag-img')).toHaveCount(1)
     await expect(qr.locator('.tag-files')).toHaveCount(1)

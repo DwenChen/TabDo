@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { EventEmitter } from 'node:events'
 
 vi.mock('electron', () => ({
   app: { dock: { hide: vi.fn(), show: vi.fn() } },
@@ -40,6 +41,11 @@ vi.mock('../../src/main/core/pluginWindowManager', () => ({
 vi.mock('../../src/main/utils/appBundlePath', () => ({
   getPreloadPath: vi.fn(() => '/preload.js'),
   getRendererPath: vi.fn(() => '/renderer')
+}))
+
+vi.mock('../../src/main/core/toolsLifecycle', () => ({
+  isToolsPluginPath: (path: string) => path === '/internal/tools',
+  releaseToolsView: vi.fn()
 }))
 
 import detachedWindowManager, {
@@ -129,5 +135,61 @@ describe('DetachedWindowManager plugin upgrade surface', () => {
     expect(snapshot).toBeNull()
     expect(setContentSize).not.toHaveBeenCalled()
     expect(setBounds).not.toHaveBeenCalled()
+  })
+
+  /**
+   * 准备可独立隐藏的编辑宿主与原生控制条，验证前台交接的退出边界。
+   * @returns 当前工具窗口、控制条及会话回收观察器。
+   */
+  function foregroundFixture(): any {
+    const window = Object.assign(new EventEmitter(), {
+      isDestroyed: () => false,
+      isVisible: vi.fn(() => true),
+      isMinimized: () => false,
+      hide: vi.fn()
+    })
+    const hud = Object.assign(new EventEmitter(), {
+      isDestroyed: () => false,
+      isVisible: vi.fn(() => true),
+      isMinimized: vi.fn(() => false)
+    })
+    const release = vi.fn()
+    const info = {
+      window,
+      view: { webContents: { id: 20 } },
+      pluginPath: '/internal/tools',
+      releaseHiddenTools: release
+    }
+    ;(detachedWindowManager as any).detachedWindowMap.set('tool', info)
+    return { window, hud, info, release }
+  }
+
+  it('hands the foreground to a visible owned control without enabling residency', () => {
+    const { window, hud, release } = foregroundFixture()
+    expect(detachedWindowManager.showAuxiliaryForegroundWindow(20, hud as any)).toBe(true)
+    expect(window.hide).toHaveBeenCalledOnce()
+    hud.emit('hide')
+    expect(release).not.toHaveBeenCalled()
+    window.isVisible.mockReturnValue(false)
+    hud.emit('minimize')
+    expect(release).toHaveBeenCalledOnce()
+    window.emit('closed')
+    expect(hud.listenerCount('hide')).toBe(0)
+    expect(hud.listenerCount('minimize')).toBe(0)
+    expect(hud.listenerCount('closed')).toBe(0)
+  })
+
+  it('keeps the parent accessible when the control is hidden, minimized or not owned by tools', () => {
+    const { window, hud, info } = foregroundFixture()
+    hud.isVisible.mockReturnValue(false)
+    expect(detachedWindowManager.showAuxiliaryForegroundWindow(20, hud as any)).toBe(false)
+    hud.isVisible.mockReturnValue(true)
+    hud.isMinimized.mockReturnValue(true)
+    expect(detachedWindowManager.showAuxiliaryForegroundWindow(20, hud as any)).toBe(false)
+    hud.isMinimized.mockReturnValue(false)
+    info.pluginPath = '/third-party'
+    expect(detachedWindowManager.showAuxiliaryForegroundWindow(20, hud as any)).toBe(false)
+    expect(detachedWindowManager.showAuxiliaryForegroundWindow(99, hud as any)).toBe(false)
+    expect(window.hide).not.toHaveBeenCalled()
   })
 })

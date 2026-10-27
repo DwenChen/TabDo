@@ -578,7 +578,7 @@ declare global {
             error?: string
           }>
           setDefault: (
-            type: 'translation' | 'ocr',
+            type: 'translation' | 'ocr' | 'formula',
             providerId: string
           ) => Promise<{
             success: boolean

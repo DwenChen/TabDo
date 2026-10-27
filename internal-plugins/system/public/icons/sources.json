@@ -270,6 +270,24 @@
       "icon": "original-window-transfer",
       "color": "#059669",
       "source": "原创窗口与双向箭头SVG，TabDo MIT；不使用Lucide图形"
+    },
+    {
+      "code": "presentation-recorder",
+      "name": "演示录屏",
+      "group": "演示录屏",
+      "icon": "演示屏幕与光标",
+      "source": "TabDo 原创 SVG，2026-10-27，MIT",
+      "original": "presentation-recorder.svg",
+      "color": "#047857"
+    },
+    {
+      "code": "presentation-editor",
+      "name": "演示编辑器",
+      "group": "演示录屏",
+      "icon": "播放屏幕与时间轴",
+      "source": "TabDo 原创 SVG，2026-10-27，MIT",
+      "original": "presentation-editor.svg",
+      "color": "#047857"
     }
   ]
 }

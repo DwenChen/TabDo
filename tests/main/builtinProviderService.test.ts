@@ -89,6 +89,17 @@ beforeEach(() => {
 })
 
 describe('built-in provider coordination', () => {
+  it('keeps formula and text OCR defaults independent and rejects disabled or unrelated engines', () => {
+    mocks.settings.defaultId = { ocr: 'builtin-wechat-ocr' }
+    mocks.settings.params['builtin-ai-latex'] = { enabled: true, model: 'current-vision' }
+    const saved = service.setFormulaDefault('builtin-ai-latex')
+    expect(saved.defaultId).toEqual({ ocr: 'builtin-wechat-ocr', formula: 'builtin-ai-latex' })
+    expect(saved.params['builtin-ai-latex']).toEqual({ enabled: true, model: 'current-vision' })
+    expect(mocks.db.get('provider-settings')).toBe(saved)
+    expect(() => service.setFormulaDefault('builtin-latex')).toThrow('启用')
+    expect(() => service.setFormulaDefault('builtin-wechat-ocr')).toThrow('启用')
+    expect(saved.defaultId.formula).toBe('builtin-ai-latex')
+  })
   it('cancels a host-owned computation when its panel signal aborts', async () => {
     mocks.settings.enabled.translation = ['builtin-google']
     let observed: AbortSignal | undefined
