@@ -15,6 +15,11 @@
 - 验证：1.4.1最终全量单测130文件872项通过，归档.artifacts/runs/2026-11-08T10-57-26-671Z-unit；pnpm build完整生产编译和Node/Web类型检查通过，日志.artifacts/presentation-1.4.1-build.log；设置类型检查、相关ESLint与docs:check通过。
 - 验证：1.4.1预览同步成功，preservedFiles=0，104项程序同步，103程序/346内置/1687媒体资源核验通过；data与legacy均为0项。最新回退为.artifacts/backups/preview-sync/update-1794135615311/previous-resources，保留所有资料备份及审计收据。
 - 验证：核验预览后回收本轮已消费app/new-resources和被替代的上一程序回退，共3目录5526文件1055199212字节；删除前检查工作区绝对边界、目录链接和Git跟踪，清理后再次通过预览资源核验。收据.artifacts/cleanup-2026-11-08-release-1.4.1/。
+- 验证：1.4.1代码提交013d9e17a476d38c429ebed98f3e6db9528729cc，保留hooks原子推送main及v1.4.1。云端42474211118第一轮通过维护、文档、类型、单测和生产编译，在electron-builder下载Electron 41.4.0官方ZIP时HTTP 504失败，发布跳过；原始日志.artifacts/releases/1.4.1/cloud-build-attempt-1.log，使用同一提交重试失败作业。
+- 验证：同一工作流第二轮构建与发布均成功，云端130文件872项单测通过，Windows安装包与便携包完整打包。https://github.com/DwenChen/TabDo/actions/runs/42474211118；正式Release于2026-11-08T11:22:36Z发布：https://github.com/DwenChen/TabDo/releases/tag/v1.4.1，非草稿/非预发布且latest=v1.4.1；标签解引用和target_commitish均为013d9e17a476d38c429ebed98f3e6db9528729cc。
+- 验证：下载并逐项核对4份资产的大小及GitHub SHA-256：latest.yml 14990字节、安装包261962246字节、blockmap 271551字节、便携ZIP 335686341字节，总计597935128字节；安装包SHA-512与更新清单files及顶层字段一致。ZIP共634成员，12项关键资源及AGPL/OFL许可齐全，ASAR内3653成员、应用版本1.4.1、组合许可正确且无工作区资料；实际运行包内wgc-capture --test-clock通过暂停边界和音频包连续时钟向量。元数据、下载/包核验收据和完整云端日志保存在.artifacts/releases/1.4.1/。
+- 验证：产物核验后回收已替代的1.3.0三份二进制下载、验收解包副本及两份一次性脚本，共6目标8文件632493882字节；保留最新版原始发行资产、旧更新清单、全部失败证据和资料备份。空间收据.artifacts/cleanup-2026-11-08-release-1.4.1/；剩余.artifacts约6165539459字节，主要为独有测试证据2800001859、已安装工具链1271403533、资料及最新程序回退1258673567、新发行原件597961935、上游对照资料190214495，未按年龄清除其他任务材料。
+- 验证：最终推送前对照源码复核README、发行说明、开发/工具/演示/内存规范、应用内与仓库教程；路径修正未改变可见操作名称和教程流程，现有说明仍准确。维护和文档检查在发布前及最终验收记录提交前重新执行，保留所有hooks。
 
 ## 2026-11-08 · 演示录屏最终资源优化与TabDo1.4.0发布候选验收
 
