@@ -1766,5 +1766,16 @@
       "TX-132"
     ],
     "coverage": "presentation-tracks验证自动变焦、分割、播放和音量四项真实悬停与点击，presentation-visual-effects验证一键Esc退出、预览及实际导出；结果见当轮记录。"
+  },
+  {
+    "id": "BUG-PRESENTATION-LIBRARY-PATH-ALIAS",
+    "title": "Windows短路径或同目录别名使合法录制素材回收被错误拒绝",
+    "status": "已修复；本地事务及真实回收验证通过，云端复核进行中",
+    "cause": "仅将素材库根目录规范为真实长路径，选择仍以短路径父目录做字符串比较，指定事务结束也使用原始路径作为键。",
+    "fix": "按真实父目录与原文件名统一删除、恢复和指定回收身份，缓存同批父目录解析；拒绝外部目录及其别名，不要求恢复时原文件存在。",
+    "cases": [
+      "TX-133"
+    ],
+    "coverage": "presentationRecordingLibrary覆盖真实文件事务、同库别名跨入口恢复与指定回收、外部别名拒绝；presentation-controls覆盖实际系统回收与失败回退。"
   }
 ]

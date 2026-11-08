@@ -2,6 +2,20 @@
 
 > 自动生成；原始记录在 [entries](../history/entries/)。
 
+## 2026-11-08 · 1.4.1发布验收与Windows素材库路径别名修正
+
+记录：[release-1.4.1-verification](../../docs/history/entries/2026-11-08-08-release-1.4.1-verification.json)；版本：1.4.1。
+
+- 云端Windows以RUNNER~1短路径创建临时目录，录制库仅规范根目录而未规范选择路径，回收事务错误拒绝合法素材。移除、撤销和指定回收统一使用真实父目录及原文件名，父目录解析按选择批次缓存，外部目录别名仍拒绝。
+- 补充目录别名跨入口撤销及指定回收、外部别名拒绝的回归。当前v1.4.0仅为未发布候选，失败构建未生成Release，修正后继续本轮已授权的发布流程。
+- 保留已推送的v1.4.0失败候选标签及工作流记录，正式版本顺延为1.4.1，更新package、README和发行说明后重新构建，不覆盖既有标签。
+
+- 验证：候选b5a493cec273451f1a9062f5bb4220d1b21927d5通过hooks提交并原子推送main和v1.4.0；工作流https://github.com/DwenChen/TabDo/actions/runs/42472925526在云端单测失败，发布作业跳过。869项通过、录制库两项因真实/短路径字符串比较失败，原始日志已保留到context-mode索引cloud-v1.4.0-failed-unit-log，后续保存本地发布收据。
+- 验证：确认GitHub不存在v1.4.0正式Release（404）；本地素材库/回收单测2文件7项通过，归档.artifacts/runs/2026-11-08T10-54-33-531Z-unit；真实控制条和素材回收源码专项通过，归档.artifacts/runs/2026-11-08T10-54-36-441Z-e2e。首轮完整云端失败日志已保存.artifacts/releases/1.4.0/first-cloud-build.log。
+- 验证：1.4.1最终全量单测130文件872项通过，归档.artifacts/runs/2026-11-08T10-57-26-671Z-unit；pnpm build完整生产编译和Node/Web类型检查通过，日志.artifacts/presentation-1.4.1-build.log；设置类型检查、相关ESLint与docs:check通过。
+- 验证：1.4.1预览同步成功，preservedFiles=0，104项程序同步，103程序/346内置/1687媒体资源核验通过；data与legacy均为0项。最新回退为.artifacts/backups/preview-sync/update-1794135615311/previous-resources，保留所有资料备份及审计收据。
+- 验证：核验预览后回收本轮已消费app/new-resources和被替代的上一程序回退，共3目录5526文件1055199212字节；删除前检查工作区绝对边界、目录链接和Git跟踪，清理后再次通过预览资源核验。收据.artifacts/cleanup-2026-11-08-release-1.4.1/。
+
 ## 2026-11-08 · 演示录屏最终资源优化与TabDo1.4.0发布候选验收
 
 记录：[presentation-final-review](../../docs/history/entries/2026-11-08-07-presentation-final-review.json)；版本：1.4.0。

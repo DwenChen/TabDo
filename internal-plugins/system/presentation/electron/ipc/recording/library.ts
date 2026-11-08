@@ -13,6 +13,31 @@ const isRecording = (name: string) =>
 	/\.(mp4|mov|webm|mkv|m4v)$/i.test(name) && !/[.-]webcam[.-]/i.test(name);
 const isSource = (name: string) => /\.(mp4|mov|webm|mkv|m4v|wav|m4a|mp3|ogg|flac)$/i.test(name);
 const batchKey = (paths: string[]) => JSON.stringify([...new Set(paths)].sort());
+/**
+ * 将选择和素材库目录都规范到真实父目录，保留移入暂存后已经不存在的文件名。
+ * @param paths 用户选择的绝对素材路径，可包含Windows短路径或目录别名。
+ * @returns 真实素材库根目录及去重后的规范素材路径。
+ * @throws 路径不属于当前素材库、类型无效或父目录不可读取时抛错。
+ */
+async function resolveRecordingSelection(paths: string[]): Promise<{ root: string; selected: string[] }> {
+	const root = await fs.realpath(await getRecordingsDir());
+	const parents = new Map<string, string>([[root, root]]);
+	const selected: string[] = [];
+	for (const candidate of paths) {
+		if (typeof candidate !== "string" || !path.isAbsolute(candidate) || !isSource(path.basename(candidate)))
+			throw new Error("Recording is outside the Videos library");
+		const parent = path.dirname(candidate);
+		let resolvedParent = parents.get(parent);
+		if (!resolvedParent) {
+			resolvedParent = await fs.realpath(parent);
+			parents.set(parent, resolvedParent);
+		}
+		// 别名只允许解析回同一素材库；链接到外部目录的选择仍拒绝。
+		if (resolvedParent !== root) throw new Error("Recording is outside the Videos library");
+		selected.push(path.join(root, path.basename(candidate)));
+	}
+	return { root, selected: [...new Set(selected)] };
+}
 
 /**
  * 列出当前素材库；只读查询不触发遗留删除事务。
@@ -89,7 +114,7 @@ export function belongsToRecording(name: string, video: string) {
  * @param paths Absolute paths inside the recordings library.
  * @param removed Whether to remove or restore the last selected bundle.
  * @returns Resolves after the entire bundle moves or rolls back.
- * @throws When a selected path is invalid or a filesystem operation fails.
+ * @throws When a selected path is invalid, resolves outside the library or a filesystem operation fails.
  */
 export function setRecordingsRemoved(paths: string[], removed: boolean): Promise<void> {
 	const task = mutation.then(async () => {
@@ -100,12 +125,7 @@ export function setRecordingsRemoved(paths: string[], removed: boolean): Promise
 			paths.some((value) => typeof value !== "string")
 		)
 			throw new Error("录制选择无效");
-		const root = await fs.realpath(await getRecordingsDir());
-		const selected = [...new Set(paths)];
-		for (const candidate of selected) {
-			if (path.dirname(candidate) !== root || !isSource(path.basename(candidate)))
-				throw new Error("Recording is outside the Videos library");
-		}
+		const { root, selected } = await resolveRecordingSelection(paths);
 		const key = batchKey(selected);
 		if (!removed) {
 			const batch = undoBatches.get(key);
@@ -190,8 +210,10 @@ export function setRecordingsRemoved(paths: string[], removed: boolean): Promise
  * @throws 系统拒绝回收时保留对应暂存包并抛错。
  */
 async function finishPendingTrash(paths?: string[]) {
+	// 移除、撤销和指定事务回收必须使用同一规范身份，不能丢失短路径选择的事务。
+	const selectedKey = paths ? batchKey((await resolveRecordingSelection(paths)).selected) : null;
 	for (const [key, batch] of undoBatches) {
-		if (paths && key !== batchKey(paths)) continue;
+		if (selectedKey !== null && key !== selectedKey) continue;
 		await recycleRecordingBundle(batch.bundle);
 		undoBatches.delete(key);
 	}

@@ -74,4 +74,32 @@ describe('presentation recording removal transactions', () => {
       setRecordingsRemoved([path.join(boundary.root, '..', 'external.webm')], true)
     ).rejects.toThrow('outside')
   })
+  it('uses one canonical transaction identity for library directory aliases and rejects aliases outside it', async () => {
+    const alias = path.join(boundary.root, 'alias')
+    const outside = await fs.mkdtemp(path.join(os.tmpdir(), 'tabdo-library-external-'))
+    try {
+      await fs.symlink(boundary.root, alias, 'junction')
+      const selected = path.join(boundary.root, 'recording-alias.webm')
+      const aliasSelected = path.join(alias, path.basename(selected))
+      await fs.writeFile(selected, 'retained')
+      await setRecordingsRemoved([aliasSelected], true)
+      await setRecordingsRemoved([selected], false)
+      expect(await fs.readFile(selected, 'utf8')).toBe('retained')
+      await setRecordingsRemoved([selected], true)
+      await clearRecordingTrashUndo([aliasSelected])
+      expect(boundary.recycle).toHaveBeenCalledOnce()
+      const escape = path.join(boundary.root, 'outside-alias')
+      await fs.symlink(outside, escape, 'junction')
+      await fs.writeFile(path.join(outside, 'external.webm'), 'external source')
+      await expect(
+        setRecordingsRemoved([path.join(escape, 'external.webm')], true)
+      ).rejects.toThrow('outside')
+      expect(await fs.readFile(path.join(outside, 'external.webm'), 'utf8')).toBe('external source')
+    } finally {
+      // 先解除测试创建的目录链接，再回收独立外部夹具；不递归进入别名目标。
+      await fs.unlink(path.join(boundary.root, 'outside-alias')).catch(() => undefined)
+      await fs.unlink(alias).catch(() => undefined)
+      await fs.rm(outside, { recursive: true, force: true })
+    }
+  })
 })

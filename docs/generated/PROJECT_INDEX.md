@@ -266,3 +266,4 @@
 - `presentation-timeline-effects`：3 个单测文件、1 个源码 E2E 文件。
 - `presentation-editing`：15 个单测文件、14 个源码 E2E 文件。
 - `presentation-final-review`：7 个单测文件、5 个源码 E2E 文件。
+- `presentation-library-paths`：2 个单测文件、1 个源码 E2E 文件。

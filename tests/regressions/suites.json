@@ -651,5 +651,14 @@
       "tests/e2e/presentation-import.spec.ts",
       "tests/e2e/presentation-synchronization.spec.ts"
     ]
+  },
+  "presentation-library-paths": {
+    "unit": [
+      "tests/main/presentationRecordingLibrary.test.ts",
+      "tests/main/presentationRecycle.test.ts"
+    ],
+    "e2e": [
+      "tests/e2e/presentation-controls.spec.ts"
+    ]
   }
 }
