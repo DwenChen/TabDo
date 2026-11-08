@@ -1,0 +1,26 @@
+{
+  "id": "presentation-independent-tracks",
+  "date": "2026-10-29",
+  "summary": "撤销上一模型改动后重做演示录屏按键、独立素材轨道与场景注释",
+  "reason": "按用户要求只撤销上一模型新增源码，保留此前工作区内容，然后重新实现本轮完整需求。",
+  "changes": [
+    "撤销上一模型对7个既有文件和新增标尺、未完成条目的改动，保留此前大量未提交内容；撤销前补丁存于.artifacts/work。",
+    "录制时在控制条开启“按键”，可显示和记录当前会话的物理按键；编辑器点击“添加录制按键”生成可移动、裁切和改字的片段。系统声音与麦克风点击“音频独立编辑”后可分别移动、裁切、分割、静音及设置素材起点和淡入淡出；摄像头素材直接显示为独立轨道，支持拖动、两端裁切、游标处分割和删除。时间轴提供自适应标尺与可键盘微调的时间游标。注释增加聚焦、马赛克和圆角，模糊仅调强度。"
+  ],
+  "checks": [
+    "新源码专项首次因读取早于自动保存而失败，补充轮询保存完成后通过，归档.artifacts/runs/2026-10-29T03-45-09-477Z-e2e；实际音频源起点和淡入淡出采样、注释像素、双音轨/人像分割、按键及项目重开通过。",
+    "pnpm build:tools通过；专项类型检查仅报告资源声明与已有宿主扩展类型缺失，正在补齐检查配置。",
+    "pnpm test --maxWorkers=2通过111文件763项，归档.artifacts/runs/2026-10-29T03-54-28-124Z-unit。",
+    "导入、真实录制及新轨道3项源码E2E全部通过，归档.artifacts/runs/2026-10-29T03-50-23-032Z-e2e；后置维护因本轮Bug台账格式错误退出1，修正JSON后后续源码专项和维护归档均通过，不掩盖原退出结果。",
+    "最终补充实际WebGL马赛克预览采样通过，归档.artifacts/runs/2026-10-29T03-58-06-941Z-e2e，直接截取插件可见区域；测试在同一项目连续重开时存在时序问题，改用独立效果项目并等待媒体就绪，未降低像素断言。",
+    "新增5个模块强制ESLint通过（关闭上游格式差异规则）；pnpm docs:check通过31文档、207链接、39功能/14分类/30普通入口和15章65步。专项严格TypeScript只余两处原有getTabDoSettings/openTabDoShortcuts宿主API声明缺失，未视作全项目类型检查通过。",
+    "最终源码专项通过，归档.artifacts/runs/2026-10-29T04-02-14-806Z-e2e；涵盖实际WebGL马赛克像素、重叠注释选中后拖动不轮换选区、双音轨和人像分割、按键编辑、重开、离屏音频采样与三种场景效果。",
+    "pnpm build完整通过宿主Node/Web及设置类型检查、桥接和生产编译，日志.artifacts/work/presentation-tracks-build.log；最后注释拖动修正后pnpm build:tools通过，日志.artifacts/work/presentation-tracks-final-tools.log。未使用electron-builder或build:unpack执行E2E。",
+    "首次preview:sync因免安装预览运行而按保护规则退出；用户正常退出后再次同步成功，保留438个现有配置、资料和插件文件，核验103项程序文件；备份.artifacts/backups/preview-sync/update-1793246688303/previous-resources。",
+    "pnpm test:preview:resources通过102项程序、345项内置和1687项媒体资源核验；日志.artifacts/work/presentation-tracks-preview-sync.log与presentation-tracks-preview-verify.log。"
+  ],
+  "pending": [
+    "真实物理键盘事件与摄像头采集、多DPI和触控需人工验收；按键当前展示物理键，非输入法提交文字。"
+  ],
+  "preview": "已同步.local/portable-preview，版本保持1.3.0，使用PreviewPortable.cmd启动；438个现有配置、资料和插件文件完整保留。未重置资料、未push、未云端构建或发布Release。"
+}

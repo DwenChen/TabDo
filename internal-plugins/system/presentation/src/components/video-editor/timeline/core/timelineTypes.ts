@@ -1,55 +1,60 @@
-import type { Span } from "dnd-timeline";
-import type { ShortcutBinding } from "@presentation/lib/shortcuts";
-import type { ZoomMode } from "../../types";
+import type { Span } from 'dnd-timeline'
+import type { ShortcutBinding } from '@presentation/lib/shortcuts'
+import type { AnnotationType, ZoomMode, ZoomCameraSettings } from '../../types'
 
 export interface ClipSequenceSpan extends Span {
-	/** Insertion index after removing the active clip from the ordered sequence. */
-	sequenceIndex?: number;
+  /** Insertion index after removing the active clip from the ordered sequence. */
+  sequenceIndex?: number
 }
 
 export interface TimelineRegionSpan {
-	id: string;
-	start: number;
-	end: number;
-	rowId: string;
+  id: string
+  start: number
+  end: number
+  rowId: string
 }
 
 export interface TimelineRegion {
-	id: string;
-	startMs: number;
-	endMs: number;
+  id: string
+  startMs: number
+  endMs: number
 }
 
 export interface TimelineAudioRegion extends TimelineRegion {
-	trackIndex?: number;
+  trackIndex?: number
 }
 
 export interface TimelineShortcutBindings {
-	addKeyframe: ShortcutBinding;
-	addZoom: ShortcutBinding;
-	splitClip: ShortcutBinding;
-	addAnnotation: ShortcutBinding;
-	deleteSelected: ShortcutBinding;
+  addKeyframe: ShortcutBinding
+  addZoom: ShortcutBinding
+  splitClip: ShortcutBinding
+  addAnnotation: ShortcutBinding
+  deleteSelected: ShortcutBinding
 }
 
 export interface TimelineRenderItem {
-	id: string;
-	rowId: string;
-	span: Span;
-	sourceSpan?: Span;
-	label: string;
-	audioPath?: string;
-	audioGain?: number;
-	audioNormalize?: boolean;
-	zoomDepth?: number;
-	zoomMode?: ZoomMode;
-	speedValue?: number;
-	showSourceAudio?: boolean;
-	muted?: boolean;
-	variant: "zoom" | "trim" | "clip" | "annotation" | "speed" | "audio" | "caption";
+  id: string
+  rowId: string
+  span: Span
+  sourceSpan?: Span
+  label: string
+  annotationType?: AnnotationType
+  audioPath?: string
+  audioSourceStartMs?: number
+  audioPlaybackRate?: number
+  audioGain?: number
+  audioNormalize?: boolean
+  zoomDepth?: number
+  zoomScale?: number
+  zoomMode?: ZoomMode
+  zoomCamera?: ZoomCameraSettings
+  speedValue?: number
+  showSourceAudio?: boolean
+  muted?: boolean
+  variant: 'zoom' | 'trim' | 'clip' | 'annotation' | 'speed' | 'audio' | 'caption'
 }
 
 export interface AudioPeaksData {
-	durationMs: number;
-	peaks: Float32Array;
+  durationMs: number
+  peaks: Float32Array
 }

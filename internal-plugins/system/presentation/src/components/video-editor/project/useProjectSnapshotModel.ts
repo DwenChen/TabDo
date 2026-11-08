@@ -19,6 +19,11 @@ type Input = {
 	projectSaveDialogInputRef: RefObject<HTMLInputElement | null>;
 };
 
+/**
+ * 构造包含独立圆角的项目快照与保存状态。
+ * @param props 当前状态与操作参数。
+ * @returns 规范化状态或所属编辑操作。
+ */
 export function useProjectSnapshotModel({
 	t,
 	project,
@@ -68,6 +73,7 @@ export function useProjectSnapshotModel({
 	const currentPersistedEditorState = useMemo(
 		() =>
 			buildPersistedEditorState({
+				sourceAudioVisibilityVersion: 1,
 				wallpaper: appearance.wallpaper,
 				shadowIntensity: appearance.shadowIntensity,
 				backgroundBlur: appearance.backgroundBlur,
@@ -105,14 +111,17 @@ export function useProjectSnapshotModel({
 				cursorClickBounceDuration: appearance.cursorClickBounceDuration,
 				cursorSway: appearance.cursorSway,
 				borderRadius: appearance.borderRadius,
+				backgroundBorderRadius: appearance.backgroundBorderRadius,
 				padding: appearance.padding,
 				cropRegion: appearance.cropRegion,
 				webcam: appearance.webcam,
 				zoomRegions: timeline.zoomRegions,
 				trimRegions: timeline.trimRegions,
+				trackOrder: timeline.trackOrder,
 				clipRegions: timeline.clipRegions,
 				speedRegions: timeline.speedRegions,
 				annotationRegions: timeline.annotationRegions,
+				keyboardDisplayEnabled: timeline.keyboardDisplayEnabled,
 				audioRegions: timeline.audioRegions,
 				autoCaptions: timeline.autoCaptions,
 				autoCaptionSettings: timeline.autoCaptionSettings,
@@ -158,14 +167,17 @@ export function useProjectSnapshotModel({
 			appearance.cursorClickBounceDuration,
 			appearance.cursorSway,
 			appearance.borderRadius,
+		appearance.backgroundBorderRadius,
 			appearance.padding,
 			appearance.cropRegion,
 			appearance.webcam,
 			timeline.zoomRegions,
 			timeline.trimRegions,
+			timeline.trackOrder,
 			timeline.clipRegions,
 			timeline.speedRegions,
 			timeline.annotationRegions,
+			timeline.keyboardDisplayEnabled,
 			timeline.audioRegions,
 			timeline.autoCaptions,
 			timeline.autoCaptionSettings,

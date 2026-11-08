@@ -1,11 +1,10 @@
 import { createContext, useContext, useState, type ReactNode } from 'react'
 import { ChoiceGroup, ChoiceItem } from '@presentation/components/ui/choice-group'
 
-type Category = 'general' | 'account' | 'motion' | 'recording' | 'files' | 'advanced'
+type Category = 'general' | 'account' | 'recording' | 'files' | 'advanced'
 const labels: Record<Category, string> = {
   general: '通用',
   account: '账户',
-  motion: '动态效果',
   recording: '录制',
   files: '文件',
   advanced: '高级'

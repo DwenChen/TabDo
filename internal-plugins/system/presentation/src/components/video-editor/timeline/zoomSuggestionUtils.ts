@@ -132,7 +132,7 @@ function applyCursorTypeInRange(
 }
 
 /**
- * 归一化素材轨迹并根据局部交互补充缺失形状。
+ * 排除纯按键事件，归一化鼠标轨迹并根据局部交互补充缺失形状。
  * @param telemetry 原始轨迹。
  * @param totalMs 素材总时长。
  * @returns 独立、已排序且坐标有效的轨迹数组。
@@ -144,6 +144,7 @@ export function normalizeCursorTelemetry(
 	const normalized = [...telemetry]
 		.filter(
 			(sample) =>
+				(!sample.keyText || sample.interactionType) &&
 				Number.isFinite(sample.timeMs) && Number.isFinite(sample.cx) && Number.isFinite(sample.cy),
 		)
 		.sort((a, b) => a.timeMs - b.timeMs)
@@ -539,6 +540,7 @@ export function buildInteractionZoomSuggestions(params: {
 	const sourceSamples = cursorTelemetry
 		.filter(
 			(sample) =>
+				(!sample.keyText || sample.interactionType) &&
 				Number.isFinite(sample.timeMs) && Number.isFinite(sample.cx) && Number.isFinite(sample.cy),
 		)
 		.map((sample) => normalizeTelemetrySample(sample, Number.MAX_SAFE_INTEGER))

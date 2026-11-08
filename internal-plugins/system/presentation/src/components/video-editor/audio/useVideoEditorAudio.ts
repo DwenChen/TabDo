@@ -46,6 +46,11 @@ interface UseVideoEditorAudioParams {
 	onSourceFallbackLoadError: (error: unknown) => void;
 }
 
+/**
+ * Connect recorded and independent sound to the current editor's source and frame clock.
+ * @param props Source identity, timeline, playback state and immutable settings callbacks.
+ * @returns Audio routing, source readiness, inspectors and frame synchronization controls.
+ */
 export function useVideoEditorAudio({
 	currentSourcePath,
 	selectedClipId,
@@ -69,7 +74,7 @@ export function useVideoEditorAudio({
 		[currentSourcePath],
 	);
 
-	const { sourceAudioFallbackPaths, sourceAudioFallbackStartDelayMsByPath } =
+	const { sourceAudioFallbackPaths, sourceAudioFallbackStartDelayMsByPath, sourceAudioLookupReady } =
 		useSourceAudioFallback({
 			currentSourcePath: fallbackLookupSourcePath,
 			refreshKey: sourceAudioFallbackRefreshKey,
@@ -89,8 +94,7 @@ export function useVideoEditorAudio({
 	);
 	const isCurrentClipMuted = useMemo(
 		() =>
-			activeClipIdAtCurrentTime === null ||
-			isClipMutedById(activeClipIdAtCurrentTime, clipRegions),
+			activeClipIdAtCurrentTime === null || isClipMutedById(activeClipIdAtCurrentTime, clipRegions),
 		[activeClipIdAtCurrentTime, clipRegions],
 	);
 
@@ -113,7 +117,7 @@ export function useVideoEditorAudio({
 		setDefaultSourceAudioTrackSettings,
 	});
 
-	const { playSourceAudioPreview } = useAudioPreviewSync({
+	const { playSourceAudioPreview, syncPreviewFrame } = useAudioPreviewSync({
 		audioRegions,
 		previewVolume,
 		isPlaying,
@@ -130,6 +134,7 @@ export function useVideoEditorAudio({
 	});
 
 	return {
+		sourceAudioLookupReady,
 		sourceAudioFallbackPaths,
 		sourceAudioFallbackStartDelayMsByPath,
 		previewSourceAudioFallbackPaths,
@@ -140,6 +145,7 @@ export function useVideoEditorAudio({
 		activeSourceAudioTrackSettings,
 		selectedClipSourceAudioTrackSettings,
 		playSourceAudioPreview,
+		syncPreviewFrame,
 		getSourceAudioTrackSettingsForClip,
 		onSourceAudioTracksMetaChange,
 		onSelectedClipSourceAudioTrackVolumeChange,

@@ -14,9 +14,24 @@ export interface ZoomRegion {
 	depth: ZoomDepth;
 	focus: ZoomFocus;
 	mode?: ZoomMode;
+	/** Continuous magnification; missing values retain the legacy depth mapping. */
+	scale?: number;
+	camera?: ZoomCameraSettings;
+}
+
+export interface ZoomCameraSettings {
+	mode: "2d" | "3d";
+	yaw: number;
+	pitch: number;
+	focalLength: number;
+	aperture: number;
+	depthOfField: boolean;
+	reflection: boolean;
+	focus: ZoomFocus;
 }
 
 export interface CursorTelemetryPoint {
+	keyText?: string;
 	timeMs: number;
 	cx: number;
 	cy: number;
@@ -59,6 +74,15 @@ export type CursorStyle =
 	| (string & {});
 export const DEFAULT_CURSOR_STYLE: CursorStyle = "tahoe";
 
+/**
+ * 将已移除的内置指针外观恢复为标准光标，保留其他内置和自定义标识。
+ * @param style 项目或偏好中的光标外观。
+ * @returns 可继续使用的外观标识。
+ */
+export function normalizeCursorStyle(style: CursorStyle): CursorStyle {
+	return ['sapphire', 'jelly', 'pearl', 'origami'].includes(style) ? DEFAULT_CURSOR_STYLE : style;
+}
+
 export type CursorClickEffectStyle = "none" | "spotlight" | "ripple" | "echo";
 export const DEFAULT_CURSOR_CLICK_EFFECT: CursorClickEffectStyle = "none";
 export const DEFAULT_CURSOR_CLICK_EFFECT_COLOR = "#2563EB";
@@ -68,7 +92,7 @@ export const DEFAULT_CURSOR_CLICK_EFFECT_DURATION_MS = 600;
 
 export function normalizeCursorClickEffectStyle(
 	value: unknown,
-	fallback: CursorClickEffectStyle = DEFAULT_CURSOR_CLICK_EFFECT
+	fallback: CursorClickEffectStyle = DEFAULT_CURSOR_CLICK_EFFECT,
 ): CursorClickEffectStyle {
 	if (value === "burst") {
 		return "echo";
@@ -81,7 +105,7 @@ export function normalizeCursorClickEffectStyle(
 
 export function normalizeCursorClickEffectColor(
 	value: unknown,
-	fallback: string = DEFAULT_CURSOR_CLICK_EFFECT_COLOR
+	fallback: string = DEFAULT_CURSOR_CLICK_EFFECT_COLOR,
 ): string {
 	if (typeof value !== "string") {
 		return fallback;
@@ -103,6 +127,7 @@ export function normalizeCursorClickEffectColor(
 export type EditorEffectSection =
 	| "scene"
 	| "cursor"
+	| "keyboard"
 	| "captions"
 	| "caption"
 	| "webcam"
@@ -127,7 +152,20 @@ export type WebcamPositionPreset =
 	| "bottom-center"
 	| "custom";
 
+export interface MediaSegment {
+	id: string;
+	startMs: number;
+	endMs: number;
+	sourceStartMs: number;
+}
+
 export interface WebcamOverlaySettings {
+	/** Actual camera media duration, independent of the screen timeline. */
+	sourceDurationMs?: number;
+	/** Independent timeline segments; absence preserves legacy source synchronization. */
+	segments?: MediaSegment[];
+	/** Explicit width/height chosen in the editor override legacy automatic crop matching. */
+	dimensionsMode?: "manual";
 	/** Source-time intervals containing webcam footage in an imported sequence. */
 	visibleRanges?: { startMs: number; endMs: number }[];
 	enabled: boolean;
@@ -175,7 +213,7 @@ export const DEFAULT_ZOOM_MOTION_BLUR_TUNING: ZoomMotionBlurTuning = {
 	maxRadialBlurStrength: 1,
 	panResponsePerSecond: 11,
 	zoomResponsePerSecond: 9,
-	zoomSafeZoneRadiusPx: 6
+	zoomSafeZoneRadiusPx: 6,
 };
 export const DEFAULT_ZOOM_IN_DURATION_MS = 1522.575;
 export const DEFAULT_ZOOM_IN_OVERLAP_MS = 500;
@@ -211,7 +249,7 @@ export const DEFAULT_WEBCAM_OVERLAY: WebcamOverlaySettings = {
 	reactToZoom: DEFAULT_WEBCAM_REACT_TO_ZOOM,
 	roundness: DEFAULT_WEBCAM_ROUNDNESS,
 	shadow: DEFAULT_WEBCAM_SHADOW,
-	margin: DEFAULT_WEBCAM_MARGIN
+	margin: DEFAULT_WEBCAM_MARGIN,
 };
 
 export interface TrimRegion {
@@ -238,6 +276,8 @@ export interface ClipRegion {
 	speed: number;
 	muted?: boolean;
 	showSourceAudio?: boolean;
+	/** Recorded paths already materialized; retained after deleting an independent track. */
+	detachedAudioPaths?: string[];
 }
 
 export function getClipSourceStartMs(clip: ClipRegion): number {
@@ -258,7 +298,7 @@ export function getTimelineDurationMs(clips: ClipRegion[], sourceDurationMs: num
 
 	return clips.reduce(
 		(durationMs, clip) => Math.max(durationMs, Math.max(0, Math.round(clip.endMs))),
-		0
+		0,
 	);
 }
 
@@ -277,7 +317,7 @@ function mapNearestClipBoundary(timeMs: number, clips: ClipRegion[], from: "time
 	for (const clip of clips) {
 		const boundaries = [
 			[clip.startMs, getClipSourceStartMs(clip)],
-			[clip.endMs, getClipSourceEndMs(clip)]
+			[clip.endMs, getClipSourceEndMs(clip)],
 		];
 
 		for (const [timelineTimeMs, sourceTimeMs] of boundaries) {
@@ -303,7 +343,7 @@ export function mapTimelineTimeToSourceTime(timeMs: number, clips: ClipRegion[])
 		}
 
 		return Math.round(
-			getClipSourceStartMs(clip) + (roundedTimeMs - clip.startMs) * getSafeClipSpeed(clip)
+			getClipSourceStartMs(clip) + (roundedTimeMs - clip.startMs) * getSafeClipSpeed(clip),
 		);
 	}
 
@@ -354,7 +394,7 @@ export function extendAutoFullTrackClip(
 	clips: ClipRegion[],
 	autoClipId: string | null,
 	previousAutoEndMs: number | null,
-	nextTotalDurationMs: number
+	nextTotalDurationMs: number,
 ): ClipRegion[] | null {
 	if (
 		!autoClipId ||
@@ -388,7 +428,7 @@ export function clipsToTrims(clips: ClipRegion[], totalDurationMs: number): Trim
 	const coveredSpans = clips
 		.map((clip) => ({
 			startMs: getClipSourceStartMs(clip),
-			endMs: getClipSourceEndMs(clip)
+			endMs: getClipSourceEndMs(clip),
 		}))
 		.filter((span) => span.endMs > span.startMs)
 		.sort((left, right) => left.startMs - right.startMs);
@@ -426,7 +466,14 @@ export function trimsToClips(trims: TrimRegion[], totalDurationMs: number): Clip
 	return clips;
 }
 
-export type AnnotationType = "text" | "image" | "figure" | "blur";
+export type AnnotationType =
+	| "text"
+	| "image"
+	| "figure"
+	| "blur"
+	| "focus"
+	| "mosaic"
+	| "keystroke";
 export const BLUR_ANNOTATION_STRENGTH = 20;
 export const BASE_PREVIEW_WIDTH = 1920;
 export const BASE_PREVIEW_HEIGHT = 1080;
@@ -442,6 +489,7 @@ export type ArrowDirection =
 	| "down-left";
 
 export interface FigureData {
+	arrowStyle?: 'line' | 'solid' | 'double' | 'dashed' | 'cartoon' | 'ribbon' | 'glass' | 'neon' | 'chevron';
 	arrowDirection: ArrowDirection;
 	color: string;
 	strokeWidth: number;
@@ -458,6 +506,16 @@ export interface AnnotationSize {
 }
 
 export interface AnnotationTextStyle {
+	keycapScale?: number;
+	connectInputs?: boolean;
+	inputGapMs?: number;
+	maskShape?: "rectangle" | "ellipse" | "brush";
+	maskBrushSize?: number;
+	maskStrokes?: Array<Array<{ x: number; y: number }>>;
+	enterAnimation?: "none" | "fade" | "pop" | "slide" | "wipe";
+	exitAnimation?: "none" | "fade" | "pop" | "slide" | "wipe";
+	animationDurationMs?: number;
+	keycapStyle?: "simple" | "apple" | "clay" | "mechanical" | "rgb";
 	color: string;
 	backgroundColor: string;
 	fontSize: number; // pixels
@@ -478,6 +536,8 @@ export function getDefaultCaptionFontFamily() {
 }
 
 export interface AnnotationRegion {
+	keystrokeVersion?: 1; // 新录制保存独立事件；缺失时兼容旧累积文本。
+	rotation?: number; // 顺时针角度；旧项目缺失时为零。
 	id: string;
 	startMs: number;
 	endMs: number;
@@ -497,12 +557,12 @@ export interface AnnotationRegion {
 
 export const DEFAULT_ANNOTATION_POSITION: AnnotationPosition = {
 	x: 50,
-	y: 50
+	y: 50,
 };
 
 export const DEFAULT_ANNOTATION_SIZE: AnnotationSize = {
 	width: 30,
-	height: 20
+	height: 20,
 };
 
 export const DEFAULT_ANNOTATION_STYLE: AnnotationTextStyle = {
@@ -514,14 +574,16 @@ export const DEFAULT_ANNOTATION_STYLE: AnnotationTextStyle = {
 	fontStyle: "normal",
 	textDecoration: "none",
 	textAlign: "center",
-	borderRadius: 8
+	borderRadius: 8,
 };
 
 export const DEFAULT_FIGURE_DATA: FigureData = {
 	arrowDirection: "right",
-	color: "#2563EB",
-	strokeWidth: 4
+	arrowStyle: "cartoon",
+	color: "#ffffff",
+	strokeWidth: 4,
 };
+export const DEFAULT_FIGURE_SIZE: AnnotationSize = { width: 16, height: 8 };
 
 export interface CropRegion {
 	x: number;
@@ -534,7 +596,7 @@ export const DEFAULT_CROP_REGION: CropRegion = {
 	x: 0,
 	y: 0,
 	width: 1,
-	height: 1
+	height: 1,
 };
 
 export const ADVANCED_VERTICAL_PADDING_MAX = 250;
@@ -552,14 +614,19 @@ export const DEFAULT_PADDING: Padding = {
 	bottom: 20,
 	left: 20,
 	right: 20,
-	linked: true
+	linked: true,
 };
 export type {
 	SourceAudioTrackSetting,
-	SourceAudioTrackSettings
+	SourceAudioTrackSettings,
 } from "@presentation/components/video-editor/audio/audioTypes";
 
 export interface AudioRegion {
+	sourceStartMs?: number;
+	playbackRate?: number;
+	fadeInMs?: number;
+	fadeOutMs?: number;
+	label?: string;
 	id: string;
 	startMs: number;
 	endMs: number;
@@ -616,7 +683,7 @@ export const DEFAULT_AUTO_CAPTION_SETTINGS: AutoCaptionSettings = {
 	boxRadius: 17.5,
 	textColor: "#FFFFFF",
 	inactiveTextColor: "#A3A3A3",
-	backgroundOpacity: 0.9
+	backgroundOpacity: 0.9,
 };
 
 export type PlaybackSpeed = 0.25 | 0.5 | 0.75 | 1.25 | 1.5 | 1.75 | 2;
@@ -635,7 +702,7 @@ export const SPEED_OPTIONS: Array<{ speed: PlaybackSpeed; label: string }> = [
 	{ speed: 1.25, label: "1.25×" },
 	{ speed: 1.5, label: "1.5×" },
 	{ speed: 1.75, label: "1.75×" },
-	{ speed: 2, label: "2×" }
+	{ speed: 2, label: "2×" },
 ];
 
 export const DEFAULT_PLAYBACK_SPEED: PlaybackSpeed = 1.5;
@@ -646,7 +713,7 @@ export const ZOOM_DEPTH_SCALES: Record<ZoomDepth, number> = {
 	3: 1.8,
 	4: 2.2,
 	5: 3.5,
-	6: 5.0
+	6: 5.0,
 };
 
 export const DEFAULT_ZOOM_DEPTH: ZoomDepth = 2;
@@ -655,7 +722,7 @@ export const DEFAULT_AUTO_ZOOM_DEPTH: ZoomDepth = DEFAULT_ZOOM_DEPTH;
 export function clampFocusToDepth(focus: ZoomFocus, _depth: ZoomDepth): ZoomFocus {
 	return {
 		cx: clamp(focus.cx, 0, 1),
-		cy: clamp(focus.cy, 0, 1)
+		cy: clamp(focus.cy, 0, 1),
 	};
 }
 

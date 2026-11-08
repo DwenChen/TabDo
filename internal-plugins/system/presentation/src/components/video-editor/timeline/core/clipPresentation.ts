@@ -1,15 +1,16 @@
 import type { Span } from "dnd-timeline";
 
-export const CLIP_SEAM_GAP_PX = 24;
+export const CLIP_SEAM_GAP_PX = 0;
 
-/** Visual gutters never become gaps in the media timeline. */
-export function getClipDisplaySpan(span: Span, allClips: Span[], msPerPixel: number): Span {
-	if (!(msPerPixel > 0)) return span;
-	const hasBefore = allClips.some((other) => other !== span && other.end <= span.start);
-	const hasAfter = allClips.some((other) => other !== span && other.start >= span.end);
-	// Keep a visible body even for clips smaller than the normal seam gutter.
-	const inset = Math.min((CLIP_SEAM_GAP_PX / 2) * msPerPixel, (span.end - span.start) / 3);
-	return { start: span.start + (hasBefore ? inset : 0), end: span.end - (hasAfter ? inset : 0) };
+/**
+ * 保持片段显示坐标与媒体时间一致，切口不占用额外空间。
+ * @param span 真实媒体区间。
+ * @param _allClips 同轨片段，保留调用兼容。
+ * @param _msPerPixel 当前显示比例，保留调用兼容。
+ * @returns 原区间，连续片段在任意比例下紧邻。
+ */
+export function getClipDisplaySpan(span: Span, _allClips: Span[], _msPerPixel: number): Span {
+	return span;
 }
 
 export function getEmbeddedCaptionSpan(
@@ -31,8 +32,11 @@ function mapSpanTime(time: number, from: Span, to: Span): number {
 }
 
 /**
- * Intentionally skip across split-clip gaps, following iMovie-like logic:
- * gaps consume zero timeline time (e.g. 2.8s → 2.8s), with no simulated playback.
+ * 将媒体时间映射到片段显示坐标；连续切口保持同一个位置。
+ * @param time 媒体毫秒时间。
+ * @param clips 片段显示区间。
+ * @param edge 使用切口左侧或右侧片段。
+ * @returns 对应显示时间。
  */
 export function getPlayheadDisplayTime(
 	time: number,

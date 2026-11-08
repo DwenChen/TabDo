@@ -7,6 +7,7 @@
 #include <thread>
 #include <atomic>
 #include <vector>
+#include "capture_timeline.h"
 
 class WasapiCapture {
 public:
@@ -22,6 +23,12 @@ public:
     bool pause();
     bool resume();
     void stop();
+    /**
+     * Use the same capture boundaries as WGC, keeping audio packet arrival out of the clock.
+     * @param timeline Shared session timeline, owned by the main capture process.
+     * @returns No value; initialize before starting the audio worker.
+     */
+    void setTimeline(CaptureTimeline* timeline) { timeline_ = timeline; }
     int64_t firstPacketQpcHns() const { return firstPacketQpcHns_.load(); }
     uint64_t capturedDurationMs() const;
     uint64_t totalDataBytes() const { return totalDataBytes_.load(); }
@@ -37,6 +44,7 @@ public:
     uint64_t compactedSilentDiscontinuityFrames() const { return compactedSilentDiscontinuityFrames_.load(); }
 
 private:
+    CaptureTimeline* timeline_ = nullptr;
     bool initializeCommon();
     void captureThread();
     bool writeWavHeader(HANDLE file, DWORD dataSize);

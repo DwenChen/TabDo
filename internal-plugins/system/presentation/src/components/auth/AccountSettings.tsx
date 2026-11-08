@@ -64,7 +64,7 @@ export function AccountSettings({ user }: { user: User | null }) {
 		});
 	};
 
-	if (!user) return <p className="text-sm text-muted">Sign in to manage your account.</p>;
+	if (!user) return <p className="text-sm text-muted">登录后管理账户。</p>;
 	const profile = getAccountProfile(user);
 	const providers = [
 		...new Set([
@@ -82,7 +82,7 @@ export function AccountSettings({ user }: { user: User | null }) {
 					<p className="break-all text-xs text-muted">{user.email}</p>
 				</div>
 			</div>
-			<form onSubmit={submitName} className="space-y-3" aria-label="Profile settings">
+			<form onSubmit={submitName} className="space-y-3" aria-label="个人资料设置">
 				<TextField
 					name="displayName"
 					value={name}
@@ -90,7 +90,7 @@ export function AccountSettings({ user }: { user: User | null }) {
 					isRequired
 					isDisabled={Boolean(busy)}
 				>
-					<Label>Display name</Label>
+					<Label>显示名称</Label>
 					<Input maxLength={80} autoComplete="name" className="w-full" />
 				</TextField>
 				<Button
@@ -99,10 +99,10 @@ export function AccountSettings({ user }: { user: User | null }) {
 					size="sm"
 					disabled={Boolean(busy) || !name.trim() || name.trim() === profileName(user)}
 				>
-					{busy === "name" ? "Saving…" : "Save profile"}
+					{busy === "name" ? "正在保存…" : "保存资料"}
 				</Button>
 			</form>
-			<form onSubmit={submitEmail} className="space-y-3" aria-label="Email settings">
+			<form onSubmit={submitEmail} className="space-y-3" aria-label="邮箱设置">
 				<TextField
 					name="email"
 					type="email"
@@ -111,15 +111,17 @@ export function AccountSettings({ user }: { user: User | null }) {
 					isRequired
 					isDisabled={Boolean(busy)}
 				>
-					<Label>Email address</Label>
+					<Label>邮箱地址</Label>
 					<Input autoComplete="email" className="w-full" />
 				</TextField>
 				<p className="text-xs leading-relaxed text-muted">
-					Confirm your new address by email before using it to sign in.
+
+					请先通过确认邮件验证新地址，再用其登录。
 				</p>
 				{user.new_email && user.new_email !== user.email && (
 					<p role="status" className="break-words text-xs text-muted">
-						Awaiting confirmation: {user.new_email}
+
+						等待确认： {user.new_email}
 					</p>
 				)}
 				<Button
@@ -133,15 +135,15 @@ export function AccountSettings({ user }: { user: User | null }) {
 						email.trim() === user.new_email
 					}
 				>
-					{busy === "email" ? "Sending…" : "Change email"}
+					{busy === "email" ? "正在发送…" : "更改邮箱"}
 				</Button>
 			</form>
 			<SettingsRow
-				title="Sign-in methods"
+				title="登录方式"
 				description="Methods connected to your account."
 				stacked
 			>
-				<ul className="flex flex-wrap gap-2" aria-label="Connected sign-in methods">
+				<ul className="flex flex-wrap gap-2" aria-label="已关联的登录方式">
 					{providers.map((provider) => (
 						<li
 							key={provider}
@@ -163,7 +165,7 @@ export function AccountSettings({ user }: { user: User | null }) {
 				</p>
 			)}
 			<SettingsRow
-				title="Sign out"
+				title="退出登录"
 				description="Sign out of Recordly on all devices. Local projects stay on this computer."
 				stacked
 			>
@@ -173,7 +175,7 @@ export function AccountSettings({ user }: { user: User | null }) {
 					disabled={Boolean(busy)}
 					onClick={() => void run("signout", signOutRecordly)}
 				>
-					{busy === "signout" ? "Signing out…" : "Sign out"}
+					{busy === "signout" ? "正在退出…" : "退出登录"}
 				</Button>
 			</SettingsRow>
 		</div>

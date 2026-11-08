@@ -4,7 +4,7 @@ import { useToast } from '@/components'
 const { error } = useToast()
 const actions = [
   ['playPause', '播放或暂停'],
-  ['addZoom', '添加缩放'],
+  ['addZoom', '添加变焦'],
   ['splitClip', '分割片段'],
   ['addAnnotation', '添加标注'],
   ['addKeyframe', '添加关键帧'],

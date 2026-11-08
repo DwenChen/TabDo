@@ -1,0 +1,31 @@
+{
+  "id": "presentation-zoom-camera",
+  "date": "2026-11-06",
+  "summary": "将演示缩放升级为连续倍率与2D/3D变焦镜头",
+  "reason": "用户要求连续倍率、自由镜头角度、焦距光圈与景深，并提供镜头面板参考图。",
+  "changes": [
+    "缩放侧栏升级为变焦，倍率改为1–5×、步进0.01的连续滑条；轨道同步显示真实倍率，旧六档项目保持原映射。",
+    "新增2D/3D镜头切换、可拖动角度板与六种预设、水平与俯仰角度、18–200mm焦距、f/1.4–f/22光圈、景深、独立对焦点和屏幕反光；切回2D保留3D参数。",
+    "预览及两套导出器共用WebGL/WebGPU透视和光学滤镜，随原变焦进出场及连接窗口混合；结束效果及实例销毁立即释放滤镜。",
+    "参数沿现有项目、复制分割及完整历史链保存；重置恢复2D和1.5×，保留区间、取景焦点及其他片段。手动取景框改为按连续倍率钳制。",
+    "同步README、演示组件说明、设置/UI/默认值规范、工具清单、仓库与应用内教程及更新说明；新增变焦模块文档和TX-122回归。"
+  ],
+  "checks": [
+    "通过context-mode盘点维护流程、改动和Bug台账、模块规范；保留355项既有工作区改动。",
+    "新增5项镜头单测通过，覆盖旧六档、连续倍率与JSON保存、非法输入、时间过渡及重置；首次测试误以为原变焦在0ms尚无进场权重，改为真实进场前时刻。失败归档 .artifacts/runs/2026-11-06T08-45-11-778Z-unit。",
+    "pnpm test完整通过：122文件814项，归档 .artifacts/runs/2026-11-06T09-23-27-543Z-unit。沙箱内首轮有临时目录EPERM及库路径隔离失败，改在沙箱外完整复跑；保留失败归档 .artifacts/runs/2026-11-06T09-17-59-619Z-unit。",
+    "变焦源码专项通过，归档 .artifacts/runs/2026-11-06T09-35-56-136Z-e2e：真实宿主导入、1.41倍滑条与轨道标签、角度拖动单步撤销重做、光学开关、2D/3D切换保留参数、完整卸载后项目重开及重置历史。两套导出器分别在WebGL/WebGPU上核对透视、景深及焦距的真实像素变化。",
+    "开发期源码专项分别发现保存防抖等待不足、WebGPU资源命名与顶点布局、WebGL跨阶段精度不一致，均修正后复跑；失败证据保留在当日自动归档。一次沙箱源码服务器启动未完成即取消；独立GPU诊断测试已消费并移除，证据仍保留。",
+    "人工查看实际插件可见区域明暗截图，确认透视画面、角度板、统一侧栏层级和主题表面；没有拼接宿主截图。",
+    "对本轮新模块及主要修改模块强制取消移植目录忽略后运行ESLint错误检查，通过；保留原有推断返回值风格，专项关闭explicit-function-return-type。修正测试finally抛错写法；日志 .artifacts/zoom-camera-lint.log。",
+    "pnpm docs:check通过：35份文档238个本地链接、15章65步；pnpm test:regressions presentation-editing --list通过，14个单测文件、12个E2E文件。",
+    "最终相邻6项源码回归通过：local-tutorial、presentation-defaults/fragments/import/inspector/review，归档 .artifacts/runs/2026-11-06T11-16-40-300Z-e2e。该批变焦专项新增资源断言误读不存在的destroyed字段而失败；按已安装Pixi的resources/groups销毁状态修正断言后，最终变焦专项独立通过，归档 .artifacts/runs/2026-11-06T11-26-19-578Z-e2e。",
+    "最终变焦专项对两套导出器分别在WebGL/WebGPU验证角度、景深、焦距、光圈、对焦点及反光逐项改变实际像素，并核对导出实例销毁后镜头资源解绑；人工查看倍率/模式及明暗角度截图。重试期间一次测试进程原生退出、一次复用服务提前消失导致HUD入口未出现，均保留失败归档，重新启动独立源码服务后通过。",
+    "pnpm build通过，包含宿主类型检查、设置与工具插件、Electron生产编译；日志 .artifacts/zoom-camera-build.log。交付前pnpm maintain、pnpm maintain:check和git diff --check通过。",
+    "空间分类盘点：原有程序回退约528MiB，测试归档约1.82GiB、工具链约1.18GiB、历史下载约570MiB；独有证据、工具链和来源不明的其他任务材料保留。",
+    "pnpm preview:sync通过：1.3.0预览更新104项程序资源，530个现有配置、项目及插件文件逐文件保持一致；pnpm test:preview:resources通过，核验103个归档程序文件、346个内置插件文件及1687个媒体依赖文件。日志 .artifacts/zoom-camera-preview-sync.log 与 .artifacts/zoom-camera-preview-resources.log。",
+    "预览核验后清理本次app暂存、空new-resources及旧纯程序回退，共1055135898字节（约1006MiB），逐项验证范围、链接与Git跟踪边界；保留本次 previous-resources 和全部 preservation.json。清单和结果 .artifacts/cleanup-2026-11-06/zoom-camera-program-payloads.json、zoom-camera-program-results.json。"
+  ],
+  "pending": ["其他DPI、多屏、触控和高分辨率连续预览性能，以及主观运镜手感待人工验收。"],
+  "preview": "已同步 .local/portable-preview/（1.3.0）；通过 PreviewPortable.cmd 使用既有隔离资料。530个现有配置、项目及插件文件保留；程序回退 .artifacts/backups/preview-sync/update-1793964682628/previous-resources。未重置资料、push、云端构建或发布Release。"
+}

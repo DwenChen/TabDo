@@ -1,5 +1,7 @@
+import { applyProjectEditorState } from './applyProjectEditorState';
+import { normalizeProjectEditor, type ProjectEditorState } from '../projectPersistence';
 import type { Dispatch, MutableRefObject, RefObject, SetStateAction } from "react";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import type { useI18n } from "@presentation/contexts/I18nContext";
 import type { AspectRatio } from "@presentation/utils/aspectRatioUtils";
 import { useAutoCaptionController } from "../captions/useAutoCaptionController";
@@ -77,6 +79,11 @@ type Input = {
 	remountPreview: () => void;
 };
 
+/**
+ * 组织项目持久状态、完整编辑历史与来源切换，项目间不共享撤销栈。
+ * @param input 当前项目、外观、轨道与宿主状态入口。
+ * @returns 项目保存、加载、历史及字幕控制器。
+ */
 export function useEditorProjectController(input: Input) {
 	const snapshot = useProjectSnapshotModel({
 		t: input.t,
@@ -87,7 +94,17 @@ export function useEditorProjectController(input: Input) {
 		projectNameInputRef: input.projectNameInputRef,
 		projectSaveDialogInputRef: input.projectSaveDialogInputRef,
 	});
-	const history = useEditorHistory({
+	/**
+   * 恢复历史中的完整编辑模型，沿原状态入口驱动预览、保存和导出。
+   * @param editor 历史编辑模型。
+   * @returns 无返回值；批量发布编辑状态。
+   */
+  const restoreEditor = useCallback((editor: Partial<ProjectEditorState>) => {
+    applyProjectEditorState(normalizeProjectEditor(editor), input.appearance, input.timeline, input.setAspectRatio);
+  }, [input.appearance, input.timeline, input.setAspectRatio]);
+  const history = useEditorHistory({
+    editorState: snapshot.currentPersistedEditorState,
+    restoreEditor,
 		timeline: input.timeline,
 		nextZoomIdRef: input.nextZoomIdRef,
 		nextClipIdRef: input.nextClipIdRef,
@@ -150,7 +167,6 @@ export function useEditorProjectController(input: Input) {
 	});
 	useEditorPreferencesPersistence({
 		appearance: input.appearance,
-		aspectRatio: input.aspectRatio,
 		whisperExecutablePath: input.whisperExecutablePath,
 		whisperModelPath: input.whisperModelPath,
 	});
@@ -204,6 +220,7 @@ export function useEditorProjectController(input: Input) {
 		applyLoadedProject: lifecycle.applyLoadedProject,
 		openUnsavedChangesDialog: lifecycle.openUnsavedChangesDialog,
 		saveProject: saveActions.saveProject,
+		retireProjectSaves: saveActions.retireProjectSaves,
 		refreshProjectLibrary: input.refreshProjectLibrary,
 		resetSourceScopedEditorState: lifecycle.resetSourceScopedEditorState,
 		applySessionPresentation: input.applySessionPresentation,

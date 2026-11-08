@@ -19,6 +19,26 @@ export { NUMBERING_STYLES, REPLACE_MODES, CASE_MODES, INSERT_KINDS, INFO_KINDS, 
 export const applyRenameRules = applyRenameModules
 
 /**
+ * 根据当前标签生成独立计算配置，保留用户保存的各页参数与清理组选项。
+ * @param workflow 完整的持久化规则配置。
+ * @param tab 当前重命名标签标识。
+ * @returns 仅启用当前功能的计算配置；已移除的删除字符功能始终关闭。
+ */
+export function workflowForTab(workflow, tab) {
+  return {
+    ...workflow,
+    numbering: { ...workflow.numbering, enabled: tab === 'numbering' },
+    replace: { ...workflow.replace, enabled: tab === 'replace' },
+    clean: {
+      ...workflow.clean,
+      enabled: tab === 'clean',
+      remove: { ...workflow.clean.remove, enabled: false }
+    },
+    insert: { ...workflow.insert, enabled: tab === 'insert' }
+  }
+}
+
+/**
  * 生成稳定的规则标识，兼容无 crypto 的极端环境。
  * @returns 规则唯一标识。
  */

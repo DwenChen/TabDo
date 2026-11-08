@@ -1,0 +1,31 @@
+{
+  "id": "presentation-preview-keycaps-annotations",
+  "date": "2026-11-08",
+  "summary": "完善演示全屏预览、实体键帽、手绘遮罩及注释动画",
+  "reason": "用户反馈预览隐藏编辑鼠标、按键关闭状态不明确、空格不可见、键帽裁切与片段覆盖，并要求自定义连接间隔、卡通箭头、圆形和手绘遮罩及通用进出场动画。保留仓库已有未提交改动。",
+  "changes": [
+    "增加复用当前播放器的全屏预览和退出、播放控制，恢复预览全区域系统鼠标。",
+    "关闭按键录制时显示斜线；空格记录为显式键名，旧空格同样显示空格键符号。",
+    "实体键帽共用预览和导出绘制器，提供尺寸、显示框、连接开关及连接阈值，按轨选择最新输入而非重叠覆盖。",
+    "矩形、圆形与手绘笔画遮罩覆盖模糊、马赛克和聚焦，笔画沿项目历史保存。",
+    "使用内置 imagegen 生成透明卡通箭头，并接入缩略图选择、八向预览和导出。",
+    "所有注释增加淡入淡出、弹性缩放、浮入浮出和擦除，使用媒体时间统一计算。变焦通用设置开放连接间隔。"
+  ],
+  "checks": [
+    "阅读维护流程、改动索引、Bug 台账、侧栏/镜头/默认值/空间规范及工具和设置开发要求；保留大量既有未提交改动。",
+    "24项初始相关单测通过，归档.artifacts/runs/2026-11-08T04-06-08-166Z-unit；首轮完整831项通过，归档.artifacts/runs/2026-11-08T04-15-09-200Z-unit。补充旧累积文本与事件版本恢复后，最终124文件832项全部通过，归档.artifacts/runs/2026-11-08T04-35-12-936Z-unit。",
+    "源码首轮HUD正文等待不足，随后两轮对尚未落盘模型直接取属性导致测试失败；分别保留04-08-24-694Z、04-09-39-236Z、04-11-06-985Z的e2e归档。修正稳定正文等待与自动保存轮询后，录制控制及视觉专项联合通过，归档.artifacts/runs/2026-11-08T04-12-52-542Z-e2e。",
+    "扩展真实导出验证时，测试使用不存在的变焦工具按钮，改为实际变焦空轨入口；失败归档.artifacts/runs/2026-11-08T04-21-00-318Z-e2e。侧栏和视觉专项通过，旧轨道测试仍依赖选择前游标及旧累积文本；分别保留04-23-12-961Z、04-26-27-138Z、04-28-34-006Z的e2e归档。按当前选中回起点规则明确定位切点及显示区间，并更新独立事件内容断言。",
+    "最终轨道及视觉源码专项全部通过，归档.artifacts/runs/2026-11-08T04-32-19-517Z-e2e。真实宿主覆盖全屏进出、鼠标、连接开关与阈值、键帽尺寸撤销重做、手绘一笔撤销重做、卡通箭头及保存重开；像素检查覆盖圆形/手绘聚焦、键帽、贴纸及动画。标准和现代导出分别在WebGL/WebGPU实际渲染，四组中段均产生947个显著变化通道值，尾边界残留均为0；结果见该归档export-pipelines.json。",
+    "原生Space采集、控制条斜线及相邻录制流程通过，归档.artifacts/runs/2026-11-08T04-28-34-006Z-e2e；侧栏规范专项通过，归档.artifacts/runs/2026-11-08T04-23-12-961Z-e2e。四项相关源码专项已分批通过。人工查看直接插件截图，包括全屏、键帽侧栏与明暗注释，未拼接宿主截图。",
+    "修改模块ESLint错误检查通过；新增文件按仓库Prettier格式整理。pnpm docs:check通过37文档252本地链接及15章66步，presentation-visual-effects回归分组--list通过。",
+    "pnpm maintain与pnpm maintain:check通过；pnpm build通过宿主类型检查、设置/工具插件和Electron生产编译，日志.artifacts/presentation-visual-effects-build.log。首次预览同步保留221个资料文件，程序和内置插件资源验证通过。",
+    "最后细化键帽阴影按实际字高缩放及安全留白；五种不透明键帽在80×28小区域的四周alpha均为0，确认未裁切键壁或RGB光晕。源码专项及标准/现代WebGL/WebGPU动画再次通过，归档.artifacts/runs/2026-11-08T04-44-50-949Z-e2e；pnpm build:tools补编译通过，日志.artifacts/presentation-visual-effects-build-tools-final.log。",
+    "最终源码再次通过完整124文件832项单测，归档.artifacts/runs/2026-11-08T04-47-16-258Z-unit；日志.artifacts/presentation-visual-effects-unit-final.log。",
+    "最终pnpm preview:sync更新104项程序资源，221个既有配置、项目及插件文件逐文件保持一致；保留收据.artifacts/backups/preview-sync/update-1794113309915/preservation.json。pnpm test:preview:resources及清理后复核均通过103个程序文件、347个内置插件文件及1687个媒体依赖，日志.artifacts/presentation-visual-effects-preview-sync-final.log、presentation-visual-effects-preview-resources-final.log和presentation-visual-effects-preview-after-cleanup.log。",
+    "完成两轮同步的空间收尾：验证最终绝对路径、祖先和子项无链接、目标无Git跟踪及纯程序边界后，清理6处已消费暂存和被替代程序回退，共11052文件2110304917字节（约2013MiB）。只保留update-1794113309915/previous-resources最近回退和所有preservation.json；配置、插件、资料备份及独有证据保留。清单、结果和占用摘要位于.artifacts/cleanup-2026-11-08/，一次性清理脚本已移除。",
+    "空间复核：.artifacts目录逻辑大小约5.07GiB，主要为1.95GiB原始测试证据、1.18GiB既有工具链、1.15GiB回退与资料备份、0.56GiB历史下载及0.18GiB上游材料。资料和独有证据受保护，历史材料并非本轮消费范围，继续保留；本轮无新增下载或工具链。未进行资料重置、push、云端构建或Release。"
+  ],
+  "pending": ["实际设备、多屏、其他DPI、触控及主观动画观感待用户验收。", "长视频、4K高帧率导出性能未专项验收。"],
+  "preview": "已同步.local/portable-preview，使用PreviewPortable.cmd手动测试；221个原配置、项目和插件文件保持一致，资源复核通过，未重置资料。"
+}

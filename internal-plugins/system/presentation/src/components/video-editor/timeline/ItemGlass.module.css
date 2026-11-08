@@ -128,7 +128,7 @@
 .glassDarkGreen {
 	position: relative;
 	border-radius: 8px;
-	background: #164f2d;
+	background: #123c2b;
 	border: 1px solid #196b38;
 	transition:
 		background 0.15s ease,
@@ -262,7 +262,7 @@
 }
 
 :global(:root:not(.dark)) .glassDarkGreen {
-	background: #86efac;
+	background: #d3f4df;
 	border-color: #4ade80;
 }
 :global(:root:not(.dark)) .glassDarkGreen:hover {
@@ -325,19 +325,6 @@
 .zoomEndCap::before,
 .zoomEndCap::after {
 	content: none;
-}
-
-/* Keep clip handles visible using the original theme-aware handle colors. */
-.zoomEndCap.clipHandle {
-	opacity: 1;
-}
-
-/* Clip grips sit outside the filmstrip; the clip boundary is the trim target. */
-.zoomEndCap.clipHandle.left {
-	left: -9px;
-}
-.zoomEndCap.clipHandle.right {
-	right: -9px;
 }
 
 /* Caption previews share the filmstrip, with enough contrast over any footage. */

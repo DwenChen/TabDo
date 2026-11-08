@@ -71,7 +71,7 @@ export function WallpaperGrid({
 							<Button
 								variant="secondary"
 								isIconOnly
-								aria-label={`Remove ${item.label}`}
+								aria-label={`移除${item.label}`}
 								onPress={() => onRemove(item.value)}
 								className="absolute right-0.5 top-0.5 z-10 size-5 min-w-0 rounded-full p-0 bg-overlay text-foreground shadow-sm opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100"
 							>
@@ -112,7 +112,7 @@ function WallpaperVideoPreview({ src }: { src: string }) {
 
 	return (
 		<video
-			src={resolvedSrc}
+			src={resolvedSrc || undefined}
 			muted
 			playsInline
 			preload="metadata"

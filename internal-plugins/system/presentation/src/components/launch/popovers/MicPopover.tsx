@@ -1,6 +1,6 @@
-import { MicrophoneSlashIcon, SpeakerHighIcon, SpeakerXIcon } from "@presentation/components/ui/icons";
+import { Button } from "@presentation/components/ui/button";
 import { useScopedT } from "@presentation/contexts/I18nContext";
-import { DropdownItem, HudPopover, MicDeviceRow } from "./PopoverScaffold";
+import { HudPopover, MicDeviceRow } from "./PopoverScaffold";
 import { useLaunchPopoverCoordinator } from "./LaunchPopoverCoordinator";
 import type { DeviceOption } from "./launchPopoverTypes";
 import type { ReactElement } from "react";
@@ -8,11 +8,14 @@ import styles from "../LaunchWindow.module.css";
 
 const POPOVER_ID = "mic";
 
+/**
+ * 展示麦克风设备与独立的醒目关闭操作。
+ * @param props 当前设备、开关状态及用户操作。
+ * @returns 麦克风选择菜单，不包含系统音频选项。
+ */
 export function MicPopover({
 	trigger,
 	disabled,
-	systemAudioEnabled,
-	onToggleSystemAudio,
 	microphoneEnabled,
 	onDisableMicrophone,
 	devices,
@@ -22,8 +25,6 @@ export function MicPopover({
 }: {
 	trigger: ReactElement;
 	disabled?: boolean;
-	systemAudioEnabled: boolean;
-	onToggleSystemAudio: () => void;
 	microphoneEnabled: boolean;
 	onDisableMicrophone: () => void;
 	devices: DeviceOption[];
@@ -52,27 +53,17 @@ export function MicPopover({
 			align="start"
 		>
 			<div className={styles.ddLabel}>{t("recording.microphone")}</div>
-			<DropdownItem
-				icon={
-					systemAudioEnabled ? <SpeakerHighIcon size={16} /> : <SpeakerXIcon size={16} />
-				}
-				selected={systemAudioEnabled}
-				onClick={onToggleSystemAudio}
-			>
-				{systemAudioEnabled
-					? t("recording.disableSystemAudio")
-					: t("recording.enableSystemAudio")}
-			</DropdownItem>
 			{microphoneEnabled && (
-				<DropdownItem
-					icon={<MicrophoneSlashIcon size={16} />}
+				<Button
+					variant="destructive-soft"
+					className="mb-2 w-full justify-center font-medium"
 					onClick={() => {
 						onDisableMicrophone();
 						requestClose(POPOVER_ID);
 					}}
 				>
 					{t("recording.turnOffMicrophone")}
-				</DropdownItem>
+				</Button>
 			)}
 			{!microphoneEnabled && (
 				<div className="px-3 py-2 text-xs text-[var(--launch-text-muted)]">

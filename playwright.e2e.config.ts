@@ -14,9 +14,11 @@ export default defineConfig({
   workers: 1,
   retries: 0,
   reporter: [['list']],
+  globalSetup: './tests/fixtures/source-preview-ready.ts',
   webServer: {
     command: 'node scripts/preview-local.cjs --servers-only',
-    url: 'http://127.0.0.1:15177',
+    // 设置端口先监听不代表工具服务已经可用，等待三项服务共同就绪。
+    url: 'http://127.0.0.1:15178/__tabdo_source_preview_ready',
     reuseExistingServer: true,
     timeout: 120_000
   },

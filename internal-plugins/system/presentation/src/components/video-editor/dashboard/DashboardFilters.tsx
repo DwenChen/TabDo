@@ -1,11 +1,17 @@
 import type { DashboardProps } from "./types";
 import { Dropdown } from "@heroui/react";
 import { CaretDown, Trash } from "@presentation/components/ui/icons";
+import { ListChecks } from '@phosphor-icons/react';
 
 import { Button } from "@presentation/components/ui/button";
 
 import type { DashboardModel } from "./useDashboardModel";
 
+/**
+ * 展示项目筛选与批量选择入口，使用常见的列表勾选图标。
+ * @param props 当前项目列表、筛选及批量操作。
+ * @returns 筛选栏与按需显示的批量操作栏。
+ */
 export function DashboardFilters({
 	isRaw,
 	period,
@@ -19,6 +25,8 @@ export function DashboardFilters({
 	visible,
 	busy,
 	deleteEntries,
+	folders,
+	assignSelectedFolder,
 	hideSelection = false,
 }: Pick<
 	DashboardModel & DashboardProps,
@@ -27,13 +35,15 @@ export function DashboardFilters({
 	| "setPeriod"
 	| "selecting"
 	| "setSelecting"
-	| "项已选择"
+	| "selected"
 	| "setSelected"
 	| "sort"
 	| "setSort"
 	| "visible"
 	| "busy"
 	| "deleteEntries"
+	| "folders"
+	| "assignSelectedFolder"
 > & { hideSelection?: boolean }) {
 	return (
 		<>
@@ -59,9 +69,10 @@ export function DashboardFilters({
 						<Button
 							variant="ghost"
 							size="icon"
-							className="size-7 min-w-7 text-danger"
+							className={`size-7 min-w-7 ${isRaw ? 'text-danger' : 'text-muted-foreground'}`}
+							title={isRaw ? '选择要删除的录制' : '多选项目，可加入文件夹或删除'}
 							aria-label={
-								isRaw ? "选择要移除的录制" : "选择要删除的项目"
+								isRaw ? "选择要删除的录制" : "选择项目"
 							}
 							aria-pressed={selecting}
 							onClick={() => {
@@ -69,7 +80,7 @@ export function DashboardFilters({
 								setSelected([]);
 							}}
 						>
-							<Trash weight="fill" className="size-4" />
+							{isRaw ? <Trash weight="fill" className="size-4" /> : <ListChecks className="size-4" />}
 						</Button>
 					)}
 				</div>
@@ -118,13 +129,20 @@ export function DashboardFilters({
 						全选
 					</Button>
 					<span>{selected.length} 项已选择</span>
+					{!isRaw && <Dropdown>
+						<Button variant="secondary" size="sm" disabled={!selected.length || busy}>加入文件夹</Button>
+						<Dropdown.Popover><Dropdown.Menu aria-label="批量加入文件夹">
+							{folders.map((folder) => <Dropdown.Item key={folder.id} id={folder.id} onAction={() => assignSelectedFolder(folder.id)}>{folder.name}</Dropdown.Item>)}
+							{!folders.length && <Dropdown.Item id="empty" isDisabled>请先在侧栏新建文件夹</Dropdown.Item>}
+						</Dropdown.Menu></Dropdown.Popover>
+					</Dropdown>}
 					<Button
 						variant="destructive"
 						size="sm"
 						disabled={!selected.length || busy}
 						onClick={() => void deleteEntries(selected)}
 					>
-						{isRaw ? "移除" : "删除"}
+						删除
 					</Button>
 					<Button
 						variant="ghost"

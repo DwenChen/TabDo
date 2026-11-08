@@ -19,7 +19,6 @@ import { useTimelineCaptionActions } from "./actions/useTimelineCaptionActions";
 import { useTimelineZoomActions } from "./actions/useTimelineZoomActions";
 import { useTimelineDndBindings } from "./useTimelineDndBindings";
 import { useTimelineKeyboardShortcuts } from "./useTimelineKeyboardShortcuts";
-import { useTimelineNormalization } from "./useTimelineNormalization";
 import { useTimelineSelection } from "./useTimelineSelection";
 
 interface UseTimelineEditorRuntimeParams {
@@ -27,7 +26,6 @@ interface UseTimelineEditorRuntimeParams {
 	videoDuration: number;
 	totalMs: number;
 	currentTimeMs: number;
-	safeMinDurationMs: number;
 	cursorTelemetry: CursorTelemetryPoint[];
 	autoSuggestZoomsTrigger: number;
 	onAutoSuggestZoomsConsumed?: () => void;
@@ -42,7 +40,7 @@ interface UseTimelineEditorRuntimeParams {
 	trimRegions: TrimRegion[];
 	onTrimSpanChange?: (id: string, span: Span) => void;
 	clipRegions: ClipRegion[];
-	onClipSplit?: (splitMs: number) => void;
+	onSplitSelected?: () => void;
 	onClipSpanChange?: (id: string, span: ClipSequenceSpan) => void;
 	onClipDelete?: (id: string) => void;
 	selectedClipId?: string | null;
@@ -72,12 +70,16 @@ interface UseTimelineEditorRuntimeParams {
 	isTimelineFocusedRef: RefObject<boolean | null>;
 }
 
+/**
+ * 组合时间轴选区、拖动与新增命令，并统一转交选中片段的分割操作。
+ * @param options 当前轨道、播放状态、快捷键和编辑回调。
+ * @returns 时间轴渲染数据、选区操作和新增片段入口。
+ */
 export function useTimelineEditorRuntime({
 	ref,
 	videoDuration,
 	totalMs,
 	currentTimeMs,
-	safeMinDurationMs,
 	cursorTelemetry,
 	autoSuggestZoomsTrigger,
 	onAutoSuggestZoomsConsumed,
@@ -92,7 +94,7 @@ export function useTimelineEditorRuntime({
 	trimRegions,
 	onTrimSpanChange,
 	clipRegions,
-	onClipSplit,
+	onSplitSelected,
 	onClipSpanChange,
 	onClipDelete,
 	selectedClipId,
@@ -168,18 +170,7 @@ export function useTimelineEditorRuntime({
 		onSelectCaption,
 	});
 
-	useTimelineNormalization({
-		totalMs,
-		safeMinDurationMs,
-		zoomRegions,
-		trimRegions,
-		speedRegions,
-		audioRegions,
-		onZoomSpanChange,
-		onTrimSpanChange,
-		onSpeedSpanChange,
-		onAudioSpanChange,
-	});
+	// 编辑命令负责边界约束；渲染不扩展切割后的短效果，也不改动独立音频的时长。
 
 	const {
 		hasOverlap,
@@ -207,6 +198,7 @@ export function useTimelineEditorRuntime({
 	const {
 		defaultRegionDurationMs,
 		canPlaceZoomAtMs,
+		resolveZoomSpanAtMs,
 		addZoomAtMs,
 		handleAddZoom,
 		handleSuggestZooms,
@@ -228,12 +220,16 @@ export function useTimelineEditorRuntime({
 			onCaptionAdded,
 		});
 
+	/**
+	 * 将剪刀和已启用的快捷键交给编辑器统一选区命令。
+	 * @returns 无返回值；无素材或无有效选区时不操作。
+	 */
 	const handleSplitClip = useCallback(() => {
-		if (!videoDuration || videoDuration === 0 || totalMs === 0 || !onClipSplit) {
+		if (!videoDuration || videoDuration === 0 || totalMs === 0 || !onSplitSelected) {
 			return;
 		}
-		onClipSplit(currentTimeMs);
-	}, [videoDuration, totalMs, currentTimeMs, onClipSplit]);
+		onSplitSelected();
+	}, [videoDuration, totalMs, onSplitSelected]);
 
 	const { handleAddAudio } = useTimelineAudioActions({
 		timeline: { videoDuration, totalMs, currentTimeMs },
@@ -326,6 +322,7 @@ export function useTimelineEditorRuntime({
 		getResolvedDropRowId,
 		handleItemSpanChange,
 		canPlaceZoomAtMs,
+		resolveZoomSpanAtMs,
 		addZoomAtMs,
 		canPlaceCaptionAtMs,
 		addCaptionAtMs,

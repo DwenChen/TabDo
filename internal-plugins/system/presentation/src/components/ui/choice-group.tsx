@@ -1,5 +1,6 @@
 import { Tag, TagGroup } from "@heroui/react";
 import type { ComponentProps, ReactNode } from "react";
+import { cn } from '@presentation/lib/utils';
 
 /** Mutually exclusive settings, with HeroUI's keyboard-accessible tag selection. */
 export function ChoiceGroup({
@@ -38,6 +39,11 @@ export function ChoiceGroup({
 		</TagGroup>
 	);
 }
+/**
+ * 为所有编辑器单选项统一提供明确选中轮廓，键盘与鼠标选择使用同一反馈。
+ * @param props 选项值、可读名称、外观与内容。
+ * @returns 带强调轮廓和标准无障碍选中状态的选项。
+ */
 export function ChoiceItem({
 	value,
 	title,
@@ -58,7 +64,9 @@ export function ChoiceItem({
 				title ??
 				(typeof children === "string" ? children : props["aria-label"])
 			}
-			className={`min-h-8 justify-center ${className ?? ""}`}
+			className={(state) => cn('min-h-8 justify-center',
+				state.isSelected && 'ring-2 ring-inset ring-accent font-medium',
+				typeof className === 'function' ? className(state) : className)}
 		>
 			{children}
 		</Tag>

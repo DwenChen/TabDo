@@ -1,0 +1,77 @@
+.zoom-angle-pad,
+.zoom-focus-pad {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 136px;
+  border: 1px solid var(--border-color, var(--border));
+  border-radius: 8px;
+  background: var(--bg-hover, var(--surface-secondary));
+  touch-action: none;
+  user-select: none;
+  overflow: hidden;
+  cursor: grab;
+}
+.zoom-angle-pad:active {
+  cursor: grabbing;
+}
+.zoom-angle-plane {
+  width: 126px;
+  height: 76px;
+  display: grid;
+  place-items: center;
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--primary-color, var(--primary)) 25%, transparent);
+  border: 1px solid var(--primary-color, var(--primary));
+  border-radius: 6px;
+  font-size: 12px;
+}
+.zoom-pad-hint {
+  position: absolute;
+  bottom: 6px;
+}
+.zoom-angle-presets {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+}
+.zoom-angle-presets button {
+  display: grid;
+  place-items: center;
+  height: 34px;
+  border-radius: 6px;
+  background: var(--bg-hover, var(--surface-secondary));
+  border: 1px solid var(--border-color, var(--border));
+}
+.zoom-angle-presets button[aria-pressed='true'] {
+  border-color: var(--primary-color, var(--primary));
+  background: color-mix(in srgb, var(--primary-color, var(--primary)) 12%, transparent);
+}
+.zoom-angle-presets button span {
+  width: 20px;
+  height: 14px;
+  border-radius: 3px;
+  background: var(--primary-color, var(--primary));
+  opacity: 0.65;
+}
+.zoom-angle-presets button:focus-visible {
+  outline: 2px solid var(--primary-color, var(--primary));
+  outline-offset: 2px;
+}
+.zoom-focus-pad {
+  height: 116px;
+  cursor: crosshair;
+  background-image:
+    linear-gradient(var(--border-color, var(--border)) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border-color, var(--border)) 1px, transparent 1px);
+  background-size: 25% 25%;
+}
+.zoom-focus-point {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  transform: translate(-50%, -50%);
+  border: 2px solid var(--primary-color, var(--primary));
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--bg-surface, var(--background));
+}

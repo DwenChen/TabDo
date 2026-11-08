@@ -153,21 +153,9 @@ export function checkDocumentation(root) {
   )
   let steps = 0
   for (const chapter of chapters) {
-    const paragraphs = [
-      chapter.title,
-      chapter.intro,
-      chapter.figure,
-      chapter.prepare,
-      chapter.result,
-      ...chapter.steps,
-      ...chapter.problems.flatMap((problem) => [problem.question, problem.answer])
-    ]
+    const paragraphs = [chapter.title, chapter.intro, ...chapter.steps, ...chapter.tips]
     if (paragraphs.some((paragraph) => !guide.includes(visibleText(paragraph))))
       errors.push(`docs/usage-guide.md: ${chapter.id} 与应用内教程不一致`)
-    if (
-      !fs.existsSync(path.join(root, `internal-plugins/setting/public/tutorial/${chapter.id}.svg`))
-    )
-      errors.push(`教程插图不存在: ${chapter.id}.svg`)
     steps += chapter.steps.length
   }
   return {

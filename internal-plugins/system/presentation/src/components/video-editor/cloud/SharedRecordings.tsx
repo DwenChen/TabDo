@@ -1,3 +1,4 @@
+import { localizePresentationMessage } from "@presentation/lib/presentationMessages";
 import { parseSharedRecordingDate } from "./sharedRecordingDate";
 import { FREE_RECORDING_LIMIT, notifyShareCapacityChanged } from "./shareCapacity";
 import { LibrarySkeleton } from "../dashboard/LibrarySkeleton";
@@ -151,14 +152,14 @@ export function SharedRecordings({
 				<div className="px-7 lg:px-10">
 					{error && (
 						<p role="alert" className="mb-4 text-sm text-danger">
-							{error}
+							{localizePresentationMessage(error)}
 						</p>
 					)}
 					{loading ? (
 						<LibrarySkeleton />
 					) : entries.length ? (
 						<ul
-							aria-label="Shared projects"
+							aria-label="已分享项目"
 							className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))] gap-x-7 gap-y-10 lg:gap-x-9"
 						>
 							{entries.map((entry) => (
@@ -216,7 +217,7 @@ export function SharedRecordings({
 		<section className="space-y-3 border-b border-foreground/10 pb-4">
 			<div className="flex items-center justify-between gap-2">
 				{standalone ? (
-					<h2 className="text-lg font-semibold">Shared recordings</h2>
+					<h2 className="text-lg font-semibold">已分享录制</h2>
 				) : (
 					<Button
 						variant="ghost"
@@ -224,7 +225,7 @@ export function SharedRecordings({
 						onPress={() => setExpanded((value) => !value)}
 						aria-expanded={expanded}
 					>
-						{expanded ? "Hide shared recordings" : "Manage shared recordings"}
+						{expanded ? "收起已分享录制" : "管理已分享录制"}
 					</Button>
 				)}
 				{expanded && (
@@ -232,7 +233,7 @@ export function SharedRecordings({
 						variant="ghost"
 						size="sm"
 						isIconOnly
-						aria-label="Refresh recordings"
+						aria-label="刷新录制"
 						isDisabled={loading || Boolean(deleting)}
 						onPress={() => void load()}
 					>
@@ -244,7 +245,7 @@ export function SharedRecordings({
 				<>
 					<p className="text-xs text-muted">
 						{loading
-							? "Loading recordings…"
+							? "正在加载录制…"
 							: `${recordings.length} of ${FREE_RECORDING_LIMIT} recordings · 1 GB each · Free links expire after 14 days`}
 					</p>
 					{loading ? (
@@ -267,7 +268,7 @@ export function SharedRecordings({
 											</p>
 											<p className="text-xs text-muted">
 												{(recording.size / 1024 / 1024).toFixed(1)} MB
-												{!recording.ready && " · Incomplete upload"}
+												{!recording.ready && "· 上传未完成"}
 											</p>
 										</div>
 										{recording.ready && (
@@ -275,7 +276,7 @@ export function SharedRecordings({
 												variant="ghost"
 												size="sm"
 												isIconOnly
-												aria-label={`Open ${recording.title}`}
+												aria-label={`打开${recording.title}`}
 												onPress={() =>
 													void window.electronAPI.openExternalUrl(
 														recording.url,
@@ -289,7 +290,7 @@ export function SharedRecordings({
 											variant="ghost"
 											size="sm"
 											isIconOnly
-											aria-label={`Delete ${recording.title}`}
+											aria-label={`删除${recording.title}`}
 											isDisabled={Boolean(deleting)}
 											className="text-danger"
 											onPress={() => void remove(recording.code)}
@@ -300,14 +301,14 @@ export function SharedRecordings({
 								</li>
 							))}
 							{!recordings.length && !error && (
-								<li className="text-sm text-muted">No shared recordings yet.</li>
+								<li className="text-sm text-muted">暂无已分享的录制。</li>
 							)}
 						</ul>
 					)}
 					{error && (
 						<Alert status="danger">
 							<Alert.Content>
-								<Alert.Description>{error}</Alert.Description>
+								<Alert.Description>{localizePresentationMessage(error)}</Alert.Description>
 							</Alert.Content>
 						</Alert>
 					)}

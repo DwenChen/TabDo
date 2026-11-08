@@ -29,7 +29,7 @@ export function ExportErrorReportButton({
 				className="h-8 text-xs"
 				onClick={() => setOpen(true)}
 			>
-				{sent ? "Report sent" : "Report error"}
+				{sent ? "报告已发送" : "报告错误"}
 			</Button>
 			<Dialog
 				open={open}
@@ -39,42 +39,45 @@ export function ExportErrorReportButton({
 			>
 				<DialogContent className="max-w-md">
 					<DialogHeader>
-						<DialogTitle>{sent ? "Report sent" : "Report export error"}</DialogTitle>
+						<DialogTitle>{sent ? "报告已发送" : "报告导出错误"}</DialogTitle>
 					</DialogHeader>
 					{sent ? (
 						<p className="text-sm">
-							Thanks. The technical report was sent to Recordly support.
+
+							技术报告已发送。
 						</p>
 					) : (
 						<>
 							<p className="text-sm text-muted-foreground">
-								Send technical details to Recordly support through Supabase. No
-								account ID, email, recording, file path, attachments or console logs
-								are included. Supabase may keep connection logs separately.
+
+								通过 Supabase 发送技术详情，不包含账户标识、邮箱、录制、文件路径、附件或控制台日志。服务商可能单独保留连接日志。
 							</p>
 							<label className="flex flex-col gap-2 text-sm">
-								Cloud plan (optional, self-reported)
+
+								云端套餐（选填）
 								<select
 									value={plan}
 									onChange={(event) => setPlan(event.target.value as CloudPlan)}
 									disabled={sending}
 									className="rounded-md border bg-background p-2"
 								>
-									<option value="unknown">Unknown / prefer not to say</option>
-									<option value="paid">Paid cloud plan</option>
-									<option value="not_paid">No paid cloud plan</option>
+									<option value="unknown">不清楚或不填写</option>
+									<option value="paid">付费云端套餐</option>
+									<option value="not_paid">未使用付费云端套餐</option>
 								</select>
 							</label>
 							<details>
 								<summary className="cursor-pointer text-sm">
-									View data to be sent
+
+									查看将发送的数据
 								</summary>
 								<pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words text-xs mt-2">
 									{JSON.stringify(report, null, 2)}
 								</pre>
 							</details>
 							<p className="text-xs text-muted-foreground">
-								Reports are kept for 30 days, then removed by daily cleanup.
+
+								报告保留30天后清理。
 							</p>
 							{sendError && (
 								<p role="alert" className="text-sm text-destructive">
@@ -103,7 +106,7 @@ export function ExportErrorReportButton({
 									}
 								}}
 							>
-								{sending ? "Sending…" : "Send report"}
+								{sending ? "正在发送…" : "发送报告"}
 							</Button>
 						</>
 					)}

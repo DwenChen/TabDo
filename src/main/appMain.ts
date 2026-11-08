@@ -26,9 +26,13 @@ import pluginManager from './managers/pluginManager'
 import windowManager from './managers/windowManager'
 import clipboardManager from './managers/clipboardManager'
 import { stopProviderBridgeHost } from './core/provider/providerBridgeHost'
-import { stopRecorder } from './core/screenRecorder'
+import { hasRecorderSession, stopRecorder } from './core/screenRecorder'
 import { stopWebQuickOpen } from './core/webQuickOpen'
-import { stopMedia } from './core/mediaProcessor'
+import { hasMediaJobs, stopMedia } from './core/mediaProcessor'
+import { startIdleMemoryReclaimer } from './core/idleMemoryReclaimer'
+import { hasNativeToolWorkers } from './core/native/toolsNativeWorker'
+import { hasPresentationSessions } from './core/presentationRecorder'
+import { hasBuiltinProviderRequests } from './core/provider/builtinProviderService'
 
 const isE2ETest = process.env.TABDO_E2E === '1'
 
@@ -159,6 +163,18 @@ app.whenReady().then(async () => {
 
   // 创建主窗口
   const mainWindow = windowManager.createWindow()
+  // 完全闲置后先解除宿主输入引用，Windows超过预算时才归还冷工作集。
+  startIdleMemoryReclaimer(
+    mainWindow.webContents,
+    () =>
+      hasNativeToolWorkers() ||
+      hasMediaJobs() ||
+      hasRecorderSession() ||
+      hasPresentationSessions() ||
+      hasBuiltinProviderRequests() ||
+      appsAPI.hasActiveLaunches(),
+    () => api.releaseIdleResources()
+  )
 
   if (
     (isE2ETest || process.env.TABDO_SOURCE_PREVIEW === '1') &&

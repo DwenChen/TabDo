@@ -1,16 +1,11 @@
 <!-- 界面复用 batch-rename，来源与 MIT 许可见 public/LICENSE.batch-rename。 -->
 <script setup lang="ts">
-import type { InsertInfo, InsertRule, SequenceStyle } from './types'
+import type { InsertInfo, InsertRule } from './types'
+import NumberInput from './NumberInput.vue'
+import SequenceFields from './SequenceFields.vue'
 
 const props = defineProps<{ modelValue: InsertRule }>()
 const emit = defineEmits<{ 'update:modelValue': [value: InsertRule] }>()
-const sequenceStyles: { value: SequenceStyle; label: string }[] = [
-  { value: 'arabic', label: '阿拉伯数字' },
-  { value: 'chinese-lower', label: '中文小写数字' },
-  { value: 'chinese-upper', label: '中文大写数字' },
-  { value: 'alpha-lower', label: '英文小写字母' },
-  { value: 'alpha-upper', label: '英文大写字母' }
-]
 const information: { value: InsertInfo; label: string }[] = [
   { value: 'created', label: '文件创建时间' },
   { value: 'modified', label: '文件修改时间' },
@@ -92,6 +87,14 @@ function numericValue(event: Event, minimum: number) {
             {{ option[1] }}
           </button>
         </div>
+        <label v-if="modelValue.position === 'index'" class="position-field">
+          <NumberInput
+            :value="modelValue.index"
+            aria-label="插入位置"
+            min="1"
+            @input="update('index', numericValue($event, 1))"
+          />
+        </label>
       </div>
     </div>
     <div v-if="modelValue.kind === 'text'" class="single-row">
@@ -104,14 +107,6 @@ function numericValue(event: Event, minimum: number) {
           placeholder="输入要插入的固定文本..."
           @input="update('text', ($event.target as HTMLInputElement).value)"
       /></label>
-      <label v-if="modelValue.position === 'index'" class="material-field index-field"
-        ><span>位置（从 1 开始）</span
-        ><input
-          :value="modelValue.index"
-          type="number"
-          min="1"
-          @input="update('index', numericValue($event, 1))"
-      /></label>
     </div>
     <div v-else-if="modelValue.kind === 'number'" class="three-cols">
       <label class="material-field"
@@ -122,38 +117,11 @@ function numericValue(event: Event, minimum: number) {
           placeholder="如：Part_"
           @input="updateNumber('prefix', ($event.target as HTMLInputElement).value)"
       /></label>
-      <div class="number-card">
-        <label class="mini-field"
-          ><span>开始序号</span
-          ><input
-            :value="modelValue.number.start"
-            type="number"
-            min="0"
-            @input="updateNumber('start', numericValue($event, 0))"
-        /></label>
-        <label class="mini-field"
-          ><span>序号类型</span
-          ><select
-            :value="modelValue.number.style"
-            @change="
-              updateNumber('style', ($event.target as HTMLSelectElement).value as SequenceStyle)
-            "
-          >
-            <option v-for="style in sequenceStyles" :key="style.value" :value="style.value">
-              {{ style.label }}
-            </option>
-          </select></label
-        >
-        <label v-if="modelValue.number.style === 'arabic'" class="mini-field"
-          ><span>固定位数（补零）</span
-          ><input
-            :value="modelValue.number.digits || ''"
-            type="number"
-            min="0"
-            placeholder="如：2"
-            @input="updateNumber('digits', numericValue($event, 0))"
-        /></label>
-      </div>
+      <SequenceFields
+        :model-value="modelValue.number"
+        label-prefix="插入"
+        @update:model-value="update('number', $event)"
+      />
       <label class="material-field"
         ><span>序号后面字符</span
         ><input
@@ -176,6 +144,7 @@ function numericValue(event: Event, minimum: number) {
         ><span>文件信息类型</span
         ><select
           :value="modelValue.info"
+          aria-label="文件信息类型"
           @change="update('info', ($event.target as HTMLSelectElement).value as InsertInfo)"
         >
           <option v-for="item in information" :key="item.value" :value="item.value">
@@ -192,36 +161,27 @@ function numericValue(event: Event, minimum: number) {
           @input="update('suffix', ($event.target as HTMLInputElement).value)"
       /></label>
     </div>
-    <label
-      v-if="modelValue.position === 'index' && modelValue.kind !== 'text'"
-      class="position-field"
-      >指定位置（从 1 开始）<input
-        :value="modelValue.index"
-        type="number"
-        min="1"
-        @input="update('index', numericValue($event, 1))"
-    /></label>
   </section>
 </template>
 
 <style scoped>
 .insert-panel {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
   align-items: start;
   gap: 14px;
-  height: 100%;
 }
 .segmented-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 .segmented-group {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 5px;
   color: var(--muted);
   font-size: 12px;
   white-space: nowrap;
@@ -235,7 +195,7 @@ function numericValue(event: Event, minimum: number) {
   background: var(--surface-subdued);
 }
 .segmented-tabs button {
-  padding: 5px 11px;
+  padding: 4px 8px;
   color: var(--muted);
   background: transparent;
   font-size: 12px;
@@ -251,14 +211,13 @@ function numericValue(event: Event, minimum: number) {
   display: flex;
   align-items: center;
   align-self: center;
-  gap: 14px;
+  gap: 10px;
 }
 .three-cols {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 220px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) 260px minmax(0, 1fr);
 }
-.material-field,
-.mini-field {
+.material-field {
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -269,25 +228,19 @@ function numericValue(event: Event, minimum: number) {
 }
 .material-field {
   flex: 1;
-  height: 68px;
-  padding: 8px 14px;
+  height: 56px;
+  padding: 6px 10px;
 }
-.mini-field {
-  height: 42px;
-  padding: 4px 10px;
-  border-radius: 5px;
-}
-.material-field:focus-within,
-.mini-field:focus-within {
+.material-field:focus-within {
   border-color: var(--primary);
   box-shadow: 0 0 0 2px var(--focus-ring);
 }
-label span {
+.material-field > span {
   color: var(--muted);
   font-size: 11px;
 }
-label input,
-label select {
+.material-field input,
+.material-field select {
   width: 100%;
   min-width: 0;
   border: 0;
@@ -297,43 +250,16 @@ label select {
   font: inherit;
   font-size: 13px;
 }
-.index-field {
-  flex: none;
-  width: 150px;
-}
-.number-card {
-  display: grid;
-  gap: 4px;
-  padding: 7px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-}
-.insert-panel:has(.position-field) .mini-field {
-  height: 32px;
-}
 .position-field {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--muted);
-  font-size: 12px;
-}
-.position-field input {
-  width: 70px;
-  padding: 5px;
+  width: 66px;
+  padding: 2px 4px 2px 8px;
   border: 1px solid var(--border-input);
   border-radius: 5px;
+  background: var(--surface-subdued);
 }
-@media (max-width: 780px) {
-  .segmented-row {
-    flex-wrap: wrap;
-  }
+@media (max-width: 640px) {
   .three-cols {
-    grid-template-columns: 1fr 1fr;
-  }
-  .number-card {
-    grid-row: span 2;
-    grid-column: 2;
+    grid-template-columns: minmax(0, 1fr) 230px minmax(0, 1fr);
   }
 }
 </style>

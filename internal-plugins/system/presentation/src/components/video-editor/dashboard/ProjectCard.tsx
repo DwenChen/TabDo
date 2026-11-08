@@ -6,7 +6,7 @@ import { Dropdown } from "@heroui/react";
 import { Check, DotsThree, FolderSimple, Plus } from "@presentation/components/ui/icons";
 import { useRef, useState } from "react";
 import { Button } from "@presentation/components/ui/button";
-import { getProjectShareLink, moveProjectShareLink } from "../cloud/projectShareLinks";
+import { moveProjectShareLink } from "../cloud/projectShareLinks";
 import type { ProjectLibraryEntry } from "../ProjectBrowserDialog";
 import { ProjectThumbnail } from "./ProjectThumbnail";
 import type { DashboardProps } from "./types";
@@ -17,11 +17,10 @@ type Props = Pick<
 	| "accountLabel"
 	| "busy"
 	| "selecting"
-	| "项已选择"
+	| "selected"
 	| "toggleSelected"
 	| "openEntry"
 	| "run"
-	| "onShareProject"
 	| "onRenameProject"
 	| "folders"
 	| "save"
@@ -39,7 +38,6 @@ export function ProjectCard({
 	toggleSelected,
 	openEntry,
 	run,
-	onShareProject,
 	onRenameProject,
 	folders,
 	save,
@@ -51,7 +49,6 @@ export function ProjectCard({
 	const [name, setName] = useState(entry.name);
 	const assignedFolders = folders.filter((folder) => folder.paths.includes(entry.path));
 	const folder = assignedFolders[0];
-	const shareUrl = getProjectShareLink(entry.path);
 	const rename = () => {
 		if (renaming.current) return;
 		renaming.current = true;
@@ -115,6 +112,7 @@ export function ProjectCard({
 						{selected.includes(entry.path) && <Check className="size-3.5" />}
 					</span>
 				)}
+				{Boolean(entry.missingMediaPaths?.length) && <span className="absolute bottom-2 left-2 rounded-md bg-background/95 px-2 py-1 text-xs text-warning">素材缺失</span>}
 			</Button>
 			<div className="relative flex items-start justify-between gap-4 pt-5">
 				<AccountAvatar label={accountLabel} className="!size-[48px]" />
@@ -129,7 +127,7 @@ export function ProjectCard({
 							<input
 								autoFocus
 								onFocus={(event) => event.currentTarget.select()}
-								aria-label={entry.rawSource ? "Raw file name" : "项目名称"}
+								aria-label={entry.rawSource ? "原始录制名称" : "项目名称"}
 								className="inline-project-name h-5 w-full pr-8 text-[12px] font-medium"
 								value={name}
 								disabled={busy}
@@ -179,7 +177,7 @@ export function ProjectCard({
 									<Button
 										variant="ghost"
 										size="sm"
-										aria-label={`Add folder to ${entry.name}`}
+										aria-label={`添加文件夹：${entry.name}`}
 										className="h-6 min-w-0 shrink-0 gap-1.5 rounded-full px-2.5 text-[11px] text-muted-foreground opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100"
 									>
 										<Plus className="size-3" />添加文件夹</Button>
@@ -228,7 +226,7 @@ export function ProjectCard({
 					<Button
 						variant="ghost"
 						size="icon"
-						aria-label={`Options for ${entry.name}`}
+						aria-label={`项目操作：${entry.name}`}
 						className="absolute right-0 top-5 size-6 min-w-6 text-muted-foreground"
 					>
 						<DotsThree weight="bold" className="size-5" />
@@ -241,9 +239,9 @@ export function ProjectCard({
 								onAction={() => openEntry(entry)}
 							>
 								{webUrl
-									? "Open link"
+									? "打开链接"
 									: entry.rawSource
-										? "Preview file"
+										? "预览录制"
 										: "打开项目"}
 							</Dropdown.Item>
 							{!webUrl && (
@@ -257,26 +255,10 @@ export function ProjectCard({
 									>
 										重命名
 									</Dropdown.Item>
-									{!entry.rawSource && (
-										<Dropdown.Item
-											id="share"
-											onAction={() =>
-												void run(async () => {
-													if (shareUrl)
-														await window.electronAPI.openExternalUrl(
-															shareUrl,
-														);
-													else await onShareProject(entry.path);
-												})
-											}
-										>
-											{shareUrl ? "View in web" : "Share"}
-										</Dropdown.Item>
-									)}
 									<Dropdown.Item
 										aria-label={
 											entry.rawSource
-												? `Show ${entry.name} in folder`
+												? `打开所在文件夹：${entry.name}`
 												: undefined
 										}
 										id="reveal"
@@ -301,7 +283,7 @@ export function ProjectCard({
 									{webUrl
 										? "删除录制"
 										: entry.rawSource
-											? "Remove from library"
+											? "删除原始录制"
 											: "删除项目"}
 								</Dropdown.Item>
 							)}

@@ -1,0 +1,49 @@
+{
+  "id": "presentation-final-review",
+  "date": "2026-11-08",
+  "version": "1.4.0",
+  "summary": "演示录屏最终资源优化与TabDo1.4.0发布候选验收",
+  "changes": [
+    "麦克风电平检测按effect独立持有设备和音频上下文，在resume前登记资源，迟到、失败及菜单关闭均释放；分析限制为每秒最多20次并使用整数级别减少重复更新。",
+    "顺序视频解码器销毁先取消背压和帧等待，再关闭解码器并释放解复用；取消后的输出帧立即关闭，异步URL、加载及配置完成不得复活工作进程。",
+    "演示后端成对追踪创建和取消的定时器，立即移除已取消句柄，清理退出期间产生的短期等待，并在普通退出解除owner销毁监听。删除无调用方的VideoFileDecoder；保留仍被标准导出路径调用的VideoExporter及原背景圆角改动。",
+    "新增TX-132资源回归，按用户本轮授权推进提交、push、云端构建和正式Release；本地预览同步核验后备份并重置为初始安装资料。",
+    "实际同步专项暴露WASAPI逐包QPC抖动修改连续PCM内容，改用可靠首包QPC锚定设备帧计数，真实缺口和重置重新校准，匹配门槛保持不变。",
+    "两套导出渲染器在异步准备前登记辅助解码来源，退出阻止恢复媒体元素回退；坏素材准备失败自动释放解复用器，等待帧期间的解码错误不再当作EOF。",
+    "空视频与注释图片来源使用undefined，避免React将空src解释为当前页面下载；原生构建同步更新已分发WGC程序的源码与二进制收据。",
+    "播放与片段工具复用PlaybackAction提示，修复启用按钮缺少触发器及播放条提示未呈现；原生回退全屏在捕获阶段响应Esc，模态菜单仍优先处理，避免提示层吞掉全屏退出。"
+  ],
+  "checks": [
+    "开始时Git已有416项未提交变化，保留此前修改；按维护流程审阅索引、Bug台账、模块、资源和发布规范。",
+    "pnpm test tests/main/presentationRuntimeTimers.test.ts tests/main/presentationForwardFrames.test.ts tests/main/presentationAudioMeter.test.ts通过3文件11项，归档.artifacts/runs/2026-11-08T09-30-08-640Z-unit。",
+    "完整pnpm test --maxWorkers=2通过130文件868项，归档.artifacts/runs/2026-11-08T09-36-37-387Z-unit；主进程、宿主与设置类型检查通过。全仓静态检查发现7项返回类型错误，已修复并通过相关文件检查；历史格式警告保留。",
+    "真实WebCodecs连续五次满队列销毁通过，归档.artifacts/runs/2026-11-08T09-35-30-152Z-e2e；首轮因样片未经正式项目登记而被媒体白名单拒绝的失败归档.artifacts/runs/2026-11-08T09-32-00-103Z-e2e，测试已通过正式接口登记素材。",
+    "控制条、物理相机与三次冷启动通过，双音轨同步第二处参考匹配失败，归档.artifacts/runs/2026-11-08T09-39-27-260Z-e2e。离线PCM复核发现连续包的采样位置跳变，定位到逐包QPC修正而非降低参考匹配门槛。",
+    "片段及导入专项通过；旧录制和编辑审查测试仍引用已删除自动保存说明与旧箭头名称，归档.artifacts/runs/2026-11-08T09-43-32-226Z-e2e，按当前源码修正定位器并保留实际持久化与撤销验证。",
+    "原生帮助程序以MSVC14.44.35207和SDK10.0.26100.0编译成功，日志.artifacts/presentation-final-native-build.log；初次工具链路径缺少msvc子目录而未启动编译，修正路径后成功。",
+    "原生时钟及短音单测10项通过，归档.artifacts/runs/2026-11-08T09-49-27-263Z-unit。pnpm test:e2e tests/e2e/presentation-synchronization.spec.ts --repeat-each=2两轮全部通过，归档.artifacts/runs/2026-11-08T09-49-30-321Z-e2e；八处音频测点最大绝对误差约0.273ms，相关度0.961至0.964，背景RMS约0.055至0.063；屏幕与相机每轮五处实际时间码相等。",
+    "最终完整单测通过130文件871项，归档.artifacts/runs/2026-11-08T09-52-57-323Z-unit；全仓ESLint0错误77条历史警告，收据.artifacts/presentation-final-eslint.json。文档检查通过37文档253本地链接、15章66步。",
+    "录制综合回归发现旧自动保存说明、旧编辑鼠标隐藏行为及默认展开的变焦设置断言；按现行规范更新测试，不恢复旧UI。旧箭头标签与教程首次就绪期限亦已修正，失败归档.artifacts/runs/2026-11-08T09-51-48-530Z-e2e及.artifacts/runs/2026-11-08T09-55-30-950Z-e2e。后者教程与完整编辑审查通过。",
+    "默认值、重开拖轨、摄像头编辑、检查器以及录制导出和会话回收四项源码专项通过，归档.artifacts/runs/2026-11-08T09-59-16-383Z-e2e；轨道专项暴露提示触发器缺失；后续已补齐并统一实际提示验证，原失败继续保留。",
+    ".artifacts/runs/2026-11-08T10-06-19-348Z-e2e中资源退出、时间轴关联效果、视觉效果和三维镜头专项通过；轨道提示断言暴露真实触发器缺失。修复后.artifacts/runs/2026-11-08T10-15-46-012Z-e2e轨道整套通过，帧图横移复用50帧，四次热横移为36、26、36、25ms；新增提示使全屏Esc先被提示层消费，原失败保留并修正事件优先级。",
+    ".artifacts/runs/2026-11-08T10-11-36-913Z-e2e真实解码满队列及两套渲染器背景/摄像头准备退出均通过；辅助来源在await之前登记所有权，退出不得回退到媒体元素或画布。",
+    "播放提示与全屏Esc修复后，pnpm test:e2e tests/e2e/presentation-visual-effects.spec.ts通过，归档.artifacts/runs/2026-11-08T10-19-36-446Z-e2e；未降低原有全屏和导出断言。",
+    "performance-budget通过，归档.artifacts/runs/2026-11-08T10-21-16-429Z-e2e。内存测试首次因旧5秒正文期限失败；修正后在设置闲置15秒测得工作集102.67MB、私有345.40MB而中断，归档.artifacts/runs/2026-11-08T10-23-10-903Z-e2e，原失败保留。",
+    "根据AGENTS及memory-development的100MB目标口径，测试分别输出工作集/私有提交达标状态，资源退出、必要任务、恢复与重开仍硬性断言，不将目标未达或工作集下降写作完整释放。最终idle-memory完整流程通过，归档.artifacts/runs/2026-11-08T10-27-42-112Z-e2e。35秒工作集102.03MB/私有521.13MB，65秒104.99MB/519.97MB，两项目标均未达；三轮演示会话与工具页面全部退出，详细分进程数据见performance-audit。",
+    "设置热重开中位794.7ms、回收后840.0ms；控制条首次3523.1ms、热开2463.3/2466.8ms、闲置后2421.7ms，保留源码编译边界。100MB目标未完全达成，未强杀共享GPU或音频服务。",
+    "最终pnpm build通过宿主Node/Web类型检查、设置与工具编译及Electron生产编译，日志.artifacts/presentation-final-build.log；pnpm typecheck:setting与docs:check通过。最终全量单测130文件871项通过，归档.artifacts/runs/2026-11-08T10-34-09-471Z-unit；ESLint0错误76条历史警告。",
+    "本轮对照源码审校README、开发指南、工具与内存规范、演示各模块文档、工具清单、应用内及仓库教程、changelog与维护记录；修正录制来源操作名和变焦设置称谓，教程正文继续保持15章66步一致。",
+    "首轮preview:sync在new-resources/app.asar.unpacked切换时遭遇Windows EPERM，脚本自动回滚后确认预览仍为1.3.0、原资源保留，日志.artifacts/presentation-final-preview-sync.log。随后重试成功同步1.4.0的104项程序，219项既有资料逐文件一致，收据.artifacts/backups/preview-sync/update-1794134346262/preservation.json，日志.artifacts/presentation-final-preview-sync-retry.log。",
+    "pnpm test:preview:resources通过103个程序文件、346个内置文件和1687个媒体文件，日志.artifacts/presentation-final-preview-resources.log。按本轮明确授权执行pnpm preview:reset --confirm-reset，将219项原资料完整备份到.artifacts/backups/portable-profile/2026-11-08T10-40-54-657Z-5cb58bcd，逐文件校验一致后创建空data与legacy；程序保持1.4.0。",
+    "空间清理首次路径父级检查使用当前PowerShell不支持的Split-Path参数组合，在删除前停止；改用.NET路径父级与终止错误处理。逐项核对工作区绝对路径、祖先及后代无链接、无Git跟踪后，清理13项11058文件2118200848字节（约2020MiB）的已消费暂存、旧回退和本轮原生中间文件；收据.artifacts/cleanup-2026-11-08-final-review/plan.json与result.json。",
+    "保留当前预览、update-1794134346262/previous-resources最近程序回退、全部资料备份、保留收据、工具链及原始测试失败证据。清理后资源复核再次通过，日志.artifacts/presentation-final-preview-resources-after-cleanup.log；Git状态和受保护程序/资料收据元数据一致，一次性清理脚本已删除。",
+    "收尾空间复核.artifacts逻辑大小6164235324字节（约5.74GiB）：原始运行证据约2.61GiB、既有工具链约1.18GiB、最近程序回退与受保护资料备份约1.17GiB、旧发行下载约0.56GiB、上游参考约0.18GiB，详细清单.artifacts/cleanup-2026-11-08-final-review/space-after.json。本轮已消费程序暂存与原生中间文件清理完成；旧发行下载待新Release产物核验后按独立清单淘汰，资料和独有证据继续保留。",
+    "提交前pnpm maintain、maintain:check、docs:check及git diff --check全部通过；核对远端main仍为cd9e1c8f，v1.4.0尚不存在，原有改动已保留且未混入日志、资料、备份、工具链或下载文件。"
+  ],
+  "pending": [
+    "100MB闲置目标未完全达成：源码实例65秒工作集104.99MB、私有提交519.97MB；共享GPU、音频服务及宿主常驻分配继续优化。生产版100MB目标未验收。",
+    "其他DPI、多屏、不同声卡/摄像头驱动及长时高分辨率录制待设备验收；当前演示录制/编辑/导出、生命周期与既定重开时延已完成源码验证。",
+    "本地验收与预览交付完成；远端push、云端构建及Release与发行产物核验待执行。"
+  ],
+  "preview": "已同步.local/portable-preview至1.4.0并核验；按用户本轮明确要求备份219项资料后重置，data/legacy均为空，下次经PreviewPortable.cmd运行生成初始安装默认值。原资料备份.artifacts/backups/portable-profile/2026-11-08T10-40-54-657Z-5cb58bcd，正常安装数据不涉及。"
+}

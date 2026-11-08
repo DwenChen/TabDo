@@ -25,6 +25,11 @@ type Input = {
 	applySessionPresentation: (session: SessionPresentation | null | undefined) => void;
 };
 
+/**
+ * 加载启动素材并订阅同一录制会话；更换摄像头文件时清空旧文件的时长与片段。
+ * @param props 项目、外观、时间轴和启动配置及恢复操作。
+ * @returns 不返回数据，由效果更新所属编辑状态并在卸载时退订。
+ */
 export function useInitialEditorSource({
 	project,
 	appearance,
@@ -35,7 +40,7 @@ export function useInitialEditorSource({
 	pendingFreshRecordingAutoZoomPathRef,
 	applyLoadedProject,
 	resetSourceScopedEditorState,
-	applySessionPresentation,
+	applySessionPresentation
 }: Input) {
 	const initialLoadStartedRef = useRef(false);
 
@@ -47,27 +52,22 @@ export function useInitialEditorSource({
 		if (initialLoadStartedRef.current) return;
 		initialLoadStartedRef.current = true;
 
+		/**
+		 * 优先恢复项目，否则为启动录制建立全新的素材时间范围。
+		 * @returns 启动恢复完成后兑现；加载失败写入项目错误状态。
+		 */
 		async function loadInitialData() {
 			try {
 				if (smokeConfig.enabled && smokeConfig.projectPath) {
-					const result = await window.electronAPI.openProjectFileAtPath(
-						smokeConfig.projectPath,
-					);
+					const result = await window.electronAPI.openProjectFileAtPath(smokeConfig.projectPath);
 					if (!result.success || !result.project) {
 						project.setError(
-							`Smoke export failed to load project ${smokeConfig.projectPath}: ${result.error || result.message || "unknown error"}`,
+							`Smoke export failed to load project ${smokeConfig.projectPath}: ${result.error || result.message || "unknown error"}`
 						);
 						return;
 					}
-					if (
-						!(await applyLoadedProject(
-							result.project,
-							result.path ?? smokeConfig.projectPath,
-						))
-					) {
-						project.setError(
-							`Smoke export could not apply project ${smokeConfig.projectPath}`,
-						);
+					if (!(await applyLoadedProject(result.project, result.path ?? smokeConfig.projectPath))) {
+						project.setError(`Smoke export could not apply project ${smokeConfig.projectPath}`);
 						return;
 					}
 					project.setError(null);
@@ -83,7 +83,7 @@ export function useInitialEditorSource({
 						await window.electronAPI.setCurrentRecordingSession?.({
 							videoPath: sourcePath,
 							webcamPath,
-							timeOffsetMs: DEFAULT_WEBCAM_TIME_OFFSET_MS,
+							timeOffsetMs: DEFAULT_WEBCAM_TIME_OFFSET_MS
 						});
 					} else {
 						await window.electronAPI.setCurrentVideoPath(sourcePath);
@@ -94,14 +94,17 @@ export function useInitialEditorSource({
 					project.setCurrentProjectPath(null);
 					project.setLastSavedSnapshot(null);
 					resetSourceScopedEditorState();
-					pendingFreshRecordingAutoZoomPathRef.current =
-						appearance.autoApplyFreshRecordingAutoZooms ? sourceUrl : null;
+					pendingFreshRecordingAutoZoomPathRef.current = appearance.autoApplyFreshRecordingAutoZooms
+						? sourceUrl
+						: null;
 					appearance.setWebcam((previous) => ({
 						...previous,
 						visibleRanges: undefined,
+						segments: undefined,
+						sourceDurationMs: undefined,
 						enabled: Boolean(webcamPath),
 						sourcePath: webcamPath,
-						timeOffsetMs: DEFAULT_WEBCAM_TIME_OFFSET_MS,
+						timeOffsetMs: DEFAULT_WEBCAM_TIME_OFFSET_MS
 					}));
 					project.setError(null);
 					return;
@@ -120,7 +123,7 @@ export function useInitialEditorSource({
 						await window.electronAPI.setCurrentRecordingSession?.({
 							videoPath: sourcePath,
 							webcamPath,
-							timeOffsetMs: DEFAULT_WEBCAM_TIME_OFFSET_MS,
+							timeOffsetMs: DEFAULT_WEBCAM_TIME_OFFSET_MS
 						});
 					} else {
 						await window.electronAPI.setCurrentVideoPath(sourcePath);
@@ -135,13 +138,15 @@ export function useInitialEditorSource({
 					appearance.setWebcam((previous) => ({
 						...previous,
 						visibleRanges: undefined,
+						segments: undefined,
+						sourceDurationMs: undefined,
 						enabled: Boolean(webcamPath),
 						sourcePath: webcamPath,
 						timeOffsetMs: DEFAULT_WEBCAM_TIME_OFFSET_MS,
 						shadow: smokeConfig.webcamShadow ?? previous.shadow,
 						size: smokeConfig.webcamSize ?? previous.size,
 						width: smokeConfig.webcamSize ?? previous.width ?? previous.size,
-						height: smokeConfig.webcamSize ?? previous.height ?? previous.size,
+						height: smokeConfig.webcamSize ?? previous.height ?? previous.size
 					}));
 					project.setError(null);
 					return;
@@ -165,16 +170,18 @@ export function useInitialEditorSource({
 					project.setCurrentProjectPath(null);
 					project.setLastSavedSnapshot(null);
 					resetSourceScopedEditorState();
-					pendingFreshRecordingAutoZoomPathRef.current =
-						appearance.autoApplyFreshRecordingAutoZooms ? sourceUrl : null;
+					pendingFreshRecordingAutoZoomPathRef.current = appearance.autoApplyFreshRecordingAutoZooms
+						? sourceUrl
+						: null;
 					applySessionPresentation(sessionResult.session);
 					appearance.setWebcam((previous) => ({
 						...previous,
 						visibleRanges: undefined,
+						segments: undefined,
+						sourceDurationMs: undefined,
 						enabled: Boolean(sessionResult.session?.webcamPath),
 						sourcePath: sessionResult.session?.webcamPath ?? null,
-						timeOffsetMs:
-							sessionResult.session?.timeOffsetMs ?? DEFAULT_WEBCAM_TIME_OFFSET_MS,
+						timeOffsetMs: sessionResult.session?.timeOffsetMs ?? DEFAULT_WEBCAM_TIME_OFFSET_MS
 					}));
 					return;
 				}
@@ -196,9 +203,11 @@ export function useInitialEditorSource({
 				appearance.setWebcam((previous) => ({
 					...previous,
 					visibleRanges: undefined,
+					segments: undefined,
+					sourceDurationMs: undefined,
 					enabled: false,
 					sourcePath: null,
-					timeOffsetMs: DEFAULT_WEBCAM_TIME_OFFSET_MS,
+					timeOffsetMs: DEFAULT_WEBCAM_TIME_OFFSET_MS
 				}));
 			} catch (error) {
 				project.setError(`加载视频失败：${String(error)}`);
@@ -212,7 +221,7 @@ export function useInitialEditorSource({
 		applySessionPresentation,
 		devConfig,
 		resetSourceScopedEditorState,
-		smokeConfig,
+		smokeConfig
 	]);
 
 	useEffect(() => {
@@ -224,11 +233,14 @@ export function useInitialEditorSource({
 			appearance.setWebcam((previous) => ({
 				...previous,
 				visibleRanges: undefined,
+				segments: previous.sourcePath === webcamPath ? previous.segments : undefined,
+				sourceDurationMs:
+					previous.sourcePath === webcamPath ? previous.sourceDurationMs : undefined,
 				enabled: Boolean(webcamPath),
 				sourcePath: webcamPath,
 				timeOffsetMs: webcamPath
 					? (session.timeOffsetMs ?? previous.timeOffsetMs)
-					: DEFAULT_WEBCAM_TIME_OFFSET_MS,
+					: DEFAULT_WEBCAM_TIME_OFFSET_MS
 			}));
 			timeline.setSourceAudioFallbackRefreshKey((key) => key + 1);
 		});

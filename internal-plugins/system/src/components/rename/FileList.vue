@@ -71,8 +71,17 @@ function fileKind(name: string): string {
 
 <template>
   <section class="file-list rename-preview" aria-label="文件预览">
-    <header class="column-head"><span>原文件名</span><span>重命名预览</span></header>
-    <p v-if="loading" class="file-list-state-text" role="status">正在读取文件信息…</p>
+    <header class="column-head">
+      <span>原文件名</span
+      ><span
+        >重命名预览<span v-if="loading && items.length" class="updating" role="status">
+          · 更新中…</span
+        ></span
+      >
+    </header>
+    <p v-if="loading && !items.length" class="file-list-state-text" role="status">
+      正在读取文件信息…
+    </p>
     <p v-else-if="!items.length" class="file-list-state-text">
       <span class="empty-icon" aria-hidden="true">▤</span>
       {{ emptyMessage }}
@@ -103,15 +112,16 @@ function fileKind(name: string): string {
             :title="stateLabel(item)"
             :aria-label="stateLabel(item)"
           >
-            {{
-              item.status === 'error'
-                ? '×'
-                : item.status === 'ready'
-                  ? '●'
-                  : item.status === 'success'
-                    ? '✓'
-                    : '—'
-            }}
+            <svg v-if="item.status === 'error'" viewBox="0 0 16 16" aria-hidden="true">
+              <path d="m5 5 6 6m0-6-6 6" />
+            </svg>
+            <svg v-else-if="item.status === 'success'" viewBox="0 0 16 16" aria-hidden="true">
+              <path d="m4 8 3 3 5-6" />
+            </svg>
+            <svg v-else-if="item.status === 'ready'" viewBox="0 0 16 16" aria-hidden="true">
+              <circle cx="8" cy="8" r="3" />
+            </svg>
+            <svg v-else viewBox="0 0 16 16" aria-hidden="true"><path d="M5 8h6" /></svg>
           </span>
           <input
             v-if="manual && item.status !== 'success'"
@@ -147,7 +157,7 @@ function fileKind(name: string): string {
             title="移除文件"
             @click="emit('remove', item.id)"
           >
-            ×
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8m0-8-8 8" /></svg>
           </button>
         </div>
       </article>
@@ -189,6 +199,9 @@ function fileKind(name: string): string {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  scrollbar-gutter: stable;
+  /* 虚拟列表自行维护占位高度，避免浏览器滚动锚定再次补偿而产生跳跃。 */
+  overflow-anchor: none;
 }
 .file-row {
   height: 44px;
@@ -259,17 +272,28 @@ function fileKind(name: string): string {
   border-radius: 50%;
   color: white;
   background: var(--success);
-  font-size: 11px;
-  font-weight: 700;
+  line-height: 1;
+}
+.status-icon svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .status-icon.is-ready {
   color: var(--warning);
   background: transparent;
-  font-size: 12px;
+}
+.status-icon.is-ready svg {
+  fill: currentColor;
+  stroke: none;
 }
 .status-icon.is-error {
   background: var(--error);
-  font-size: 14px;
 }
 .status-icon.is-unchanged {
   color: var(--text-muted);
@@ -303,6 +327,8 @@ function fileKind(name: string): string {
   border-color: var(--primary);
 }
 .remove-row {
+  display: grid;
+  place-items: center;
   flex: none;
   width: 28px;
   height: 28px;
@@ -310,8 +336,16 @@ function fileKind(name: string): string {
   padding: 0;
   color: var(--text-muted);
   background: transparent;
-  font-size: 22px;
   line-height: 1;
+}
+.remove-row svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
 }
 .remove-row:hover {
   color: var(--error);

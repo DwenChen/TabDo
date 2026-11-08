@@ -83,7 +83,7 @@ export function FolderRow({
 				<Button
 					variant="ghost"
 					size="icon"
-					aria-label={`Options for ${folder.name}`}
+					aria-label={`项目操作：${folder.name}`}
 					className="size-6 min-w-6 text-muted-foreground opacity-0 group-hover:opacity-100 focus:opacity-100"
 				>
 					<DotsThree className="size-4" />

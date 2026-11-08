@@ -1,29 +1,32 @@
-import { Label, Description } from "@heroui/react";
-import type { ReactNode } from "react";
+import type { ReactNode } from 'react'
 
-/** One spacing and typography contract for editor and dashboard preferences. */
+/**
+ * 统一选项标题和描述层级，让开关对齐标题行而非整块说明的中线。
+ * @param props 标题、说明、控件、堆叠方式及指定的辅助标签色。
+ * @returns 使用共享字号与标题行对齐的设置行。
+ */
 export function SettingsRow({
-	title,
-	description,
-	children,
-	stacked = false,
+  title,
+  description,
+  children,
+  stacked = false,
+  muted = false
 }: {
-	title: ReactNode;
-	description?: ReactNode;
-	children: ReactNode;
-	stacked?: boolean;
+  title: ReactNode
+  description?: ReactNode
+  children: ReactNode
+  stacked?: boolean
+  muted?: boolean
 }) {
-	return (
-		<section
-			className={stacked ? "flex flex-col gap-3" : "flex items-center justify-between gap-4"}
-		>
-			<div className="flex min-w-0 flex-col gap-1">
-				<Label className="text-[13px] font-medium">{title}</Label>
-				{description && (
-					<Description className="text-xs leading-relaxed">{description}</Description>
-				)}
-			</div>
-			<div className={stacked ? "w-full" : "shrink-0"}>{children}</div>
-		</section>
-	);
+  return (
+    <section className="inspector-setting-row" data-stacked={stacked}>
+      <div className="inspector-setting-copy">
+        <span className={`inspector-control-label${muted ? ' inspector-muted-label' : ''}`}>
+          {title}
+        </span>
+        {description && <div className="inspector-description">{description}</div>}
+      </div>
+      <div className="inspector-setting-control">{children}</div>
+    </section>
+  )
 }

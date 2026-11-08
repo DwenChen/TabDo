@@ -20,6 +20,15 @@ public:
     bool initialize(const std::wstring& outputPath, int width, int height, int fps,
                     ID3D11Device* device, ID3D11DeviceContext* context);
     bool writeFrame(ID3D11Texture2D* texture, int64_t timestampHns);
+    /**
+     * Anchor samples to the agreed recording clock rather than the first delivered frame.
+     * @param timestampHns Shared timeline origin, before any frame writes.
+     * @returns No value; subsequent samples keep their actual capture offset.
+     */
+    void setTimelineOriginHns(int64_t timestampHns) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        firstSampleTimeHns_ = timestampHns;
+    }
     bool extendLastFrameTo(int64_t timestampHns);
     bool finalize();
 

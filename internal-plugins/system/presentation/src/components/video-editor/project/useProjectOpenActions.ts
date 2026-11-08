@@ -28,6 +28,7 @@ type UseProjectOpenActionsInput = {
 	applyLoadedProject: (candidate: unknown, path?: string | null) => Promise<boolean>;
 	openUnsavedChangesDialog: (actionLabel: string) => Promise<"save" | "discard" | "cancel">;
 	saveProject: ReturnType<typeof useProjectSaveActions>["saveProject"];
+	retireProjectSaves: ReturnType<typeof useProjectSaveActions>["retireProjectSaves"];
 	refreshProjectLibrary: () => Promise<void>;
 	resetSourceScopedEditorState: () => void;
 	applySessionPresentation: (session: null) => void;
@@ -46,6 +47,7 @@ export function useProjectOpenActions({
 	setDuration,
 	applyLoadedProject,
 	saveProject,
+	retireProjectSaves,
 	refreshProjectLibrary,
 	resetSourceScopedEditorState,
 	applySessionPresentation,
@@ -67,8 +69,7 @@ export function useProjectOpenActions({
 				const result = await window.electronAPI.openProjectFileAtPath(projectPath);
 				if (result.canceled) return;
 				if (!result.success) {
-					project.setError(result.error || result.message || "加载项目失败");
-					return;
+					throw new Error(result.message || result.error || "加载项目失败");
 				}
 				if (!(await applyLoadedProject(result.project, result.path ?? null))) {
 					project.setError("无法加载项目：文件格式无效");
@@ -78,9 +79,7 @@ export function useProjectOpenActions({
 				await refreshProjectLibrary();
 				return true;
 			} catch (error) {
-				project.setError(
-					`无法加载项目：${error instanceof Error ? error.message : String(error)}`,
-				);
+				throw new Error(`无法加载项目：${error instanceof Error ? error.message : String(error)}`);
 			}
 		},
 		[
@@ -133,6 +132,7 @@ export function useProjectOpenActions({
 			setDuration(0);
 			project.setVideoSourcePath(sourcePath);
 			project.setVideoPath(sourceVideoUrl);
+			project.setError(null);
 			project.setCurrentProjectPath(null);
 			project.setLastSavedSnapshot(null);
 			resetSourceScopedEditorState();
@@ -151,7 +151,7 @@ export function useProjectOpenActions({
 			toast.success("素材已导入");
 		} catch (error) {
 			project.setError(
-				`Could not load file: ${error instanceof Error ? error.message : String(error)}`,
+				`无法加载文件：${error instanceof Error ? error.message : String(error)}`,
 			);
 		}
 	}, [
@@ -224,19 +224,61 @@ export function useProjectOpenActions({
 		};
 	}, [handleOpenProjectBrowser, handleSaveProject, handleSaveProjectAs]);
 
+	/**
+	 * Delete selected project files after retiring the active project's save queue.
+	 * @param paths Selected project library paths.
+	 * @returns The paths moved to the recycle bin.
+	 */
 	const handleDeleteProjects = useCallback(
-		async (paths: string[]) => {
+		(paths: string[]) => window.electronAPI.runNecessaryTask(async () => {
+			const removingActive = Boolean(project.currentProjectPath && paths.includes(project.currentProjectPath));
+			if (removingActive) {
+				await retireProjectSaves();
+				// Release the loaded source before clearing its saved snapshot to prevent autosave revival.
+				videoPlaybackRef.current?.pause();
+				setIsPlaying(false);
+				project.setVideoPath(null);
+				project.setVideoSourcePath(null);
+				setDuration(0);
+				setCurrentTime(0);
+				await window.electronAPI.clearCurrentVideoPath();
+			}
 			const result = await window.electronAPI.trashProjectFiles(paths);
+			if (result.deleted.length) project.setError(null);
 			if (project.currentProjectPath && result.deleted.includes(project.currentProjectPath)) {
 				project.setCurrentProjectPath(null);
 				project.setLastSavedSnapshot(null);
+				project.setError(null);
 			}
 			await refreshProjectLibrary();
 			if (result.errors.length) toast.error(result.errors.join("\n"));
 			return result.deleted;
-		},
-		[project, refreshProjectLibrary],
+		}),
+		[project, refreshProjectLibrary, retireProjectSaves, videoPlaybackRef, setIsPlaying, setDuration, setCurrentTime],
 	);
+	/**
+	 * 原始录制删除前保存当前编辑并卸载所属媒体，避免回收被自身预览占用。
+	 * @param paths 用户已确认删除的录制路径。
+	 * @returns 保存队列和媒体释放完成后的 Promise；项目文件继续保留。
+	 * @throws 保存失败时阻止删除，保留素材及当前编辑。
+	 */
+	const handlePrepareRecordingRemoval = useCallback(async (paths: string[]): Promise<void> => {
+		const source = project.videoSourcePath;
+		if (!source || !paths.some((path) => fromFileUrl(path).toLowerCase() === fromFileUrl(source).toLowerCase())) return;
+		if (!(await saveProject(false, { silent: true, captureThumbnail: false, remountPreviewAfterSave: false }))) throw new Error('当前编辑尚未保存，素材已保留，请保存项目后重试。');
+		await retireProjectSaves();
+		videoPlaybackRef.current?.pause();
+		setIsPlaying(false);
+		project.setVideoPath(null);
+		project.setVideoSourcePath(null);
+		project.setCurrentProjectPath(null);
+		project.setLastSavedSnapshot(null);
+		project.setError(null);
+		setDuration(0);
+		setCurrentTime(0);
+		resetSourceScopedEditorState();
+		await window.electronAPI.clearCurrentVideoPath();
+	}, [project, saveProject, retireProjectSaves, videoPlaybackRef, setIsPlaying, setDuration, setCurrentTime, resetSourceScopedEditorState]);
 	const handleRenameLibraryProject = useCallback(
 		async (path: string, name: string) => {
 			const result = await window.electronAPI.renameLibraryProject(path, name);
@@ -250,6 +292,8 @@ export function useProjectOpenActions({
 	);
 
 	return {
+		handlePrepareRecordingRemoval,
+		handleRefreshLibrary: refreshProjectLibrary,
 		handleRenameLibraryProject,
 		handleOpenProjectFromLibrary,
 		handleImportMediaOrProject,

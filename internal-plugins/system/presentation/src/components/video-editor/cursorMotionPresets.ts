@@ -40,7 +40,7 @@ const SHARED_CURSOR_PRESET_VALUES = {
 export const CURSOR_MOTION_PRESETS: Record<CursorMotionPresetId, CursorMotionPreset> = {
 	focused: {
 		id: "focused",
-		label: "Focused",
+		label: "专注",
 		zoomSmoothness: 0.5,
 		zoomInDurationMs: 200,
 		zoomOutDurationMs: 200,
@@ -50,7 +50,7 @@ export const CURSOR_MOTION_PRESETS: Record<CursorMotionPresetId, CursorMotionPre
 	},
 	smooth: {
 		id: "smooth",
-		label: "Smooth",
+		label: "平滑",
 		zoomSmoothness: 0.5,
 		zoomInDurationMs: DEFAULT_ZOOM_IN_DURATION_MS,
 		zoomOutDurationMs: DEFAULT_ZOOM_OUT_DURATION_MS,

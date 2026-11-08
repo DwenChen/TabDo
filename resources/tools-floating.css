@@ -116,6 +116,152 @@ input:focus-visible {
   min-width: 0;
   max-width: 100%;
 }
+/* 标记栏沿用截图的白底、深灰线图标、浅蓝选中底和 32px 按钮。 */
+#image-tools {
+  background: #fff;
+  color: #333;
+  border-bottom: 1px solid #ddd;
+  backdrop-filter: none;
+}
+#image-tools .drag-region {
+  color: #555;
+}
+#image-tools .tool-btn {
+  width: 32px;
+  height: 32px;
+  color: #333;
+  border-radius: 6px;
+}
+#image-tools .tool-btn:hover,
+#image-tools .color-preview:hover,
+#image-tools .size-dot:hover {
+  background: #ebf3ff;
+}
+#image-tools .tool-btn.active,
+#image-tools .size-dot.active {
+  color: #3b8bf2;
+  background: #e1edfd;
+}
+#drawing-tools .tool-btn svg,
+#image-tools #undo svg,
+#image-tools #redo svg,
+#image-tools #clear svg,
+#image-tools [data-tool='eraser'] svg {
+  width: 24px;
+  height: 24px;
+  fill: none;
+}
+#mosaic-controls .tool-btn svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+}
+#mosaic-controls .tool-btn {
+  width: 28px;
+  height: 28px;
+}
+.mosaic-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 6px;
+  max-width: 100%;
+  /* 分隔线始终随二级选项一起换行，不会孤立在上一行主工具末尾。 */
+  border-left: 1px solid #dcdcdc;
+  padding-left: 8px;
+  -webkit-app-region: no-drag;
+}
+.mosaic-option-divider {
+  width: 1px;
+  height: 20px;
+  margin: 0 2px;
+  flex-shrink: 0;
+  background: #dcdcdc;
+}
+/* 普通样式与字号也属于二级选项，分隔线随该工具的配色组一起显示。 */
+#image-tools .color-control {
+  border-left: 1px solid #dcdcdc;
+  padding-left: 8px;
+}
+.font-control {
+  -webkit-app-region: no-drag;
+}
+.font-control span {
+  font-family: 'Microsoft YaHei', 'Segoe UI', sans-serif;
+  line-height: 1;
+}
+#mosaic-cursor,
+#mosaic-selection {
+  position: fixed;
+  z-index: 7;
+  pointer-events: none;
+  border: 1.5px dashed #1e1e1e;
+  box-shadow: 0 0 0 1.5px #fff;
+  background: transparent;
+}
+#mosaic-cursor {
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+#mosaic-cursor::before,
+#mosaic-cursor::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  background: #1e1e1e;
+  box-shadow: 0 0 0 1px #fff;
+  transform: translate(-50%, -50%);
+}
+#mosaic-cursor::before {
+  width: 9px;
+  height: 1px;
+}
+#mosaic-cursor::after {
+  height: 9px;
+  width: 1px;
+}
+#image-tools .size-dot > i {
+  background: #333;
+}
+#image-tools .size-dot.active > i {
+  background: #3b8bf2;
+}
+#image-tools select {
+  color: #333;
+  background: #f1f3f5;
+}
+#image-tools select option {
+  background: #fff;
+}
+#image-tools .editing-controls {
+  border-color: #eee;
+}
+#image-tools .action-copy {
+  color: #3b8bf2;
+}
+#image-tools .action-save {
+  color: #228b55;
+}
+#image-tools .action-close {
+  color: #d34848;
+}
+#image-tools .color-preview span {
+  box-shadow: 0 0 0 1px #0003 inset;
+}
+body[data-kind='image'] .color-palette {
+  background: #fff;
+  border: 1px solid #ddd;
+}
+body[data-kind='image'] .swatch[aria-pressed='true'] {
+  outline-color: #3b8bf2;
+}
+@media (max-width: 420px) {
+  #drawing-tools {
+    gap: 1px;
+    justify-content: flex-start;
+  }
+}
 .toolbar select {
   -webkit-app-region: no-drag;
   color: #ddd;
@@ -206,13 +352,25 @@ input:focus-visible {
   touch-action: none;
 }
 .text-input {
-  background: #202124;
+  /* 标记输入直接预览在图片上，按用户要求与原生截图保持透明底和当前颜色边框。 */
+  background: transparent;
+  color: var(--annotation-text-color, #ff3b30);
+  caret-color: currentColor;
+  border: 1px solid currentColor;
+  border-radius: 0;
+  outline: none;
+  padding: 4px;
+  min-width: 0;
+  font-family: 'Microsoft YaHei', 'Segoe UI', sans-serif;
+  line-height: 1.2;
   display: block;
   position: fixed;
   z-index: 9;
-  max-width: 90vw;
-  width: 232px;
+  max-width: none;
   user-select: text;
+}
+.text-input:focus-visible {
+  outline: none;
 }
 .hint {
   background: #202124;

@@ -16,9 +16,9 @@
 
 ## 自动化测试文件
 
-共 140 个文件；文件数不等于用例数，通过状态以每轮变更记录为准。
+共 184 个文件；文件数不等于用例数，通过状态以每轮变更记录为准。
 
-### tests/main（96）
+### tests/main（120）
 
 - [tests/main/aiChatEventBatcher.test.ts](../../tests/main/aiChatEventBatcher.test.ts)
 - [tests/main/aiChatTransport.test.ts](../../tests/main/aiChatTransport.test.ts)
@@ -52,6 +52,7 @@
 - [tests/main/httpRequestResources.test.ts](../../tests/main/httpRequestResources.test.ts)
 - [tests/main/iconProtocol.test.ts](../../tests/main/iconProtocol.test.ts)
 - [tests/main/iconUtils.test.ts](../../tests/main/iconUtils.test.ts)
+- [tests/main/idleMemoryReclaimer.test.ts](../../tests/main/idleMemoryReclaimer.test.ts)
 - [tests/main/internalPluginDefaults.test.ts](../../tests/main/internalPluginDefaults.test.ts)
 - [tests/main/internalPlugins.test.ts](../../tests/main/internalPlugins.test.ts)
 - [tests/main/lensBrowserUpload.test.ts](../../tests/main/lensBrowserUpload.test.ts)
@@ -81,7 +82,30 @@
 - [tests/main/pluginUpgradeFlow.test.ts](../../tests/main/pluginUpgradeFlow.test.ts)
 - [tests/main/pluginUserPreload.test.ts](../../tests/main/pluginUserPreload.test.ts)
 - [tests/main/pluginVersion.test.ts](../../tests/main/pluginVersion.test.ts)
+- [tests/main/presentationAudioMeter.test.ts](../../tests/main/presentationAudioMeter.test.ts)
 - [tests/main/presentationBehavior.test.ts](../../tests/main/presentationBehavior.test.ts)
+- [tests/main/presentationCaptureClock.test.ts](../../tests/main/presentationCaptureClock.test.ts)
+- [tests/main/presentationCaptureSession.test.ts](../../tests/main/presentationCaptureSession.test.ts)
+- [tests/main/presentationDefaults.test.ts](../../tests/main/presentationDefaults.test.ts)
+- [tests/main/presentationDiagnosticTone.test.ts](../../tests/main/presentationDiagnosticTone.test.ts)
+- [tests/main/presentationEditorReview.test.ts](../../tests/main/presentationEditorReview.test.ts)
+- [tests/main/presentationFilmstripCache.test.ts](../../tests/main/presentationFilmstripCache.test.ts)
+- [tests/main/presentationForwardFrames.test.ts](../../tests/main/presentationForwardFrames.test.ts)
+- [tests/main/presentationFragments.test.ts](../../tests/main/presentationFragments.test.ts)
+- [tests/main/presentationKeyboardCapture.test.ts](../../tests/main/presentationKeyboardCapture.test.ts)
+- [tests/main/presentationRecordingLibrary.test.ts](../../tests/main/presentationRecordingLibrary.test.ts)
+- [tests/main/presentationRecordingPreferences.test.ts](../../tests/main/presentationRecordingPreferences.test.ts)
+- [tests/main/presentationRecycle.test.ts](../../tests/main/presentationRecycle.test.ts)
+- [tests/main/presentationRefinement.test.ts](../../tests/main/presentationRefinement.test.ts)
+- [tests/main/presentationRetirement.test.ts](../../tests/main/presentationRetirement.test.ts)
+- [tests/main/presentationRuntimeTimers.test.ts](../../tests/main/presentationRuntimeTimers.test.ts)
+- [tests/main/presentationSettings.test.ts](../../tests/main/presentationSettings.test.ts)
+- [tests/main/presentationStoragePath.test.ts](../../tests/main/presentationStoragePath.test.ts)
+- [tests/main/presentationTimeline.test.ts](../../tests/main/presentationTimeline.test.ts)
+- [tests/main/presentationTimelineEffects.test.ts](../../tests/main/presentationTimelineEffects.test.ts)
+- [tests/main/presentationTimelineInteractions.test.ts](../../tests/main/presentationTimelineInteractions.test.ts)
+- [tests/main/presentationVisualEffects.test.ts](../../tests/main/presentationVisualEffects.test.ts)
+- [tests/main/presentationZoomCamera.test.ts](../../tests/main/presentationZoomCamera.test.ts)
 - [tests/main/providerConsumption.test.ts](../../tests/main/providerConsumption.test.ts)
 - [tests/main/providerManager.test.ts](../../tests/main/providerManager.test.ts)
 - [tests/main/providerShared.test.ts](../../tests/main/providerShared.test.ts)
@@ -133,7 +157,7 @@
 - [tests/scripts/projectMaintenance.test.ts](../../tests/scripts/projectMaintenance.test.ts)
 - [tests/scripts/updateMetadata.test.ts](../../tests/scripts/updateMetadata.test.ts)
 
-### tests/e2e（34）
+### tests/e2e（54）
 
 - [tests/e2e/all-commands-pinning.spec.ts](../../tests/e2e/all-commands-pinning.spec.ts)
 - [tests/e2e/builtin-models.spec.ts](../../tests/e2e/builtin-models.spec.ts)
@@ -142,6 +166,9 @@
 - [tests/e2e/console-pipe.spec.ts](../../tests/e2e/console-pipe.spec.ts)
 - [tests/e2e/floating-pointer.spec.ts](../../tests/e2e/floating-pointer.spec.ts)
 - [tests/e2e/floating-relay.spec.ts](../../tests/e2e/floating-relay.spec.ts)
+- [tests/e2e/idle-input-state.spec.ts](../../tests/e2e/idle-input-state.spec.ts)
+- [tests/e2e/idle-memory.spec.ts](../../tests/e2e/idle-memory.spec.ts)
+- [tests/e2e/image-annotation-interactions.spec.ts](../../tests/e2e/image-annotation-interactions.spec.ts)
 - [tests/e2e/lens-browser-upload.spec.ts](../../tests/e2e/lens-browser-upload.spec.ts)
 - [tests/e2e/local-edition.spec.ts](../../tests/e2e/local-edition.spec.ts)
 - [tests/e2e/local-tutorial.spec.ts](../../tests/e2e/local-tutorial.spec.ts)
@@ -151,14 +178,31 @@
 - [tests/e2e/performance-budget.spec.ts](../../tests/e2e/performance-budget.spec.ts)
 - [tests/e2e/plugin-cleanup-tray.spec.ts](../../tests/e2e/plugin-cleanup-tray.spec.ts)
 - [tests/e2e/plugin-host-regressions.spec.ts](../../tests/e2e/plugin-host-regressions.spec.ts)
+- [tests/e2e/presentation-controls.spec.ts](../../tests/e2e/presentation-controls.spec.ts)
+- [tests/e2e/presentation-cursor-capture.spec.ts](../../tests/e2e/presentation-cursor-capture.spec.ts)
+- [tests/e2e/presentation-defaults.spec.ts](../../tests/e2e/presentation-defaults.spec.ts)
+- [tests/e2e/presentation-editor-followup.spec.ts](../../tests/e2e/presentation-editor-followup.spec.ts)
+- [tests/e2e/presentation-fragments.spec.ts](../../tests/e2e/presentation-fragments.spec.ts)
 - [tests/e2e/presentation-import.spec.ts](../../tests/e2e/presentation-import.spec.ts)
+- [tests/e2e/presentation-inspector.spec.ts](../../tests/e2e/presentation-inspector.spec.ts)
+- [tests/e2e/presentation-native-camera.spec.ts](../../tests/e2e/presentation-native-camera.spec.ts)
 - [tests/e2e/presentation-recorder.spec.ts](../../tests/e2e/presentation-recorder.spec.ts)
+- [tests/e2e/presentation-review.spec.ts](../../tests/e2e/presentation-review.spec.ts)
+- [tests/e2e/presentation-runtime.spec.ts](../../tests/e2e/presentation-runtime.spec.ts)
+- [tests/e2e/presentation-startup.spec.ts](../../tests/e2e/presentation-startup.spec.ts)
+- [tests/e2e/presentation-synchronization.spec.ts](../../tests/e2e/presentation-synchronization.spec.ts)
+- [tests/e2e/presentation-timeline-effects.spec.ts](../../tests/e2e/presentation-timeline-effects.spec.ts)
+- [tests/e2e/presentation-tracks.spec.ts](../../tests/e2e/presentation-tracks.spec.ts)
+- [tests/e2e/presentation-visual-effects.spec.ts](../../tests/e2e/presentation-visual-effects.spec.ts)
+- [tests/e2e/presentation-zoom-camera.spec.ts](../../tests/e2e/presentation-zoom-camera.spec.ts)
 - [tests/e2e/recorder-overlay.spec.ts](../../tests/e2e/recorder-overlay.spec.ts)
+- [tests/e2e/rename-interactions.spec.ts](../../tests/e2e/rename-interactions.spec.ts)
 - [tests/e2e/selection-translation.spec.ts](../../tests/e2e/selection-translation.spec.ts)
 - [tests/e2e/settings-cleanup.spec.ts](../../tests/e2e/settings-cleanup.spec.ts)
 - [tests/e2e/settings-window-stability.spec.ts](../../tests/e2e/settings-window-stability.spec.ts)
 - [tests/e2e/super-panel-selection.spec.ts](../../tests/e2e/super-panel-selection.spec.ts)
 - [tests/e2e/tabdo-market.spec.ts](../../tests/e2e/tabdo-market.spec.ts)
+- [tests/e2e/temporary-residency-switch.spec.ts](../../tests/e2e/temporary-residency-switch.spec.ts)
 - [tests/e2e/third-party-lifecycle.spec.ts](../../tests/e2e/third-party-lifecycle.spec.ts)
 - [tests/e2e/tools-catalog.spec.ts](../../tests/e2e/tools-catalog.spec.ts)
 - [tests/e2e/tools-clipboard.spec.ts](../../tests/e2e/tools-clipboard.spec.ts)
@@ -172,10 +216,12 @@
 
 ## 历史回归分组
 
+- `rename-interactions`：3 个单测文件、2 个源码 E2E 文件。
+- `temporary-residency`：4 个单测文件、3 个源码 E2E 文件。
 - `usage-guide`：6 个单测文件、2 个源码 E2E 文件。
 - `performance`：12 个单测文件、8 个源码 E2E 文件。
 - `recorder-web`：6 个单测文件、6 个源码 E2E 文件。
-- `tools-expanded`：5 个单测文件、3 个源码 E2E 文件。
+- `tools-expanded`：5 个单测文件、4 个源码 E2E 文件。
 - `clipboard`：4 个单测文件、1 个源码 E2E 文件。
 - `panel`：2 个单测文件、2 个源码 E2E 文件。
 - `host`：6 个单测文件、3 个源码 E2E 文件。
@@ -207,4 +253,16 @@
 - `relay-feedback`：0 个单测文件、2 个源码 E2E 文件。
 - `floating-relay`：5 个单测文件、4 个源码 E2E 文件。
 - `selection-translation`：3 个单测文件、2 个源码 E2E 文件。
-- `presentation-recorder`：8 个单测文件、4 个源码 E2E 文件。
+- `presentation-recorder`：15 个单测文件、8 个源码 E2E 文件。
+- `idle-memory`：6 个单测文件、5 个源码 E2E 文件。
+- `annotations`：1 个单测文件、3 个源码 E2E 文件。
+- `presentation-timeline`：6 个单测文件、4 个源码 E2E 文件。
+- `presentation-camera-framing`：1 个单测文件、1 个源码 E2E 文件。
+- `presentation-editor-followup`：3 个单测文件、1 个源码 E2E 文件。
+- `presentation-pending-verification`：3 个单测文件、4 个源码 E2E 文件。
+- `presentation-camera-preview-tail`：3 个单测文件、3 个源码 E2E 文件。
+- `presentation-hud-hints`：1 个单测文件、1 个源码 E2E 文件。
+- `presentation-visual-effects`：5 个单测文件、2 个源码 E2E 文件。
+- `presentation-timeline-effects`：3 个单测文件、1 个源码 E2E 文件。
+- `presentation-editing`：15 个单测文件、14 个源码 E2E 文件。
+- `presentation-final-review`：7 个单测文件、5 个源码 E2E 文件。

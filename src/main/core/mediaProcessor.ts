@@ -2,8 +2,16 @@ import { app, webContents } from 'electron'
 import { spawn, execFile, type ChildProcess } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import { requestIdleMemoryReclaim } from './idleMemoryReclaimer'
 
 const jobs = new Map<string, { controller: AbortController; closed: Promise<void> }>()
+/**
+ * 媒体进程退出和临时输出清理前均视为活动任务。
+ * @returns 是否还有媒体任务持有运行时资源。
+ */
+export function hasMediaJobs(): boolean {
+  return jobs.size > 0
+}
 const modes = {
   image: [
     'compress',
@@ -94,6 +102,7 @@ export async function runMedia(
     finishJob = resolve
   })
   jobs.set(key, { controller, closed: done })
+  requestIdleMemoryReclaim()
   let folder = '',
     child: ChildProcess | undefined,
     childClosed: Promise<void> | undefined
@@ -314,8 +323,10 @@ export async function runMedia(
       )
       if (failure) console.warn('[Media] 本次临时目录清理失败:', failure.reason)
     } finally {
+      // 进程与临时输出均已收束，最后撤销活动身份再安排闲置回收。
       jobs.delete(key)
       finishJob()
+      requestIdleMemoryReclaim()
     }
   }
 }

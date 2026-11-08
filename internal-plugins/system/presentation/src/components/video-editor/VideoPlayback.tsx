@@ -1,4 +1,5 @@
 import { Application, Container, Graphics, Rectangle, Sprite, Texture } from "pixi.js";
+import { applyZoomCamera, releaseZoomCamera } from './videoPlayback/zoomCameraFilter';
 import { MotionBlurFilter } from "pixi-filters/motion-blur";
 import { ZoomBlurFilter } from "pixi-filters/zoom-blur";
 import type React from "react";
@@ -9,32 +10,33 @@ import {
 	useImperativeHandle,
 	useMemo,
 	useRef,
-	useState
+	useState,
 } from "react";
 import {
 	getAssetPath,
 	getRenderableAssetUrl,
-	getRenderableVideoUrl
+	getRenderableVideoUrl,
 } from "@presentation/lib/assetPath";
 import { getWebcamShadowFilter } from "@presentation/lib/exporter/shadowProfile";
 import { getSquircleSvgPath } from "@presentation/lib/geometry/squircle";
 import {
 	clampMediaTimeToDuration,
 	enablePitchPreservingPlayback,
-	getMediaSyncPlaybackRate
+	getMediaSyncPlaybackRate,
 } from "@presentation/lib/mediaTiming";
 import {
 	destroyPixiApplication,
 	destroyPixiContainer,
-	initializePixiApplicationWithTimeout
+	initializePixiApplicationWithTimeout,
 } from "@presentation/lib/pixiApplicationLifecycle";
 import {
 	DEFAULT_WALLPAPER_PATH,
 	DEFAULT_WALLPAPER_RELATIVE_PATH,
-	isVideoWallpaperSource
+	isVideoWallpaperSource,
 } from "@presentation/lib/wallpapers";
 import { type AspectRatio, formatAspectRatioForCSS } from "@presentation/utils/aspectRatioUtils";
 import { AnnotationOverlay } from "./AnnotationOverlay";
+import { useWebcamDrag } from "./useWebcamDrag";
 import { type CaptionEditTarget, normalizeCaptionEditText } from "./captionEditing";
 import { buildActiveCaptionLayout } from "./captionLayout";
 import {
@@ -44,7 +46,7 @@ import {
 	getCaptionScaledFontSize,
 	getCaptionScaledRadius,
 	getCaptionTextMaxWidth,
-	getCaptionWordVisualState
+	getCaptionWordVisualState,
 } from "./captionStyle";
 import {
 	type AnnotationRegion,
@@ -85,26 +87,26 @@ import {
 	mapTimelineTimeToSourceTime,
 	type Padding,
 	type WebcamOverlaySettings,
-	type ZoomDepth,
 	type ZoomFocus,
 	type ZoomMotionBlurTuning,
 	type ZoomRegion,
-	type ZoomTransitionEasing
+	type ZoomTransitionEasing,
 } from "./types";
-import { isAnnotationActiveAtTime } from "./videoPlayback/annotationVisibility";
+import { resolveDisplayAnnotations } from "./keyboardDisplay";
 import { createClipPlayback, findPreviewClipAtTimelineTime } from "./videoPlayback/clipPlayback";
 import { getClipSourceStartMs } from "./types";
 import { DEFAULT_FOCUS } from "./videoPlayback/constants";
 import {
 	type CursorFollowCameraState,
-	createCursorFollowCameraState
+	createCursorFollowCameraState,
 } from "./videoPlayback/cursorFollowCamera";
 import {
 	DEFAULT_CURSOR_CONFIG,
 	PixiCursorOverlay,
-	preloadCursorAssets
+	preloadCursorAssets,
 } from "./videoPlayback/cursorRenderer";
-import { clampFocusToStage as clampFocusToStageUtil } from "./videoPlayback/focusUtils";
+import { clampFocusToScale } from "./videoPlayback/focusUtils";
+import { getZoomScale } from './zoomCamera';
 import { layoutVideoContent as layoutVideoContentUtil } from "./videoPlayback/layoutUtils";
 import { clamp01 } from "./videoPlayback/mathUtils";
 import {
@@ -112,7 +114,7 @@ import {
 	getZoomSpringConfig,
 	resetSpringState,
 	type SpringState,
-	stepSpringValue
+	stepSpringValue,
 } from "./videoPlayback/motionSmoothing";
 import { updateOverlayIndicator } from "./videoPlayback/overlayUtils";
 import { supportsPreviewPlaybackRate } from "./videoPlayback/playbackRate";
@@ -123,19 +125,20 @@ import { getSceneEffectMetrics } from "./videoPlayback/sceneEffects";
 import {
 	resolvePreviewMotionMode,
 	resolveSceneZoomTarget,
-	shouldComposePreviewFrame
+	shouldComposePreviewFrame,
 } from "./videoPlayback/sceneMotion";
 import {
 	getWebcamMediaTargetTimeSeconds,
+	resolveWebcamPreviewSample,
 	isWebcamVisibleAtSourceTime,
 	isWebcamMediaSynchronized,
-	shouldSeekWebcamMedia
+	shouldSeekWebcamMedia,
 } from "./videoPlayback/webcamSync";
 import {
 	applyZoomTransform,
 	computeZoomTransform,
 	createMotionBlurState,
-	type MotionBlurState
+	type MotionBlurState,
 } from "./videoPlayback/zoomTransform";
 import {
 	getCropMatchedWebcamHeightPercent,
@@ -143,7 +146,7 @@ import {
 	getWebcamCropSourceRect,
 	getWebcamOverlayDimensionsPx,
 	getWebcamOverlayPosition,
-	scaleWebcamOverlayPixels
+	scaleWebcamOverlayPixels,
 } from "./webcamOverlay";
 
 type PlaybackAnimationState = {
@@ -182,7 +185,7 @@ function createPlaybackAnimationState(): PlaybackAnimationState {
 		focusY: DEFAULT_FOCUS.cy,
 		progress: 0,
 		x: 0,
-		y: 0
+		y: 0,
 	};
 }
 
@@ -204,7 +207,7 @@ function summarizeRendererAttempts(attempts: readonly PixiRendererAttempt[]): st
 
 function getEffectiveNativeAspectRatio(
 	dimensions: { width: number; height: number } | null | undefined,
-	cropRegion?: import("./types").CropRegion
+	cropRegion?: import("./types").CropRegion,
 ): number {
 	if (!dimensions || dimensions.height <= 0 || dimensions.width <= 0) {
 		return 16 / 9;
@@ -229,6 +232,7 @@ interface VideoPlaybackProps {
 	onDurationChange: (duration: number) => void;
 	onPreviewReadyChange?: (ready: boolean) => void;
 	onTimeUpdate: (time: number) => void;
+	onFrameTime?: (timelineSeconds: number) => void;
 	currentTime: number;
 	onPlayStateChange: (playing: boolean) => void;
 	onError: (error: string) => void;
@@ -251,9 +255,11 @@ interface VideoPlaybackProps {
 	zoomOutEasing?: ZoomTransitionEasing;
 	connectedZoomEasing?: ZoomTransitionEasing;
 	borderRadius?: number;
+	backgroundBorderRadius?: number;
 	padding?: Padding | number;
 	cropRegion?: import("./types").CropRegion;
 	webcam?: WebcamOverlaySettings;
+	onWebcamChange?: (webcam: WebcamOverlaySettings) => void;
 	webcamVideoPath?: string | null;
 	aspectRatio: AspectRatio;
 	annotationRegions?: AnnotationRegion[];
@@ -263,7 +269,9 @@ interface VideoPlaybackProps {
 	selectedAnnotationId?: string | null;
 	onSelectAnnotation?: (id: string | null) => void;
 	onAnnotationPositionChange?: (id: string, position: { x: number; y: number }) => void;
+	onAnnotationRotationChange?: (id: string, rotation: number) => void;
 	onAnnotationSizeChange?: (id: string, size: { width: number; height: number }) => void;
+	onAnnotationMaskChange?: (id: string, strokes: NonNullable<AnnotationRegion['style']['maskStrokes']>) => void;
 	cursorTelemetry?: CursorTelemetryPoint[];
 	showCursor?: boolean;
 	cursorStyle?: CursorStyle;
@@ -320,6 +328,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			onDurationChange,
 			onPreviewReadyChange,
 			onTimeUpdate,
+			onFrameTime,
 			currentTime: timelineTime,
 			clipRegions,
 			onPlayStateChange,
@@ -343,9 +352,11 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			zoomOutEasing = DEFAULT_ZOOM_OUT_EASING,
 			connectedZoomEasing = DEFAULT_CONNECTED_ZOOM_EASING,
 			borderRadius = 0,
+			backgroundBorderRadius = 0,
 			padding = DEFAULT_PADDING,
 			cropRegion,
 			webcam,
+			onWebcamChange,
 			webcamVideoPath,
 			aspectRatio,
 			annotationRegions = [],
@@ -356,6 +367,8 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			onSelectAnnotation,
 			onAnnotationPositionChange,
 			onAnnotationSizeChange,
+			onAnnotationMaskChange,
+			onAnnotationRotationChange,
 			cursorTelemetry = [],
 			showCursor = false,
 			cursorStyle = DEFAULT_CURSOR_STYLE,
@@ -381,9 +394,9 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			cursorClickBounceDuration = DEFAULT_CURSOR_CLICK_BOUNCE_DURATION,
 			cursorSway = DEFAULT_CURSOR_SWAY,
 			volume = 1,
-			suspendRendering = false
+			suspendRendering = false,
 		},
-		ref
+		ref,
 	) => {
 		const videoRef = useRef<HTMLVideoElement | null>(null);
 		const previewVideoSourceRef = useRef(new PreviewVideoSource());
@@ -410,21 +423,31 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const [annotationSceneTransform, setAnnotationSceneTransform] = useState<SceneTransformState>({
 			scale: 1,
 			x: 0,
-			y: 0
+			y: 0,
 		});
 		const [annotationRecordingRect, setAnnotationRecordingRect] = useState<AnnotationRecordingRect>(
 			{
 				x: 0,
 				y: 0,
 				width: 0,
-				height: 0
-			}
+				height: 0,
+			},
 		);
 
 		const overlayRef = useRef<HTMLDivElement | null>(null);
 		const focusIndicatorRef = useRef<HTMLDivElement | null>(null);
 		const webcamVideoRef = useRef<HTMLVideoElement | null>(null);
 		const webcamBubbleRef = useRef<HTMLDivElement | null>(null);
+		const webcamDrag = useWebcamDrag({
+			webcam,
+			overlayRef,
+			onWebcamChange,
+			onDragStart: () => {
+				// 固定当前帧后定位，避免反向缩放在拖动中改变人像尺寸。
+				videoRef.current?.pause();
+				onPlayStateChange(false);
+			},
+		});
 		const webcamBubbleInnerRef = useRef<HTMLDivElement | null>(null);
 		const [webcamVideoDimensions, setWebcamVideoDimensions] = useState<{
 			width: number;
@@ -438,7 +461,12 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const captionEditInputRef = useRef<HTMLTextAreaElement | null>(null);
 		const captionEditSessionRef = useRef<CaptionEditSession | null>(null);
 		const [captionEditSession, setCaptionEditSession] = useState<CaptionEditSession | null>(null);
-		const currentTime = mapTimelineTimeToSourceTime(timelineTime * 1000, clipRegions) / 1000;
+		const [presentedTimelineTime, setPresentedTimelineTime] = useState<number | null>(null);
+		const overlayTimelineTime = isPlaying ? (presentedTimelineTime ?? timelineTime) : timelineTime;
+		const frameTimeHandlerRef = useRef(onFrameTime);
+		frameTimeHandlerRef.current = onFrameTime;
+		const currentTime = mapTimelineTimeToSourceTime(overlayTimelineTime * 1000, clipRegions) / 1000;
+		const webcamPreviewSample = resolveWebcamPreviewSample(currentTime, overlayTimelineTime, clipRegions);
 		const isGap = !findPreviewClipAtTimelineTime(timelineTime * 1000, clipRegions);
 		const clipRegionsRef = useRef(clipRegions);
 		const clipPlaybackRef = useRef<ReturnType<typeof createClipPlayback> | null>(null);
@@ -548,7 +576,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					if (backend === "webgpu" && !(typeof navigator !== "undefined" && "gpu" in navigator)) {
 						attempts.push({
 							backend,
-							message: "WebGPU runtime is unavailable in this browser."
+							message: "当前图形环境不支持所需的视频渲染能力。",
 						});
 						continue;
 					}
@@ -568,17 +596,17 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 								autoDensity: true,
 								preference: backend,
 								autoStart: true,
-								sharedTicker: false
+								sharedTicker: false,
 							},
 							PIXI_RENDERER_INIT_TIMEOUT_MS,
-							backend
+							backend,
 						);
 						return rendererApp;
 					} catch (error) {
 						const elapsed = Math.round(performance.now() - initStarted);
 						attempts.push({
 							backend,
-							message: `${toRendererErrorMessage(error)} (after ${elapsed}ms)`
+							message: `${toRendererErrorMessage(error)} (after ${elapsed}ms)`,
 						});
 
 						destroyPixiApplication(rendererApp, `${backend} preview renderer initialization`);
@@ -587,7 +615,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 
 				throw new Error(summarizeRendererAttempts(attempts));
 			},
-			[]
+			[],
 		);
 
 		const activeCaptionLayout = useMemo(() => {
@@ -603,12 +631,12 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			const fontSize = getCaptionScaledFontSize(
 				autoCaptionSettings.fontSize,
 				overlayWidth,
-				autoCaptionSettings.maxWidth
+				autoCaptionSettings.maxWidth,
 			);
 			const maxTextWidthPx = getCaptionTextMaxWidth(
 				overlayWidth,
 				autoCaptionSettings.maxWidth,
-				fontSize
+				fontSize,
 			);
 			const measurementCanvas = document.createElement("canvas");
 			const measurementContext = measurementCanvas.getContext("2d");
@@ -623,7 +651,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				timeMs: Math.round(currentTime * 1000),
 				settings: autoCaptionSettings,
 				maxWidthPx: maxTextWidthPx,
-				measureText: (text) => measurementContext.measureText(text).width
+				measureText: (text) => measurementContext.measureText(text).width,
 			});
 		}, [autoCaptionSettings, autoCaptions, currentTime]);
 		const isCaptionEditing = captionEditSession !== null;
@@ -638,12 +666,12 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			const fontSize = getCaptionScaledFontSize(
 				autoCaptionSettings.fontSize,
 				overlayWidth,
-				autoCaptionSettings.maxWidth
+				autoCaptionSettings.maxWidth,
 			);
 			const maxTextWidthPx = getCaptionTextMaxWidth(
 				overlayWidth,
 				autoCaptionSettings.maxWidth,
-				fontSize
+				fontSize,
 			);
 			const measurementCanvas = document.createElement("canvas");
 			const measurementContext = measurementCanvas.getContext("2d");
@@ -655,13 +683,13 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			const measuredWidth = Math.max(
 				...captionEditSession.draft
 					.split(/\r?\n/)
-					.map((line) => measurementContext.measureText(line || " ").width)
+					.map((line) => measurementContext.measureText(line || " ").width),
 			);
 
 			return {
 				fontSize,
 				maxTextWidthPx,
-				widthPx: Math.ceil(Math.min(maxTextWidthPx, Math.max(fontSize * 2, measuredWidth + 2)))
+				widthPx: Math.ceil(Math.min(maxTextWidthPx, Math.max(fontSize * 2, measuredWidth + 2))),
 			};
 		}, [autoCaptionSettings, captionEditSession]);
 		const captionEditSizeKey = captionEditSession
@@ -676,7 +704,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			clipPlaybackRef.current?.pause();
 			const nextSession = {
 				target: activeCaptionLayout.editTarget,
-				draft: activeCaptionLayout.editTarget.text
+				draft: activeCaptionLayout.editTarget.text,
 			};
 			captionEditSessionRef.current = nextSession;
 			setCaptionEditSession(nextSession);
@@ -765,7 +793,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				const fontSize = getCaptionScaledFontSize(
 					autoCaptionSettings.fontSize,
 					overlayRef.current?.clientWidth || 960,
-					autoCaptionSettings.maxWidth
+					autoCaptionSettings.maxWidth,
 				);
 
 				const squirclePath = getSquircleSvgPath({
@@ -773,7 +801,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					y: 0,
 					width,
 					height,
-					radius: getCaptionScaledRadius(autoCaptionSettings.boxRadius, fontSize)
+					radius: getCaptionScaledRadius(autoCaptionSettings.boxRadius, fontSize),
 				});
 				captionBox.style.clipPath = `path('${squirclePath}')`;
 				captionBox.style.setProperty("-webkit-clip-path", `path('${squirclePath}')`);
@@ -796,13 +824,16 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const webcamTimeOffsetMs = webcam?.timeOffsetMs;
 		const webcamCropRegion = webcam?.cropRegion;
 		const webcamMirror = webcam?.mirror ?? false;
-		const webcamHeight = getCropMatchedWebcamHeightPercent(
-			webcamWidth,
-			rawWebcamHeight,
-			webcamVideoDimensions?.width,
-			webcamVideoDimensions?.height,
-			webcamCropRegion
-		);
+		const webcamHeight =
+			webcam?.dimensionsMode === "manual"
+				? rawWebcamHeight
+				: getCropMatchedWebcamHeightPercent(
+						webcamWidth,
+						rawWebcamHeight,
+						webcamVideoDimensions?.width,
+						webcamVideoDimensions?.height,
+						webcamCropRegion,
+					);
 		const webcamCropPreviewContentStyle = useMemo<React.CSSProperties>(() => {
 			if (!webcamVideoDimensions) {
 				return { opacity: 0 };
@@ -811,7 +842,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			const { sx, sy, sw, sh } = getWebcamCropSourceRect(
 				webcamCropRegion,
 				webcamVideoDimensions.width,
-				webcamVideoDimensions.height
+				webcamVideoDimensions.height,
 			);
 			const targetAspect = Math.max(0.01, webcamWidth) / Math.max(0.01, webcamHeight);
 			const coverScale = Math.max(targetAspect / sw, 1 / sh);
@@ -826,12 +857,18 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				width: `${(drawWidth / targetAspect) * 100}%`,
 				height: `${drawHeight * 100}%`,
 				maxWidth: "none",
-				willChange: "left, top, width, height"
+				willChange: "left, top, width, height",
 			};
 		}, [webcamCropRegion, webcamHeight, webcamVideoDimensions, webcamWidth]);
 
+		/**
+		 * 按当前屏幕画面布局相机，最终端点保留末帧，内部切口仍按片段范围隐藏。
+		 * @param zoomScale 当前屏幕缩放倍率。
+		 * @returns 无返回值；更新当前相机叠加层的可见性和位置。
+		 */
 		const applyWebcamBubbleLayout = useCallback(
 			(zoomScale: number) => {
+				const sample = resolveWebcamPreviewSample(currentTimeRef.current / 1000, timelineTimeRef.current, clipRegionsRef.current);
 				const bubble = webcamBubbleRef.current;
 				const bubbleInner = webcamBubbleInnerRef.current;
 				const overlay = overlayRef.current;
@@ -841,7 +878,11 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					!overlay ||
 					!webcamEnabled ||
 					!webcamVideoPath ||
-					!isWebcamVisibleAtSourceTime(webcam, currentTimeRef.current / 1000)
+					!isWebcamVisibleAtSourceTime(
+						webcam,
+						sample.sourceTime,
+						sample.timelineTime,
+					)
 				) {
 					if (bubble) {
 						bubble.style.display = "none";
@@ -857,12 +898,12 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					heightPercent: webcamHeight,
 					margin: scaledMargin,
 					zoomScale,
-					reactToZoom: webcamReactToZoom
+					reactToZoom: webcamReactToZoom,
 				});
 				const scaledRadius = getWebcamCornerRadiusPx(
 					webcamRoundness,
 					scaledDimensions.width,
-					scaledDimensions.height
+					scaledDimensions.height,
 				);
 				const { x, y } = getWebcamOverlayPosition({
 					containerWidth: overlay.clientWidth,
@@ -873,7 +914,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					positionPreset: webcamPositionPreset,
 					positionX: webcamPositionX,
 					positionY: webcamPositionY,
-					legacyCorner: webcamCorner
+					legacyCorner: webcamCorner,
 				});
 
 				bubble.style.display = "block";
@@ -887,7 +928,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					y: 0,
 					width: scaledDimensions.width,
 					height: scaledDimensions.height,
-					radius: scaledRadius
+					radius: scaledRadius,
 				});
 				const shadowSize = Math.min(scaledDimensions.width, scaledDimensions.height);
 				bubble.style.filter = getWebcamShadowFilter(shadowSize, webcamShadow);
@@ -913,13 +954,9 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				webcamShadow,
 				webcamHeight,
 				webcamVideoPath,
-				webcamWidth
-			]
+				webcamWidth,
+			],
 		);
-
-		const clampFocusToStage = useCallback((focus: ZoomFocus, depth: ZoomDepth) => {
-			return clampFocusToStageUtil(focus, depth, stageSizeRef.current);
-		}, []);
 
 		const updateOverlayForRegion = useCallback(
 			(region: ZoomRegion | null, focusOverride?: ZoomFocus) => {
@@ -943,10 +980,10 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					region,
 					focusOverride,
 					baseMask: baseMaskRef.current,
-					isPlaying: isPlayingRef.current
+					isPlaying: isPlayingRef.current,
 				});
 			},
-			[]
+			[],
 		);
 
 		const syncPreviewMotionBlurQuality = useCallback(() => {
@@ -996,7 +1033,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			) {
 				lockedVideoDimensionsRef.current = {
 					width: videoElement.videoWidth,
-					height: videoElement.videoHeight
+					height: videoElement.videoHeight,
 				};
 			}
 
@@ -1010,13 +1047,15 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				lockedVideoDimensions: lockedVideoDimensionsRef.current,
 				borderRadius,
 				padding,
-				frameInsets: null
+				frameInsets: null,
 			});
 
 			if (result) {
 				stageSizeRef.current = result.stageSize;
+				if (previewFrameRef.current)
+					previewFrameRef.current.style.borderRadius = `${(Math.min(result.stageSize.width, result.stageSize.height) * backgroundBorderRadius) / 100}px`;
 				setPreviewViewportWidth((current) =>
-					Math.abs(current - result.stageSize.width) < 0.5 ? current : result.stageSize.width
+					Math.abs(current - result.stageSize.width) < 0.5 ? current : result.stageSize.width,
 				);
 				syncPreviewMotionBlurQuality();
 				videoSizeRef.current = result.videoSize;
@@ -1026,7 +1065,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				baseMaskRef.current = {
 					...result.maskRect,
 					renderWidth: result.maskRect.width * renderResolution,
-					renderHeight: result.maskRect.height * renderResolution
+					renderHeight: result.maskRect.height * renderResolution,
 				};
 				setAnnotationRecordingRect((current) => {
 					if (
@@ -1042,7 +1081,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 						x: result.maskRect.x,
 						y: result.maskRect.y,
 						width: result.maskRect.width,
-						height: result.maskRect.height
+						height: result.maskRect.height,
 					};
 				});
 				cropBoundsRef.current = result.cropBounds;
@@ -1065,9 +1104,10 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			updateOverlayForRegion,
 			cropRegion,
 			borderRadius,
+			backgroundBorderRadius,
 			padding,
 			applyWebcamBubbleLayout,
-			syncPreviewMotionBlurQuality
+			syncPreviewMotionBlurQuality,
 		]);
 
 		useEffect(() => {
@@ -1098,7 +1138,22 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			get isPlaying() {
 				return clipPlaybackRef.current?.isPlaying ?? false;
 			},
-			seekTimeline: (time) => clipPlaybackRef.current?.seek(time),
+			/**
+			 * 跳转时间轴，并在预览渲染器尚未建立播放链时保留用户请求。
+			 * @param time 目标时间轴秒数。
+			 * @returns 无返回值；就绪时由播放链校正边界并绘制目标帧。
+			 */
+			seekTimeline(time) {
+				if (!Number.isFinite(time)) return;
+				const target = Math.max(0, time);
+				if (clipPlaybackRef.current) {
+					clipPlaybackRef.current.seek(target);
+					return;
+				}
+				// 异步初始化稍后从此时间创建播放链，避免提前操作被静默丢弃。
+				timelineTimeRef.current = target;
+				onTimeUpdate(target);
+			},
 			video: videoRef.current,
 			app: appRef.current,
 			videoSprite: videoSpriteRef.current,
@@ -1139,7 +1194,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 						};
 
 						video.addEventListener("seeked", handleSecondSeeked, {
-							once: true
+							once: true,
 						});
 						video.currentTime = restoreTime;
 					};
@@ -1147,9 +1202,15 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					video.addEventListener("seeked", handleFirstSeeked, { once: true });
 					video.currentTime = nudgeTarget;
 				});
-			}
+			},
 		}));
 
+		/**
+		 * 将手动取景拖动映射为当前连续倍率允许的焦点。
+		 * @param clientX 指针屏幕横坐标。
+		 * @param clientY 指针屏幕纵坐标。
+		 * @returns 无返回值；没有有效片段或画面时忽略。
+		 */
 		const updateFocusFromClientPoint = (clientX: number, clientY: number) => {
 			const overlayEl = overlayRef.current;
 			if (!overlayEl) return;
@@ -1176,9 +1237,9 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 
 			const unclampedFocus: ZoomFocus = {
 				cx: clamp01((localX - baseMask.x) / Math.max(1, baseMask.width)),
-				cy: clamp01((localY - baseMask.y) / Math.max(1, baseMask.height))
+				cy: clamp01((localY - baseMask.y) / Math.max(1, baseMask.height)),
 			};
-			const clampedFocus = clampFocusToStage(unclampedFocus, region.depth);
+			const clampedFocus = clampFocusToScale(unclampedFocus, getZoomScale(region));
 
 			onZoomFocusChange(region.id, clampedFocus);
 			updateOverlayForRegion({ ...region, focus: clampedFocus }, clampedFocus);
@@ -1268,7 +1329,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			if (video) {
 				const targetTime = clampMediaTimeToDuration(
 					currentTimeRef.current / 1000,
-					Number.isFinite(video.duration) ? video.duration : null
+					Number.isFinite(video.duration) ? video.duration : null,
 				);
 				if (Math.abs(video.currentTime - targetTime) > 0.001) {
 					try {
@@ -1311,7 +1372,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				targetTime,
 				toleranceSeconds: 0.02,
 				correctionWindowSeconds: 1.5,
-				maxAdjustment: 0.12
+				maxAdjustment: 0.12,
 			});
 			if (Math.abs(bgVideo.playbackRate - syncedPlaybackRate) > 0.001) {
 				bgVideo.playbackRate = syncedPlaybackRate;
@@ -1585,6 +1646,10 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			applyWebcamBubbleLayout(animationStateRef.current.appliedScale || 1);
 		}, [applyWebcamBubbleLayout, pixiReady, videoReady]);
 
+		/**
+		 * Align the camera to the screen frame being submitted, including independent timeline segments.
+		 * @returns Nothing; corrective seeks and playback belong to the active preview session.
+		 */
 		const syncWebcamMedia = useCallback(() => {
 			const webcamVideo = webcamVideoRef.current;
 			if (!webcamVideo || !webcamEnabled || !webcamVideoPath) {
@@ -1592,15 +1657,19 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			}
 
 			const webcamDuration = Number.isFinite(webcamVideo.duration) ? webcamVideo.duration : null;
+			const sample = resolveWebcamPreviewSample(
+				(presentedFrameRef.current?.sourceMs ?? currentTimeRef.current) / 1000,
+				(presentedFrameRef.current?.timelineMs ?? timelineTimeRef.current * 1000) / 1000,
+				clipRegionsRef.current
+			);
 			const targetTime = getWebcamMediaTargetTimeSeconds({
-				currentTime: currentTimeRef.current / 1000,
+				currentTime: sample.sourceTime,
 				webcamDuration,
-				timeOffsetMs: webcamTimeOffsetMs
+				timeOffsetMs: webcamTimeOffsetMs,
+				segments: webcam?.segments,
+				timelineTime: sample.timelineTime,
 			});
-			const mediaTargetTime =
-				targetTime <= 0 && webcamDuration !== null && webcamDuration > 0
-					? Math.min(1 / 60, webcamDuration)
-					: targetTime;
+			const mediaTargetTime = targetTime;
 
 			if (
 				webcamSynchronizedPathRef.current !== webcamVideoPath &&
@@ -1608,7 +1677,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					currentTime: webcamVideo.currentTime,
 					targetTime: mediaTargetTime,
 					readyState: webcamVideo.readyState,
-					isSeeking: webcamVideo.seeking
+					isSeeking: webcamVideo.seeking,
 				})
 			) {
 				webcamVideo.pause();
@@ -1632,8 +1701,9 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				lastWebcamSyncTimeRef.current = targetTime;
 			}
 
-			const targetPlaybackRate =
-				findClipAtTimelineTime(timelineTime * 1000, clipRegions)?.speed ?? 1;
+			const targetPlaybackRate = webcam?.segments
+				? 1
+				: (findClipAtTimelineTime(timelineTimeRef.current * 1000, clipRegions)?.speed ?? 1);
 			if (!supportsPreviewPlaybackRate(targetPlaybackRate)) {
 				webcamVideo.pause();
 				return;
@@ -1651,7 +1721,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					isSeeking: webcamVideo.seeking,
 					previousTimelineTime,
 					timelineTime: targetTime,
-					webcamCurrentTime: webcamVideo.currentTime
+					webcamCurrentTime: webcamVideo.currentTime,
 				})
 			) {
 				try {
@@ -1671,7 +1741,17 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			}
 
 			lastWebcamSyncTimeRef.current = targetTime;
-		}, [timelineTime, clipRegions, isPlaying, webcamEnabled, webcamTimeOffsetMs, webcamVideoPath]);
+		}, [
+			timelineTime,
+			clipRegions,
+			isPlaying,
+			webcamEnabled,
+			webcamTimeOffsetMs,
+			webcamVideoPath,
+			webcam?.segments,
+		]);
+		const syncWebcamFrameRef = useRef(syncWebcamMedia);
+		syncWebcamFrameRef.current = syncWebcamMedia;
 
 		const handleWebcamMediaReady = useCallback(
 			(event: React.SyntheticEvent<HTMLVideoElement>) => {
@@ -1679,12 +1759,12 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				if (video.videoWidth > 0 && video.videoHeight > 0 && video.readyState >= 2) {
 					setWebcamVideoDimensions({
 						width: video.videoWidth,
-						height: video.videoHeight
+						height: video.videoHeight,
 					});
 				}
 				syncWebcamMedia();
 			},
-			[syncWebcamMedia]
+			[syncWebcamMedia],
 		);
 
 		useEffect(() => {
@@ -1731,7 +1811,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					cursorOverlayEnabled = false;
 					console.warn(
 						"Native cursor assets are unavailable in preview; continuing without cursor overlay.",
-						error
+						error,
 					);
 				}
 
@@ -1784,7 +1864,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 						springTuning: {
 							stiffnessMultiplier: cursorSpringStiffnessMultiplierRef.current,
 							dampingMultiplier: cursorSpringDampingMultiplierRef.current,
-							massMultiplier: cursorSpringMassMultiplierRef.current
+							massMultiplier: cursorSpringMassMultiplierRef.current,
 						},
 						motionBlur: cursorMotionBlurRef.current,
 						clickEffect: cursorClickEffectRef.current,
@@ -1794,11 +1874,11 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 						clickEffectDurationMs: cursorClickEffectDurationMsRef.current,
 						clickBounce: cursorClickBounceRef.current,
 						clickBounceDuration: cursorClickBounceDurationRef.current,
-						sway: cursorSwayRef.current
+						sway: cursorSwayRef.current,
 					});
 					cursorOverlayRef.current = cursorOverlay;
 					cursorOverlay.setFilterResolution(
-						app.renderer.resolution || window.devicePixelRatio || 1
+						app.renderer.resolution || window.devicePixelRatio || 1,
 					);
 					cursorContainer.addChild(cursorOverlay.container);
 				} else {
@@ -1826,6 +1906,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				motionBlurFilterRef.current?.destroy();
 				zoomBlurFilterRef.current = null;
 				motionBlurFilterRef.current = null;
+				releaseZoomCamera(cameraContainerRef.current);
 				destroyPixiApplication(app, "preview renderer");
 				appRef.current = null;
 				cameraContainerRef.current = null;
@@ -1904,16 +1985,22 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			const presented = (_now: number, metadata: VideoFrameCallbackMetadata) => {
 				const clip = findPreviewClipAtTimelineTime(
 					timelineTimeRef.current * 1000,
-					clipRegionsRef.current
+					clipRegionsRef.current,
 				);
 				if (clip) {
 					const sourceMs = metadata.mediaTime * 1000;
 					const timelineMs = clip.startMs + (sourceMs - getClipSourceStartMs(clip)) / clip.speed;
-					if (timelineMs >= clip.startMs - 50 && timelineMs <= clip.endMs + 50)
+					if (timelineMs >= clip.startMs - 50 && timelineMs <= clip.endMs + 50) {
 						presentedFrameRef.current = {
 							sourceMs,
-							timelineMs: Math.max(clip.startMs, Math.min(clip.endMs, timelineMs))
+							timelineMs: Math.max(clip.startMs, Math.min(clip.endMs, timelineMs)),
 						};
+						const seconds = presentedFrameRef.current.timelineMs / 1000;
+						// Camera, audio and keyboard overlays consume the submitted screen frame clock.
+						syncWebcamFrameRef.current();
+						frameTimeHandlerRef.current?.(seconds);
+						if (isPlayingRef.current) setPresentedTimelineTime(seconds);
+					}
 				}
 				frameRequest = video.requestVideoFrameCallback(presented);
 			};
@@ -1940,7 +2027,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					onPlayStateChange(playing);
 				},
 				onError: (error) =>
-					onPlaybackErrorRef.current(error instanceof Error ? error.message : String(error))
+					onPlaybackErrorRef.current(error instanceof Error ? error.message : String(error)),
 			});
 			clipPlaybackRef.current = transport;
 			transport.seek(timelineTimeRef.current);
@@ -2003,7 +2090,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				motionSample?: {
 					previousTransform: { scale: number; x: number; y: number };
 					deltaMs: number;
-				} | null
+				} | null,
 			) => {
 				const cameraContainer = cameraContainerRef.current;
 				if (!cameraContainer) return;
@@ -2026,10 +2113,18 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					transformOverride: transform,
 					motionBlurState: motionBlurStateRef.current,
 					frameTimeMs: presentedFrameRef.current?.timelineMs ?? timelineTimeRef.current * 1000,
-					motionSample
+					motionSample,
 				});
 
 				state.x = appliedTransform.x;
+				// 镜头效果使用已提交帧的时间，与二维取景及导出保持一致。
+				applyZoomCamera(cameraContainer, stageSizeRef.current, zoomRegionsRef.current,
+					presentedFrameRef.current?.timelineMs ?? timelineTimeRef.current * 1000, {
+						connectZooms: connectZoomsRef.current,
+						connectedZoomGapMs: connectedZoomGapMsRef.current,
+						zoomInDurationMs: zoomInDurationMsRef.current,
+						zoomOutDurationMs: zoomOutDurationMsRef.current,
+					});
 				state.y = appliedTransform.y;
 				state.appliedScale = appliedTransform.scale;
 				setAnnotationSceneTransform((current) => {
@@ -2044,7 +2139,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					return {
 						scale: appliedTransform.scale,
 						x: appliedTransform.x,
-						y: appliedTransform.y
+						y: appliedTransform.y,
 					};
 				});
 			};
@@ -2063,7 +2158,12 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				// advance cursor springs or clear the blur calculated for that frame.
 				const frame = presentedFrameRef.current;
 				// 播放开始或跳转后等待解码器首个提交帧，不能提前借用传输时钟绘制光标。
-				if (isPlayingRef.current && !frame && typeof videoRef.current?.requestVideoFrameCallback === 'function') return;
+				if (
+					isPlayingRef.current &&
+					!frame &&
+					typeof videoRef.current?.requestVideoFrameCallback === "function"
+				)
+					return;
 				const contentTimeMs = frame?.timelineMs ?? timelineTimeRef.current * 1000;
 				const sourceTimeMs = frame?.sourceMs ?? currentTimeRef.current;
 				const previousContentTimeMs = lastRenderedContentTimeRef.current;
@@ -2074,14 +2174,14 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					isPlaying: isPlayingRef.current,
 					isSeeking: isSeekingRef.current,
 					shouldSnapPausedFrame: shouldSnapPausedFrameRef.current,
-					zoomClassicMode: zoomClassicModeRef.current
+					zoomClassicMode: zoomClassicModeRef.current,
 				});
 				if (
 					!shouldComposePreviewFrame({
 						motionMode,
 						isSeeking: isSeekingRef.current || Boolean(videoRef.current?.seeking),
 						contentTimeChanged,
-						shouldSnapPausedFrame: shouldSnapPausedFrameRef.current
+						shouldSnapPausedFrame: shouldSnapPausedFrameRef.current,
 					})
 				) {
 					return;
@@ -2103,30 +2203,31 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				const resolveTarget = (
 					timeMs: number,
 					cursorTimeMs: number,
-					cursorFollowCamera: CursorFollowCameraState
+					cursorFollowCamera: CursorFollowCameraState,
 				) =>
 					resolveSceneZoomTarget({
 						zoomRegions: zoomRegionsRef.current,
 						timeMs,
 						cursorTimeMs,
 						connectZooms: connectZoomsRef.current,
+						connectedZoomGapMs: connectedZoomGapMsRef.current,
 						zoomInDurationMs: zoomInDurationMsRef.current,
 						zoomOutDurationMs: zoomOutDurationMsRef.current,
 						zoomClassicMode: zoomClassicModeRef.current,
 						cursorTelemetry: cursorTelemetryRef.current,
-						cursorFollowCamera
+						cursorFollowCamera,
 					});
 
 				const target = resolveTarget(
 					contentTimeMs,
 					sourceTimeMs,
-					sampleFrozenFrame ? createCursorFollowCameraState() : cursorFollowCameraRef.current
+					sampleFrozenFrame ? createCursorFollowCameraState() : cursorFollowCameraRef.current,
 				);
 				const previousTarget = frameSample
 					? resolveTarget(
 							frameSample.previousTimeMs,
 							frameSample.previousSourceTimeMs,
-							createCursorFollowCameraState()
+							createCursorFollowCameraState(),
 						)
 					: null;
 				const motionSample = sampleFrozenFrame
@@ -2138,9 +2239,9 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 									zoomScale: previousTarget.scale,
 									zoomProgress: previousTarget.progress,
 									focusX: previousTarget.focus.cx,
-									focusY: previousTarget.focus.cy
+									focusY: previousTarget.focus.cy,
 								}),
-								deltaMs: frameSample.deltaMs
+								deltaMs: frameSample.deltaMs,
 							}
 						: null
 					: undefined;
@@ -2158,7 +2259,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					zoomScale: state.scale,
 					zoomProgress: state.progress,
 					focusX: state.focusX,
-					focusY: state.focusY
+					focusY: state.focusY,
 				});
 
 				// Advance scene motion from the source frame's media timestamp, exactly as
@@ -2169,7 +2270,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				const zoomSpringConfig = getZoomSpringConfig(zoomSmoothnessRef.current, {
 					stiffnessMultiplier: cameraSpringStiffnessMultiplierRef.current,
 					dampingMultiplier: cameraSpringDampingMultiplierRef.current,
-					massMultiplier: cameraSpringMassMultiplierRef.current
+					massMultiplier: cameraSpringMassMultiplierRef.current,
 				});
 				let appliedScale: number;
 				let appliedX: number;
@@ -2180,19 +2281,19 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 						springScaleRef.current,
 						projectedTransform.scale,
 						deltaMs,
-						zoomSpringConfig
+						zoomSpringConfig,
 					);
 					appliedX = stepSpringValue(
 						springXRef.current,
 						projectedTransform.x,
 						deltaMs,
-						zoomSpringConfig
+						zoomSpringConfig,
 					);
 					appliedY = stepSpringValue(
 						springYRef.current,
 						projectedTransform.y,
 						deltaMs,
-						zoomSpringConfig
+						zoomSpringConfig,
 					);
 				} else if (motionMode === "snap") {
 					// Timeline seeks and classic mode intentionally evaluate the exact target.
@@ -2211,7 +2312,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				applyTransform(
 					{ scale: appliedScale, x: appliedX, y: appliedY },
 					target.focus,
-					motionSample
+					motionSample,
 				);
 
 				applyWebcamBubbleLayout(animationStateRef.current.appliedScale || 1);
@@ -2225,7 +2326,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 						baseMaskRef.current,
 						showCursorRef.current,
 						isSeekingRef.current || shouldSnapPausedFrameRef.current,
-						sampleFrozenFrame ? (frameSample?.previousSourceTimeMs ?? null) : undefined
+						sampleFrozenFrame ? (frameSample?.previousSourceTimeMs ?? null) : undefined,
 					);
 				}
 
@@ -2260,7 +2361,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			overlay.setSpringTuning({
 				stiffnessMultiplier: cursorSpringStiffnessMultiplier,
 				dampingMultiplier: cursorSpringDampingMultiplier,
-				massMultiplier: cursorSpringMassMultiplier
+				massMultiplier: cursorSpringMassMultiplier,
 			});
 			overlay.setMotionBlur(cursorMotionBlur);
 			overlay.setClickEffect(cursorClickEffect);
@@ -2309,7 +2410,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			cursorClickEffectDurationMs,
 			cursorClickBounce,
 			cursorClickBounceDuration,
-			cursorSway
+			cursorSway,
 		]);
 
 		const handleLoadedMetadata = (e: React.SyntheticEvent<HTMLVideoElement, Event>) => {
@@ -2318,7 +2419,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 
 			const targetTime = clampMediaTimeToDuration(
 				currentTime,
-				Number.isFinite(video.duration) ? video.duration : null
+				Number.isFinite(video.duration) ? video.duration : null,
 			);
 			if (Math.abs(video.currentTime - targetTime) > 1e-8) video.currentTime = targetTime;
 			video.pause();
@@ -2327,7 +2428,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 
 		const [resolvedWallpaper, setResolvedWallpaper] = useState<string | null>(null);
 		const [resolvedWallpaperKind, setResolvedWallpaperKind] = useState<"image" | "video" | "style">(
-			"image"
+			"image",
 		);
 
 		useEffect(() => {
@@ -2411,7 +2512,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				(resolvedWallpaper.startsWith("file://") ||
 					resolvedWallpaper.startsWith("http") ||
 					resolvedWallpaper.startsWith("/") ||
-					resolvedWallpaper.startsWith("data:"))
+					resolvedWallpaper.startsWith("data:")),
 			);
 		const backgroundStyle = isImageUrl
 			? { backgroundImage: `url(${resolvedWallpaper || ""})` }
@@ -2421,7 +2522,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const sceneEffects = getSceneEffectMetrics({
 			viewportWidth: previewViewportWidth,
 			backgroundBlur,
-			shadowIntensity: showShadow ? shadowIntensity : 0
+			shadowIntensity: showShadow ? shadowIntensity : 0,
 		});
 		const captionFontFamily = autoCaptionSettings?.fontFamily || getDefaultCaptionFontFamily();
 		// Overscan blurred wallpaper layers so the browser never samples transparent
@@ -2437,9 +2538,9 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				return getEffectiveNativeAspectRatio(
 					{
 						width: video.videoWidth,
-						height: video.videoHeight
+						height: video.videoHeight,
 					},
-					cropRegion
+					cropRegion,
 				);
 			}
 			return 16 / 9;
@@ -2448,12 +2549,15 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		return (
 			<div
 				ref={previewFrameRef}
+				data-preview-frame
 				className="relative overflow-hidden"
 				style={{
 					width: "100%",
+					// 编辑指针与作品内录制光标独立，保持整个预览可操作。
+					cursor: 'default',
 					aspectRatio: formatAspectRatioForCSS(aspectRatio, nativeAspectRatio),
-					borderRadius: 0,
-					clipPath: "none"
+					borderRadius: `${(Math.min(stageSizeRef.current.width, stageSizeRef.current.height) * backgroundBorderRadius) / 100}px`,
+					clipPath: "none",
 				}}
 			>
 				{/* Background layer */}
@@ -2473,7 +2577,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 									: "none",
 							inset: -backgroundBlurOverscan,
 							width: `calc(100% + ${backgroundBlurOverscan * 2}px)`,
-							height: `calc(100% + ${backgroundBlurOverscan * 2}px)`
+							height: `calc(100% + ${backgroundBlurOverscan * 2}px)`,
 						}}
 					/>
 				) : (
@@ -2485,7 +2589,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 								sceneEffects.backgroundBlurPx > 0
 									? `blur(${sceneEffects.backgroundBlurPx}px)`
 									: "none",
-							inset: -backgroundBlurOverscan
+							inset: -backgroundBlurOverscan,
 						}}
 					/>
 				)}
@@ -2494,7 +2598,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					className="absolute inset-0"
 					style={{
 						filter: sceneEffects.shadowFilter,
-						visibility: isGap ? "hidden" : "visible"
+						visibility: isGap ? "hidden" : "visible",
 					}}
 				/>
 				{/* Only render overlay after PIXI and video are fully initialized */}
@@ -2505,7 +2609,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 						className="absolute inset-0 select-none"
 						style={{
 							pointerEvents: "none",
-							visibility: isGap ? "hidden" : "visible"
+							visibility: isGap ? "hidden" : "visible",
 						}}
 						onPointerDown={handleOverlayPointerDown}
 						onPointerMove={handleOverlayPointerMove}
@@ -2521,13 +2625,17 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 							<div
 								ref={webcamBubbleRef}
 								data-webcam-overlay
+								title={onWebcamChange ? "拖动画面调整位置" : undefined}
+								{...webcamDrag}
 								className="absolute"
 								style={{
 									display:
-										webcam.enabled && !isGap && isWebcamVisibleAtSourceTime(webcam, currentTime)
+										webcam.enabled && !isGap && isWebcamVisibleAtSourceTime(webcam, webcamPreviewSample.sourceTime, webcamPreviewSample.timelineTime)
 											? "block"
 											: "none",
-									pointerEvents: "none"
+									pointerEvents: onWebcamChange ? "auto" : "none",
+									cursor: onWebcamChange ? "grab" : undefined,
+									touchAction: "none",
 								}}
 							>
 								<div ref={webcamBubbleInnerRef} className="relative h-full w-full overflow-hidden">
@@ -2535,7 +2643,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 										className="pointer-events-none absolute inset-0 overflow-hidden"
 										style={{
 											opacity: webcamVideoDimensions && webcamMediaSynchronized ? 1 : 0,
-											transform: webcamMirror ? "scaleX(-1)" : undefined
+											transform: webcamMirror ? "scaleX(-1)" : undefined,
 										}}
 									>
 										<div
@@ -2565,7 +2673,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 								className="absolute inset-x-0 flex justify-center"
 								style={{
 									bottom: `${autoCaptionSettings.bottomOffset}%`,
-									pointerEvents: onEditAutoCaption ? "auto" : "none"
+									pointerEvents: onEditAutoCaption ? "auto" : "none",
 								}}
 							>
 								<div
@@ -2573,7 +2681,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 										maxWidth: `${autoCaptionSettings.maxWidth}%`,
 										opacity: activeCaptionLayout.opacity,
 										transform: `translateY(${activeCaptionLayout.translateY}px) scale(${activeCaptionLayout.scale})`,
-										transformOrigin: "center center"
+										transformOrigin: "center center",
 									}}
 								>
 									<div
@@ -2608,7 +2716,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 											fontSize: `${getCaptionScaledFontSize(
 												autoCaptionSettings.fontSize,
 												overlayRef.current?.clientWidth || 960,
-												autoCaptionSettings.maxWidth
+												autoCaptionSettings.maxWidth,
 											)}px`,
 											lineHeight: CAPTION_LINE_HEIGHT,
 											textAlign: "center",
@@ -2618,16 +2726,16 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 													getCaptionScaledFontSize(
 														autoCaptionSettings.fontSize,
 														overlayRef.current?.clientWidth || 960,
-														autoCaptionSettings.maxWidth
-													)
+														autoCaptionSettings.maxWidth,
+													),
 												).y
 											}px ${
 												getCaptionPadding(
 													getCaptionScaledFontSize(
 														autoCaptionSettings.fontSize,
 														overlayRef.current?.clientWidth || 960,
-														autoCaptionSettings.maxWidth
-													)
+														autoCaptionSettings.maxWidth,
+													),
 												).x
 											}px`,
 											borderRadius: `${getCaptionScaledRadius(
@@ -2635,12 +2743,12 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 												getCaptionScaledFontSize(
 													autoCaptionSettings.fontSize,
 													overlayRef.current?.clientWidth || 960,
-													autoCaptionSettings.maxWidth
-												)
+													autoCaptionSettings.maxWidth,
+												),
 											)}px`,
 											boxSizing: "border-box",
 											cursor: onEditAutoCaption && !isCaptionEditing ? "text" : undefined,
-											pointerEvents: onEditAutoCaption ? "auto" : undefined
+											pointerEvents: onEditAutoCaption ? "auto" : undefined,
 										}}
 									>
 										{captionEditSession ? (
@@ -2679,8 +2787,8 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 															48,
 															activeCaptionLayout.visibleLines.reduce(
 																(width, line) => Math.max(width, line.width),
-																0
-															)
+																0,
+															),
 														)
 													}px`,
 													maxWidth: `${
@@ -2691,8 +2799,8 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 															getCaptionScaledFontSize(
 																autoCaptionSettings.fontSize,
 																overlayRef.current?.clientWidth || 960,
-																autoCaptionSettings.maxWidth
-															)
+																autoCaptionSettings.maxWidth,
+															),
 														)
 													}px`,
 													minHeight: `${
@@ -2701,7 +2809,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 															getCaptionScaledFontSize(
 																autoCaptionSettings.fontSize,
 																overlayRef.current?.clientWidth || 960,
-																autoCaptionSettings.maxWidth
+																autoCaptionSettings.maxWidth,
 															)) *
 														CAPTION_LINE_HEIGHT
 													}px`,
@@ -2715,7 +2823,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 													color: autoCaptionSettings.textColor,
 													font: "inherit",
 													lineHeight: "inherit",
-													textAlign: "center"
+													textAlign: "center",
 												}}
 											/>
 										) : (
@@ -2726,13 +2834,13 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 														display: "flex",
 														justifyContent: "center",
 														flexWrap: "nowrap",
-														whiteSpace: "nowrap"
+														whiteSpace: "nowrap",
 													}}
 												>
 													{line.words.map((word) => {
 														const visualState = getCaptionWordVisualState(
 															activeCaptionLayout.hasWordTimings,
-															word.state
+															word.state,
 														);
 
 														return (
@@ -2744,7 +2852,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 																	color: visualState.isInactive
 																		? autoCaptionSettings.inactiveTextColor
 																		: autoCaptionSettings.textColor,
-																	opacity: visualState.opacity
+																	opacity: visualState.opacity,
 																}}
 															>
 																{`${word.leadingSpace ? " " : ""}${word.text}`}
@@ -2763,7 +2871,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 							style={{
 								pointerEvents: "none",
 								transform: `matrix(${annotationSceneTransform.scale}, 0, 0, ${annotationSceneTransform.scale}, ${annotationSceneTransform.x}, ${annotationSceneTransform.y})`,
-								transformOrigin: "top left"
+								transformOrigin: "top left",
 							}}
 						>
 							<div
@@ -2773,14 +2881,12 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 									left: 0,
 									top: 0,
 									width: overlayRef.current?.clientWidth || 800,
-									height: overlayRef.current?.clientHeight || 600
+									height: overlayRef.current?.clientHeight || 600,
 								}}
 							>
 								{(() => {
-									const timeMs = Math.round(timelineTime * 1000);
-									const filtered = (annotationRegions || []).filter((annotation) =>
-										isAnnotationActiveAtTime(annotation, timeMs)
-									);
+									const timeMs = Math.round(overlayTimelineTime * 1000);
+									const filtered = resolveDisplayAnnotations(annotationRegions || [], timeMs);
 
 									const sorted = [...filtered].sort((a, b) => a.zIndex - b.zIndex);
 
@@ -2798,8 +2904,12 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 
 									return sorted.map((annotation) => (
 										<AnnotationOverlay
+											sourceCanvas={appRef.current?.canvas as HTMLCanvasElement | undefined}
+											refreshScene={() => appRef.current?.render()}
 											key={annotation.id}
 											annotation={annotation}
+											timeMs={timeMs}
+											onMaskChange={onAnnotationMaskChange}
 											isSelected={annotation.id === selectedAnnotationId}
 											containerWidth={
 												annotationRecordingRect.width || overlayRef.current?.clientWidth || 800
@@ -2813,7 +2923,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 												width:
 													annotationRecordingRect.width || overlayRef.current?.clientWidth || 800,
 												height:
-													annotationRecordingRect.height || overlayRef.current?.clientHeight || 600
+													annotationRecordingRect.height || overlayRef.current?.clientHeight || 600,
 											}}
 											sceneTransform={{ scale: 1, x: 0, y: 0 }}
 											interactionScale={annotationSceneTransform.scale}
@@ -2821,6 +2931,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 												onAnnotationPositionChange?.(id, position)
 											}
 											onSizeChange={(id, size) => onAnnotationSizeChange?.(id, size)}
+											onRotationChange={(id, rotation) => onAnnotationRotationChange?.(id, rotation)}
 											onClick={handleAnnotationClick}
 											zIndex={annotation.zIndex}
 											isSelectedBoost={annotation.id === selectedAnnotationId}
@@ -2835,7 +2946,8 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					browser continues producing presented frames for Pixi and preview sync. */}
 				<video
 					ref={attachVideo}
-					src={videoPath}
+					data-presentation-source-video
+					src={videoPath || undefined}
 					className="pointer-events-none absolute left-0 top-0 h-px w-px opacity-0"
 					style={{ visibility: isGap ? "hidden" : "visible" }}
 					preload="auto"
@@ -2863,7 +2975,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				/>
 			</div>
 		);
-	}
+	},
 );
 
 VideoPlayback.displayName = "VideoPlayback";

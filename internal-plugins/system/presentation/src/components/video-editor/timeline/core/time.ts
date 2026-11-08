@@ -88,8 +88,15 @@ export function normalizeWheelDeltaToPixels(delta: number, deltaMode: number) {
 	return delta;
 }
 
+/**
+ * 按主刻度间隔显示时间，保留表示该间隔所需的小数位。
+ * @param milliseconds 当前刻度的毫秒位置。
+ * @param intervalMs 相邻主刻度间隔。
+ * @returns 包含必要小数位的分秒或时分秒标签。
+ */
 export function formatTimeLabel(milliseconds: number, intervalMs: number) {
-	const digits = intervalMs < 250 ? 2 : intervalMs < 1000 ? 1 : 0;
+	// 使用刻度本身所需的小数位，250ms不能被四舍五入成0.3秒。
+	const digits = intervalMs % 1000 === 0 ? 0 : intervalMs % 100 === 0 ? 1 : intervalMs % 10 === 0 ? 2 : 3;
 	const factor = 10 ** digits;
 	const safeMs = Number.isFinite(milliseconds) ? Math.max(0, milliseconds) : 0;
 	const total =
@@ -102,7 +109,16 @@ export function formatTimeLabel(milliseconds: number, intervalMs: number) {
 		: `${minutes}:${seconds}`;
 }
 
+/**
+ * 显示完整毫秒时间，进位统一基于整数毫秒避免59.999秒越界。
+ * @param ms 时间轴位置，单位为毫秒。
+ * @returns 分:秒.毫秒，超过一小时时包含小时。
+ */
 export function formatPlayheadTime(ms: number): string {
-	const rounded = Math.round(Math.max(0, ms) / 100) * 100;
-	return rounded < 60000 ? `${(rounded / 1000).toFixed(1)}s` : formatTimeLabel(rounded, 500);
+	const rounded = Number.isFinite(ms) ? Math.round(Math.max(0, ms)) : 0;
+	const seconds = Math.floor(rounded / 1000);
+	const hours = Math.floor(seconds / 3600);
+	const minutes = Math.floor(seconds / 60) % 60;
+	const tail = `${String(seconds % 60).padStart(2, "0")}.${String(rounded % 1000).padStart(3, "0")}`;
+	return hours ? `${hours}:${String(minutes).padStart(2, "0")}:${tail}` : `${minutes}:${tail}`;
 }

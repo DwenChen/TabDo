@@ -5,7 +5,7 @@ import {
 	legacyBorderRadiusPixelsToPercent,
 	normalizeProjectEditor,
 	type ProjectEditorState,
-	stripPersistedDevMotionBlurSettings,
+	stripPersistedDevMotionBlurSettings
 } from "./projectPersistence";
 
 type PersistedEditorControls = Pick<
@@ -45,6 +45,7 @@ type PersistedEditorControls = Pick<
 	| "cursorClickBounceDuration"
 	| "cursorSway"
 	| "borderRadius"
+	| "backgroundBorderRadius"
 	| "padding"
 	| "webcam"
 	| "aspectRatio"
@@ -54,7 +55,10 @@ type PartialEditorControls = Partial<PersistedEditorControls>;
 
 type PresetAutoCaptionSettings = ProjectEditorState["autoCaptionSettings"];
 type PresetCropRegion = ProjectEditorState["cropRegion"];
-type PresetWebcamSettings = Omit<ProjectEditorState["webcam"], "sourcePath" | "visibleRanges">;
+type PresetWebcamSettings = Omit<
+	ProjectEditorState["webcam"],
+	"sourcePath" | "visibleRanges" | "segments" | "sourceDurationMs"
+>;
 
 export interface EditorPresetSnapshot extends Omit<PersistedEditorControls, "webcam"> {
 	borderRadiusUnit: "percent";
@@ -72,6 +76,7 @@ export interface EditorPreset {
 }
 
 export interface EditorPreferences extends PersistedEditorControls, ExportPreferences {
+	motionDefaultsVersion: number;
 	borderRadiusUnit: "percent";
 	customAspectWidth: string;
 	customAspectHeight: string;
@@ -87,6 +92,7 @@ export const EDITOR_PRESETS_STORAGE_KEY = "recordly.editor.presets";
 const DEFAULT_EDITOR_CONTROLS = normalizeProjectEditor({});
 
 export const DEFAULT_EDITOR_PREFERENCES: EditorPreferences = {
+	motionDefaultsVersion: 1,
 	wallpaper: DEFAULT_EDITOR_CONTROLS.wallpaper,
 	shadowIntensity: DEFAULT_EDITOR_CONTROLS.shadowIntensity,
 	backgroundBlur: DEFAULT_EDITOR_CONTROLS.backgroundBlur,
@@ -122,6 +128,7 @@ export const DEFAULT_EDITOR_PREFERENCES: EditorPreferences = {
 	cursorClickBounceDuration: DEFAULT_EDITOR_CONTROLS.cursorClickBounceDuration,
 	cursorSway: DEFAULT_EDITOR_CONTROLS.cursorSway,
 	borderRadius: DEFAULT_EDITOR_CONTROLS.borderRadius,
+	backgroundBorderRadius: 0,
 	borderRadiusUnit: "percent",
 	padding: DEFAULT_EDITOR_CONTROLS.padding,
 	webcam: DEFAULT_EDITOR_CONTROLS.webcam,
@@ -132,7 +139,7 @@ export const DEFAULT_EDITOR_PREFERENCES: EditorPreferences = {
 	customWallpapers: [],
 	autoApplyFreshRecordingAutoZooms: true,
 	whisperExecutablePath: null,
-	whisperModelPath: null,
+	whisperModelPath: null
 };
 
 function normalizeBoolean(value: unknown, fallback: boolean): boolean {
@@ -158,9 +165,7 @@ function normalizeCustomWallpapers(value: unknown, fallback: string[]): string[]
 	}
 
 	return Array.from(
-		new Set(
-			value.filter((item): item is string => typeof item === "string" && item.length > 0),
-		),
+		new Set(value.filter((item): item is string => typeof item === "string" && item.length > 0))
 	);
 }
 
@@ -176,23 +181,28 @@ function normalizeNullablePath(value: unknown): string | null {
 function normalizePresetAutoCaptionSettings(value: unknown): PresetAutoCaptionSettings {
 	return normalizeProjectEditor({
 		autoCaptionSettings:
-			value && typeof value === "object" ? (value as PresetAutoCaptionSettings) : undefined,
+			value && typeof value === "object" ? (value as PresetAutoCaptionSettings) : undefined
 	}).autoCaptionSettings;
 }
 
+/**
+ * 规范化已保存的外观预设，保留其明确运动效果及独立圆角。
+ * @param candidate 读取的预设快照。
+ * @returns 补齐缺失字段且不套用旧默认迁移的快照。
+ */
 function normalizeEditorPresetSnapshot(candidate: unknown): EditorPresetSnapshot {
-	const normalizedPreferences = normalizeEditorPreferences(candidate);
-	const raw =
+	// 保存的外观预设含明确选择，不套用旧默认偏好的升级规则。
+	const normalizedPreferences = normalizeEditorPreferences(
 		candidate && typeof candidate === "object"
-			? (candidate as Partial<EditorPresetSnapshot>)
-			: {};
-	const normalizedCropRegion = normalizeProjectEditor({
-		cropRegion: raw.cropRegion,
-	}).cropRegion;
-	const normalizedControls = normalizeEditorControls(
-		normalizedPreferences,
-		normalizedPreferences,
+			? { ...candidate, motionDefaultsVersion: 1 }
+			: candidate
 	);
+	const raw =
+		candidate && typeof candidate === "object" ? (candidate as Partial<EditorPresetSnapshot>) : {};
+	const normalizedCropRegion = normalizeProjectEditor({
+		cropRegion: raw.cropRegion
+	}).cropRegion;
+	const normalizedControls = normalizeEditorControls(normalizedPreferences, normalizedPreferences);
 	const {
 		sourcePath: _sourcePath,
 		visibleRanges: _visibleRanges,
@@ -204,7 +214,7 @@ function normalizeEditorPresetSnapshot(candidate: unknown): EditorPresetSnapshot
 		borderRadiusUnit: "percent",
 		webcam,
 		cropRegion: normalizedCropRegion,
-		autoCaptionSettings: normalizePresetAutoCaptionSettings(raw.autoCaptionSettings),
+		autoCaptionSettings: normalizePresetAutoCaptionSettings(raw.autoCaptionSettings)
 	};
 }
 
@@ -238,15 +248,14 @@ function normalizeEditorPreset(candidate: unknown): EditorPreset | null {
 	}
 
 	const timestamp = new Date().toISOString();
-	const id =
-		typeof raw.id === "string" && raw.id.trim().length > 0 ? raw.id : crypto.randomUUID();
+	const id = typeof raw.id === "string" && raw.id.trim().length > 0 ? raw.id : crypto.randomUUID();
 
 	return {
 		id,
 		name,
 		createdAt: normalizePresetTimestamp(raw.createdAt, timestamp),
 		updatedAt: normalizePresetTimestamp(raw.updatedAt, timestamp),
-		snapshot: normalizeEditorPresetSnapshot(raw.snapshot),
+		snapshot: normalizeEditorPresetSnapshot(raw.snapshot)
 	};
 }
 
@@ -265,9 +274,15 @@ export function serializeEditorPresetSnapshot(snapshot: EditorPresetSnapshot): s
 	return JSON.stringify(normalizeEditorPresetSnapshot(snapshot));
 }
 
+/**
+ * 校验持久化外观参数，复用项目规则并补齐背景圆角等缺失值。
+ * @param raw 读取的部分偏好。
+ * @param fallback 缺失字段使用的完整偏好。
+ * @returns 可供项目、预设和编辑器共同使用的外观参数。
+ */
 function normalizeEditorControls(
 	raw: Partial<EditorPreferences>,
-	fallback: EditorPreferences,
+	fallback: EditorPreferences
 ): PersistedEditorControls {
 	const sanitizedRaw = stripPersistedDevMotionBlurSettings(raw);
 	const candidate: PartialEditorControls = {
@@ -291,25 +306,21 @@ function normalizeEditorControls(
 		cursorSize: sanitizedRaw.cursorSize ?? fallback.cursorSize,
 		cursorSmoothing: sanitizedRaw.cursorSmoothing ?? fallback.cursorSmoothing,
 		cursorSpringStiffnessMultiplier:
-			sanitizedRaw.cursorSpringStiffnessMultiplier ??
-			fallback.cursorSpringStiffnessMultiplier,
+			sanitizedRaw.cursorSpringStiffnessMultiplier ?? fallback.cursorSpringStiffnessMultiplier,
 		cursorSpringDampingMultiplier:
 			sanitizedRaw.cursorSpringDampingMultiplier ?? fallback.cursorSpringDampingMultiplier,
 		cursorSpringMassMultiplier:
 			sanitizedRaw.cursorSpringMassMultiplier ?? fallback.cursorSpringMassMultiplier,
 		cameraSpringStiffnessMultiplier:
-			sanitizedRaw.cameraSpringStiffnessMultiplier ??
-			fallback.cameraSpringStiffnessMultiplier,
+			sanitizedRaw.cameraSpringStiffnessMultiplier ?? fallback.cameraSpringStiffnessMultiplier,
 		cameraSpringDampingMultiplier:
 			sanitizedRaw.cameraSpringDampingMultiplier ?? fallback.cameraSpringDampingMultiplier,
 		cameraSpringMassMultiplier:
 			sanitizedRaw.cameraSpringMassMultiplier ?? fallback.cameraSpringMassMultiplier,
 		cursorMotionBlur: sanitizedRaw.cursorMotionBlur ?? fallback.cursorMotionBlur,
 		cursorClickEffect: sanitizedRaw.cursorClickEffect ?? fallback.cursorClickEffect,
-		cursorClickEffectColor:
-			sanitizedRaw.cursorClickEffectColor ?? fallback.cursorClickEffectColor,
-		cursorClickEffectScale:
-			sanitizedRaw.cursorClickEffectScale ?? fallback.cursorClickEffectScale,
+		cursorClickEffectColor: sanitizedRaw.cursorClickEffectColor ?? fallback.cursorClickEffectColor,
+		cursorClickEffectScale: sanitizedRaw.cursorClickEffectScale ?? fallback.cursorClickEffectScale,
 		cursorClickEffectOpacity:
 			sanitizedRaw.cursorClickEffectOpacity ?? fallback.cursorClickEffectOpacity,
 		cursorClickEffectDurationMs:
@@ -319,12 +330,19 @@ function normalizeEditorControls(
 			sanitizedRaw.cursorClickBounceDuration ?? fallback.cursorClickBounceDuration,
 		cursorSway: sanitizedRaw.cursorSway ?? fallback.cursorSway,
 		borderRadius: sanitizedRaw.borderRadius ?? fallback.borderRadius,
+		backgroundBorderRadius: sanitizedRaw.backgroundBorderRadius ?? fallback.backgroundBorderRadius,
 		padding: sanitizedRaw.padding ?? fallback.padding,
 		webcam: sanitizedRaw.webcam ?? fallback.webcam,
-		aspectRatio: sanitizedRaw.aspectRatio ?? fallback.aspectRatio,
+		aspectRatio: sanitizedRaw.aspectRatio ?? fallback.aspectRatio
 	};
 
 	const normalized = normalizeProjectEditor(candidate);
+	// Global appearance preferences cannot carry timing from a specific camera recording.
+	const {
+		segments: _segments,
+		sourceDurationMs: _sourceDurationMs,
+		...webcamControls
+	} = normalized.webcam;
 
 	return {
 		wallpaper: normalized.wallpaper,
@@ -362,52 +380,65 @@ function normalizeEditorControls(
 		cursorClickBounceDuration: normalized.cursorClickBounceDuration,
 		cursorSway: normalized.cursorSway,
 		borderRadius: normalized.borderRadius,
+		backgroundBorderRadius: normalized.backgroundBorderRadius,
 		padding: normalized.padding,
-		webcam: normalized.webcam,
-		aspectRatio: normalized.aspectRatio,
+		webcam: webcamControls,
+		aspectRatio: normalized.aspectRatio
 	};
 }
 
+/**
+ * 规范化全局编辑偏好，并将旧默认运动效果升级为平滑。
+ * @param candidate 当前状态与操作参数。
+ * @param fallback 缺失偏好使用的完整默认配置。
+ * @returns 规范化状态或所属编辑操作。
+ */
 export function normalizeEditorPreferences(
 	candidate: unknown,
-	fallback: EditorPreferences = DEFAULT_EDITOR_PREFERENCES,
+	fallback: EditorPreferences = DEFAULT_EDITOR_PREFERENCES
 ): EditorPreferences {
 	const raw =
 		candidate && typeof candidate === "object" ? (candidate as Partial<EditorPreferences>) : {};
-	const controls =
-		raw.borderRadiusUnit === "percent" || typeof raw.borderRadius !== "number"
+	const motionRaw =
+		raw.motionDefaultsVersion === 1
 			? raw
 			: {
 					...raw,
+					zoomInDurationMs: DEFAULT_EDITOR_PREFERENCES.zoomInDurationMs,
+					zoomOutDurationMs: DEFAULT_EDITOR_PREFERENCES.zoomOutDurationMs
+				};
+	const controls =
+		raw.borderRadiusUnit === "percent" || typeof raw.borderRadius !== "number"
+			? motionRaw
+			: {
+					...motionRaw,
 					borderRadius:
 						raw.borderRadius === 0
 							? getDefaultBorderRadiusPercent()
-							: legacyBorderRadiusPixelsToPercent(raw.borderRadius),
+							: legacyBorderRadiusPixelsToPercent(raw.borderRadius)
 				};
 
 	return {
 		...normalizeEditorControls(controls, fallback),
+		motionDefaultsVersion: 1,
 		...normalizeExportPreferences({ ...fallback, ...raw }),
 		borderRadiusUnit: "percent",
 		customAspectWidth: normalizePositiveIntegerString(
 			raw.customAspectWidth,
-			fallback.customAspectWidth,
+			fallback.customAspectWidth
 		),
 		customAspectHeight: normalizePositiveIntegerString(
 			raw.customAspectHeight,
-			fallback.customAspectHeight,
+			fallback.customAspectHeight
 		),
-		customWallpapers: normalizeCustomWallpapers(
-			raw.customWallpapers,
-			fallback.customWallpapers,
-		),
+		customWallpapers: normalizeCustomWallpapers(raw.customWallpapers, fallback.customWallpapers),
 		autoApplyFreshRecordingAutoZooms: normalizeBoolean(
 			raw.autoApplyFreshRecordingAutoZooms,
-			fallback.autoApplyFreshRecordingAutoZooms,
+			fallback.autoApplyFreshRecordingAutoZooms
 		),
 		whisperExecutablePath:
 			normalizeNullablePath(raw.whisperExecutablePath) ?? fallback.whisperExecutablePath,
-		whisperModelPath: normalizeNullablePath(raw.whisperModelPath) ?? fallback.whisperModelPath,
+		whisperModelPath: normalizeNullablePath(raw.whisperModelPath) ?? fallback.whisperModelPath
 	};
 }
 
@@ -476,10 +507,7 @@ export function saveEditorPresets(presets: EditorPreset[]): boolean {
 	try {
 		const normalized = normalizeEditorPresets(presets);
 		const persistedToAppSettings = saveAppSetting(EDITOR_PRESETS_STORAGE_KEY, normalized);
-		const persistedToLocalStorage = saveLocalStorageJson(
-			EDITOR_PRESETS_STORAGE_KEY,
-			normalized,
-		);
+		const persistedToLocalStorage = saveLocalStorageJson(EDITOR_PRESETS_STORAGE_KEY, normalized);
 		return persistedToAppSettings || persistedToLocalStorage;
 	} catch {
 		// Ignore storage failures so editor controls still work.

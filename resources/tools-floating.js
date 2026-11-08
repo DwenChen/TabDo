@@ -7,6 +7,18 @@ const $ = (id) => document.getElementById(id)
 const canvas = $('canvas')
 const ctx = canvas.getContext('2d')
 const stage = $('stage')
+// 两个编辑入口使用同一标记顺序、名称和线条图标；橡皮擦属于图片编辑操作。
+const annotationCatalogue = window.annotationTools
+$('drawing-tools').innerHTML = annotationCatalogue.tools
+  .map(
+    ({ id, label, key, path }) =>
+      `<button class="tool-btn" data-tool="${id}" aria-label="${label}" aria-pressed="false" title="${label} (${key})">${annotationCatalogue.svg(path)}</button>`
+  )
+  .join('')
+for (const [id, path] of Object.entries(annotationCatalogue.actions)) {
+  const button = id === 'eraser' ? document.querySelector('[data-tool="eraser"]') : $(id)
+  button.innerHTML = annotationCatalogue.svg(path)
+}
 let content,
   image,
   pinnedTop = true,
@@ -18,8 +30,24 @@ let shapes = [],
   disposed = false
 let resizeStart = null
 let dragStart = null
-let penColor = '#ff3b30',
-  highlighterColor = '#eeff00'
+// 每个工具拥有独立的本次窗口参数；切换只恢复自己的选择，不修改其他工具或持久配置。
+const toolOptions = Object.fromEntries(
+  [...annotationCatalogue.tools.map(({ id }) => id), 'eraser'].map((id) => [
+    id,
+    {
+      color: id === 'highlighter' ? '#eeff00' : '#ff3b30',
+      size: 4,
+      font: 24
+    }
+  ])
+)
+let mosaicMode = 'brush',
+  mosaicRadius = 22,
+  mosaicDensity = 10,
+  mosaicSample = null,
+  mosaicSampleDensity = 0,
+  mosaicPointer = null
+const annotationFont = '"Microsoft YaHei", "Segoe UI", sans-serif'
 const noteColors = {
   '#c1f3bd': '#adeea8',
   '#d3bdf3': '#bfa8e6',
@@ -59,6 +87,18 @@ function draw(shape) {
   ctx.lineCap = 'round'
   ctx.lineJoin = 'round'
   ctx.beginPath()
+  if (type === 'number') {
+    const radius = Math.max(12, size * 3 + 8)
+    ctx.arc(a.x, a.y, radius, 0, Math.PI * 2)
+    ctx.fill()
+    const rgb = color.match(/[a-f\d]{2}/gi).map((part) => parseInt(part, 16))
+    ctx.fillStyle = rgb[0] * 0.299 + rgb[1] * 0.587 + rgb[2] * 0.114 > 170 ? '#333333' : '#ffffff'
+    ctx.font = `bold ${Math.floor(radius * (shape.number > 99 ? 0.9 : 1.15))}px "Segoe UI", sans-serif`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(String(shape.number), a.x, a.y, radius * 1.6)
+    ctx.textAlign = 'start'
+  }
   if (type === 'pen' || type === 'highlighter') {
     ctx.globalAlpha = type === 'highlighter' ? 0.3 : 1
     ctx.lineWidth = type === 'highlighter' ? size * 4 : size
@@ -101,42 +141,129 @@ function draw(shape) {
     ctx.stroke()
   }
   if (type === 'arrow') {
-    ctx.moveTo(a.x, a.y)
-    ctx.lineTo(b.x, b.y)
-    ctx.stroke()
-    const angle = Math.atan2(b.y - a.y, b.x - a.x),
-      length = Math.max(12, size * 4)
-    ctx.beginPath()
-    ctx.moveTo(b.x, b.y)
-    ctx.lineTo(b.x - length * Math.cos(angle - 0.5), b.y - length * Math.sin(angle - 0.5))
-    ctx.lineTo(b.x - length * Math.cos(angle + 0.5), b.y - length * Math.sin(angle + 0.5))
-    ctx.closePath()
-    ctx.fill()
+    drawArrow(a, b, size)
   }
   if (type === 'text') {
-    ctx.font = `${font}px sans-serif`
+    ctx.font = `${font}px ${annotationFont}`
     ctx.textBaseline = 'top'
     ctx.fillText(text, a.x, a.y)
   }
-  if (type === 'mosaic') {
-    // 马赛克采样当前图像的固定网格，真实遮盖内容而非绘制半透明色块。
-    const block = Math.max(8, size * 2)
-    for (const p of points) {
-      const x = Math.max(0, Math.floor(p.x / block) * block),
-        y = Math.max(0, Math.floor(p.y / block) * block)
-      const w = Math.min(block, canvas.width - x),
-        h = Math.min(block, canvas.height - y)
-      if (w <= 0 || h <= 0) continue
-      const pixel = ctx.getImageData(
-        Math.min(canvas.width - 1, x + Math.floor(w / 2)),
-        Math.min(canvas.height - 1, y + Math.floor(h / 2)),
-        1,
-        1
-      ).data
-      ctx.fillStyle = `rgb(${pixel[0]},${pixel[1]},${pixel[2]})`
-      ctx.fillRect(x, y, w, h)
-    }
+}
+
+/**
+ * 沿用截图的内凹机翼箭头，按用户要求将箭尾收为单一尖点，短箭头保留长度钳制。
+ * @param {{x:number,y:number}} a 起点。
+ * @param {{x:number,y:number}} b 终点。
+ * @param {number} thick 原图像素线宽。
+ * @returns {void} 在当前填色下绘制两个相连多边形。
+ */
+function drawArrow(a, b, thick) {
+  const length = Math.hypot(b.x - a.x, b.y - a.y)
+  if (length < 1) return
+  let headLength = thick * 4 + 8
+  const headHalfWidth = thick * 2.4 + 5,
+    notch = headLength * 0.4
+  if (headLength > length) headLength = length * 0.6
+  const ux = (b.x - a.x) / length,
+    uy = (b.y - a.y) / length,
+    nx = -uy,
+    ny = ux
+  const baseX = b.x - ux * headLength,
+    baseY = b.y - uy * headLength
+  const notchX = baseX + ux * notch,
+    notchY = baseY + uy * notch
+  const endHalfWidth = headHalfWidth * 0.55
+  const endX = notchX + ux * 1.5,
+    endY = notchY + uy * 1.5
+  // 箭身与箭头略重叠，避免抗锯齿在连接处产生细缝。
+  ctx.beginPath()
+  // 起点只保留一个顶点，消除平切尾端，使箭身从真正的尖点逐渐变宽。
+  ctx.moveTo(a.x, a.y)
+  ctx.lineTo(endX - nx * endHalfWidth, endY - ny * endHalfWidth)
+  ctx.lineTo(endX + nx * endHalfWidth, endY + ny * endHalfWidth)
+  ctx.closePath()
+  ctx.fill()
+  ctx.beginPath()
+  ctx.moveTo(b.x, b.y)
+  ctx.lineTo(baseX + nx * headHalfWidth, baseY + ny * headHalfWidth)
+  ctx.lineTo(notchX, notchY)
+  ctx.lineTo(baseX - nx * headHalfWidth, baseY - ny * headHalfWidth)
+  ctx.closePath()
+  ctx.fill()
+}
+
+/**
+ * 释放当前会话的小尺寸马赛克采样图，不持有原图的额外完整副本。
+ * @returns {void} 清空采样画布及其浓度身份。
+ */
+function releaseMosaicSample() {
+  if (mosaicSample) mosaicSample.width = mosaicSample.height = 0
+  mosaicSample = null
+  mosaicSampleDensity = 0
+}
+
+/**
+ * 将涂抹路径的圆和连接四边形加入同向蒙版，快速移动和重叠时不留洞。
+ * @param {Path2D} mask 所有马赛克共用的并集路径。
+ * @param {object} shape 一次涂抹或框选的历史参数。
+ * @returns {void} 扩充路径，不修改底图或已提交标记。
+ */
+function addMosaicMask(mask, shape) {
+  const a = shape.points[0],
+    b = shape.points[shape.points.length - 1]
+  if (shape.mode === 'rect') {
+    mask.rect(Math.min(a.x, b.x), Math.min(a.y, b.y), Math.abs(b.x - a.x), Math.abs(b.y - a.y))
+    return
   }
+  const radius = shape.radius
+  for (let i = 0; i < shape.points.length; i++) {
+    const p = shape.points[i],
+      previous = shape.points[Math.max(0, i - 1)]
+    mask.moveTo(p.x + radius, p.y)
+    mask.arc(p.x, p.y, radius, 0, Math.PI * 2)
+    const distance = Math.hypot(p.x - previous.x, p.y - previous.y)
+    if (!distance) continue
+    const nx = (-(p.y - previous.y) / distance) * radius,
+      ny = ((p.x - previous.x) / distance) * radius
+    // 与圆保持相同绕向，非零填充规则才能对所有胶囊区域正确取并集。
+    mask.moveTo(previous.x - nx, previous.y - ny)
+    mask.lineTo(p.x - nx, p.y - ny)
+    mask.lineTo(p.x + nx, p.y + ny)
+    mask.lineTo(previous.x + nx, previous.y + ny)
+    mask.closePath()
+  }
+}
+
+/**
+ * 仿照截图的揭示蒙版：统一采样原图，按涂抹和框选并集显示，浓度影响全部马赛克。
+ * @param {object[]} visible 当前历史和正在绘制的标记。
+ * @returns {void} 在底图上合成马赛克；无马赛克时立即释放采样图。
+ */
+function drawMosaics(visible) {
+  const mosaics = visible.filter((shape) => shape.type === 'mosaic' && validShape(shape))
+  if (!mosaics.length) {
+    releaseMosaicSample()
+    return
+  }
+  if (!mosaicSample || mosaicSampleDensity !== mosaicDensity) {
+    releaseMosaicSample()
+    mosaicSample = new OffscreenCanvas(
+      Math.ceil(canvas.width / mosaicDensity),
+      Math.ceil(canvas.height / mosaicDensity)
+    )
+    const sampleContext = mosaicSample.getContext('2d')
+    sampleContext.imageSmoothingQuality = 'high'
+    sampleContext.drawImage(image, 0, 0, mosaicSample.width, mosaicSample.height)
+    mosaicSampleDensity = mosaicDensity
+  }
+  const mask = new Path2D()
+  for (const shape of mosaics) addMosaicMask(mask, shape)
+  ctx.save()
+  ctx.clip(mask)
+  // 最近邻放大保留色块边界，始终从原图采样，重叠不发生二次模糊。
+  ctx.imageSmoothingEnabled = false
+  ctx.drawImage(mosaicSample, 0, 0, canvas.width, canvas.height)
+  ctx.restore()
 }
 
 /**
@@ -147,12 +274,62 @@ function render() {
   if (!image || disposed) return
   ctx.clearRect(0, 0, canvas.width, canvas.height)
   ctx.drawImage(image, 0, 0)
-  for (const shape of shapes) draw(shape)
-  if (current) draw(current)
+  const visible = current ? [...shapes, current] : shapes
+  drawMosaics(visible)
+  const spotlights = visible.filter((shape) => shape.type === 'spotlight' && validShape(shape))
+  if (spotlights.length) {
+    // 先绘制区域并集的遮罩，重叠聚光区不重复变暗，其他标记始终清晰。
+    ctx.save()
+    for (const shape of spotlights) {
+      const [a, b] = shape.points
+      // 连续求各区域补集的交集，避免重叠孔洞反转，也无需额外分配整图遮罩。
+      const outside = new Path2D()
+      outside.rect(0, 0, canvas.width, canvas.height)
+      outside.rect(Math.min(a.x, b.x), Math.min(a.y, b.y), Math.abs(b.x - a.x), Math.abs(b.y - a.y))
+      ctx.clip(outside, 'evenodd')
+    }
+    ctx.fillStyle = 'rgba(0,0,0,0.56)'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    ctx.restore()
+  }
+  for (const shape of visible) if (!['spotlight', 'mosaic'].includes(shape.type)) draw(shape)
+  syncMosaicSelection()
   // 只发布已经提交到画布的标记数；按下画笔或临时拖动不冒充有效标注。
   canvas.dataset.annotationCount = String(shapes.length)
+  canvas.dataset.nextNumber = String(nextNumber())
+  const numberButton = document.querySelector('[data-tool="number"]')
+  numberButton.title = `序号圆圈 (N) · 下一个 ${nextNumber()}`
   $('undo').disabled = !shapes.length
   $('redo').disabled = !undone.length
+}
+
+/**
+ * 从当前有效历史计算下一个序号，撤销和清空后自然回退。
+ * @returns {number} 下一枚圆圈的序号。
+ */
+function nextNumber() {
+  return (
+    Math.max(0, ...shapes.filter((shape) => shape.type === 'number').map((shape) => shape.number)) +
+    1
+  )
+}
+
+/**
+ * 拒绝未拖出有效区域的标记，序号圆圈允许单击贴图。
+ * @param {object} shape 待提交的标记。
+ * @returns {boolean} 是否应进入撤销历史。
+ */
+function validShape(shape) {
+  if (
+    ['rect', 'ellipse', 'arrow', 'spotlight'].includes(shape.type) ||
+    (shape.type === 'mosaic' && shape.mode === 'rect')
+  ) {
+    const [a, b = a] = shape.points
+    return shape.type === 'spotlight' || shape.type === 'mosaic'
+      ? Math.abs(b.x - a.x) >= 2 && Math.abs(b.y - a.y) >= 2
+      : Math.hypot(b.x - a.x, b.y - a.y) >= 2
+  }
+  return true
 }
 
 /**
@@ -178,6 +355,8 @@ function fit() {
       : Number(zoom)
   canvas.style.width = `${Math.max(1, canvas.width * scale)}px`
   canvas.style.height = `${Math.max(1, canvas.height * scale)}px`
+  syncTextEntry()
+  updateMosaicCursor()
 }
 
 /**
@@ -200,14 +379,16 @@ function point(event) {
 }
 
 /**
- * 固定当前标记并限制单窗口历史大小。
+ * 提交有效标记并清空重做分支；序号始终归属于可撤销的历史。
  * @returns {void} 无返回值。
  */
 function finish() {
   if (!current) return
-  shapes.push(current)
+  if (validShape(current)) {
+    shapes.push(current)
+    undone = []
+  }
   current = null
-  undone = []
   render()
 }
 
@@ -232,6 +413,123 @@ function finishText(save) {
   $('text-entry').hidden = true
   $('text-entry').value = ''
   textPosition = null
+}
+
+/**
+ * 将透明文字框贴在原图落点，字号随图片缩放，边框、文字与光标对应当前颜色。
+ * @returns {void} 更新可见输入框的位置、颜色和按正文伸展的宽度。
+ */
+function syncTextEntry() {
+  const entry = $('text-entry')
+  if (!image || !textPosition || entry.hidden) return
+  const rect = canvas.getBoundingClientRect(),
+    scale = rect.width / canvas.width
+  const font = Number($('font-size').value)
+  ctx.save()
+  ctx.font = `${font}px ${annotationFont}`
+  const width = Math.max(20, ctx.measureText(entry.value || '').width) * scale + 12
+  ctx.restore()
+  const left = Math.max(1, rect.left + textPosition.x * scale - 5)
+  const top = Math.max(1, rect.top + textPosition.y * scale - 5)
+  entry.style.left = `${left}px`
+  entry.style.top = `${top}px`
+  entry.style.fontSize = `${font * scale}px`
+  entry.style.width = `${Math.min(width, Math.max(20, innerWidth - left - 2))}px`
+  entry.style.setProperty('--annotation-text-color', $('color').value)
+}
+
+/**
+ * 同步马赛克笔的实际覆盖圆，离开图片或切换模式时撤下，不进入导出画布。
+ * @param {PointerEvent|null} event 当前指针；省略时复用上次位置并重算缩放。
+ * @returns {void} 更新独立DOM光标的显示和尺寸。
+ */
+function updateMosaicCursor(event = null) {
+  if (event) mosaicPointer = { x: event.clientX, y: event.clientY }
+  const cursor = $('mosaic-cursor'),
+    rect = canvas.getBoundingClientRect()
+  const visible =
+    content?.edit &&
+    tool === 'mosaic' &&
+    mosaicMode === 'brush' &&
+    mosaicPointer &&
+    mosaicPointer.x >= rect.left &&
+    mosaicPointer.x < rect.right &&
+    mosaicPointer.y >= rect.top &&
+    mosaicPointer.y < rect.bottom
+  cursor.hidden = !visible
+  if (!visible) return
+  cursor.style.left = `${mosaicPointer.x}px`
+  cursor.style.top = `${mosaicPointer.y}px`
+  cursor.style.width = `${(mosaicRadius * 2 * rect.width) / canvas.width}px`
+  cursor.style.height = `${(mosaicRadius * 2 * rect.height) / canvas.height}px`
+}
+
+/**
+ * 在框选期间显示边界参考线，导出和历史只保存区域蒙版。
+ * @returns {void} 无有效框选时立即撤下边界。
+ */
+function syncMosaicSelection() {
+  const selection = $('mosaic-selection')
+  const visible = current?.type === 'mosaic' && current.mode === 'rect' && validShape(current)
+  selection.hidden = !visible
+  if (!visible) return
+  const [a, b] = current.points,
+    rect = canvas.getBoundingClientRect()
+  selection.style.left = `${rect.left + (Math.min(a.x, b.x) * rect.width) / canvas.width}px`
+  selection.style.top = `${rect.top + (Math.min(a.y, b.y) * rect.height) / canvas.height}px`
+  selection.style.width = `${(Math.abs(b.x - a.x) * rect.width) / canvas.width}px`
+  selection.style.height = `${(Math.abs(b.y - a.y) * rect.height) / canvas.height}px`
+}
+
+/**
+ * 同步马赛克图标选中态，框选不展示无效笔刷大小，颜色不影响马赛克。
+ * @returns {void} 调整控件与光标，不改变已提交路径的笔刷半径。
+ */
+function syncMosaicControls() {
+  $('mosaic-controls').hidden = tool !== 'mosaic'
+  $('mosaic-brush-sizes').hidden = mosaicMode !== 'brush'
+  document.querySelectorAll('[data-mosaic-mode]').forEach((button) => {
+    const active = button.dataset.mosaicMode === mosaicMode
+    button.classList.toggle('active', active)
+    button.setAttribute('aria-pressed', String(active))
+  })
+  document.querySelectorAll('[data-mosaic-radius]').forEach((button) => {
+    const active = Number(button.dataset.mosaicRadius) === mosaicRadius
+    button.classList.toggle('active', active)
+    button.setAttribute('aria-pressed', String(active))
+  })
+  document.querySelectorAll('[data-mosaic-density]').forEach((button) => {
+    const active = Number(button.dataset.mosaicDensity) === mosaicDensity
+    button.classList.toggle('active', active)
+    button.setAttribute('aria-pressed', String(active))
+  })
+  canvas.style.cursor =
+    tool === 'mosaic' && mosaicMode === 'brush' ? 'none' : tool === 'text' ? 'text' : 'crosshair'
+  fit()
+}
+
+/**
+ * 用截图同款2×2、3×3、4×4棋盘格表示浓度，图案随当前按钮颜色显示。
+ * @param {number} divisions 棋盘每边格数，取自本地固定控件。
+ * @returns {string} 不含可见文字的SVG图标。
+ */
+function mosaicDensityIcon(divisions) {
+  const step = 16 / divisions,
+    cells = [],
+    lines = []
+  for (let row = 0; row < divisions; row++) {
+    for (let column = 0; column < divisions; column++) {
+      if ((row + column) % 2 === 0)
+        cells.push(
+          `<rect x="${4 + column * step}" y="${4 + row * step}" width="${step}" height="${step}"/>`
+        )
+    }
+  }
+  for (let i = 0; i <= divisions; i++) {
+    const p = 4 + i * step
+    lines.push(`M${p} 4V20M4 ${p}H20`)
+  }
+  return `<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="currentColor">${cells.join('')}</g><path d="${lines.join('')}" fill="none" stroke="currentColor" stroke-opacity="0.5" stroke-width="0.8"/></svg>`
 }
 
 /**
@@ -315,12 +613,12 @@ async function toggleTop() {
 }
 
 /**
- * 切换工具时恢复各自颜色；其他标注共用画笔颜色，荧光笔不提供黑白色。
+ * 恢复当前工具独立颜色并显示对应参数；文字使用字形字号而非笔触圆点。
  * @returns {void} 无返回值。
  */
 function syncColor() {
   const highlighter = tool === 'highlighter'
-  const color = highlighter ? highlighterColor : penColor
+  const color = toolOptions[tool].color
   $('color').value = color
   $('color-preview').style.background = color
   $('color-toggle').setAttribute('aria-label', highlighter ? '荧光笔颜色' : '画笔颜色')
@@ -329,18 +627,46 @@ function syncColor() {
     button.setAttribute('aria-pressed', String(button.dataset.color === color))
   })
   $('highlighter-yellow').hidden = !highlighter
+  // 聚光灯只定义清晰区域，不显示无效颜色及笔触参数。
+  document.querySelector('.color-control').hidden = ['spotlight', 'mosaic'].includes(tool)
+  document.querySelector('.size-control').hidden = ['spotlight', 'mosaic', 'text'].includes(tool)
+  $('font-control').hidden = tool !== 'text'
+  syncTextEntry()
+}
+
+/**
+ * 恢复当前工具的独立笔触、字号与颜色，并同步按钮选中态和正在编辑的文字。
+ * @returns {void} 只更新当前窗口控件，不改写已有标记或其他工具的参数。
+ */
+function syncAnnotationStyle() {
+  const options = toolOptions[tool]
+  $('size').value = String(options.size)
+  $('font-size').value = String(options.font)
+  document.querySelectorAll('[data-size]').forEach((button) => {
+    const active = Number(button.dataset.size) === options.size
+    button.classList.toggle('active', active)
+    button.setAttribute('aria-pressed', String(active))
+  })
+  document.querySelectorAll('[data-font-size]').forEach((button) => {
+    const active = Number(button.dataset.fontSize) === options.font
+    button.classList.toggle('active', active)
+    button.setAttribute('aria-pressed', String(active))
+  })
+  syncColor()
 }
 
 document.querySelectorAll('[data-tool]').forEach((button) =>
   button.addEventListener('click', () => {
     finishText(true)
     tool = button.dataset.tool
-    syncColor()
+    syncAnnotationStyle()
     togglePalette(false)
-    document
-      .querySelectorAll('[data-tool]')
-      .forEach((item) => item.classList.toggle('active', item === button))
-    canvas.style.cursor = tool === 'text' ? 'text' : 'crosshair'
+    document.querySelectorAll('[data-tool]').forEach((item) => {
+      item.classList.toggle('active', item === button)
+      item.setAttribute('aria-pressed', String(item === button))
+    })
+    mosaicPointer = null
+    syncMosaicControls()
   })
 )
 canvas.addEventListener('pointerdown', (event) => {
@@ -355,8 +681,7 @@ canvas.addEventListener('pointerdown', (event) => {
   if (tool === 'text') {
     textPosition = point(event)
     $('text-entry').hidden = false
-    $('text-entry').style.left = `${Math.max(8, Math.min(event.clientX, innerWidth - 240))}px`
-    $('text-entry').style.top = `${Math.max(8, Math.min(event.clientY, innerHeight - 44))}px`
+    syncTextEntry()
     $('text-entry').focus()
     return
   }
@@ -366,16 +691,28 @@ canvas.addEventListener('pointerdown', (event) => {
     points: [point(event)],
     color: $('color').value,
     size: Number($('size').value),
-    font: Number($('font-size').value)
+    font: Number($('font-size').value),
+    number: tool === 'number' ? nextNumber() : undefined,
+    mode: tool === 'mosaic' ? mosaicMode : undefined,
+    radius: tool === 'mosaic' ? mosaicRadius : undefined
   }
+  render()
 })
 canvas.addEventListener('pointermove', (event) => {
-  if (!current) return
+  updateMosaicCursor(event)
+  if (!current || current.type === 'number') return
   const next = point(event)
-  if (['pen', 'highlighter', 'eraser', 'mosaic'].includes(current.type)) {
+  if (
+    ['pen', 'highlighter', 'eraser'].includes(current.type) ||
+    (current.type === 'mosaic' && current.mode === 'brush')
+  ) {
     if (current.points.length < 20000) current.points.push(next)
   } else current.points[1] = next
   render()
+})
+canvas.addEventListener('pointerleave', () => {
+  mosaicPointer = null
+  updateMosaicCursor()
 })
 canvas.addEventListener('pointerup', finish)
 canvas.addEventListener('pointercancel', () => {
@@ -383,12 +720,47 @@ canvas.addEventListener('pointercancel', () => {
   render()
 })
 $('text-entry').addEventListener('keydown', (event) => {
+  // 输入法确认候选仍属于原生编辑，不能提前提交整个文字标记。
+  if (event.isComposing) {
+    event.stopPropagation()
+    return
+  }
   if (event.key === 'Enter' || event.key === 'Escape') {
     event.stopPropagation()
     finishText(event.key === 'Enter')
   }
 })
 $('text-entry').addEventListener('blur', () => finishText(true))
+$('text-entry').addEventListener('input', syncTextEntry)
+// 修改文字颜色时保留输入焦点，避免工具栏先触发blur而提前提交旧颜色。
+for (const button of [
+  $('color-toggle'),
+  ...document.querySelectorAll('[data-color], [data-font-size]')
+]) {
+  button.addEventListener('pointerdown', (event) => {
+    if (!$('text-entry').hidden) event.preventDefault()
+  })
+}
+document.querySelectorAll('[data-mosaic-mode]').forEach((button) => {
+  button.onclick = () => {
+    mosaicMode = button.dataset.mosaicMode
+    syncMosaicControls()
+  }
+})
+document.querySelectorAll('[data-mosaic-radius]').forEach((button) => {
+  button.onclick = () => {
+    mosaicRadius = Number(button.dataset.mosaicRadius)
+    syncMosaicControls()
+  }
+})
+document.querySelectorAll('[data-mosaic-density]').forEach((button) => {
+  button.innerHTML = mosaicDensityIcon(Number(button.dataset.grid))
+  button.onclick = () => {
+    mosaicDensity = Number(button.dataset.mosaicDensity)
+    syncMosaicControls()
+    render()
+  }
+})
 $('undo').onclick = () => {
   finishText(true)
   if (shapes.length) undone.push(shapes.pop())
@@ -413,8 +785,7 @@ $('zoom').onchange = fit
 $('color-toggle').onclick = () => togglePalette($('color-palette').hidden)
 document.querySelectorAll('[data-color]').forEach((button) => {
   button.onclick = () => {
-    if (tool === 'highlighter') highlighterColor = button.dataset.color
-    else penColor = button.dataset.color
+    toolOptions[tool].color = button.dataset.color
     syncColor()
     togglePalette(false)
   }
@@ -575,14 +946,19 @@ window.addEventListener('blur', () => {
   endDrag({ type: 'blur' })
   resizeStart = null
   togglePalette(false)
+  mosaicPointer = null
+  updateMosaicCursor()
 })
 document.querySelectorAll('[data-size]').forEach((button) => {
   button.onclick = () => {
-    $('size').value = button.dataset.size
-    document.querySelectorAll('[data-size]').forEach((item) => {
-      item.classList.toggle('active', item === button)
-      item.setAttribute('aria-pressed', String(item === button))
-    })
+    toolOptions[tool].size = Number(button.dataset.size)
+    syncAnnotationStyle()
+  }
+})
+document.querySelectorAll('[data-font-size]').forEach((button) => {
+  button.onclick = () => {
+    toolOptions.text.font = Number(button.dataset.fontSize)
+    syncAnnotationStyle()
   }
 })
 $('close').onclick = () => invoke('close')
@@ -606,6 +982,12 @@ $('save-image').onclick = async () => {
 window.addEventListener('resize', () => {
   fit()
   togglePalette(false)
+})
+stage.addEventListener('scroll', () => {
+  syncTextEntry()
+  syncMosaicSelection()
+  mosaicPointer = null
+  updateMosaicCursor()
 })
 document.addEventListener('keydown', (event) => {
   if (
@@ -649,13 +1031,19 @@ document.addEventListener('keydown', (event) => {
       a: 'arrow',
       t: 'text',
       m: 'mosaic',
-      e: 'eraser'
+      e: 'eraser',
+      n: 'number',
+      s: 'spotlight'
     }[key]
     if (selected) document.querySelector(`[data-tool="${selected}"]`).click()
   }
 })
 window.addEventListener('beforeunload', () => {
   disposed = true
+  releaseMosaicSample()
+  mosaicPointer = null
+  $('mosaic-cursor').hidden = true
+  $('mosaic-selection').hidden = true
   unsubscribeAppend()
   unsubscribeDock()
   unsubscribePointer()

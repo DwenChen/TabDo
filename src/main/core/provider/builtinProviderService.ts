@@ -12,6 +12,7 @@ import { createAdapter } from '../../api/plugin/aiProtocol/adapters'
 import translationManager from '../translationManager'
 import databaseAPI from '../../api/shared/database'
 import lmdbInstance from '../lmdb/lmdbInstance'
+import { requestIdleMemoryReclaim } from '../idleMemoryReclaimer'
 
 /** 内置能力的输入，不接受任意方法名或执行路径。 */
 export interface BuiltinInput {
@@ -26,6 +27,14 @@ const active = new Map<
   { owner?: WebContents; controller: AbortController; promise: Promise<unknown>; id: string }
 >()
 const mutations = new Map<string, Promise<unknown>>()
+
+/**
+ * 推理进程、请求和能力事务结束前保留活动身份，页面销毁不代表已经完成。
+ * @returns 是否还有内置提供商任务或设置事务。
+ */
+export function hasBuiltinProviderRequests(): boolean {
+  return active.size > 0 || mutations.size > 0
+}
 
 /**
  * 终止本次进程创建的整个进程树，等待关闭后再发布结果。
@@ -191,11 +200,14 @@ class BuiltinProviderService {
   private async mutate<T>(id: string, action: () => Promise<T>): Promise<T> {
     const previous = mutations.get(id) || Promise.resolve()
     const operation = previous.catch(() => {}).then(action)
+    // 能力事务可能在设置关闭后继续完成，纳入宿主活动判定。
     mutations.set(id, operation)
+    requestIdleMemoryReclaim()
     try {
       return await operation
     } finally {
       if (mutations.get(id) === operation) mutations.delete(id)
+      requestIdleMemoryReclaim()
     }
   }
 
@@ -333,7 +345,9 @@ class BuiltinProviderService {
     owner?.once('destroyed', destroyed)
     signal?.addEventListener('abort', destroyed, { once: true })
     const promise = this.execute(id, input, controller.signal)
+    // 请求及其进程收尾完成前持续阻止闲置回收。
     active.set(requestId, { owner, controller, promise, id })
+    requestIdleMemoryReclaim()
     try {
       return await promise
     } finally {
@@ -341,6 +355,7 @@ class BuiltinProviderService {
       owner?.removeListener('destroyed', destroyed)
       signal?.removeEventListener('abort', destroyed)
       active.delete(requestId)
+      requestIdleMemoryReclaim()
     }
   }
 

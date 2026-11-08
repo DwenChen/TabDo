@@ -81,6 +81,16 @@ export let cursorCapturePauseStartedAtMs: number | null = null;
 export let activeCursorSamples: CursorTelemetryPoint[] = [];
 export let pendingCursorSamples: CursorTelemetryPoint[] = [];
 export let isCursorCaptureActive = false;
+export let mouseCaptureEnabled = true;
+
+/**
+ * 设置当前录制的鼠标轨迹采集选择，不写入用户配置。
+ * @param enabled 是否采集鼠标位置及点击。
+ * @returns 无返回值。
+ */
+export function setMouseCaptureEnabled(enabled: boolean): void {
+	mouseCaptureEnabled = enabled;
+}
 export let interactionCaptureCleanup: (() => void) | null = null;
 export let hasLoggedInteractionHookFailure = false;
 export let lastLeftClick: { timeMs: number; cx: number; cy: number } | null = null;

@@ -20,6 +20,11 @@ type BuildExportRenderOptionsInput = {
 	onProgress: (progress: ExportProgress) => void;
 };
 
+/**
+ * 构造预览与各导出器共用的外观和时间轴参数。
+ * @param props 当前状态与操作参数。
+ * @returns 规范化状态或所属编辑操作。
+ */
 export function buildExportRenderOptions({
 	appearance,
 	timeline,
@@ -52,13 +57,14 @@ export function buildExportRenderOptions({
 		zoomOutEasing: appearance.zoomOutEasing,
 		connectedZoomEasing: appearance.connectedZoomEasing,
 		borderRadius: appearance.borderRadius,
+		backgroundBorderRadius: appearance.backgroundBorderRadius,
 		padding: appearance.padding,
 		cropRegion: appearance.cropRegion,
 		webcam: appearance.webcam,
 		webcamUrl:
 			appearance.resolvedWebcamVideoUrl ??
 			(appearance.webcam.sourcePath ? toFileUrl(appearance.webcam.sourcePath) : null),
-		annotationRegions: timeline.annotationRegions,
+		annotationRegions: timeline.visibleAnnotationRegions,
 		autoCaptions: timeline.autoCaptions,
 		autoCaptionSettings: timeline.autoCaptionSettings,
 		zoomRegions: effectiveZoomRegions,

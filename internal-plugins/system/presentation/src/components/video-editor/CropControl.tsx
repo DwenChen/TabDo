@@ -1,275 +1,182 @@
-import { useEffect, useRef, useState } from "react";
-import { cn } from "@presentation/lib/utils";
-import { type AspectRatio } from "@presentation/utils/aspectRatioUtils";
+import { useEffect, useRef, type PointerEvent, type ReactElement } from 'react'
+import { transformCrop, type CropHandle } from './cropGeometry'
+import type { CropRegion } from './types'
 
-interface CropRegion {
-	x: number; // 0-1 normalized
-	y: number; // 0-1 normalized
-	width: number; // 0-1 normalized
-	height: number; // 0-1 normalized
+type Props = {
+  videoElement: HTMLVideoElement | null
+  cropRegion: CropRegion
+  onCropChange: (crop: CropRegion) => void
+  aspectRatio?: string
+  lockedRatio?: number
+  drawMode?: boolean
+  onDrawComplete?: () => void
+}
+const handles = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'] as const
+const positions = {
+  nw: [0, 0],
+  n: [50, 0],
+  ne: [100, 0],
+  e: [100, 50],
+  se: [100, 100],
+  s: [50, 100],
+  sw: [0, 100],
+  w: [0, 50]
 }
 
-interface CropControlProps {
-	videoElement: HTMLVideoElement | null;
-	cropRegion: CropRegion;
-	onCropChange: (region: CropRegion) => void;
-	aspectRatio: AspectRatio;
-}
-
-type DragHandle = "top" | "right" | "bottom" | "left" | null;
-
-export function CropControl({ videoElement, cropRegion, onCropChange }: CropControlProps) {
-	const canvasRef = useRef<HTMLCanvasElement>(null);
-	const containerRef = useRef<HTMLDivElement>(null);
-	const [isDragging, setIsDragging] = useState<DragHandle>(null);
-	const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-	const [initialCrop, setInitialCrop] = useState<CropRegion>(cropRegion);
-
-	useEffect(() => {
-		if (!videoElement || !canvasRef.current) return;
-
-		const canvas = canvasRef.current;
-		const ctx = canvas.getContext("2d", { alpha: false });
-		if (!ctx) return;
-
-		canvas.width = videoElement.videoWidth || 1920;
-		canvas.height = videoElement.videoHeight || 1080;
-
-		let animationFrameId = 0;
-		let isCancelled = false;
-
-		const draw = () => {
-			if (isCancelled) {
-				return;
-			}
-
-			if (videoElement.readyState >= 2) {
-				ctx.clearRect(0, 0, canvas.width, canvas.height);
-				ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-			}
-			animationFrameId = requestAnimationFrame(draw);
-		};
-
-		animationFrameId = requestAnimationFrame(draw);
-		return () => {
-			isCancelled = true;
-			cancelAnimationFrame(animationFrameId);
-		};
-	}, [videoElement]);
-
-	const getContainerRect = () => {
-		return (
-			containerRef.current?.getBoundingClientRect() || {
-				width: 0,
-				height: 0,
-				left: 0,
-				top: 0,
-			}
-		);
-	};
-
-	const handlePointerDown = (e: React.PointerEvent, handle: DragHandle) => {
-		e.stopPropagation();
-		e.preventDefault();
-		const rect = getContainerRect();
-		if (rect.width <= 0 || rect.height <= 0) {
-			return;
-		}
-
-		setIsDragging(handle);
-		setDragStart({
-			x: (e.clientX - rect.left) / rect.width,
-			y: (e.clientY - rect.top) / rect.height,
-		});
-		setInitialCrop(cropRegion);
-
-		e.currentTarget.setPointerCapture(e.pointerId);
-	};
-
-	const handlePointerMove = (e: React.PointerEvent) => {
-		if (!isDragging) return;
-
-		const rect = getContainerRect();
-		if (rect.width <= 0 || rect.height <= 0) {
-			return;
-		}
-
-		const currentX = (e.clientX - rect.left) / rect.width;
-		const currentY = (e.clientY - rect.top) / rect.height;
-		const deltaX = currentX - dragStart.x;
-		const deltaY = currentY - dragStart.y;
-
-		let newCrop = { ...initialCrop };
-
-		switch (isDragging) {
-			case "top": {
-				const newY = Math.max(0, initialCrop.y + deltaY);
-				const bottom = initialCrop.y + initialCrop.height;
-				newCrop.y = Math.min(newY, bottom - 0.1);
-				newCrop.height = bottom - newCrop.y;
-				break;
-			}
-			case "bottom":
-				newCrop.height = Math.max(
-					0.1,
-					Math.min(initialCrop.height + deltaY, 1 - initialCrop.y),
-				);
-				break;
-			case "left": {
-				const newX = Math.max(0, initialCrop.x + deltaX);
-				const right = initialCrop.x + initialCrop.width;
-				newCrop.x = Math.min(newX, right - 0.1);
-				newCrop.width = right - newCrop.x;
-				break;
-			}
-			case "right":
-				newCrop.width = Math.max(
-					0.1,
-					Math.min(initialCrop.width + deltaX, 1 - initialCrop.x),
-				);
-				break;
-		}
-
-		onCropChange(newCrop);
-	};
-
-	const handlePointerUp = (e: React.PointerEvent) => {
-		if (isDragging) {
-			try {
-				e.currentTarget.releasePointerCapture(e.pointerId);
-			} catch {
-				/* Pointer capture may already be released while ending the drag. */
-			}
-		}
-		setIsDragging(null);
-	};
-
-	const cropPixelX = cropRegion.x * 100;
-	const cropPixelY = cropRegion.y * 100;
-	const cropPixelWidth = cropRegion.width * 100;
-	const cropPixelHeight = cropRegion.height * 100;
-	const videoAspectRatio = videoElement
-		? videoElement.videoWidth / videoElement.videoHeight
-		: 16 / 9;
-	const isVideoPortrait = videoAspectRatio < 1;
-	const maxContainerWidth = isVideoPortrait ? "40vw" : "75vw";
-	const maxContainerHeight = "75vh";
-
-	return (
-		<div className="w-full p-8">
-			<div
-				ref={containerRef}
-				className="relative w-full bg-black rounded-lg overflow-visible cursor-default select-none shadow-2xl"
-				style={{
-					aspectRatio: videoAspectRatio,
-					maxWidth: maxContainerWidth,
-					maxHeight: maxContainerHeight,
-					margin: "0 auto",
-				}}
-				onPointerMove={handlePointerMove}
-				onPointerUp={handlePointerUp}
-				onPointerLeave={handlePointerUp}
-			>
-				<canvas
-					ref={canvasRef}
-					className="w-full h-full rounded-lg"
-					style={{ imageRendering: "auto" }}
-				/>
-
-				<div
-					className="absolute inset-0 pointer-events-none"
-					style={{ transition: "none" }}
-				>
-					<svg
-						width="100%"
-						height="100%"
-						className="absolute inset-0"
-						style={{ transition: "none" }}
-					>
-						<defs>
-							<mask id="cropMask">
-								<rect width="100%" height="100%" fill="white" />
-								<rect
-									x={`${cropPixelX}%`}
-									y={`${cropPixelY}%`}
-									width={`${cropPixelWidth}%`}
-									height={`${cropPixelHeight}%`}
-									fill="black"
-									style={{ transition: "none" }}
-								/>
-							</mask>
-						</defs>
-						<rect
-							width="100%"
-							height="100%"
-							fill="black"
-							fillOpacity="0.6"
-							mask="url(#cropMask)"
-							style={{ transition: "none" }}
-						/>
-					</svg>
-				</div>
-
-				<div
-					className={cn(
-						"absolute h-[3px] cursor-ns-resize z-20 pointer-events-auto bg-accent",
-					)}
-					style={{
-						left: `${cropPixelX}%`,
-						top: `${cropPixelY}%`,
-						width: `${cropPixelWidth}%`,
-						transform: "translateY(-50%)",
-						willChange: "transform",
-						transition: "none",
-					}}
-					onPointerDown={(e) => handlePointerDown(e, "top")}
-				/>
-
-				<div
-					className={cn(
-						"absolute h-[3px] cursor-ns-resize z-20 pointer-events-auto bg-accent",
-					)}
-					style={{
-						left: `${cropPixelX}%`,
-						top: `${cropPixelY + cropPixelHeight}%`,
-						width: `${cropPixelWidth}%`,
-						transform: "translateY(-50%)",
-						willChange: "transform",
-						transition: "none",
-					}}
-					onPointerDown={(e) => handlePointerDown(e, "bottom")}
-				/>
-
-				<div
-					className={cn(
-						"absolute w-[3px] cursor-ew-resize z-20 pointer-events-auto bg-accent",
-					)}
-					style={{
-						left: `${cropPixelX}%`,
-						top: `${cropPixelY}%`,
-						height: `${cropPixelHeight}%`,
-						transform: "translateX(-50%)",
-						willChange: "transform",
-						transition: "none",
-					}}
-					onPointerDown={(e) => handlePointerDown(e, "left")}
-				/>
-
-				<div
-					className={cn(
-						"absolute w-[3px] cursor-ew-resize z-20 pointer-events-auto bg-accent",
-					)}
-					style={{
-						left: `${cropPixelX + cropPixelWidth}%`,
-						top: `${cropPixelY}%`,
-						height: `${cropPixelHeight}%`,
-						transform: "translateX(-50%)",
-						willChange: "transform",
-						transition: "none",
-					}}
-					onPointerDown={(e) => handlePointerDown(e, "right")}
-				/>
-			</div>
-		</div>
-	);
+/**
+ * 提供八向裁剪、整体移动和重新框选，画布只在媒体帧变化时更新。
+ * @param props 当前素材、裁剪区域与可选比例约束。
+ * @returns 有边界限制和取消回滚的紧凑裁剪画布。
+ */
+export function CropControl({
+  videoElement,
+  cropRegion,
+  onCropChange,
+  lockedRatio,
+  drawMode,
+  onDrawComplete
+}: Props): ReactElement {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const drag = useRef<{
+    id: number
+    handle: CropHandle
+    crop: CropRegion
+    x: number
+    y: number
+  } | null>(null)
+  const aspect =
+    videoElement?.videoWidth && videoElement.videoHeight
+      ? videoElement.videoWidth / videoElement.videoHeight
+      : 16 / 9
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas || !videoElement) return
+    /**
+     * 在实际视频帧就绪或跳转后复制画面，暂停时不持续重绘。
+     * @returns 无返回值。
+     */
+    const draw = (): void => {
+      if (videoElement.readyState < 2) return
+      canvas.width = videoElement.videoWidth
+      canvas.height = videoElement.videoHeight
+      canvas.getContext('2d', { alpha: false })?.drawImage(videoElement, 0, 0)
+    }
+    draw()
+    for (const name of ['loadeddata', 'seeked', 'timeupdate'])
+      videoElement.addEventListener(name, draw)
+    return () => {
+      for (const name of ['loadeddata', 'seeked', 'timeupdate'])
+        videoElement.removeEventListener(name, draw)
+    }
+  }, [videoElement])
+  /**
+   * 捕获主指针，记录初始选区及落点。
+   * @param event 指针按下事件。
+   * @param handle 移动、边角或框选操作。
+   * @returns 无返回值。
+   */
+  const start = (event: PointerEvent, handle: CropHandle): void => {
+    if (event.button !== 0 || drag.current || !containerRef.current) return
+    event.preventDefault()
+    event.stopPropagation()
+    const rect = containerRef.current.getBoundingClientRect()
+    drag.current = {
+      id: event.pointerId,
+      handle: drawMode ? 'draw' : handle,
+      crop: { ...cropRegion },
+      x: (event.clientX - rect.left) / rect.width,
+      y: (event.clientY - rect.top) / rect.height
+    }
+    containerRef.current.setPointerCapture(event.pointerId)
+  }
+  /**
+   * 将指针移动转换为素材坐标并应用统一裁剪规则。
+   * @param event 已捕获指针的移动。
+   * @returns 无返回值。
+   */
+  const move = (event: PointerEvent): void => {
+    const current = drag.current
+    if (!current || current.id !== event.pointerId || !containerRef.current) return
+    const rect = containerRef.current.getBoundingClientRect()
+    onCropChange(
+      transformCrop(
+        current.crop,
+        current.handle,
+        (event.clientX - rect.left) / rect.width - current.x,
+        (event.clientY - rect.top) / rect.height - current.y,
+        lockedRatio ? lockedRatio / aspect : undefined,
+        current
+      )
+    )
+  }
+  /**
+   * 完成或取消拖动，并释放所属指针捕获。
+   * @param event 所属指针的结束事件。
+   * @param canceled 是否撤销本次拖动。
+   * @returns 无返回值。
+   */
+  const end = (event: PointerEvent, canceled = false): void => {
+    const current = drag.current
+    if (!current || current.id !== event.pointerId) return
+    if (!canceled) move(event)
+    drag.current = null
+    if (containerRef.current?.hasPointerCapture(current.id))
+      containerRef.current.releasePointerCapture(current.id)
+    if (canceled) onCropChange(current.crop)
+    if (current.handle === 'draw') onDrawComplete?.()
+  }
+  return (
+    <div
+      ref={containerRef}
+      data-crop-canvas
+      className="relative mx-auto select-none overflow-hidden rounded-md bg-black"
+      style={{
+        width: `min(100%, ${52 * aspect}vh)`,
+        aspectRatio: aspect,
+        touchAction: 'none',
+        cursor: drawMode ? 'crosshair' : undefined
+      }}
+      onPointerDown={(event) => start(event, 'draw')}
+      onPointerMove={move}
+      onPointerUp={(event) => end(event)}
+      onPointerCancel={(event) => end(event, true)}
+      onLostPointerCapture={(event) => end(event, true)}
+    >
+      <canvas ref={canvasRef} className="block h-full w-full" />
+      <div
+        data-crop-selection
+        aria-label="移动裁剪区域"
+        className="absolute border border-white"
+        style={{
+          left: `${cropRegion.x * 100}%`,
+          top: `${cropRegion.y * 100}%`,
+          width: `${cropRegion.width * 100}%`,
+          height: `${cropRegion.height * 100}%`,
+          boxShadow: '0 0 0 2000px #0009',
+          cursor: drawMode ? 'crosshair' : 'move'
+        }}
+        onPointerDown={(event) => start(event, 'move')}
+      >
+        <div className="pointer-events-none absolute inset-x-0 top-1/3 h-1/3 border-y border-white/30" />
+        <div className="pointer-events-none absolute inset-y-0 left-1/3 w-1/3 border-x border-white/30" />
+        {!drawMode &&
+          handles.map((handle) => (
+            <div
+              key={handle}
+              data-crop-handle={handle}
+              aria-label={`裁剪手柄 ${handle}`}
+              className="absolute z-10 h-4 w-4 rounded-sm border border-accent bg-white"
+              style={{
+                left: `${positions[handle][0]}%`,
+                top: `${positions[handle][1]}%`,
+                transform: 'translate(-50%, -50%)',
+                cursor: `${handle === 'n' || handle === 's' ? 'ns' : handle === 'e' || handle === 'w' ? 'ew' : handle === 'nw' || handle === 'se' ? 'nwse' : 'nesw'}-resize`
+              }}
+              onPointerDown={(event) => start(event, handle)}
+            />
+          ))}
+      </div>
+    </div>
+  )
 }

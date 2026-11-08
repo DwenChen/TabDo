@@ -3,6 +3,7 @@ import {
   applyRenameRules,
   createWorkflow,
   normalizeWorkflow,
+  workflowForTab,
   newReplaceRule,
   newRemoveRule
 } from '../../internal-plugins/system/src/utils/renameRules'
@@ -26,6 +27,42 @@ function workflow(patch: (config: any) => any = (config: any): any => config): a
 }
 
 describe('rename workflow previews', () => {
+  it('isolates every selected tab while preserving stored choices and composing clean groups', () => {
+    const config = createWorkflow()
+    config.numbering.prefix = 'N_'
+    config.replace.rules[0].find = 'My'
+    config.replace.rules[0].replace = 'Your'
+    config.insert.text = 'I_'
+    config.clean.case = { enabled: true, mode: 'upper' }
+    config.clean.sanitize.enabled = true
+    config.clean.sanitize.collapse = true
+    config.clean.extension = { enabled: true, value: 'md' }
+    // 模拟旧配置已启用全部功能和已移除的删除字符规则。
+    config.clean.remove.enabled = true
+    config.clean.remove.rules[0].char = 'M'
+    for (const tab of ['numbering', 'replace', 'clean', 'insert'] as const)
+      config[tab].enabled = true
+    const saved = JSON.stringify(config)
+    const expected = {
+      numbering: 'N_001.txt',
+      replace: 'Your File.txt',
+      clean: 'MY FILE.md',
+      insert: 'I_My File.txt',
+      manual: 'My File.txt',
+      smart: 'My File.txt'
+    }
+    for (const [tab, name] of Object.entries(expected)) {
+      expect(applyRenameRules([file], workflowForTab(config, tab))[0].newName).toBe(name)
+    }
+    expect(JSON.stringify(config)).toBe(saved)
+    config.numbering.enabled = false
+    expect(applyRenameRules([file], workflowForTab(config, 'numbering'))[0].newName).toBe(
+      'N_001.txt'
+    )
+    config.clean.extension.enabled = false
+    expect(applyRenameRules([file], workflowForTab(config, 'clean'))[0].newName).toBe('MY FILE.txt')
+  })
+
   it('auto numbering replaces the stem and keeps the extension', () => {
     expect(
       applyRenameRules(

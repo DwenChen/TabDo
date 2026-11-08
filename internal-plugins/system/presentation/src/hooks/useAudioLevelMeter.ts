@@ -1,106 +1,127 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from 'react'
 
 export interface AudioLevelMeterOptions {
-	enabled: boolean;
-	deviceId?: string;
-	smoothingFactor?: number;
+  enabled: boolean
+  deviceId?: string
+  smoothingFactor?: number
 }
 
+/**
+ * Monitor a microphone only while its menu row owns the current effect.
+ * @param options Device selection, visibility and analyser smoothing.
+ * @returns The current level from zero to one hundred.
+ */
 export function useAudioLevelMeter(options: AudioLevelMeterOptions) {
-	const [level, setLevel] = useState(0);
-	const audioContextRef = useRef<AudioContext | null>(null);
-	const analyserRef = useRef<AnalyserNode | null>(null);
-	const streamRef = useRef<MediaStream | null>(null);
-	const animationFrameRef = useRef<number | null>(null);
+  const [level, setLevel] = useState(0)
 
-	useEffect(() => {
-		const cleanup = () => {
-			if (animationFrameRef.current) {
-				cancelAnimationFrame(animationFrameRef.current);
-				animationFrameRef.current = null;
-			}
-			if (streamRef.current) {
-				streamRef.current.getTracks().forEach((track) => track.stop());
-				streamRef.current = null;
-			}
-			if (audioContextRef.current) {
-				audioContextRef.current.close().catch(() => undefined);
-				audioContextRef.current = null;
-			}
-			analyserRef.current = null;
-		};
+  useEffect(() => {
+    let mounted = true
+    let stream: MediaStream | null = null
+    let audioContext: AudioContext | null = null
+    let source: MediaStreamAudioSourceNode | null = null
+    let animationFrame: number | null = null
+    /**
+     * Release only resources acquired by this effect, including failed preparation.
+     * @returns Nothing; repeated cleanup is harmless.
+     */
+    const cleanup = () => {
+      if (animationFrame !== null) {
+        cancelAnimationFrame(animationFrame)
+        animationFrame = null
+      }
+      source?.disconnect()
+      source = null
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop())
+        stream = null
+      }
+      if (audioContext) {
+        void audioContext.close().catch(() => undefined)
+        audioContext = null
+      }
+    }
 
-		if (!options.enabled) {
-			cleanup();
-			setLevel(0);
-			return cleanup;
-		}
+    setLevel(0)
+    if (!options.enabled) {
+      return cleanup
+    }
 
-		let mounted = true;
+    /**
+     * Acquire the device and start bounded UI updates for this menu lifetime.
+     * @returns Completion after setup or release of a failed or superseded setup.
+     */
+    const startMonitoring = async () => {
+      try {
+        const constraints: MediaStreamConstraints = {
+          audio: options.deviceId ? { deviceId: { exact: options.deviceId } } : true,
+          video: false
+        }
 
-		const startMonitoring = async () => {
-			try {
-				const constraints: MediaStreamConstraints = {
-					audio: options.deviceId ? { deviceId: { exact: options.deviceId } } : true,
-					video: false,
-				};
+        const acquiredStream = await navigator.mediaDevices.getUserMedia(constraints)
+        if (!mounted) {
+          acquiredStream.getTracks().forEach((track) => track.stop())
+          return
+        }
 
-				const stream = await navigator.mediaDevices.getUserMedia(constraints);
-				if (!mounted) {
-					stream.getTracks().forEach((track) => track.stop());
-					return;
-				}
+        stream = acquiredStream
+        // Publish ownership before resume can yield to menu closure or a device change.
+        const context = new AudioContext()
+        audioContext = context
+        if (context.state === 'suspended') {
+          await context.resume()
+        }
+        if (!mounted) return
 
-				streamRef.current = stream;
+        const analyser = context.createAnalyser()
+        analyser.fftSize = 256
+        analyser.smoothingTimeConstant = options.smoothingFactor ?? 0.8
+        source = context.createMediaStreamSource(acquiredStream)
+        source.connect(analyser)
 
-				const audioContext = new AudioContext();
-				if (audioContext.state === "suspended") {
-					await audioContext.resume();
-				}
-				audioContextRef.current = audioContext;
+        const dataArray = new Uint8Array(analyser.frequencyBinCount)
+        let lastUpdate = -Infinity
 
-				const analyser = audioContext.createAnalyser();
-				analyser.fftSize = 256;
-				analyser.smoothingTimeConstant = options.smoothingFactor ?? 0.8;
-				analyserRef.current = analyser;
+        /**
+         * Sample at most twenty times per second instead of every display refresh.
+         * @param timestamp Animation-frame time in milliseconds.
+         * @returns Nothing; queues another frame only while this effect is active.
+         */
+        const updateLevel = (timestamp: number) => {
+          if (!mounted) return
+          animationFrame = requestAnimationFrame(updateLevel)
+          if (timestamp - lastUpdate < 50) return
+          lastUpdate = timestamp
 
-				const source = audioContext.createMediaStreamSource(stream);
-				source.connect(analyser);
+          analyser.getByteFrequencyData(dataArray)
 
-				const dataArray = new Uint8Array(analyser.frequencyBinCount);
+          let sum = 0
+          for (let index = 0; index < dataArray.length; index++) {
+            sum += dataArray[index] * dataArray[index]
+          }
 
-				const updateLevel = () => {
-					if (!mounted || !analyserRef.current) return;
+          const rms = Math.sqrt(sum / dataArray.length)
+          const normalizedLevel = Math.min(100, (rms / 255) * 100 * 2)
+          setLevel(Math.round(normalizedLevel))
+        }
 
-					analyser.getByteFrequencyData(dataArray);
+        updateLevel(performance.now())
+      } catch (error) {
+        // A failed resume or analyser must release the already-acquired microphone.
+        cleanup()
+        if (mounted) {
+          console.error('Error starting audio level monitoring:', error)
+          setLevel(0)
+        }
+      }
+    }
 
-					let sum = 0;
-					for (let index = 0; index < dataArray.length; index++) {
-						sum += dataArray[index] * dataArray[index];
-					}
+    void startMonitoring()
 
-					const rms = Math.sqrt(sum / dataArray.length);
-					const normalizedLevel = Math.min(100, (rms / 255) * 100 * 2);
-					setLevel(normalizedLevel);
-					animationFrameRef.current = requestAnimationFrame(updateLevel);
-				};
+    return () => {
+      mounted = false
+      cleanup()
+    }
+  }, [options.deviceId, options.enabled, options.smoothingFactor])
 
-				updateLevel();
-			} catch (error) {
-				console.error("Error starting audio level monitoring:", error);
-				if (mounted) {
-					setLevel(0);
-				}
-			}
-		};
-
-		void startMonitoring();
-
-		return () => {
-			mounted = false;
-			cleanup();
-		};
-	}, [options.deviceId, options.enabled, options.smoothingFactor]);
-
-	return { level };
+  return { level }
 }

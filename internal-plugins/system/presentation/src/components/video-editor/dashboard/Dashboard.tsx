@@ -1,4 +1,5 @@
 import { DashboardAnnouncements } from "./DashboardAnnouncements";
+import { LibraryNotices } from './LibraryNotices';
 import { Card, Modal } from "@heroui/react";
 import { DashboardFilters } from "./DashboardFilters";
 import { DashboardGrid } from "./DashboardGrid";
@@ -33,6 +34,7 @@ export function Dashboard(props: DashboardProps) {
 					</Modal.Container>
 				</Modal.Backdrop>
 			</Modal>
+			<LibraryNotices {...model} />
 		</>
 	);
 }

@@ -103,8 +103,6 @@ export function useTimelineDndBindings({
 			if (!excludeId) return false;
 			const itemKind = resolveItemKind(excludeId);
 
-			if (itemKind === "annotation") return false;
-
 			const checkOverlap = (regions: { id: string; startMs: number; endMs: number }[]) =>
 				regions.some((region) => {
 					if (region.id === excludeId) return false;
@@ -118,6 +116,11 @@ export function useTimelineDndBindings({
 			// Captions share a single lane and must never overlap, so validate a dragged or
 			// resized caption against the other cues just like the other timeline items.
 			if (itemKind === "caption") return checkOverlap(captionCues);
+			// 注释可以跨轨叠加，同一导轨仍须避免互相遮住。
+			if (itemKind === "annotation") {
+				const activeTrackIndex = resolveTrackIndex("annotation", excludeId, rowId);
+				return checkOverlap(annotationRegions.filter((region) => (region.trackIndex ?? 0) === activeTrackIndex));
+			}
 
 			if (itemKind === "audio") {
 				const activeTrackIndex = resolveTrackIndex("audio", excludeId, rowId);
@@ -134,6 +137,7 @@ export function useTimelineDndBindings({
 			zoomRegions,
 			trimRegions,
 			clipRegions,
+			annotationRegions,
 			audioRegions,
 			speedRegions,
 			captionCues,

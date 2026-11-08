@@ -423,6 +423,10 @@ uint32_t WasapiCapture::boundaryFadeInFrameCount() const {
     return fadeFrames > 0 ? fadeFrames : 1;
 }
 
+/**
+ * Drain endpoint packets and publish only active PCM without cutting contiguous samples for QPC jitter.
+ * @returns No value; stopping capture drains and releases the owning worker's COM resources.
+ */
 void WasapiCapture::captureThread() {
     // COM must be initialized on every thread that uses COM objects.
     // The main thread calls winrt::init_apartment(MTA) but that only covers
@@ -440,11 +444,12 @@ void WasapiCapture::captureThread() {
 
     std::vector<int16_t> pcmBuffer;
 
+    CaptureAudioPacketClock packetClock;
     DWORD sleepMs = static_cast<DWORD>((static_cast<double>(bufferFrameCount_) / mixFormat_->nSamplesPerSec) * 500.0);
     if (sleepMs < 5) sleepMs = 5;
 
     while (capturing_) {
-        if (paused_) {
+        if (paused_ && !timeline_) {
             Sleep(10);
             continue;
         }
@@ -488,7 +493,7 @@ void WasapiCapture::captureThread() {
                 numFrames > 0 &&
                 qpcPosition > 0 &&
                 (flags & AUDCLNT_BUFFERFLAGS_TIMESTAMP_ERROR) == 0;
-            if (hasReliableTimestamp) {
+            if (hasReliableTimestamp && !timeline_) {
                 int64_t expected = -1;
                 firstPacketQpcHns_.compare_exchange_strong(
                     expected,
@@ -535,7 +540,7 @@ void WasapiCapture::captureThread() {
             const uint32_t silentCompactThresholdFrames =
                 (mixFormat_->nSamplesPerSec * kSilentDiscontinuityCompactThresholdMs) / 1000;
             if (
-                hasDataDiscontinuity &&
+                !timeline_ && hasDataDiscontinuity &&
                 isSilentPacket &&
                 framesWritten_.load() > 0 &&
                 numFrames > 0 &&
@@ -609,7 +614,23 @@ void WasapiCapture::captureThread() {
 
             captureClient_->ReleaseBuffer(numFrames);
 
-            writePcmFrames(pcmBuffer.data(), numFrames, channels);
+            if (timeline_) {
+                // Anchor to captured QPC, then preserve contiguous device samples across timestamp jitter.
+                const int64_t reportedTime = hasReliableTimestamp ? static_cast<int64_t>(qpcPosition)
+                    : queryPerformanceCounterHns() - numFrames * 10000000LL / mixFormat_->nSamplesPerSec;
+                const int64_t packetTime = packetClock.map(devicePosition, numFrames,
+                    mixFormat_->nSamplesPerSec, reportedTime, hasReliableTimestamp, hasDataDiscontinuity);
+                for (const auto& slice : timeline_->slices(packetTime, numFrames, mixFormat_->nSamplesPerSec)) {
+                    int64_t expected = -1;
+                    firstPacketQpcHns_.compare_exchange_strong(expected, packetTime + slice.offset * 10000000LL / mixFormat_->nSamplesPerSec);
+                    const uint64_t written = framesWritten_.load();
+                    if (slice.outputFrame > written) writeSilenceFrames(slice.outputFrame - written, channels);
+                    const uint64_t overlap = written > slice.outputFrame ? std::min<uint64_t>(slice.count, written - slice.outputFrame) : 0;
+                    if (slice.count > overlap) writePcmFrames(pcmBuffer.data() + (slice.offset + overlap) * channels, slice.count - static_cast<UINT32>(overlap), channels);
+                }
+            } else {
+                writePcmFrames(pcmBuffer.data(), numFrames, channels);
+            }
 
             hr = captureClient_->GetNextPacketSize(&packetLength);
             if (FAILED(hr)) {

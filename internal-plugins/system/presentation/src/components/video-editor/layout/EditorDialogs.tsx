@@ -42,6 +42,8 @@ interface EditorDialogsProps {
 	projectError: string | null;
 	onDashboardSignIn: () => void;
 	onDeleteProjects: (paths: string[]) => Promise<string[]>;
+	onBeforeDeleteRecordings?: (paths: string[]) => Promise<void>;
+	onRefreshProjects?: () => Promise<void>;
 	onRenameProject: (path: string, name: string) => Promise<string>;
 	onShareProject: (path: string) => Promise<void>;
 	accountLabel?: string;
@@ -73,6 +75,8 @@ export function EditorDialogs({
 	projectError,
 	onDashboardSignIn,
 	onDeleteProjects,
+	onBeforeDeleteRecordings,
+	onRefreshProjects,
 	onRenameProject,
 	onShareProject,
 	accountLabel,
@@ -193,6 +197,8 @@ export function EditorDialogs({
 				error={projectError}
 				onSignIn={onDashboardSignIn}
 				onDeleteProjects={onDeleteProjects}
+				onBeforeDeleteRecordings={onBeforeDeleteRecordings}
+				onRefreshProjects={onRefreshProjects}
 				onRenameProject={onRenameProject}
 				onShareProject={onShareProject}
 				accountLabel={accountLabel}

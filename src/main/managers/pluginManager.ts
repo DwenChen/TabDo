@@ -481,6 +481,8 @@ export class PluginManager {
   private pluginDefaultHeight: number = DEFAULT_PLUGIN_HEIGHT
   // 跟踪每个插件上次进入的状态（用于单例重入判断）
   private pluginLastEnterState: Map<string, PluginLastEnterState> = new Map()
+  // 重入判断属于正文会话；同插件其他页面进入或退出不能覆盖常驻页面的状态。
+  private readonly viewLastEnterState = new WeakMap<WebContents, PluginLastEnterState>()
 
   /**
    * 获取插件默认高度
@@ -497,10 +499,13 @@ export class PluginManager {
   }
 
   /**
-   * 判断是否跳过重入（同文本指令 + 同 featureCode → true）
+   * 判断指定正文是否为同一文本功能的无操作重入。
+   * @param featureCode 本次功能码。
+   * @param contents 目标正文，省略时使用主窗口当前正文。
+   * @returns 是否保留当前页面而不重新发送进入事件。
    */
-  private shouldSkipReEnter(pluginPath: string, featureCode: string): boolean {
-    const lastState = this.pluginLastEnterState.get(pluginPath)
+  private shouldSkipReEnter(featureCode: string, contents = this.pluginView?.webContents): boolean {
+    const lastState = contents && this.viewLastEnterState.get(contents)
     if (!lastState) return false
     const currentCmdType = api.getLaunchParam()?.type || 'text'
     return (
@@ -511,16 +516,28 @@ export class PluginManager {
   }
 
   /**
-   * 记录插件进入状态（用于单例重入判断）
+   * 记录插件路径信息及各正文独立的进入状态。
+   * @param pluginPath 插件路径，供主窗口标题及升级快照使用。
+   * @param featureCode 本次功能码。
+   * @param contents 进入事件所属正文，省略时使用主窗口当前正文。
+   * @returns 无返回值；会话状态随正文回收，不影响其他窗口。
    */
-  private recordEnterState(pluginPath: string, featureCode: string): void {
+  private recordEnterState(
+    pluginPath: string,
+    featureCode: string,
+    contents = this.pluginView?.webContents
+  ): void {
     const cmdType = api.getLaunchParam()?.type || 'text'
     this.pluginLastEnterState.set(pluginPath, { featureCode, cmdType })
+    if (contents) this.viewLastEnterState.set(contents, { featureCode, cmdType })
   }
 
   /**
-   * 复用已存在的分离窗口单例插件。
-   * 必须在主窗口切换/隐藏当前插件之前调用，避免“只是聚焦已有分离窗口”却误退主窗口当前插件。
+   * 复用独立单例；内置工具按功能匹配，其他子组件继续创建自己的会话。
+   * @param pluginPath 目标插件路径。
+   * @param featureCode 本次功能码。
+   * @param source 发起复用检查的入口。
+   * @returns 是否已在匹配的独立窗口中处理本次启动。
    */
   public async reuseDetachedSingletonIfExists(
     pluginPath: string,
@@ -531,7 +548,9 @@ export class PluginManager {
       return false
     }
 
-    const detachedView = detachedWindowManager.getViewByPlugin(pluginPath)
+    // 所有内置子组件共用 system 路径，不能把不同功能的指令发送给常驻正文。
+    const toolFeatureCode = isToolsPluginPath(pluginPath) ? featureCode : undefined
+    const detachedView = detachedWindowManager.getViewByPlugin(pluginPath, toolFeatureCode)
     if (!detachedView) {
       return false
     }
@@ -541,9 +560,9 @@ export class PluginManager {
       featureCode,
       source
     })
-    detachedWindowManager.focusByPlugin(pluginPath)
+    detachedWindowManager.focusByPlugin(pluginPath, toolFeatureCode)
 
-    if (!this.shouldSkipReEnter(pluginPath, featureCode)) {
+    if (!this.shouldSkipReEnter(featureCode, detachedView.webContents)) {
       console.log('[Plugin] 分离窗口单例重入，触发 onPluginEnter:', {
         pluginPath,
         featureCode,
@@ -557,7 +576,7 @@ export class PluginManager {
         'PluginEnter',
         enterPayload
       )
-      this.recordEnterState(pluginPath, featureCode)
+      this.recordEnterState(pluginPath, featureCode, detachedView.webContents)
     } else {
       console.log('[Plugin] 分离窗口单例同文本指令重入，仅聚焦:', {
         pluginPath,
@@ -643,7 +662,7 @@ export class PluginManager {
       const cached = this.pluginViews.find((v) => v.path === pluginPath)
       if (cached) {
         // 单例重入：同文本指令 + 同 featureCode → 仅保持当前状态，不重新触发
-        if (this.shouldSkipReEnter(pluginPath, featureCode)) {
+        if (this.shouldSkipReEnter(featureCode)) {
           console.log('[Plugin] 同文本指令重入，跳过 onPluginEnter:', { pluginPath, featureCode })
           this.assemblyCoordinator.abortCurrentSession('singleton-skip-reenter')
           // 启动器已发布占位态；复用同一插件也必须结束本次加载指示。
@@ -696,8 +715,7 @@ export class PluginManager {
    */
   public retireToolsViewForLaunch(pluginPath: string, featureCode: string): void {
     if (!this.currentPluginPath) return
-    if (this.currentPluginPath === pluginPath && this.shouldSkipReEnter(pluginPath, featureCode))
-      return
+    if (this.currentPluginPath === pluginPath && this.shouldSkipReEnter(featureCode)) return
     this.hidePluginView(true)
   }
 
@@ -2270,7 +2288,7 @@ export class PluginManager {
           'PluginEnter',
           enterPayload
         )
-        this.recordEnterState(pluginPath, featureCode)
+        this.recordEnterState(pluginPath, featureCode, pluginView.webContents)
       })
 
       console.log('[Plugin] 插件已在独立窗口中创建:', {

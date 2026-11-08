@@ -100,12 +100,15 @@ onMounted(async () => {
     const switching = state?.switching || windowStore.pluginLoading
     windowStore.updateCurrentPlugin(null)
     windowStore.setPluginLoading(switching)
+    // 子输入只属于已退出页面，避免宿主在闲置时继续保留大段文本。
+    text.value = ''
     if (!switching) window.tabdo.hideWindow()
   })
   window.tabdo.onBackToSearch(() => {
     const switching = windowStore.pluginLoading
     windowStore.updateCurrentPlugin(null)
     windowStore.setPluginLoading(switching)
+    text.value = ''
     if (!switching) window.tabdo.hideWindow()
   })
   window.tabdo.onUpdateSubInputPlaceholder?.((data) =>

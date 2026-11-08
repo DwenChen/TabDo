@@ -1,0 +1,120 @@
+/* 编辑侧栏的唯一字号、颜色和密度定义；键帽、图片等内容预览保留自身样式。 */
+.editor-inspector {
+  --inspector-title-size: 14px;
+  --inspector-section-size: 13px;
+  --inspector-control-size: 12px;
+  --inspector-description-size: 11px;
+  --text-xs: var(--inspector-control-size);
+  --text-sm: var(--inspector-control-size);
+  --text-base: var(--inspector-control-size);
+  font-size: var(--inspector-control-size);
+  line-height: 20px;
+  color: var(--foreground);
+}
+.editor-inspector .inspector-panel-title {
+  font-size: var(--inspector-title-size);
+  font-weight: 500;
+  line-height: 22px;
+  color: var(--foreground);
+}
+.editor-inspector .inspector-section-title,
+.editor-inspector .inspector-disclosure-trigger {
+  font-size: var(--inspector-section-size);
+  font-weight: 500;
+  line-height: 21px;
+  color: var(--foreground);
+}
+.editor-inspector
+  :is(label, [data-slot='label'], [data-slot='slider-output'], .inspector-control-label),
+.editor-inspector :is(span, div)[class*='text-muted-foreground'] {
+  font-size: var(--inspector-control-size);
+  line-height: 20px;
+  color: var(--foreground);
+}
+.inspector-control-label {
+  font-size: 12px;
+  line-height: 20px;
+  color: var(--foreground);
+}
+.inspector-description {
+  font-size: 11px;
+  line-height: 18px;
+  color: var(--muted-foreground);
+}
+.editor-inspector :is(p, small, .inspector-description),
+.editor-inspector .inspector-description :is(span, div, p, small) {
+  font-size: var(--inspector-description-size);
+  line-height: 18px;
+  color: var(--muted-foreground);
+}
+/* 联动留白与移除背景是指定的辅助开关，保留同一浅灰文字。 */
+.editor-inspector .inspector-control-label.inspector-muted-label {
+  color: var(--muted-foreground);
+}
+.inspector-setting-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+}
+.inspector-setting-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+.inspector-setting-control {
+  display: flex;
+  height: 20px;
+  align-items: center;
+  justify-content: flex-end;
+}
+.inspector-setting-row[data-stacked='true'] {
+  grid-template-columns: minmax(0, 1fr);
+}
+.inspector-setting-row[data-stacked='true'] > .inspector-setting-control {
+  height: auto;
+  justify-content: flex-start;
+}
+.editor-inspector .inspector-disclosure {
+  border-top: 1px solid var(--separator);
+  padding-top: 12px;
+}
+.editor-inspector .inspector-disclosure-trigger {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  text-align: left;
+}
+.editor-inspector .inspector-disclosure-content {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 12px;
+}
+.editor-inspector .inspector-scroll {
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+  scrollbar-gutter: stable;
+  padding: 4px 20px 20px;
+}
+.editor-inspector .inspector-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.editor-inspector .inspector-scroll::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+.editor-inspector .inspector-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.editor-inspector .inspector-scroll::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 3px;
+}

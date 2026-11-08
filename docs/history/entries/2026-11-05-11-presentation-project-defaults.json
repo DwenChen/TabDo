@@ -1,0 +1,33 @@
+{
+  "id": "presentation-project-defaults",
+  "date": "2026-11-05",
+  "summary": "修复演示新项目外观串用、分类重置及重开整轨拖动",
+  "reason": "新录制继续使用上个项目设置，部分重置使用持久偏好作为默认且遗漏参数，用户反馈重开项目后轨道名称不能拖动。",
+  "changes": [
+    "新素材与新录制建立完整出厂编辑模型，应用级偏好与项目外观分开；旧项目参数继续恢复。",
+    "分类重置共用出厂默认值，补齐缩放通用参数；摄像头保留源时长与剪辑并恢复显示，按键完整恢复简约外观；独立音频补充重置，裁剪重置退出框选。",
+    "轨道名称改用指针捕获并在完成、取消、失焦和卸载时清理，键盘上下移动继续保留。",
+    "新增默认值与重置范围清单及源码回归，同步现行教程和设置规范。"
+  ],
+  "checks": [
+    "通过context-mode阅读维护流程、改动索引、Bug台账、工具/设置及演示侧栏规范，保留工作区既有未提交内容。",
+    "pnpm test：121个文件809项通过；证据 .artifacts/runs/2026-11-05T15-23-34-916Z-unit。新增6项默认模型隔离、分类边界、素材同步保留及按键默认外观回归。",
+    "presentation-defaults源码专项通过：真实鼠标首次拖轨、完整页面重载、项目重开、Esc取消、保存与撤销重做；场景/光标/摄像头/字幕/缩放逐栏重置核对实际项目文件，裁剪取消/完成/一次撤销重做，以及旧偏好写入后新录制不继承。证据 .artifacts/runs/2026-11-05T15-27-04-445Z-e2e。",
+    "presentation-tracks、presentation-import、local-tutorial同批通过，覆盖独立声音重置、摄像头与录屏排序、导出及教程升级后资料保留；该批4项全部通过。",
+    "presentation-inspector、presentation-review源码专项通过，验证明暗侧栏、连续历史和相邻编辑；证据 .artifacts/runs/2026-11-05T15-21-59-574Z-e2e。该批另3项失败，修正测试/独立复跑情况见下条，不以整批通过记录。",
+    "初轮单测把留白误设为50，按源码默认20修正；初轮拖轨断言误用row-keystroke而真实ID为row-annotation-0，已修正。完整重载最初等待所有load资源超时，改为DOMContentLoaded后等待正文稳定。批量验证中default受并行构建/格式化触发的页面重载干扰，import一次丢失摄像头预览；未改产品源码的独立批复跑通过。tracks新增断言误读aria-valuenow，原生range使用value，修正后通过。保留失败证据 .artifacts/runs/2026-11-05T15-15-22-175Z-unit、2026-11-05T15-10-14-489Z-e2e、2026-11-05T15-16-16-481Z-e2e、2026-11-05T15-21-59-574Z-e2e。",
+    "人工审阅实际插件可见区域的缩放重置和侧栏截图，正文层级、固定标题与重置入口保持共享样式。",
+    "强制检查本轮13个移植编辑文件的ESLint错误；保留移植代码的推断返回值风格，仅在该命令关闭explicit-function-return-type，实际检查通过。常规入口会忽略整个移植目录，未将忽略误报为检查通过。",
+    "pnpm build通过，包含主程序类型检查、设置与工具插件、Electron生产编译；日志 .artifacts/presentation-defaults-build.log。",
+    "pnpm test:regressions presentation-editing --list通过：13个单测文件、11个E2E文件；同步TX-121与两项Bug台账。",
+    "对照源码人工审校README、演示组件README、设置/UI规范、仓库与应用内教程及更新说明；新增默认值与重置清单。pnpm docs:check通过，33份文档222个本地链接、15章65步教程无错误。",
+    "交付前pnpm maintain、pnpm maintain:check及git diff --check通过；保留既有ItemGlass.module.css换行提示。",
+    "第一次preview:sync因预览正在运行按脚本规则停止，未修改程序或资料；用户明确退出后重新同步通过。",
+    "pnpm preview:sync通过：1.3.0免安装预览替换104项程序资源，518个既有配置、项目与插件文件逐文件保持一致；回退程序 .artifacts/backups/preview-sync/update-1793892596347/previous-resources。",
+    "pnpm test:preview:resources通过；同步与资源核验日志分别为 .artifacts/presentation-defaults-preview-sync-final.log 和 .artifacts/presentation-defaults-preview-resources.log。收尾再次执行维护、文档与差异检查。"
+  ],
+  "pending": [
+    "其他DPI、多屏和触控待人工验收。"
+  ],
+  "preview": "已同步至 .local/portable-preview/（1.3.0），通过 PreviewPortable.cmd 使用既有隔离资料；保留518个配置、项目及插件文件。未重置数据、push、云端构建或发布Release。"
+}

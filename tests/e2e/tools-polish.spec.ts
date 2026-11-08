@@ -351,7 +351,7 @@ test('tool polish separates image floating, docks multi-text notes and restores 
     await floating.getByRole('button', { name: '矩形', exact: true }).click()
     await expect(floating.locator('#color-preview')).toHaveCSS(
       'background-color',
-      'rgb(0, 122, 255)'
+      'rgb(255, 59, 48)'
     )
     await floating.getByRole('button', { name: '荧光笔', exact: true }).click()
     await expect(floating.locator('#color-preview')).toHaveCSS(
@@ -418,9 +418,124 @@ test('tool polish separates image floating, docks multi-text notes and restores 
     expect(
       await floating.locator('#canvas').evaluate((canvas: HTMLCanvasElement) => canvas.toDataURL())
     ).not.toBe(beforeText)
+    // 新工具从实际独立窗口操作，验证历史分叉后的序号与导出像素。
+    await floating.getByRole('button', { name: '清除所有标注', exact: true }).click()
+    await floating.getByRole('button', { name: '序号圆圈', exact: true }).click()
+    await floating.getByRole('button', { name: '笔触 4 像素', exact: true }).click()
+    await expect(floating.locator('#drawing-tools [data-tool]')).toHaveCount(9)
+    await expect(floating.locator('#image-tools')).toHaveCSS(
+      'background-color',
+      'rgb(255, 255, 255)'
+    )
+    const stampBox = (await floating.locator('#canvas').boundingBox())!
+    await floating.mouse.click(
+      stampBox.x + stampBox.width * 0.2,
+      stampBox.y + stampBox.height * 0.3
+    )
+    await floating.mouse.click(
+      stampBox.x + stampBox.width * 0.4,
+      stampBox.y + stampBox.height * 0.3
+    )
+    await expect(floating.locator('#canvas')).toHaveAttribute('data-next-number', '3')
+    const twoStamps = await floating
+      .locator('#canvas')
+      .evaluate((canvas: HTMLCanvasElement) => canvas.toDataURL())
+    await floating.getByRole('button', { name: '撤销', exact: true }).click()
+    await expect(floating.locator('#canvas')).toHaveAttribute('data-next-number', '2')
+    await floating.getByRole('button', { name: '重做', exact: true }).click()
+    expect(
+      await floating.locator('#canvas').evaluate((canvas: HTMLCanvasElement) => canvas.toDataURL())
+    ).toBe(twoStamps)
+    await floating.getByRole('button', { name: '撤销', exact: true }).click()
+    await floating.mouse.click(
+      stampBox.x + stampBox.width * 0.6,
+      stampBox.y + stampBox.height * 0.3
+    )
+    await expect(floating.locator('#canvas')).toHaveAttribute('data-next-number', '3')
+    await expect(floating.getByRole('button', { name: '重做', exact: true })).toBeDisabled()
+    // 聚光灯支持反向拖动及多个区域并集，重叠区保持原图亮度。
+    const baseline = await floating.locator('#canvas').evaluate((canvas: HTMLCanvasElement) => {
+      const c = canvas.getContext('2d')!
+      return [40, 160, 240].map((x) => Array.from(c.getImageData(x, 190, 1, 1).data))
+    })
+    await floating.getByRole('button', { name: '聚光灯', exact: true }).click()
+    await expect(floating.getByRole('button', { name: '画笔颜色', exact: true })).toBeHidden()
+    /**
+     * 在当前缩放后的真实画布拖动原图坐标范围。
+     * @param from 起点原图坐标。
+     * @param to 终点原图坐标。
+     * @returns 本次拖动完成后的 Promise。
+     */
+    async function drawRegion(from: [number, number], to: [number, number]): Promise<void> {
+      const region = (await floating.locator('#canvas').boundingBox())!
+      await floating.mouse.move(
+        region.x + (from[0] * region.width) / 600,
+        region.y + (from[1] * region.height) / 240
+      )
+      await floating.mouse.down()
+      await floating.mouse.move(
+        region.x + (to[0] * region.width) / 600,
+        region.y + (to[1] * region.height) / 240,
+        { steps: 5 }
+      )
+      await floating.mouse.up()
+    }
+    await drawRegion([200, 220], [100, 150])
+    await drawRegion([140, 160], [300, 230])
+    const lit = await floating.locator('#canvas').evaluate((canvas: HTMLCanvasElement) => {
+      const c = canvas.getContext('2d')!
+      return [40, 160, 240].map((x) => Array.from(c.getImageData(x, 190, 1, 1).data))
+    })
+    expect(lit[0][0]).toBeLessThan(baseline[0][0] * 0.5)
+    expect(lit[1]).toEqual(baseline[1])
+    expect(lit[2]).toEqual(baseline[2])
+    await floating.getByRole('button', { name: '撤销', exact: true }).click()
+    const afterUndo = await floating
+      .locator('#canvas')
+      .evaluate((canvas: HTMLCanvasElement) =>
+        Array.from(canvas.getContext('2d')!.getImageData(240, 190, 1, 1).data)
+      )
+    expect(afterUndo[0]).toBeLessThan(baseline[2][0] * 0.5)
+    await floating.getByRole('button', { name: '重做', exact: true }).click()
+    const count = await floating.locator('#canvas').getAttribute('data-annotation-count')
+    await drawRegion([330, 180], [330, 180])
+    await expect(floating.locator('#canvas')).toHaveAttribute('data-annotation-count', count!)
     await floating.getByRole('button', { name: '复制图片' }).click()
     await expect(floating.locator('#status')).toHaveText('图片已复制')
+    const exported = await floating
+      .locator('#canvas')
+      .evaluate((canvas: HTMLCanvasElement) => canvas.toDataURL())
+    expect(
+      await app.evaluate(
+        ({ clipboard, nativeImage }, data) =>
+          clipboard.readImage().toBitmap().equals(nativeImage.createFromDataURL(data).toBitmap()),
+        exported
+      )
+    ).toBe(true)
+    const outputFile = path.join(temporary, 'annotated.png')
+    await app.evaluate(({ dialog }, file) => {
+      ;(globalThis as any).__annotationSaveDialog = dialog.showSaveDialog
+      dialog.showSaveDialog = async () => ({ canceled: false, filePath: file })
+    }, outputFile)
+    await floating.getByRole('button', { name: '另存为', exact: true }).click()
+    await expect(floating.locator('#status')).toHaveText('图片已保存')
+    await app.evaluate(({ dialog }) => {
+      dialog.showSaveDialog = (globalThis as any).__annotationSaveDialog
+    })
+    expect(
+      await app.evaluate(
+        ({ nativeImage }, { file, data }) =>
+          nativeImage
+            .createFromPath(file)
+            .toBitmap()
+            .equals(nativeImage.createFromDataURL(data).toBitmap()),
+        { file: outputFile, data: exported }
+      )
+    ).toBe(true)
     await capture(floating, 'tools-image-toolbar.png')
+    await floating.getByRole('button', { name: '清除所有标注', exact: true }).click()
+    await expect(floating.locator('#canvas')).toHaveAttribute('data-next-number', '1')
+    await expect(floating.getByRole('button', { name: '撤销', exact: true })).toBeDisabled()
     // Tool runtime can be destroyed while the explicitly opened image window remains visible.
     await app.evaluate(({ app }) =>
       process

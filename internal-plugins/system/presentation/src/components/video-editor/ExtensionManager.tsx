@@ -10,11 +10,12 @@ export default function ExtensionManager() {
 						<PuzzlePiece className="h-6 w-6 text-muted-foreground" />
 					</div>
 					<h3 className="text-sm font-semibold text-foreground">
-						Extensions are no longer available
+
+						扩展功能已停用
 					</h3>
 					<p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-						Extension installation and marketplace access have been disabled. This area
-						is kept as a placeholder for existing projects and navigation.
+
+						扩展安装及市场入口已停用，此处仅为已有项目保留兼容。
 					</p>
 				</div>
 			</div>

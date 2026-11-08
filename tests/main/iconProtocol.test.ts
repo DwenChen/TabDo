@@ -26,6 +26,7 @@ import {
 const tempDirectories: string[] = []
 
 afterEach(async () => {
+  vi.useRealTimers()
   mocks.handle.mockReset()
   mocks.getFileIcon.mockReset()
   await Promise.all(
@@ -34,6 +35,22 @@ afterEach(async () => {
 })
 
 describe('icon protocol', () => {
+  it('releases idle icons, extends the deadline on use and safely extracts them again', async () => {
+    vi.useFakeTimers()
+    mocks.getFileIcon.mockResolvedValue(Buffer.from('idle icon'))
+    await getFileIconAsBase64('/idle-release.exe')
+    await vi.advanceTimersByTimeAsync(29_000)
+    await getFileIconAsBase64('/idle-release.exe')
+    expect(mocks.getFileIcon).toHaveBeenCalledOnce()
+    await vi.advanceTimersByTimeAsync(29_000)
+    await getFileIconAsBase64('/idle-release.exe')
+    expect(mocks.getFileIcon).toHaveBeenCalledOnce()
+    await vi.advanceTimersByTimeAsync(30_000)
+    await getFileIconAsBase64('/idle-release.exe')
+    expect(mocks.getFileIcon).toHaveBeenCalledTimes(2)
+    await vi.advanceTimersByTimeAsync(30_000)
+    expect(vi.getTimerCount()).toBe(0)
+  })
   it('coalesces simultaneous extraction and retries after failure', async () => {
     mocks.getFileIcon.mockResolvedValueOnce(Buffer.from('same icon'))
     const results = await Promise.all(

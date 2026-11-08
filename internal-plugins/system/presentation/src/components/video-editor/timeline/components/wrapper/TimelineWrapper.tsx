@@ -10,8 +10,9 @@ import type {
 	Span,
 } from "dnd-timeline";
 import { TimelineContext } from "dnd-timeline";
-import type { Dispatch, ReactNode, SetStateAction } from "react";
-import { useCallback, useRef } from "react";
+import type { Dispatch, ReactNode, ReactElement, SetStateAction } from "react";
+import { useCallback, useRef, useState } from "react";
+import { TimelineDropPreviewContext, type TimelineDropPreview } from "../../DropPreview";
 import type { ClipSequenceSpan, TimelineRegionSpan } from "../../core/timelineTypes";
 import { clampRange, resolveDragEnd, resolveResizeEnd } from "../../dnd/engine";
 
@@ -31,6 +32,11 @@ interface TimelineWrapperProps {
 	onDraggingChange?: (dragging: boolean) => void;
 }
 
+/**
+ * 统一校验拖动与裁剪，并让落点提示复用最终提交的解析结果。
+ * @param props 可见时间、全部片段、编辑命令与前台拖动回调。
+ * @returns 支持取消清理及落点预览的时间轴上下文。
+ */
 export default function TimelineWrapper({
 	children,
 	range,
@@ -45,13 +51,14 @@ export default function TimelineWrapper({
 	allRegionSpans = [],
 	onLiveSpanPreviewChange,
 	onDraggingChange,
-}: TimelineWrapperProps) {
+}: TimelineWrapperProps): ReactElement {
 	// Treat small pointer jitter as a selection, never as a persisted timeline edit.
 	const sensors = useSensors(
 		useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
 		useSensor(KeyboardSensor),
 	);
 	const totalMs = Math.max(0, Math.round(videoDuration * 1000));
+	const [dropPreview, setDropPreview] = useState<TimelineDropPreview | null>(null);
 
 	const onResizeEnd = useCallback(
 		(event: ResizeEndEvent) => {
@@ -137,10 +144,16 @@ export default function TimelineWrapper({
 		[formatTooltipMs],
 	);
 
+	/**
+	 * 解析合法目标轨道及最终区间，预览和提交共用相同约束。
+	 * @param event 当前拖动事件。
+	 * @param span 指针提出的区间。
+	 * @returns 合法落点的轨道与区间，无接收轨道时返回空值。
+	 */
 	const resolveDragPreviewSpan = useCallback(
-		(event: DragMoveEvent, span: Span): Span | null => {
+		(event: DragMoveEvent, span: Span): TimelineDropPreview | null => {
 			const proposedRowId = event.over?.id as string | undefined;
-			if (!proposedRowId) return span;
+			if (!proposedRowId) return null;
 
 			const activeItemId = event.active.id as string;
 			const resolved = resolveDragEnd(
@@ -156,7 +169,7 @@ export default function TimelineWrapper({
 				resolveTargetRowId,
 			);
 
-			return resolved?.span ?? null;
+			return resolved ? { rowId: resolved.rowId, span: resolved.span } : null;
 		},
 		[allRegionSpans, hasOverlap, minItemDurationMs, resolveTargetRowId, totalMs],
 	);
@@ -170,10 +183,17 @@ export default function TimelineWrapper({
 		[onDraggingChange, showTooltip],
 	);
 
+	/**
+	 * 根据同一解析结果显示目标框及时间，不修改活动片段的布局坐标。
+	 * @param event 当前拖动事件。
+	 * @returns 无返回值；更新合法落点或清除无效提示。
+	 */
 	const onDragMove = useCallback(
 		(event: DragMoveEvent) => {
 			const span = event.active.data.current.getSpanFromDragEvent?.(event);
-			const previewSpan = span ? resolveDragPreviewSpan(event, span) : null;
+			const preview = span ? resolveDragPreviewSpan(event, span) : null;
+			const previewSpan = preview?.span ?? null;
+			setDropPreview((previous) => previous?.rowId === preview?.rowId && previous?.span.start === preview?.span.start && previous?.span.end === preview?.span.end ? previous : preview);
 			const screenX =
 				event.activatorEvent && "clientX" in event.activatorEvent
 					? (event.activatorEvent as PointerEvent).clientX + (event.delta?.x ?? 0)
@@ -218,8 +238,14 @@ export default function TimelineWrapper({
 		[hideTooltip, onDraggingChange, onLiveSpanPreviewChange, onResizeEnd],
 	);
 
+	/**
+	 * 结束移动并撤销本次提示，随后发布已校验的编辑。
+	 * @param event 当前完成事件。
+	 * @returns 无返回值；清理前台拖动状态。
+	 */
 	const onDragEndWithTooltip = useCallback(
 		(event: DragEndEvent) => {
+			setDropPreview(null);
 			hideTooltip();
 			onDragEnd(event);
 			onLiveSpanPreviewChange?.(event.active.id as string, null);
@@ -228,10 +254,14 @@ export default function TimelineWrapper({
 		[hideTooltip, onDraggingChange, onDragEnd, onLiveSpanPreviewChange],
 	);
 
-	// dnd-kit fires onDragCancel (not onDragEnd) when a drag is aborted, e.g. via
-	// Escape. Without this the drag-active state and live preview would stick.
+	/**
+	 * 取消拖动时释放落点、时间提示及前台状态，不提交片段变化。
+	 * @param event 当前取消事件中的活动片段。
+	 * @returns 无返回值；清除本次拖动拥有的预览。
+	 */
 	const onDragCancel = useCallback(
 		(event: { active: { id: string | number } }) => {
+			setDropPreview(null);
 			hideTooltip();
 			onLiveSpanPreviewChange?.(String(event.active.id), null);
 			onDraggingChange?.(false);
@@ -283,7 +313,9 @@ export default function TimelineWrapper({
 					minItemDurationMs={minItemDurationMs}
 					hasOverlap={hasOverlap}
 				>
-					{children}
+					<TimelineDropPreviewContext.Provider value={dropPreview}>
+						{children}
+					</TimelineDropPreviewContext.Provider>
 				</TimelinePresentation>
 				{/* Floating tooltip shown during drag/resize */}
 				<div

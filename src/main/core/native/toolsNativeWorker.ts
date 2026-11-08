@@ -4,6 +4,7 @@ import workerPath from '../../../../resources/tools-native-worker.cjs?asset'
 import screenshotPath from '../../../../resources/lib/win/tabdo_screenshot.node?asset'
 import nativePath from '../../../../resources/lib/win/tabdo_native.node?asset'
 import type { ScreenCaptureOptions, ScreenCaptureResult } from './index'
+import { requestIdleMemoryReclaim } from '../idleMemoryReclaimer'
 
 type NativeToolResult = ScreenCaptureResult & { hex?: string | null; error?: string }
 const workers = new Set<NativeToolWorker>()
@@ -33,6 +34,7 @@ class NativeToolWorker {
       windowsHide: true
     })
     workers.add(this)
+    requestIdleMemoryReclaim()
     this.child.on('message', (message: { type?: string; result?: NativeToolResult }) => {
       if (message.type !== 'result' || !message.result) return
       this.result = message.result
@@ -45,6 +47,7 @@ class NativeToolWorker {
     this.child.once('close', () => {
       // 先释放宿主引用，再交付结果，回调可以安全地立即开始下一次操作。
       workers.delete(this)
+      requestIdleMemoryReclaim()
       if (primedScreenshot === this) primedScreenshot = null
       if (activeScreenshot === this) activeScreenshot = null
       if (colorPicker === this) colorPicker = null
@@ -87,6 +90,14 @@ class NativeToolWorker {
   stop(): void {
     if (this.child.exitCode === null && this.child.signalCode === null) this.child.kill()
   }
+}
+
+/**
+ * 判定不带WebContents的原生工具是否仍在工作，进程close前不能提前视为闲置。
+ * @returns 是否存在尚未退出的所属原生工具进程。
+ */
+export function hasNativeToolWorkers(): boolean {
+  return workers.size > 0
 }
 
 /**

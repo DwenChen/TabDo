@@ -20,6 +20,15 @@
 }
 .rename-page input[type='checkbox'] {
   accent-color: var(--primary);
+  flex: none;
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  vertical-align: middle;
+}
+.rename-page select option {
+  color: var(--text);
+  background: var(--bg-elevated);
 }
 .rename-page {
   color-scheme: light;
@@ -117,10 +126,6 @@
   border-radius: 12px;
   background: var(--surface-card);
   box-shadow: var(--shadow-card);
-}
-.rule-panel:has(.insert-panel),
-.rule-panel:has(.number-panel) {
-  height: 242px;
 }
 .rule-panel:has(.number-panel),
 .rule-panel:has(.manual-panel),

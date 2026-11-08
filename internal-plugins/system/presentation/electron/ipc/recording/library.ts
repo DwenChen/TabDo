@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import { constants } from "node:fs";
 import path from "node:path";
-import { shell } from "@tabdo/presentation-electron";
+import { recycleRecordingBundle } from "./recycle";
 import { buildMediaUrl, getMediaServerBaseUrl } from "../../mediaServer";
 import { rememberApprovedLocalReadPath } from "../project/manager";
 import { getRecordingsDir } from "../utils";
@@ -11,8 +11,15 @@ let mutation = Promise.resolve();
 const undoBatches = new Map<string, { bundle: string; files: string[] }>();
 const isRecording = (name: string) =>
 	/\.(mp4|mov|webm|mkv|m4v)$/i.test(name) && !/[.-]webcam[.-]/i.test(name);
+const isSource = (name: string) => /\.(mp4|mov|webm|mkv|m4v|wav|m4a|mp3|ogg|flac)$/i.test(name);
 const batchKey = (paths: string[]) => JSON.stringify([...new Set(paths)].sort());
 
+/**
+ * 列出当前素材库；只读查询不触发遗留删除事务。
+ * @param includeSources 是否包括独立音频等来源。
+ * @returns 已批准的素材列表。
+ * @throws 目录读取失败或媒体服务未就绪时抛错。
+ */
 export function listRecordings(includeSources = false): Promise<RecordingLibraryEntry[]> {
 	const task = mutation.then(async () => {
 		const root = await fs.realpath(await getRecordingsDir());
@@ -26,12 +33,13 @@ export function listRecordings(includeSources = false): Promise<RecordingLibrary
 				/^\.recordly-trash-[A-Za-z0-9]{6}$/.test(entry.name) &&
 				![...undoBatches.values()].some((batch) => batch.bundle === staged)
 			) {
-				await shell.trashItem(staged);
+				// 列表查询不能自动请求系统删除或提权，遗留包保留用于恢复。
+				console.warn("[Recordings] Preserved interrupted removal bundle:", staged);
 			}
 		}
 		const result: RecordingLibraryEntry[] = [];
 		for (const entry of entries) {
-			if (!entry.isFile() || !(includeSources ? /\.(mp4|mov|webm|mkv|m4v|wav|m4a|mp3|ogg|flac)$/i.test(entry.name) : isRecording(entry.name))) continue;
+			if (!entry.isFile() || !(includeSources ? isSource(entry.name) : isRecording(entry.name))) continue;
 			const filePath = path.join(root, entry.name);
 			const stat = await fs.stat(filePath);
 			if (!stat.size) continue;
@@ -53,23 +61,36 @@ export function listRecordings(includeSources = false): Promise<RecordingLibrary
 	return task;
 }
 
-// Only capture sidecars belonging to this exact recording, never adjacent recordings or projects.
-function belongsToRecording(name: string, video: string) {
+/**
+ * 判断文件是否属于同一录制，只匹配专属伴随文件而非相邻素材或项目。
+ * @param name 待检查文件名。
+ * @param video 主录制文件名。
+ * @returns 是否属于该录制包。
+ */
+export function belongsToRecording(name: string, video: string) {
 	const stem = video.slice(0, -path.extname(video).length);
 	return (
 		name === video ||
 		name === `${video}.cursor.json` ||
+		name === `${video}.json` ||
 		(name.startsWith(`${stem}.`) &&
 			/\.(?:system|mic|microphone|audio|webcam)\.(?:wav|webm|mp4|m4a)(?:\.json)?$/i.test(
 				name,
 			)) ||
 		name === `${stem}.recordly-session.json` ||
 		name === `${stem}.recording-session.json` ||
-		(name.startsWith(`${stem}-webcam.`) && /\.(?:mp4|webm|mov|mkv|avi)$/i.test(name))
+		name === `${stem}.recording-diagnostics.json` ||
+		(name.startsWith(`${stem}-webcam.`) && /\.(?:mp4|webm|mov|mkv|avi)(?:\.cursor\.json)?$/i.test(name))
 	);
 }
 
-/** Stage a bundle by rename for Undo; the next removal or app exit sends it to Trash. */
+/**
+ * Stage selected library sources and their exact sidecars for reversible removal.
+ * @param paths Absolute paths inside the recordings library.
+ * @param removed Whether to remove or restore the last selected bundle.
+ * @returns Resolves after the entire bundle moves or rolls back.
+ * @throws When a selected path is invalid or a filesystem operation fails.
+ */
 export function setRecordingsRemoved(paths: string[], removed: boolean): Promise<void> {
 	const task = mutation.then(async () => {
 		if (
@@ -78,11 +99,11 @@ export function setRecordingsRemoved(paths: string[], removed: boolean): Promise
 			!paths.length ||
 			paths.some((value) => typeof value !== "string")
 		)
-			throw new Error("Invalid recording selection");
+			throw new Error("录制选择无效");
 		const root = await fs.realpath(await getRecordingsDir());
 		const selected = [...new Set(paths)];
 		for (const candidate of selected) {
-			if (path.dirname(candidate) !== root || !isRecording(path.basename(candidate)))
+			if (path.dirname(candidate) !== root || !isSource(path.basename(candidate)))
 				throw new Error("Recording is outside the Videos library");
 		}
 		const key = batchKey(selected);
@@ -144,7 +165,6 @@ export function setRecordingsRemoved(paths: string[], removed: boolean): Promise
 					selected.some((file) => belongsToRecording(entry.name, path.basename(file))),
 			)
 			.map((entry) => path.join(root, entry.name));
-		await finishPendingTrash();
 		const bundle = await fs.mkdtemp(path.join(root, ".recordly-trash-"));
 		const moved: string[] = [];
 		try {
@@ -163,14 +183,26 @@ export function setRecordingsRemoved(paths: string[], removed: boolean): Promise
 	return task;
 }
 
-async function finishPendingTrash() {
+/**
+ * 完成指定或全部明确登记的删除事务，不处理未知目录。
+ * @param paths 指定的素材选择；省略时处理会话剩余事务。
+ * @returns 系统回收结束后的 Promise。
+ * @throws 系统拒绝回收时保留对应暂存包并抛错。
+ */
+async function finishPendingTrash(paths?: string[]) {
 	for (const [key, batch] of undoBatches) {
-		await shell.trashItem(batch.bundle);
+		if (paths && key !== batchKey(paths)) continue;
+		await recycleRecordingBundle(batch.bundle);
 		undoBatches.delete(key);
 	}
 }
-export function clearRecordingTrashUndo() {
-	const task = mutation.then(finishPendingTrash);
+/**
+ * 串行回收当前明确选择的录制包，避免其他旧事务阻断本次删除。
+ * @param paths 当前素材选择；退出清理时可以省略。
+ * @returns 系统完成回收后的 Promise。
+ */
+export function clearRecordingTrashUndo(paths?: string[]) {
+	const task = mutation.then(() => finishPendingTrash(paths));
 	mutation = task.catch(() => undefined);
 	return task;
 }

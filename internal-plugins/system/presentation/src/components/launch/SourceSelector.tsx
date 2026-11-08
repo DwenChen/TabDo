@@ -1,3 +1,4 @@
+import { localizePresentationMessage } from "@presentation/lib/presentationMessages";
 import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@presentation/components/ui/button'
 
@@ -90,7 +91,7 @@ export function SourceSelector({
       <div className="min-h-0 flex-1">
         {error && (
           <p role="alert" className="mb-3 rounded-lg bg-danger/10 p-3 text-sm text-danger">
-            {error}
+            {localizePresentationMessage(error)}
           </p>
         )}
         {loading ? (

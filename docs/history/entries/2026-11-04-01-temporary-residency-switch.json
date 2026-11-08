@@ -1,0 +1,28 @@
+{
+  "id": "temporary-residency-switch",
+  "date": "2026-11-04",
+  "summary": "修复打开其他子组件时常驻工具关闭或正文空白",
+  "reason": "内置子组件共用system插件路径，独立单例复用把其他功能的进入事件发送给常驻页面；路径级重入记录也会被其他会话覆盖或删除。",
+  "changes": [
+    "独立工具窗口保存功能码并按路径及功能匹配；其他工具使用自己的页面，同功能无操作重入恢复原窗口。",
+    "正文WebContents独立保存重入状态，避免其他子组件退出后重进常驻工具时清空状态；Windows隐藏窗口重入先show。",
+    "补测发现独立窗口快速关闭后延迟聚焦仍读取被Electron清空的view.webContents，修正为捕获所属正文、关闭时取消计时器，隐藏/最小化及销毁后禁止抢焦点。",
+    "增加临时常驻切换源码E2E及回归组，同步工具规范、架构、Bug台账和更新说明；保留工作区原有未提交内容。"
+  ],
+  "checks": [
+    "修改前默认使用context-mode盘点，阅读维护、改动索引、Bug台账及工具、插件、内存和Agent规范。",
+    "临时常驻专项源码E2E通过，归档.artifacts/runs/2026-11-04T07-10-11-961Z-e2e。",
+    "三项联合源码E2E通过，归档.artifacts/runs/2026-11-04T07-11-30-858Z-e2e：常驻切换与正文内部筛选状态、隐藏/最小化及同功能恢复、独立入口、取消常驻不影响新工具，以及原插件单例和工具资源清理。",
+    "沙箱内第一次源码服务器未就绪，手动取消后使用沙箱外隔离Electron验证；未据此宣称缺陷已复现。",
+    "相关四文件17项单测通过，归档.artifacts/runs/2026-11-04T07-13-09-717Z-unit；pnpm build通过类型检查及生产构建，日志.artifacts/work/temporary-residency-build.log。",
+    "代码检查首次指出新测试空fixture参数，改为具名fixture后ESLint通过；pnpm docs:check、pnpm maintain、pnpm maintain:check和git diff --check通过。",
+    "真实正文补测中常驻专项和工具清理通过，但plugin-host相邻回归捕获独立窗口关闭后的100ms聚焦访问已释放正文，主进程失败退出；失败归档.artifacts/runs/2026-11-04T07-15-13-161Z-e2e保留，已修复待最终复测。",
+    "首轮预览同步成功，保留493个现有配置、资料和插件文件，核验103项程序资源；补充延迟焦点修复后仍须再次同步。",
+    "延迟焦点修复后最终三项源码联合E2E全部通过，归档.artifacts/runs/2026-11-04T07-17-39-617Z-e2e；包含真实剪贴板正文、内部筛选状态及独立窗口快速关闭，未放宽原断言。",
+    "最终pnpm typecheck:node和宿主electron-vite build通过，日志.artifacts/work/temporary-residency-final-host-build.log；最终相关三文件ESLint通过。",
+    "最终pnpm preview:sync成功，版本保持1.3.0，493个现有配置、资料和插件文件完整保留；核验103项程序资源，回滚资源.artifacts/backups/preview-sync/update-1793776764737/previous-resources。",
+    "pnpm test:preview:resources通过102项程序、345项内置和1687项媒体资源核验；日志.artifacts/work/temporary-residency-preview.log及temporary-residency-preview-resources.log。已直接查看插件正文截图，真实记录在多次切换后仍可见。"
+  ],
+  "pending": ["其他DPI、多显示器及原生最终观感保留人工验收。"],
+  "preview": "已同步.local/portable-preview，通过PreviewPortable.cmd启动；493个现有配置、资料和插件文件保留。未重置数据，未push、未云端构建或发布Release。"
+}

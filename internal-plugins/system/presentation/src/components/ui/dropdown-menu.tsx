@@ -25,7 +25,7 @@ export function DropdownMenuContent({
 			placement={align === "center" ? "bottom" : `bottom ${align}`}
 			offset={sideOffset}
 		>
-			<Dropdown.Menu aria-label="Actions">{children}</Dropdown.Menu>
+			<Dropdown.Menu aria-label="操作">{children}</Dropdown.Menu>
 		</Dropdown.Popover>
 	);
 }

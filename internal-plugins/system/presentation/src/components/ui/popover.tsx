@@ -79,7 +79,7 @@ export function PopoverContent({
 			className="max-w-[calc(100vw-24px)]"
 		>
 			<HeroPopover.Dialog
-				aria-label={props["aria-label"] ?? "Options"}
+				aria-label={props["aria-label"] ?? "选项"}
 				className={cn("max-w-full max-h-[min(80vh,640px)] overflow-y-auto p-4", className)}
 			>
 				<div

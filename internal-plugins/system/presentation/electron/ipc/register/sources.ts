@@ -131,7 +131,7 @@ export async function getDesktopSources(
 	if (process.platform === "linux" && isLikelyLinuxWaylandSession(process.env)) {
 		return opts?.types && !opts.types.includes("screen")
 			? []
-			: [{ id: LINUX_PORTAL_SCREEN_SOURCE_ID, name: "System picker", sourceType: "screen" }];
+			: [{ id: LINUX_PORTAL_SCREEN_SOURCE_ID, name: "系统选择器", sourceType: "screen" }];
 	}
 	const cacheKey = JSON.stringify({
 		types: opts?.types,
@@ -649,7 +649,7 @@ body{background:transparent;overflow:hidden;width:100vw;height:100vh}
 		if (process.platform === "linux" && isLikelyLinuxWaylandSession(process.env)) {
 			setSelectedSource({
 				id: LINUX_PORTAL_SCREEN_SOURCE_ID,
-				name: "System picker",
+				name: "系统选择器",
 				sourceType: "screen",
 			});
 			broadcastSelectedSourceChange();

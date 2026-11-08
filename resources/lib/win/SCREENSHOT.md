@@ -6,6 +6,8 @@
 
 两处分隔区由整按钮宽缩窄至 12/32 按钮宽，绘制、点击和提示框使用相同布局。长截图的工具栏、预览与悬停提示声明为不参与屏幕捕获，防止界面自身混入拼接结果。
 
+标记栏与图片标记共用 `resources/annotation-tools.js` 中的九项中文名称、顺序及 1.5px SVG 线图标，增加荧光笔、序号圆圈与聚光灯，保留原有箭头。`scripts/patch-screenshot-annotations.cjs` 将新增工具接入原生模型、输入、预览和最终 PNG 合成；荧光笔独立保存本次颜色选择，圆圈序号属于可撤销的标记历史。聚光灯一次压暗所有清晰区域的并集之外，重叠区域不会变暗；无效拖动不进入历史。所有资源仍属于单次截图工作进程。
+
 运行时由 `resources/tools-native-worker.cjs` 在独立 Electron Node 进程按次加载本模块。确认、取消或异常后退出进程，宿主等待进程关闭后回传结果，从而回收静态缓存、屏幕帧及线程；预抓帧未使用时两秒后退出。截图保持单会话，重复快捷键不会叠加工作进程。新增子组件必须遵守 [工具开发原则](../../../docs/tools-development.md)。
 
 重编译：将 MinGW-w64 g++ 和 objdump 加入 PATH，设置 `TABDO_NODE_HEADERS` 为 Electron 头文件目录（包含 `include/node`），设置 `TABDO_ADDON_HEADERS` 为 node-addon-api 目录，然后运行 `node scripts/build-tools-screenshot.cjs`。编译脚本固定上游提交、应用可审查的补丁，并静态链接 C++ 运行库，不依赖额外 DLL；Node-API 从当前宿主解析以兼容 Electron 的进程名称。可通过 `TABDO_NATIVE_CXX` 指定编译器、`TABDO_SCREENSHOT_SOURCE` 复用对应提交的本地源码。

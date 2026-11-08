@@ -2,7 +2,7 @@ import { Meter } from "@heroui/react";
 export function AudioLevelMeter({ level, className }: { level: number; className?: string }) {
 	return (
 		<Meter
-			aria-label="Microphone level"
+			aria-label="麦克风音量"
 			value={Math.min(100, Math.max(0, level))}
 			minValue={0}
 			maxValue={100}

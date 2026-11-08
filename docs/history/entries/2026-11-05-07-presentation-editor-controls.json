@@ -1,0 +1,32 @@
+{
+  "id": "presentation-editor-controls",
+  "date": "2026-11-05",
+  "summary": "修复演示缩放落点并统一按键、音频和播放工具栏交互",
+  "reason": "用户反馈缩放强制两秒导致空位添加失败、英文报错及多余入口，按键未自动入轨且侧栏样式不一致。",
+  "changes": [
+    "缩放轨道按鼠标时间解析可用区间，临近下一缩放或录屏结尾自动缩短，预览和提交共用边界。",
+    "去掉工具栏手动缩放按钮，音量紧邻播放时间，图标提供中文悬停提示；保留自动识别与选区分割。",
+    "视频保留选中轮廓并移除已选中字样，录屏侧栏去掉裁剪画面按钮，声音只用滑条设置淡入淡出并自动保留素材偏移。",
+    "录制按键自动入轨，按键侧栏使用共享选择卡片与设置行，显示按键输入开关置于外观前；项目、撤销、预览和导出保留显示选择及编辑内容。",
+    "连接缩放和运动效果归入带分割线的通用设置。"
+  ],
+  "checks": [
+    "通过context-mode核对维护规范、历史索引、Bug台账和演示模块源码，保留工作区既有未提交内容。",
+    "缩放落点及按键显示兼容单测12项通过，归档.artifacts/runs/2026-11-05T10-21-39-251Z-unit；扩展相关4文件43项单测通过，归档.artifacts/runs/2026-11-05T10-25-49-796Z-unit。",
+    "源码专项首次因新增局部变量与原测试重名无法启动，归档.artifacts/runs/2026-11-05T10-21-51-250Z-e2e；复用原定位器后启动。第二轮尾部添加成功，但预览测试属性由像素反算产生浮点尾差，改为与提交相同的整数毫秒，归档.artifacts/runs/2026-11-05T10-22-12-154Z-e2e。",
+    "后续源码专项发现普通span不消费Tooltip触发上下文，改用原生HeroUI触发器；禁用子Button又重复消费上下文和产生两个无障碍按钮，改为仅保留禁用触发器及图标。失败证据分别归档.artifacts/runs/2026-11-05T10-23-14-881Z-e2e、2026-11-05T10-24-32-274Z-e2e、2026-11-05T10-25-39-557Z-e2e。",
+    "误用tsc检查Vue项目导致6个.vue声明错误，日志.artifacts/work/presentation-editor-typecheck.log；正式类型验证改用仓库pnpm build中的Node/Web检查。",
+    "pnpm docs:check通过31文档207链接15章65步；presentation-timeline回归分组列出4个单测文件和2个源码专项。",
+    "禁用提示仍被React Aria的禁用状态抑制，归档.artifacts/runs/2026-11-05T10-27-00-935Z-e2e；将禁用提示显隐明确绑定悬停与焦点。后续已通过全部提示、音量弹窗与按键切换，但旧间距断言误读Tag的gridcell包装，归档.artifacts/runs/2026-11-05T10-28-29-432Z-e2e；增加卡片内部布局与精确预览标签定位。",
+    "完整源码轨道专项通过，归档.artifacts/runs/2026-11-05T10-30-17-141Z-e2e；验证鼠标尾部及下一缩放前的短空位、预览提交一致、占用区选择、四项实际悬停与音量弹窗、音频滑条与分割素材偏移、按键首次自动入轨、开关关闭保存重开及机械样式保留、既有排序与资源退出清理。人工查看插件正文缩放和按键侧栏截图。",
+    "受影响新模块、侧栏及测试的强制ESLint错误检查退出0。",
+    "最终导入、轨道与本地教程3个源码专项通过，归档.artifacts/runs/2026-11-05T10-32-00-400Z-e2e；补充真实按键叠加节点随开关撤下/恢复断言，以及项目加载期间禁止自动生成轨道。",
+    "仓库正式pnpm typecheck的Node和Web检查退出0；pnpm maintain、pnpm maintain:check及git diff --check通过。悬停控件最后统一受控状态，避免禁用切换时在受控/非受控模式间跳转。",
+    "统一悬停状态后源码轨道专项再次通过，归档.artifacts/runs/2026-11-05T10-34-36-162Z-e2e；真实按键叠加节点关闭为0、开启为1，片段、样式及关闭选择在保存重开后保留。",
+    "pnpm build完整退出0，包含Node/Web类型检查、设置教程、演示工具与宿主生产编译，日志.artifacts/work/presentation-editor-controls-build.log；未执行electron-builder或build:unpack。最终pnpm docs:check与git diff --check通过。",
+    "pnpm preview:sync退出0，104项程序资源通过核验，487个同步前既有data/legacy文件逐文件保持一致，配置、资料及已安装插件保留；程序回退副本.artifacts/backups/preview-sync/update-1793875051035/previous-resources。日志.artifacts/work/presentation-editor-controls-preview-sync.log。",
+    "pnpm test:preview:resources退出0，日志.artifacts/work/presentation-editor-controls-preview-verify.log。"
+  ],
+  "pending": ["其他DPI、多屏、触控与长录制的交互手感保留对应设备人工验收。"],
+  "preview": "已同步.local/portable-preview（1.3.0），通过根PreviewPortable.cmd启动。487个同步前既有data/legacy文件逐文件一致，配置、资料及已安装插件保留。程序回退副本.artifacts/backups/preview-sync/update-1793875051035/previous-resources。未push、云端构建、release或重置数据。"
+}

@@ -1,6 +1,6 @@
 /* biome-ignore-all lint/correctness/useExhaustiveDependencies: mutable timeline bootstrap refs intentionally do not trigger effects. */
 import { type MutableRefObject, useCallback, useEffect, useMemo } from "react";
-import { closeClipGaps, rippleRegionAnchors, rippleRegions } from "../clipSequence";
+import { closeClipGaps, rippleRegions } from "../clipSequence";
 import { projectCaptionCues } from "../captionTimeline";
 import { deriveNextId } from "../projectPersistence";
 import type { useTimelineState } from "../state/useTimelineState";
@@ -27,6 +27,11 @@ type Input = {
 	autoFullTrackEndRef: MutableRefObject<number | null>;
 };
 
+/**
+ * 建立当前录屏的源时间投影，初始化关联效果但保留独立音频与摄像头时序。
+ * @param input 当前素材时长、片段和初始化引用。
+ * @returns 预览时钟、源时间映射及当前可见字幕和变焦。
+ */
 export function useTimelineProjection({
 	timeline,
 	duration,
@@ -66,9 +71,6 @@ export function useTimelineProjection({
 					);
 					timeline.setAnnotationRegions((current) =>
 						rippleRegions(current, nextRegions, sequence),
-					);
-					timeline.setAudioRegions((current) =>
-						rippleRegionAnchors(current, nextRegions, sequence),
 					);
 				}
 			}

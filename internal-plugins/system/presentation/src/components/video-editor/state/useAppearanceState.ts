@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { EditorPreferences } from "../editorPreferences";
+import { DEFAULT_EDITOR_PREFERENCES, type EditorPreferences } from "../editorPreferences";
 import type {
 	CropRegion,
 	CursorClickEffectStyle,
@@ -23,95 +23,101 @@ import {
 	DEFAULT_ZOOM_OUT_EASING,
 } from "../types";
 
+/**
+ * 以出厂值初始化项目外观，仅从应用偏好读取自动缩放开关。
+ * @param preferences 应用级自动缩放偏好；旧项目外观不用于新项目。
+ * @returns 规范化状态或所属编辑操作。
+ */
 export function useAppearanceState(preferences: EditorPreferences) {
-	const [wallpaper, setWallpaper] = useState(preferences.wallpaper);
-	const [shadowIntensity, setShadowIntensity] = useState(preferences.shadowIntensity);
-	const [backgroundBlur, setBackgroundBlur] = useState(preferences.backgroundBlur);
-	const [zoomMotionBlur, setZoomMotionBlur] = useState(preferences.zoomMotionBlur);
+	const [wallpaper, setWallpaper] = useState(DEFAULT_EDITOR_PREFERENCES.wallpaper);
+	const [shadowIntensity, setShadowIntensity] = useState(DEFAULT_EDITOR_PREFERENCES.shadowIntensity);
+	const [backgroundBlur, setBackgroundBlur] = useState(DEFAULT_EDITOR_PREFERENCES.backgroundBlur);
+	const [zoomMotionBlur, setZoomMotionBlur] = useState(DEFAULT_EDITOR_PREFERENCES.zoomMotionBlur);
 	const [zoomMotionBlurTuning, setZoomMotionBlurTuning] = useState<ZoomMotionBlurTuning>(
-		preferences.zoomMotionBlurTuning ?? DEFAULT_ZOOM_MOTION_BLUR_TUNING,
+		DEFAULT_EDITOR_PREFERENCES.zoomMotionBlurTuning ?? DEFAULT_ZOOM_MOTION_BLUR_TUNING,
 	);
 	const [autoApplyFreshRecordingAutoZooms, setAutoApplyFreshRecordingAutoZooms] = useState(
 		preferences.autoApplyFreshRecordingAutoZooms,
 	);
-	const [connectZooms, setConnectZooms] = useState(preferences.connectZooms);
+	const [connectZooms, setConnectZooms] = useState(DEFAULT_EDITOR_PREFERENCES.connectZooms);
 	const [zoomInDurationMs, setZoomInDurationMs] = useState(
-		preferences.zoomInDurationMs ?? DEFAULT_ZOOM_IN_DURATION_MS,
+		DEFAULT_EDITOR_PREFERENCES.zoomInDurationMs ?? DEFAULT_ZOOM_IN_DURATION_MS,
 	);
 	const [zoomInOverlapMs, setZoomInOverlapMs] = useState(
-		preferences.zoomInOverlapMs ?? DEFAULT_ZOOM_IN_OVERLAP_MS,
+		DEFAULT_EDITOR_PREFERENCES.zoomInOverlapMs ?? DEFAULT_ZOOM_IN_OVERLAP_MS,
 	);
 	const [zoomOutDurationMs, setZoomOutDurationMs] = useState(
-		preferences.zoomOutDurationMs ?? DEFAULT_ZOOM_OUT_DURATION_MS,
+		DEFAULT_EDITOR_PREFERENCES.zoomOutDurationMs ?? DEFAULT_ZOOM_OUT_DURATION_MS,
 	);
 	const [connectedZoomGapMs, setConnectedZoomGapMs] = useState(
-		preferences.connectedZoomGapMs ?? DEFAULT_CONNECTED_ZOOM_GAP_MS,
+		DEFAULT_EDITOR_PREFERENCES.connectedZoomGapMs ?? DEFAULT_CONNECTED_ZOOM_GAP_MS,
 	);
 	const [connectedZoomDurationMs, setConnectedZoomDurationMs] = useState(
-		preferences.connectedZoomDurationMs ?? DEFAULT_CONNECTED_ZOOM_DURATION_MS,
+		DEFAULT_EDITOR_PREFERENCES.connectedZoomDurationMs ?? DEFAULT_CONNECTED_ZOOM_DURATION_MS,
 	);
 	const [zoomInEasing, setZoomInEasing] = useState<ZoomTransitionEasing>(
-		preferences.zoomInEasing ?? DEFAULT_ZOOM_IN_EASING,
+		DEFAULT_EDITOR_PREFERENCES.zoomInEasing ?? DEFAULT_ZOOM_IN_EASING,
 	);
 	const [zoomOutEasing, setZoomOutEasing] = useState<ZoomTransitionEasing>(
-		preferences.zoomOutEasing ?? DEFAULT_ZOOM_OUT_EASING,
+		DEFAULT_EDITOR_PREFERENCES.zoomOutEasing ?? DEFAULT_ZOOM_OUT_EASING,
 	);
 	const [connectedZoomEasing, setConnectedZoomEasing] = useState<ZoomTransitionEasing>(
-		preferences.connectedZoomEasing ?? DEFAULT_CONNECTED_ZOOM_EASING,
+		DEFAULT_EDITOR_PREFERENCES.connectedZoomEasing ?? DEFAULT_CONNECTED_ZOOM_EASING,
 	);
-	const [showCursor, setShowCursor] = useState(preferences.showCursor);
-	const [loopCursor, setLoopCursor] = useState(preferences.loopCursor);
+	const [showCursor, setShowCursor] = useState(DEFAULT_EDITOR_PREFERENCES.showCursor);
+	const [loopCursor, setLoopCursor] = useState(DEFAULT_EDITOR_PREFERENCES.loopCursor);
 	const [cursorStyle, setCursorStyle] = useState<CursorStyle>(
-		preferences.cursorStyle ?? DEFAULT_CURSOR_STYLE,
+		DEFAULT_EDITOR_PREFERENCES.cursorStyle ?? DEFAULT_CURSOR_STYLE,
 	);
-	const [cursorSize, setCursorSize] = useState(preferences.cursorSize);
-	const [cursorSmoothing, setCursorSmoothing] = useState(preferences.cursorSmoothing);
+	const [cursorSize, setCursorSize] = useState(DEFAULT_EDITOR_PREFERENCES.cursorSize);
+	const [cursorSmoothing, setCursorSmoothing] = useState(DEFAULT_EDITOR_PREFERENCES.cursorSmoothing);
 	const [cursorSpringStiffnessMultiplier, setCursorSpringStiffnessMultiplier] = useState(
-		preferences.cursorSpringStiffnessMultiplier,
+		DEFAULT_EDITOR_PREFERENCES.cursorSpringStiffnessMultiplier,
 	);
 	const [cursorSpringDampingMultiplier, setCursorSpringDampingMultiplier] = useState(
-		preferences.cursorSpringDampingMultiplier,
+		DEFAULT_EDITOR_PREFERENCES.cursorSpringDampingMultiplier,
 	);
 	const [cursorSpringMassMultiplier, setCursorSpringMassMultiplier] = useState(
-		preferences.cursorSpringMassMultiplier,
+		DEFAULT_EDITOR_PREFERENCES.cursorSpringMassMultiplier,
 	);
 	const [cameraSpringStiffnessMultiplier, setCameraSpringStiffnessMultiplier] = useState(
-		preferences.cameraSpringStiffnessMultiplier,
+		DEFAULT_EDITOR_PREFERENCES.cameraSpringStiffnessMultiplier,
 	);
 	const [cameraSpringDampingMultiplier, setCameraSpringDampingMultiplier] = useState(
-		preferences.cameraSpringDampingMultiplier,
+		DEFAULT_EDITOR_PREFERENCES.cameraSpringDampingMultiplier,
 	);
 	const [cameraSpringMassMultiplier, setCameraSpringMassMultiplier] = useState(
-		preferences.cameraSpringMassMultiplier,
+		DEFAULT_EDITOR_PREFERENCES.cameraSpringMassMultiplier,
 	);
 	const [zoomSmoothness, setZoomSmoothness] = useState(0.5);
 	const [zoomClassicMode, setZoomClassicMode] = useState(false);
-	const [cursorMotionBlur, setCursorMotionBlur] = useState(preferences.cursorMotionBlur);
+	const [cursorMotionBlur, setCursorMotionBlur] = useState(DEFAULT_EDITOR_PREFERENCES.cursorMotionBlur);
 	const [cursorClickEffect, setCursorClickEffect] = useState<CursorClickEffectStyle>(
-		preferences.cursorClickEffect,
+		DEFAULT_EDITOR_PREFERENCES.cursorClickEffect,
 	);
 	const [cursorClickEffectColor, setCursorClickEffectColor] = useState(
-		preferences.cursorClickEffectColor,
+		DEFAULT_EDITOR_PREFERENCES.cursorClickEffectColor,
 	);
 	const [cursorClickEffectScale, setCursorClickEffectScale] = useState(
-		preferences.cursorClickEffectScale,
+		DEFAULT_EDITOR_PREFERENCES.cursorClickEffectScale,
 	);
 	const [cursorClickEffectOpacity, setCursorClickEffectOpacity] = useState(
-		preferences.cursorClickEffectOpacity,
+		DEFAULT_EDITOR_PREFERENCES.cursorClickEffectOpacity,
 	);
 	const [cursorClickEffectDurationMs, setCursorClickEffectDurationMs] = useState(
-		preferences.cursorClickEffectDurationMs,
+		DEFAULT_EDITOR_PREFERENCES.cursorClickEffectDurationMs,
 	);
-	const [cursorClickBounce, setCursorClickBounce] = useState(preferences.cursorClickBounce);
+	const [cursorClickBounce, setCursorClickBounce] = useState(DEFAULT_EDITOR_PREFERENCES.cursorClickBounce);
 	const [cursorClickBounceDuration, setCursorClickBounceDuration] = useState(
-		preferences.cursorClickBounceDuration,
+		DEFAULT_EDITOR_PREFERENCES.cursorClickBounceDuration,
 	);
-	const [cursorSway, setCursorSway] = useState(preferences.cursorSway);
-	const [borderRadius, setBorderRadius] = useState(preferences.borderRadius);
-	const [padding, setPadding] = useState(preferences.padding);
+	const [cursorSway, setCursorSway] = useState(DEFAULT_EDITOR_PREFERENCES.cursorSway);
+	const [backgroundBorderRadius, setBackgroundBorderRadius] = useState(DEFAULT_EDITOR_PREFERENCES.backgroundBorderRadius);
+	const [borderRadius, setBorderRadius] = useState(DEFAULT_EDITOR_PREFERENCES.borderRadius);
+	const [padding, setPadding] = useState(DEFAULT_EDITOR_PREFERENCES.padding);
 	const [cropRegion, setCropRegion] = useState<CropRegion>(DEFAULT_CROP_REGION);
 	const [webcam, setWebcam] = useState<WebcamOverlaySettings>(
-		preferences.webcam ?? DEFAULT_WEBCAM_OVERLAY,
+		DEFAULT_EDITOR_PREFERENCES.webcam ?? DEFAULT_WEBCAM_OVERLAY,
 	);
 	const [resolvedWebcamVideoUrl, setResolvedWebcamVideoUrl] = useState<string | null>(null);
 
@@ -190,6 +196,8 @@ export function useAppearanceState(preferences: EditorPreferences) {
 		setCursorClickBounceDuration,
 		cursorSway,
 		setCursorSway,
+		backgroundBorderRadius,
+		setBackgroundBorderRadius,
 		borderRadius,
 		setBorderRadius,
 		padding,

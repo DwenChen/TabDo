@@ -16,6 +16,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      '@presentation': resolve('internal-plugins/system/presentation/src'),
       '@renderer': resolve('src/renderer/src'),
       '@shared': resolve('src/shared')
     }

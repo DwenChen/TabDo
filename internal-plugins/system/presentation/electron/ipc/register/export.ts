@@ -864,8 +864,8 @@ export function registerExportHandlers() {
 				// Determine file type from extension
 				const isGif = fileName.toLowerCase().endsWith(".gif");
 				const filters = isGif
-					? [{ name: "GIF Image", extensions: ["gif"] }]
-					: [{ name: "MP4 Video", extensions: ["mp4"] }];
+					? [{ name: "GIF 动图", extensions: ["gif"] }]
+					: [{ name: "MP4 视频", extensions: ["mp4"] }];
 				const parentWindow = BrowserWindow.fromWebContents(event.sender);
 				const saveDialogOptions: SaveDialogOptions = {
 					title: isGif ? "Save Exported GIF" : "Save Exported Video",
@@ -882,7 +882,7 @@ export function registerExportHandlers() {
 					return {
 						success: false,
 						canceled: true,
-						message: "Export canceled",
+						message: "已取消导出",
 					};
 				}
 
@@ -905,7 +905,7 @@ export function registerExportHandlers() {
 				console.error("Failed to save exported video:", error);
 				return {
 					success: false,
-					message: "Failed to save exported video",
+					message: "无法保存导出视频",
 					error: String(error),
 				};
 			}
@@ -954,7 +954,7 @@ export function registerExportHandlers() {
 				console.error("Failed to write exported video to path:", error);
 				return {
 					success: false,
-					message: "Failed to write exported video",
+					message: "无法写入导出视频",
 					canceled: false,
 					error: String(error),
 				};
@@ -1019,8 +1019,8 @@ export function registerExportHandlers() {
 
 				const isGif = fileName.toLowerCase().endsWith(".gif");
 				const filters = isGif
-					? [{ name: "GIF Image", extensions: ["gif"] }]
-					: [{ name: "MP4 Video", extensions: ["mp4"] }];
+					? [{ name: "GIF 动图", extensions: ["gif"] }]
+					: [{ name: "MP4 视频", extensions: ["mp4"] }];
 				const parentWindow = BrowserWindow.fromWebContents(event.sender);
 				const saveDialogOptions: SaveDialogOptions = {
 					title: isGif ? "Save Exported GIF" : "Save Exported Video",
@@ -1039,7 +1039,7 @@ export function registerExportHandlers() {
 					return {
 						success: false,
 						canceled: true,
-						message: "Export canceled",
+						message: "已取消导出",
 					};
 				}
 
@@ -1065,7 +1065,7 @@ export function registerExportHandlers() {
 				return {
 					success: false,
 					canceled: false,
-					message: "Failed to save exported video",
+					message: "无法保存导出视频",
 					error: String(error),
 				};
 			}

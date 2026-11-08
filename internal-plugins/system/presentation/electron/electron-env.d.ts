@@ -272,6 +272,9 @@ interface Window {
 				capturesMicrophone?: boolean;
 				microphoneDeviceId?: string;
 				microphoneLabel?: string;
+				deferStart?: boolean;
+				capturesWebcam?: boolean;
+				webcamLabel?: string;
 			}
 		) => Promise<{
 			success: boolean;
@@ -281,9 +284,15 @@ interface Window {
 			userNotified?: boolean;
 			microphoneFallbackRequired?: boolean;
 			captureStartedAtMs?: number;
+			captureClock?: { epochMs: number; monotonicMs: number };
 		}>;
-		stopNativeScreenRecording: () => Promise<{
+		commitNativeScreenRecording: (boundaryMs: number) => Promise<{ success: boolean; error?: string }>;
+		stopNativeScreenRecording: (boundaryMs?: number) => Promise<{
 			success: boolean;
+			webcamPath?: string;
+			strictSyncFailure?: boolean;
+			durationMs?: number;
+			leadingMs?: number;
 			path?: string;
 			message?: string;
 			error?: string;
@@ -298,12 +307,12 @@ interface Window {
 			success: boolean;
 			diagnostics?: NativeCaptureDiagnostics | null;
 		}>;
-		pauseNativeScreenRecording: () => Promise<{
+		pauseNativeScreenRecording: (boundaryMs?: number) => Promise<{
 			success: boolean;
 			message?: string;
 			error?: string;
 		}>;
-		resumeNativeScreenRecording: () => Promise<{
+		resumeNativeScreenRecording: (boundaryMs?: number) => Promise<{
 			success: boolean;
 			message?: string;
 			error?: string;
@@ -329,7 +338,8 @@ interface Window {
 		}>;
 		storeRecordedVideo: (
 			videoData: ArrayBuffer,
-			fileName: string
+			fileName: string,
+			options?: { auxiliary?: boolean }
 		) => Promise<{ success: boolean; path?: string; message?: string }>;
 		storeMicrophoneSidecar: (
 			audioData: ArrayBuffer,
@@ -607,6 +617,10 @@ interface Window {
 			startDelayMsByPath?: Record<string, number>;
 			error?: string;
 		}>;
+		onKeyboardDisplay: (callback: (text: string) => void) => () => void;
+		setKeyboardCapture: (enabled: boolean) => Promise<{ success: boolean }>;
+		configureInputCapture: (options: { keyboard: boolean; mouse: boolean }) => Promise<{ success: boolean }>;
+		runNecessaryTask: <T>(operation: () => Promise<T>) => Promise<T>;
 		setRecordingState: (recording: boolean, startedAtMs?: number) => Promise<void>;
 		getCursorTelemetry: (videoPath?: string) => Promise<{
 			success: boolean;
@@ -809,6 +823,8 @@ interface Window {
 			>
 		>;
 		deleteRecordingFile: (filePath: string) => Promise<{ success: boolean; error?: string }>;
+		trashRecordingFiles: (paths: string[]) => Promise<{ success: boolean; error?: string }>;
+		getVideoSourceDuration: (filePath: string) => Promise<{ success: boolean; durationMs: number }>;
 		getLocalMediaUrl: (
 			filePath: string
 		) => Promise<{ success: true; url: string } | { success: false }>;
@@ -948,6 +964,8 @@ interface Window {
 		) => () => void;
 		getPlatform: () => Promise<string>;
 		isWindowFullscreen: () => Promise<boolean>;
+		setPreviewFullscreen?: (active: boolean) => Promise<boolean>;
+		onPreviewFullscreenChanged?: (callback: (active: boolean) => void) => () => void;
 		onWindowFullscreenChanged: (callback: (isFullscreen: boolean) => void) => () => void;
 		getLinuxWindowSystem: () => Promise<"wayland" | "x11" | null>;
 		ackAuthCallbackUrl: (url: string) => Promise<void>;
@@ -1007,6 +1025,7 @@ interface Window {
 			error?: string;
 		}>;
 		getShortcuts: () => Promise<Record<string, unknown> | null>;
+		chooseProjectsDirectory: () => Promise<{ success: boolean; canceled?: boolean; path?: string; error?: string }>;
 		saveShortcuts: (shortcuts: unknown) => Promise<{ success: boolean; error?: string }>;
 		getEditorStartupView: () => "home" | "editor";
 		getAppSetting: (key: string) => unknown;

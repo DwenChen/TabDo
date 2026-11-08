@@ -4,11 +4,11 @@ import { app, BrowserWindow, ipcMain } from "@tabdo/presentation-electron";
 import { hasAppSetting, readAppSettingsStore, writeAppSettingsStore } from "../../appSettingsStore";
 import { hideCursor } from "../../cursorHider";
 import { createCountdownWindow } from "../../windows";
-import { COUNTDOWN_SETTINGS_FILE, RECORDINGS_SETTINGS_FILE, SHORTCUTS_FILE } from "../constants";
+import { COUNTDOWN_SETTINGS_FILE, SHORTCUTS_FILE } from "../constants";
 import {
-	createRecordingPreferencesStore,
 	type RecordingPreferencesPatch,
 } from "../settings/recordingPreferencesStore";
+import { recordingPreferencesStore } from "../settings/recordingSettings";
 import {
 	countdownInProgress,
 	countdownRemaining,
@@ -19,7 +19,6 @@ import { parseJsonWithByteOrderMark } from "../utils";
 
 const BROWSER_MICROPHONE_PROFILE_ENV = "RECORDLY_BROWSER_MIC_PROFILE";
 const DEFAULT_BROWSER_MICROPHONE_PROFILE = "no-agc";
-const recordingPreferencesStore = createRecordingPreferencesStore(RECORDINGS_SETTINGS_FILE);
 const BROWSER_MICROPHONE_PROFILES = new Set([
 	"processed",
 	"no-agc",

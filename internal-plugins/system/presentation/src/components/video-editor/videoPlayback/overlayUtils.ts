@@ -1,5 +1,6 @@
-import { ZOOM_DEPTH_SCALES, type ZoomFocus, type ZoomRegion } from "../types";
-import { clampFocusToStage } from "./focusUtils";
+import { type ZoomFocus, type ZoomRegion } from "../types";
+import { getZoomScale } from '../zoomCamera';
+import { clampFocusToScale } from "./focusUtils";
 
 interface OverlayUpdateParams {
 	overlayEl: HTMLDivElement;
@@ -10,6 +11,11 @@ interface OverlayUpdateParams {
 	isPlaying: boolean;
 }
 
+/**
+ * 按当前连续倍率显示手动取景框，保持框体和实际相机焦点一致。
+ * @param params 所属框体、变焦片段及预览尺寸。
+ * @returns 无返回值；自动取景或无有效画面时隐藏指示框。
+ */
 export function updateOverlayIndicator(params: OverlayUpdateParams) {
 	const { overlayEl, indicatorEl, region, focusOverride, baseMask, isPlaying } = params;
 
@@ -34,11 +40,8 @@ export function updateOverlayIndicator(params: OverlayUpdateParams) {
 		return;
 	}
 
-	const zoomScale = ZOOM_DEPTH_SCALES[region.depth];
-	const focus = clampFocusToStage(focusOverride ?? region.focus, region.depth, {
-		width: stageWidth,
-		height: stageHeight,
-	});
+	const zoomScale = getZoomScale(region);
+	const focus = clampFocusToScale(focusOverride ?? region.focus, zoomScale);
 
 	const indicatorWidth = baseMask.width / zoomScale;
 	const indicatorHeight = baseMask.height / zoomScale;

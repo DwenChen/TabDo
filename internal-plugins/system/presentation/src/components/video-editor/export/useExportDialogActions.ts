@@ -140,7 +140,7 @@ export function useExportDialogActions({
 						pendingSave.fileName,
 						pendingSave.captionSidecar,
 					)
-				: { success: false, message: "No pending export to save" };
+				: { success: false, message: "暂无待保存的导出文件" };
 
 		if (saveResult.canceled) {
 			session.setExportError(

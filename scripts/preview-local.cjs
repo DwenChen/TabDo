@@ -9,6 +9,19 @@ async function startServers() {
   // 只编译演示会话桥接，不生成宿主 out、插件 dist 或 Electron 成品。
   await require('./build-presentation.cjs').build()
   const { createServer } = await import('vite')
+  let servers = []
+  /**
+   * 只在三项源码服务全部监听后报告测试环境就绪。
+   * @param {import('node:http').IncomingMessage} _request 就绪查询请求。
+   * @param {import('node:http').ServerResponse} response 独立诊断响应。
+   * @returns {void} 写入就绪状态，不触碰任何应用资料。
+   */
+  function reportReadiness(_request, response) {
+    const ready = servers.length === 3 && servers.every((server) => server.httpServer?.listening)
+    response.statusCode = ready ? 200 : 503
+    response.setHeader('Content-Type', 'application/json')
+    response.end(JSON.stringify({ ready }))
+  }
   const renderer = await createServer({
     configFile: path.join(root, 'scripts/preview-renderer.mjs'),
     root: path.join(root, 'src/renderer')
@@ -20,12 +33,27 @@ async function startServers() {
   })
   const tools = await createServer({
     configFile: path.join(root, 'internal-plugins/system/vite.config.mjs'),
-    root: path.join(root, 'internal-plugins/system')
+    root: path.join(root, 'internal-plugins/system'),
+    plugins: [
+      {
+        name: 'tabdo-source-preview-readiness',
+        /**
+         * 在Vite的HTML回退之前注册就绪查询。
+         * @param {import('vite').ViteDevServer} server 当前工具源码服务。
+         * @returns {void} 只注册诊断路由。
+         */
+        configureServer(server) {
+          server.middlewares.use('/__tabdo_source_preview_ready', reportReadiness)
+        }
+      }
+    ]
   })
+  // 工具服务最后启动，不能以先监听的设置端口代替整个测试环境就绪。
+  servers = [renderer, setting, tools]
   await renderer.listen()
   await setting.listen()
   await tools.listen()
-  return [renderer, setting, tools]
+  return servers
 }
 
 /** Launch the source preview with a dedicated portable data directory.

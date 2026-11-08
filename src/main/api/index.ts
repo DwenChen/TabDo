@@ -277,6 +277,16 @@ class APIManager {
   }
 
   /**
+   * 所有会话与任务退出后释放宿主两处输入引用，保留可按需恢复的持久资料。
+   * @returns 无返回值；异步启动尚未完成时保持当前参数。
+   */
+  public releaseIdleResources(): void {
+    if (appsAPI.hasActiveLaunches()) return
+    appsAPI.releaseIdleResources()
+    pluginLifecycleAPI.setLaunchParam(null)
+  }
+
+  /**
    * 数据库辅助方法（供其他模块使用）
    */
   public dbPut(key: string, data: any): any {

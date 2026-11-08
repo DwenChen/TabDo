@@ -173,7 +173,7 @@ export function CloudShareButton({
 		setShareUrl(undefined);
 		try {
 			if (!DEFAULT_CLOUD_ENDPOINT)
-				throw new Error("Cloud sharing is not available in this build yet.");
+				throw new Error("当前版本未提供云端分享。");
 			if (!authToken) throw new Error(t("editor.cloud.signInRequired"));
 			const available = await checkShareCapacity(DEFAULT_CLOUD_ENDPOINT, authToken);
 			if (!isCurrentAccount()) return;
@@ -254,7 +254,7 @@ export function CloudShareButton({
 			{shareUrl ? (
 				<Button type="button" size="lg" onClick={copyShareUrl} className="w-full">
 					{copied ? <Check className="h-4 w-4" /> : <LinkSimple className="h-4 w-4" />}
-					{copied ? t("editor.cloud.copied") : "Copy link"}
+					{copied ? t("editor.cloud.copied") : "复制链接"}
 				</Button>
 			) : (
 				<div className="space-y-4">
@@ -284,7 +284,7 @@ export function CloudShareButton({
 									style={{ width: `${progress}%` }}
 								/>
 							</div>
-							<p className="text-xs text-muted-foreground">Uploading · {progress}%</p>
+							<p className="text-xs text-muted-foreground">正在上传 · {progress}%</p>
 						</div>
 					) : null}
 					{error || capacityAvailable === false ? (
@@ -316,7 +316,7 @@ export function CloudShareButton({
 								}}
 							>
 								<Export className="h-4 w-4" />
-								{authToken ? "Share" : "Sign in to share"}
+								{authToken ? "分享" : "登录后分享"}
 							</Button>
 						)}
 					</div>
@@ -349,7 +349,8 @@ export function CloudShareButton({
 						<DialogTitle>{t("editor.cloud.heading")}</DialogTitle>
 						<DialogDescription>{t("editor.cloud.description")}</DialogDescription>
 						<p className="text-xs text-muted-foreground">
-							Free-plan links expire after 14 days.
+
+							免费套餐链接将在14天后失效。
 						</p>
 					</DialogHeader>
 

@@ -98,7 +98,7 @@ const KeyframeMarkers: React.FC<KeyframeMarkersProps> = ({
 							e.stopPropagation();
 							setSelectedKeyframeId(kf.id);
 						}}
-						title={`Keyframe @ ${Math.round(kf.time)}ms (drag to move, Delete/Backspace to remove)`}
+						title={`关键帧时间：${Math.round(kf.time)}ms (drag to move, Delete/Backspace to remove)`}
 					>
 						<div
 							style={{

@@ -2,12 +2,14 @@ import { House, MinusIcon, PauseIcon, PlayIcon, XIcon } from '@presentation/comp
 import { RecordingMicIcon } from '@presentation/components/ui/recording-icons'
 import { useScopedT } from '@presentation/contexts/I18nContext'
 import { Button, Separator, Tooltip } from '@heroui/react'
+import { useEffect, useState } from 'react'
 import styles from './LaunchWindow.module.css'
 
 interface RecordingControlsProps {
   onHome: () => void
   paused: boolean
   microphoneEnabled: boolean
+  keyboardEnabled: boolean
   elapsed: number
   onPauseResume: () => void
   onStopRecording: () => void
@@ -24,6 +26,7 @@ export function RecordingControls({
   onHome,
   paused,
   microphoneEnabled,
+  keyboardEnabled,
   elapsed,
   onPauseResume,
   onStopRecording,
@@ -32,6 +35,16 @@ export function RecordingControls({
   formatTime
 }: RecordingControlsProps) {
   const t = useScopedT('launch')
+  const [keyDisplay, setKeyDisplay] = useState('')
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const unsubscribe = window.electronAPI.onKeyboardDisplay((text) => {
+      setKeyDisplay(text)
+      clearTimeout(timer)
+      timer = setTimeout(() => setKeyDisplay(''), 1500)
+    })
+    return () => { clearTimeout(timer); unsubscribe() }
+  }, [])
   const actionClass = `size-9 min-w-9 rounded-full ${styles.electronNoDrag}`
   return (
     <div role="group" aria-label="录制控制" className="flex items-center gap-2">
@@ -69,6 +82,8 @@ export function RecordingControls({
         </Button>
         <Tooltip.Content>{t('recording.micToggleDisabledTip')}</Tooltip.Content>
       </Tooltip>
+      <span className="text-xs text-muted-foreground" aria-label={keyboardEnabled ? '按键录制已开启' : '按键录制已关闭'}>按键{keyboardEnabled ? '开' : '关'}</span>
+      {keyboardEnabled && keyDisplay && <kbd className="max-w-40 truncate rounded bg-foreground/10 px-2 py-1 text-xs" aria-live="polite">{keyDisplay}</kbd>}
       <Separator orientation="vertical" className="mx-1 h-5 self-center" />
       <Tooltip>
         <Button

@@ -117,7 +117,7 @@ export async function importRecording(
 	const current = await resolveApprovedLocalMediaPath(currentPath);
 	if (!current) throw new Error("Current video is no longer available");
 	const server = getMediaServerBaseUrl();
-	if (!server) throw new Error("Media server is not ready");
+	if (!server) throw new Error("媒体服务尚未准备好");
 	const root = path.join(await getRecordingsDir(), ".recordly-media");
 	await fs.mkdir(root, { recursive: true });
 	const base = await probe(current, signal);

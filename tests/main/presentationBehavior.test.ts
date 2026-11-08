@@ -22,6 +22,10 @@ import {
 } from '../../internal-plugins/system/presentation/src/components/video-editor/types'
 
 describe('presentation cursor zoom suggestions', () => {
+  it('ignores pure keyboard events when deriving cursor movement and automatic zoom', () => {
+    const samples = Array.from({ length: 60 }, (_, index) => ({ timeMs: index * 100, cx: (index % 10) / 10, cy: 0.5, keyText: 'k' }))
+    expect(buildInteractionZoomSuggestions({ cursorTelemetry: samples, totalMs: 6000, defaultDurationMs: 2000 })).toEqual({ status: 'no-telemetry', suggestions: [] })
+  })
   it('defaults both manual and automatic zoom to 1.5x', () => {
     expect(ZOOM_DEPTH_SCALES[DEFAULT_ZOOM_DEPTH]).toBe(1.5)
     expect(ZOOM_DEPTH_SCALES[DEFAULT_AUTO_ZOOM_DEPTH]).toBe(1.5)

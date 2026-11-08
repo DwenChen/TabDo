@@ -115,6 +115,7 @@ interface VideoExporterConfig extends ExportConfig {
 	zoomOutEasing?: ZoomTransitionEasing;
 	connectedZoomEasing?: ZoomTransitionEasing;
 	borderRadius?: number;
+	backgroundBorderRadius?: number;
 	padding?: Padding | number;
 	videoPadding?: Padding | number;
 	cropRegion: CropRegion;
@@ -624,6 +625,7 @@ export class ModernVideoExporter {
 					zoomOutEasing: this.config.zoomOutEasing,
 					connectedZoomEasing: this.config.connectedZoomEasing,
 					borderRadius: this.config.borderRadius,
+					backgroundBorderRadius: this.config.backgroundBorderRadius,
 					padding: this.config.padding,
 					cropRegion: this.config.cropRegion,
 					webcam: this.config.webcam,
@@ -1690,12 +1692,20 @@ export class ModernVideoExporter {
 		return Math.abs(width - height) > 0.001 || !isWebcamCropRegionDefault(webcam.cropRegion);
 	}
 
+	/**
+	 * 检查原生静态合成能力，背景圆角等不支持效果交给完整帧渲染。
+	 * @param audioPlan 当前导出音频路由。
+	 * @param videoInfo 原始视频信息。
+	 * @param effectiveDurationSec 预期输出时长，单位秒。
+	 * @returns 需要回退的原因清单；空列表表示静态链可处理。
+	 */
 	private getNativeStaticLayoutSkipReasons(
 		audioPlan: NativeAudioPlan,
 		videoInfo: DecodedVideoInfo,
 		effectiveDurationSec: number,
 	): string[] {
 		const reasons: string[] = [];
+		if ((this.config.backgroundBorderRadius ?? 0) > 0) reasons.push("rounded-background-requires-frame-rendering");
 		if (requiresClipTimelineRendering(this.config.clipRegions))
 			reasons.push("explicit-clip-timeline");
 		if (
@@ -2297,7 +2307,13 @@ export class ModernVideoExporter {
 		);
 	}
 
-	/** Build deterministic per-frame camera transforms for native compositors. */
+	/**
+	 * 按同一连接阈值生成原生导出的逐帧镜头轨迹，不复用旧的固定间隔。
+	 * @param layout 当前输出的裁剪、留白与画面位置。
+	 * @param totalFrames 需要导出的帧数。
+	 * @param cursorTelemetry 可选源光标轨迹。
+	 * @returns 原生合成器的镜头轨迹；没有变焦或有效帧时返回 undefined。
+	 */
 	private getNativeStaticLayoutZoomTelemetry(
 		layout: ReturnType<typeof computePaddedLayout>,
 		totalFrames: number,
@@ -2343,6 +2359,7 @@ export class ModernVideoExporter {
 				zoomRegions,
 				timeMs,
 				connectZooms: this.config.connectZooms,
+				connectedZoomGapMs: this.config.connectedZoomGapMs,
 				zoomInDurationMs: this.config.zoomInDurationMs,
 				zoomOutDurationMs: this.config.zoomOutDurationMs,
 				zoomClassicMode: this.config.zoomClassicMode,

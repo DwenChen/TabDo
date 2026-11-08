@@ -1,0 +1,27 @@
+{
+  "id": "mosaic-option-icons",
+  "date": "2026-10-28",
+  "summary": "图片标记二级图标、独立参数记忆与文字字号修复",
+  "reason": "用户要求马赛克二级选项全部使用图标并与主工具分隔，追加要求各工具独立记忆二级参数，文字以非笔触圆点的控件调整字号。",
+  "changes": [
+    "马赛克二级选项全部采用截图式图标：模式为涂抹轨迹/矩形，浓度为2×2/3×3/4×4棋盘格，笔刷大小为圆点；移除浓度文字及下拉框，保留title、aria-label和选中态。二级参数区附着浅灰竖线与主工具分隔，内部细线区分三组，窄窗口换行不孤立分隔线。",
+    "各标记工具在当前独立窗口分别保留颜色、笔触和字号，切换恢复自己的选择；马赛克模式、浓度和半径独立保留。取消普通工具共用penColor和笔触的状态，不新增持久配置，清空标记继续保留本次工具参数。",
+    "文字二级选项改为16/24/36像素的三枚不同大小A图标，隐藏无效的笔触圆点；编辑期间调整字号保留输入焦点和正文，同步输入框、图片缩放及最终画布文字。普通配色二级区域也加浅灰主次分隔。",
+    "同步工具/悬浮来源规范、应用内及仓库教程、更新说明、Bug台账和TX-102/103回归；复用既有源码交互专项验证图标、独立参数、字号及实际绘制/复制路径。"
+  ],
+  "checks": [
+    "使用context-mode对照维护流程、当前改动/Bug索引、工具与悬浮规范和原生DrawMosaicPopup，保留所有既有未提交改动。",
+    "pnpm test:e2e tests/e2e/image-annotation-interactions.spec.ts tests/e2e/tools-polish.spec.ts tests/e2e/local-tutorial.spec.ts：最终3项通过，归档.artifacts/runs/2026-10-28T05-57-58-886Z-e2e。保持scripts/preview-main.cjs、源码设置/工具服务和两处隔离资料根，不读取正式或免安装预览资料。",
+    "追加真实36px导出检查后专项1/1通过，归档.artifacts/runs/2026-10-28T06-00-09-554Z-e2e。先分别设置矩形、椭圆、箭头、画笔、荧光笔、序号、橡皮擦和文字，再逐一返回确认颜色及笔触/字号恢复；马赛克图标直接选浓度、默认/340px窄窗口、无可见参数文字/下拉框、浅灰竖线、连续涂抹、框选、撤销、透明文字、焦点、缩放和复制像素均通过。",
+    "文字专项确认没有笔触圆点，三枚A按钮分别改变真实16/24/36px输入框，修改字号仍保留焦点和正文；50%缩放后18px输入对应原图36px，最终画布绿色字形实际高度大于28像素，避免只改变输入框而仍以24px导出。",
+    "第一轮因非整数DPI将1px边框吸附为0.727273 CSS像素导致过严断言失败，归档.artifacts/runs/2026-10-28T05-48-45-242Z-e2e；改为验证可见细线和正确颜色。独立参数及字号修复后，旧tools-polish仍在文字工具点击已隐藏的笔触圆点而失败，归档.artifacts/runs/2026-10-28T05-55-58-262Z-e2e；按新交互先切序号再选笔触，保留原有绘制验证，最终通过。",
+    "直接查看独立WebContents的默认/窄马赛克工具栏和independent-font-options截图，确认图标、浅色竖线、三档A字号及最终大字号字形；截图等待选中态短过渡及正文两帧完成，避免把过渡中的旧工具高亮当作最终显示。未拼接宿主截图。",
+    "pnpm test tests/scripts/documentation.test.ts：5项通过，归档.artifacts/runs/2026-10-28T06-01-00-771Z-unit。修改JS按JSDoc脚本规则强制ESLint（关闭TS显式返回类型规则），测试与教程源ESLint、Prettier、node --check及git diff --check通过。pnpm docs:check保持30份文档、193本地链接、39功能/14分类/30入口和15章65步；README与工具清单当前描述仍准确。",
+    "pnpm build:setting通过设置类型检查及生产编译，日志.artifacts/work/mosaic-option-icons-setting-build.log。工具画布为静态资源，由同步器直接复制；未修改其他生产编译源码，未为E2E打包或运行electron-builder。",
+    "pnpm maintain及pnpm maintain:check通过；同步器第一次检测到预览仍运行而安全中止，用户随后明确确认已退出，再继续程序资源同步。",
+    "用户确认退出后，pnpm preview:sync成功更新固定免安装预览1.3.0，359个已有配置、资料及插件文件逐项完整保留，103项程序文件核验；回退资源.artifacts/backups/preview-sync/update-1793167395397/previous-resources，日志.artifacts/work/mosaic-option-icons-preview-sync.log。",
+    "pnpm test:preview:resources通过102项程序、345项内置及1687项媒体运行资源核验，日志.artifacts/work/mosaic-option-icons-preview-verify.log。未启动真实预览写入测试资料，未重置配置或插件，未push、云端构建或发布Release。最终pnpm maintain、pnpm maintain:check、pnpm docs:check与git diff --check通过。"
+  ],
+  "pending": ["其他DPI、多显示器、触控笔及最终手感保留人工验收。"],
+  "preview": "已同步 .local/portable-preview/（1.3.0）：马赛克纯图标及分隔线、各工具独立参数和A图标字号均已更新；359个现有配置、资料与插件文件完整保留，程序及运行资源核验通过。用PreviewPortable.cmd重新启动体验。"
+}

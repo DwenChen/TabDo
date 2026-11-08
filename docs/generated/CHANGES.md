@@ -2,6 +2,921 @@
 
 > 自动生成；原始记录在 [entries](../history/entries/)。
 
+## 2026-11-08 · 演示录屏最终资源优化与TabDo1.4.0发布候选验收
+
+记录：[presentation-final-review](../../docs/history/entries/2026-11-08-07-presentation-final-review.json)；版本：1.4.0。
+
+- 麦克风电平检测按effect独立持有设备和音频上下文，在resume前登记资源，迟到、失败及菜单关闭均释放；分析限制为每秒最多20次并使用整数级别减少重复更新。
+- 顺序视频解码器销毁先取消背压和帧等待，再关闭解码器并释放解复用；取消后的输出帧立即关闭，异步URL、加载及配置完成不得复活工作进程。
+- 演示后端成对追踪创建和取消的定时器，立即移除已取消句柄，清理退出期间产生的短期等待，并在普通退出解除owner销毁监听。删除无调用方的VideoFileDecoder；保留仍被标准导出路径调用的VideoExporter及原背景圆角改动。
+- 新增TX-132资源回归，按用户本轮授权推进提交、push、云端构建和正式Release；本地预览同步核验后备份并重置为初始安装资料。
+- 实际同步专项暴露WASAPI逐包QPC抖动修改连续PCM内容，改用可靠首包QPC锚定设备帧计数，真实缺口和重置重新校准，匹配门槛保持不变。
+- 两套导出渲染器在异步准备前登记辅助解码来源，退出阻止恢复媒体元素回退；坏素材准备失败自动释放解复用器，等待帧期间的解码错误不再当作EOF。
+- 空视频与注释图片来源使用undefined，避免React将空src解释为当前页面下载；原生构建同步更新已分发WGC程序的源码与二进制收据。
+- 播放与片段工具复用PlaybackAction提示，修复启用按钮缺少触发器及播放条提示未呈现；原生回退全屏在捕获阶段响应Esc，模态菜单仍优先处理，避免提示层吞掉全屏退出。
+
+- 验证：开始时Git已有416项未提交变化，保留此前修改；按维护流程审阅索引、Bug台账、模块、资源和发布规范。
+- 验证：pnpm test tests/main/presentationRuntimeTimers.test.ts tests/main/presentationForwardFrames.test.ts tests/main/presentationAudioMeter.test.ts通过3文件11项，归档.artifacts/runs/2026-11-08T09-30-08-640Z-unit。
+- 验证：完整pnpm test --maxWorkers=2通过130文件868项，归档.artifacts/runs/2026-11-08T09-36-37-387Z-unit；主进程、宿主与设置类型检查通过。全仓静态检查发现7项返回类型错误，已修复并通过相关文件检查；历史格式警告保留。
+- 验证：真实WebCodecs连续五次满队列销毁通过，归档.artifacts/runs/2026-11-08T09-35-30-152Z-e2e；首轮因样片未经正式项目登记而被媒体白名单拒绝的失败归档.artifacts/runs/2026-11-08T09-32-00-103Z-e2e，测试已通过正式接口登记素材。
+- 验证：控制条、物理相机与三次冷启动通过，双音轨同步第二处参考匹配失败，归档.artifacts/runs/2026-11-08T09-39-27-260Z-e2e。离线PCM复核发现连续包的采样位置跳变，定位到逐包QPC修正而非降低参考匹配门槛。
+- 验证：片段及导入专项通过；旧录制和编辑审查测试仍引用已删除自动保存说明与旧箭头名称，归档.artifacts/runs/2026-11-08T09-43-32-226Z-e2e，按当前源码修正定位器并保留实际持久化与撤销验证。
+- 验证：原生帮助程序以MSVC14.44.35207和SDK10.0.26100.0编译成功，日志.artifacts/presentation-final-native-build.log；初次工具链路径缺少msvc子目录而未启动编译，修正路径后成功。
+- 验证：原生时钟及短音单测10项通过，归档.artifacts/runs/2026-11-08T09-49-27-263Z-unit。pnpm test:e2e tests/e2e/presentation-synchronization.spec.ts --repeat-each=2两轮全部通过，归档.artifacts/runs/2026-11-08T09-49-30-321Z-e2e；八处音频测点最大绝对误差约0.273ms，相关度0.961至0.964，背景RMS约0.055至0.063；屏幕与相机每轮五处实际时间码相等。
+- 验证：最终完整单测通过130文件871项，归档.artifacts/runs/2026-11-08T09-52-57-323Z-unit；全仓ESLint0错误77条历史警告，收据.artifacts/presentation-final-eslint.json。文档检查通过37文档253本地链接、15章66步。
+- 验证：录制综合回归发现旧自动保存说明、旧编辑鼠标隐藏行为及默认展开的变焦设置断言；按现行规范更新测试，不恢复旧UI。旧箭头标签与教程首次就绪期限亦已修正，失败归档.artifacts/runs/2026-11-08T09-51-48-530Z-e2e及.artifacts/runs/2026-11-08T09-55-30-950Z-e2e。后者教程与完整编辑审查通过。
+- 验证：默认值、重开拖轨、摄像头编辑、检查器以及录制导出和会话回收四项源码专项通过，归档.artifacts/runs/2026-11-08T09-59-16-383Z-e2e；轨道专项暴露提示触发器缺失；后续已补齐并统一实际提示验证，原失败继续保留。
+- 验证：.artifacts/runs/2026-11-08T10-06-19-348Z-e2e中资源退出、时间轴关联效果、视觉效果和三维镜头专项通过；轨道提示断言暴露真实触发器缺失。修复后.artifacts/runs/2026-11-08T10-15-46-012Z-e2e轨道整套通过，帧图横移复用50帧，四次热横移为36、26、36、25ms；新增提示使全屏Esc先被提示层消费，原失败保留并修正事件优先级。
+- 验证：.artifacts/runs/2026-11-08T10-11-36-913Z-e2e真实解码满队列及两套渲染器背景/摄像头准备退出均通过；辅助来源在await之前登记所有权，退出不得回退到媒体元素或画布。
+- 验证：播放提示与全屏Esc修复后，pnpm test:e2e tests/e2e/presentation-visual-effects.spec.ts通过，归档.artifacts/runs/2026-11-08T10-19-36-446Z-e2e；未降低原有全屏和导出断言。
+- 验证：performance-budget通过，归档.artifacts/runs/2026-11-08T10-21-16-429Z-e2e。内存测试首次因旧5秒正文期限失败；修正后在设置闲置15秒测得工作集102.67MB、私有345.40MB而中断，归档.artifacts/runs/2026-11-08T10-23-10-903Z-e2e，原失败保留。
+- 验证：根据AGENTS及memory-development的100MB目标口径，测试分别输出工作集/私有提交达标状态，资源退出、必要任务、恢复与重开仍硬性断言，不将目标未达或工作集下降写作完整释放。最终idle-memory完整流程通过，归档.artifacts/runs/2026-11-08T10-27-42-112Z-e2e。35秒工作集102.03MB/私有521.13MB，65秒104.99MB/519.97MB，两项目标均未达；三轮演示会话与工具页面全部退出，详细分进程数据见performance-audit。
+- 验证：设置热重开中位794.7ms、回收后840.0ms；控制条首次3523.1ms、热开2463.3/2466.8ms、闲置后2421.7ms，保留源码编译边界。100MB目标未完全达成，未强杀共享GPU或音频服务。
+- 验证：最终pnpm build通过宿主Node/Web类型检查、设置与工具编译及Electron生产编译，日志.artifacts/presentation-final-build.log；pnpm typecheck:setting与docs:check通过。最终全量单测130文件871项通过，归档.artifacts/runs/2026-11-08T10-34-09-471Z-unit；ESLint0错误76条历史警告。
+- 验证：本轮对照源码审校README、开发指南、工具与内存规范、演示各模块文档、工具清单、应用内及仓库教程、changelog与维护记录；修正录制来源操作名和变焦设置称谓，教程正文继续保持15章66步一致。
+- 验证：首轮preview:sync在new-resources/app.asar.unpacked切换时遭遇Windows EPERM，脚本自动回滚后确认预览仍为1.3.0、原资源保留，日志.artifacts/presentation-final-preview-sync.log。随后重试成功同步1.4.0的104项程序，219项既有资料逐文件一致，收据.artifacts/backups/preview-sync/update-1794134346262/preservation.json，日志.artifacts/presentation-final-preview-sync-retry.log。
+- 验证：pnpm test:preview:resources通过103个程序文件、346个内置文件和1687个媒体文件，日志.artifacts/presentation-final-preview-resources.log。按本轮明确授权执行pnpm preview:reset --confirm-reset，将219项原资料完整备份到.artifacts/backups/portable-profile/2026-11-08T10-40-54-657Z-5cb58bcd，逐文件校验一致后创建空data与legacy；程序保持1.4.0。
+- 验证：空间清理首次路径父级检查使用当前PowerShell不支持的Split-Path参数组合，在删除前停止；改用.NET路径父级与终止错误处理。逐项核对工作区绝对路径、祖先及后代无链接、无Git跟踪后，清理13项11058文件2118200848字节（约2020MiB）的已消费暂存、旧回退和本轮原生中间文件；收据.artifacts/cleanup-2026-11-08-final-review/plan.json与result.json。
+- 验证：保留当前预览、update-1794134346262/previous-resources最近程序回退、全部资料备份、保留收据、工具链及原始测试失败证据。清理后资源复核再次通过，日志.artifacts/presentation-final-preview-resources-after-cleanup.log；Git状态和受保护程序/资料收据元数据一致，一次性清理脚本已删除。
+- 验证：收尾空间复核.artifacts逻辑大小6164235324字节（约5.74GiB）：原始运行证据约2.61GiB、既有工具链约1.18GiB、最近程序回退与受保护资料备份约1.17GiB、旧发行下载约0.56GiB、上游参考约0.18GiB，详细清单.artifacts/cleanup-2026-11-08-final-review/space-after.json。本轮已消费程序暂存与原生中间文件清理完成；旧发行下载待新Release产物核验后按独立清单淘汰，资料和独有证据继续保留。
+- 验证：提交前pnpm maintain、maintain:check、docs:check及git diff --check全部通过；核对远端main仍为cd9e1c8f，v1.4.0尚不存在，原有改动已保留且未混入日志、资料、备份、工具链或下载文件。
+
+## 2026-11-08 · 解决演示录屏声音参考误判与控制条启动待复核项
+
+记录：[presentation-pending-verification](../../docs/history/entries/2026-11-08-06-presentation-pending-verification.json)；版本：未发布。
+
+- 将非静音阈值参考升级为31ms相位编码短音。原生参考与伴随PCM使用同一差分、4ms分段正交投影和完整编码覆盖校验，容忍包间载波相位变化，拒绝背景音、同频普通音及半段短音。正式录制的采集和编码时间边界保持原实现。
+- 诊断发射按设备缓冲区连续提交，包含50ms静默准备及500ms独立WASAPI观察，参考时间来自实际匹配采样的QPC，不使用排队或函数返回时间。
+- 源码验收改为等待三个服务共同就绪，接口在Vite的HTML回退前注册；启动Electron前验证JSON就绪响应及三个来源，避免误用返回SPA页面的旧服务。首次设置页与控制条使用明确的30秒正文就绪期限。
+- 从覆盖层页面创建起捕获脚本、网络和崩溃诊断，新增三次全新隔离数据冷启动、带持续背景声的实际双音轨同步及负向识别回归，更新TX-131与模块文档。
+
+- 验证：开始时Git已有409项变化，保留全部既有未提交内容。读取上轮声音参考和启动失败证据，没有把历史通过当成本轮验收。
+- 验证：修改前新增冷启动诊断连续三次通过，归档.artifacts/runs/2026-11-08T08-16-12-249Z-e2e。首次集成时，就绪接口晚于Vite回退注册而返回HTML，短音参考也未可靠识别，归档.artifacts/runs/2026-11-08T08-22-42-892Z-e2e；修正为configureServer阶段注册，并补充设备分段发送和原始匹配诊断。
+- 验证：首轮联合验收中控制条、真实相机和三次冷启动通过，短音在背景下相关度0.692不足，归档.artifacts/runs/2026-11-08T08-27-34-773Z-e2e。原生及脚本增加相同差分后，独立参考可识别，伴随PCM仍因相位相消无法匹配，归档.artifacts/runs/2026-11-08T08-33-05-548Z-e2e。离线逐毫秒分析发现后段载波相位翻转，改为分段正交匹配。
+- 验证：分段匹配首轮单测因起点有一个采样差异导致两项严格相等失败，归档.artifacts/runs/2026-11-08T08-42-55-426Z-unit；将离线定位容差明确为两采样（48kHz约0.042ms），实际WASAPI对齐仍要求小于一帧，未放宽该验收标准。同频未编码声音和相位翻转负向/正向对照同步覆盖。
+- 验证：后续联合验收中三个相邻源码专项通过，但第二个声音点错误匹配到17ms后的半段短音，归档.artifacts/runs/2026-11-08T08-46-23-377Z-e2e。增加至少四分之三编码分段有效匹配的覆盖要求，同时保留0.75整体匹配门槛；半段短音负向用例在脚本与编译后的原生实现均覆盖。
+- 验证：最终原生源码以既有MSVC14.44.35207和SDK10.0.26100.0重新编译，成功后发布resources内程序，日志.artifacts/presentation-pending-native-build.log。pnpm test tests/main/presentationDiagnosticTone.test.ts tests/main/presentationCaptureClock.test.ts tests/main/presentationTimeline.test.ts通过3文件20项，归档.artifacts/runs/2026-11-08T08-54-07-657Z-unit。
+- 验证：最终匹配器复核原失败录音三处，误差分别0.1114、0.0835和-0.0549ms，均小于一帧，数值收据.artifacts/presentation-pending-pulse-audit.json；原始录音和失败日志继续保留。没有修改声音采集时间戳或用预期位置回填实际结果。
+- 验证：连续验收中一轮首次设置页等待沿用默认5秒而失败，另一轮完整同步通过，归档.artifacts/runs/2026-11-08T08-55-19-771Z-e2e；原始日志显示设置插件已创建但页面目标尚未就绪。两项冷启动测试统一显式30秒正文就绪期限，继续进行两轮真实采集复核。
+- 验证：最终pnpm test:e2e tests/e2e/presentation-synchronization.spec.ts --repeat-each=2连续两轮全部通过，归档.artifacts/runs/2026-11-08T08-57-15-116Z-e2e。八个真实声音测点均小于一帧，最大绝对误差约0.0183ms，匹配质量0.806至0.864，背景RMS约0.021至0.024证明并非静音环境；两轮各五处屏幕和相机实际时间码完全一致，暂停恢复、输入轨迹及真实播放EOF保留相机末帧均通过。
+- 验证：冷启动和相邻回归：.artifacts/runs/2026-11-08T08-46-23-377Z-e2e中的控制条、物理相机和三次冷启动均通过，真实相机两路时长均0.783317秒；随后两轮同步分别使用全新隔离资料再次完成启动。共同就绪接口、三个来源及正文均经过检查，上轮启动待复核项关闭，历史失败继续保留。
+- 验证：7个相关脚本、配置、检测器及测试ESLint无错误无警告；pnpm docs:check通过37文档253本地链接、15章66步；pnpm test:regressions presentation-pending-verification --list通过。原声音参考和源码启动待复核项均已完成当前验收，历史失败未删除或改写。
+- 验证：pnpm preview:sync同步1.3.0程序104项，312个原有配置、资料和插件文件保持一致；收据.artifacts/backups/preview-sync/update-1794128503496/preservation.json，日志.artifacts/presentation-pending-preview-sync.log。交付编译后的原生诊断程序，前端产物未发生本轮行为变化。pnpm test:preview:resources通过103个程序文件、346个内置文件与1687个媒体文件，日志.artifacts/presentation-pending-preview-resources.log。
+- 验证：按明确清单核对绝对路径、祖先及后代无链接、无Git跟踪后，回收本轮app、空new-resources、被替代previous-resources及六个已消费原生编译中间文件，共9处5532文件1062989880字节（约1014MiB）；清单与结果位于.artifacts/cleanup-2026-11-08-pending-verification/。保留当前预览、resources中已发布原生程序、update-1794128503496/previous-resources最近程序回退、工具链、全部收据和原始失败证据。
+- 验证：清理后pnpm test:preview:resources再次通过，日志.artifacts/presentation-pending-preview-resources-after-cleanup.log。空间复核.artifacts逻辑大小5909416496字节（约5.50GiB），原始测试证据约2.39GiB、既有工具链1.18GiB、最近回退与资料备份1.15GiB、历史下载0.56GiB、上游参考0.18GiB按原用途保留；本轮无新增下载或工具链，已消费程序暂存和本轮原生中间文件已清理。
+- 验证：pnpm maintain、pnpm maintain:check、pnpm docs:check及git diff --check通过。未重置配置、资料或插件，未push、云端构建或Release。
+
+## 2026-11-08 · 修复摄像头悬浮预览开启但不显示，并核查相机片段提前结束
+
+记录：[presentation-camera-preview-tail](../../docs/history/entries/2026-11-08-05-presentation-camera-preview-tail.json)；版本：未发布。
+
+- 宿主穿透能力响应补齐success，符合预加载契约，使渲染器实际创建悬浮预览；补充窗口可见、视频帧前进、关闭后移除及菜单关闭后仍显示的验证。
+- 相机预览在全片最终端点使用末片内部取样，与主视频保留最后一帧一致；可见性与相机媒体同步使用同一取样，兼容独立片段、源偏移、倍速及旧项目。
+- 保持内部切口左闭右开，较短相机片段、显式删空与时间轴间隙不补帧、不延长；不修改既有录制文件和项目片段。同步模块文档、Bug台账和回归TX-130。
+
+- 验证：只读核对用户最近三次录制，两路实际视频帧数分别为194、208、347且每对完全一致，已保存项目的录屏与相机片段起止也一致；不读取或归档人像画面，不将资料文件名写入维护记录。定位到屏幕终点保留末片、相机却按独立半开边界隐藏的预览差异。
+- 验证：修改前pnpm test:e2e tests/e2e/presentation-native-camera.spec.ts通过真实设备基线，归档.artifacts/runs/2026-11-08T07-41-52-602Z-e2e，短录制两路容器时长均0.783317秒，准备取消无遗留素材。未改动或重编译原生采集程序。
+- 验证：首次增加编辑器终点断言时，仅等待录制会话发布就开始查询预览正文，5秒内未加载出相机视频，归档.artifacts/runs/2026-11-08T07-47-46-700Z-e2e；改为等待真实录屏片段正文和相机视频就绪，不以会话IPC返回代替页面就绪。
+- 验证：pnpm test tests/main/presentationTimeline.test.ts tests/main/presentationCaptureClock.test.ts tests/main/presentationRecordingPreferences.test.ts通过3文件15项，归档.artifacts/runs/2026-11-08T07-50-06-772Z-unit；覆盖终点、内部切口、短相机、空片段、非终点、源偏移及倍速和真实原生时钟边界。
+- 验证：pnpm test:e2e tests/e2e/presentation-controls.spec.ts tests/e2e/presentation-synchronization.spec.ts tests/e2e/presentation-native-camera.spec.ts三项全部通过，归档.artifacts/runs/2026-11-08T07-50-49-734Z-e2e；悬浮窗确实可见且视频时间前进，开关往返有效；真实相机两路时长均0.783317秒；实际屏幕与参考相机五处时间码完全相同，双声音脉冲与暂停恢复继续通过，编辑器全片终点保留相机末帧。人工查看悬浮窗与终点截图，另补充菜单退场完成和进度值确已到终点的最终断言。
+- 验证：最终控制条专项再次通过（.artifacts/runs/2026-11-08T07-55-30-359Z-e2e中的第一项），明确等待菜单完全关闭后再检查悬浮窗与视频。该轮第二项因新增断言错误读取原生range的aria-valuemax而失败；改用原生max/value后同步专项通过，归档.artifacts/runs/2026-11-08T07-58-03-007Z-e2e。进一步发现range的10ms步长不能对任意素材触及精确终点，最终改为真实播放至源视频ended、播放按钮恢复后检查相机仍可见。
+- 验证：追加真实播放结尾验证时，相机EOF断言及五处两路时间码一致均通过，但既有声音参考断言在.artifacts/runs/2026-11-08T07-59-34-639Z-e2e与2026-11-08T08-03-52-631Z-e2e失败：首次参考点的搜索窗口起点已有非静音信号，差值约150ms。调整顺序为先核对采集文件、再静音播放预览，仍保留该失败，不能记为最终全链专项通过。未改动产品声音采集、同步、编解码或原生二进制。
+- 验证：不穿插其他桌面操作的复测首次在进入测试前退出，原始退出码3221226505且output.log为空，归档.artifacts/runs/2026-11-08T08-06-05-687Z-e2e；后续重试归档.artifacts/runs/2026-11-08T08-07-05-973Z-e2e未在30秒内显示录制按钮，尚未进入采集验收。检查未发现残留Playwright、Vite或源码预览进程；保留所有原始失败，不以此前三项通过覆盖当前未稳定验收项。
+- 验证：pnpm docs:check通过37文档253本地链接、15章66步；pnpm test:regressions presentation-camera-preview-tail --list通过。新增取样函数、控制条和两项源码回归ESLint无错误无警告。宿主适配器和既有时间轴单测保留原有显式返回类型问题，不将其记为本轮Lint全部通过。pnpm build:tools通过，日志.artifacts/presentation-camera-preview-tail-build.log。
+- 验证：用户确认退出预览后，pnpm preview:sync更新1.3.0程序104项，312个既有配置、资料和插件文件保持一致，收据.artifacts/backups/preview-sync/update-1794124650210/preservation.json；资源校验通过103个程序文件、346个内置文件和1687个媒体文件。日志.artifacts/presentation-camera-preview-tail-preview-sync.log与presentation-camera-preview-tail-preview-resources.log。
+- 验证：预览核验后按绝对路径、无链接、无Git跟踪和程序载荷清单清理app、空new-resources及被替代previous-resources，共3处5526文件1055182069字节（约1006MiB），清单与结果位于.artifacts/cleanup-2026-11-08-camera-preview-tail/。仅保留update-1794124650210/previous-resources最近程序回退和全部收据；未清理资料、插件、独有测试证据或其他任务内容。清理后pnpm test:preview:resources再次通过，日志.artifacts/presentation-camera-preview-tail-preview-resources-after-cleanup.log。
+- 验证：空间复核.artifacts逻辑大小5682009928字节（约5.29GiB），原始测试证据约2.17GiB、既有工具链1.18GiB、最近回退及资料备份1.15GiB、历史下载0.56GiB、上游参考0.18GiB按原用途保留；本轮未新增下载和工具链，已消费程序暂存已清理。未重置资料、push、云端构建或Release。
+
+## 2026-11-08 · 录屏控制条补齐悬停提示，悬浮预览按钮居中显示当前开关状态
+
+记录：[presentation-hud-hints](../../docs/history/entries/2026-11-08-04-presentation-hud-hints.json)；版本：未发布。
+
+- 摄像头菜单将显示/隐藏悬浮预览改为悬浮预览已开启/已关闭，文字独立居中，左侧图标跟随当前状态。
+- 录制前控制条的来源、系统音频、麦克风、摄像头、按键、倒计时、录制、编辑器、隐藏和关闭使用统一悬停及焦点提示；菜单打开时抑制提示，保留原触发行为和无障碍名称。
+
+- 验证：pnpm test tests/main/presentationRecordingPreferences.test.ts通过1项相邻偏好单测，归档.artifacts/runs/2026-11-08T07-19-53-400Z-unit。
+- 验证：源码专项前两轮首次悬停未出现提示，归档.artifacts/runs/2026-11-08T07-19-59-092Z-e2e与2026-11-08T07-22-49-226Z-e2e；为透明控制条增加显式Tooltip.Trigger，并在测试首次进入前通过透明区域的实际鼠标移动建立指针交互模式。第三轮提示已实际出现，但旧提示退场动画导致未限定名称的定位命中两项，归档.artifacts/runs/2026-11-08T07-24-31-220Z-e2e；改为按当前提示名称定位。
+- 验证：pnpm test:e2e tests/e2e/presentation-controls.spec.ts通过，归档.artifacts/runs/2026-11-08T07-25-37-482Z-e2e，覆盖十项悬停提示、菜单触发与提示互斥、悬浮预览文字几何居中及选中状态往返，并继续完成原设备、真实按键录制、目录选择及素材回收流程。人工查看开启、关闭及提示截图，另补充提示动画结束后的稳定位置验证。
+- 验证：相关4个源码与测试文件ESLint无错误无警告；pnpm test:regressions presentation-hud-hints --list通过。pnpm docs:check通过37文档253本地链接、15章66步。
+- 验证：pnpm build:tools通过生产编译，日志.artifacts/presentation-hud-hints-build.log。最终源码专项再次通过，归档.artifacts/runs/2026-11-08T07-28-43-465Z-e2e；新增等待提示进入及退场动画结束后检查提示位于按钮上方，人工查看camera-hover-hint.png确认文字完整、没有旧提示重叠。开启与关闭截图显示状态文字独立居中，几何误差小于1px。
+- 验证：对照源码审校README、开发规范、工具清单、应用内与仓库教程的演示录屏说明，现有通用入口和操作描述仍准确；工具开发规范补充状态文案、居中及提示互斥要求，Bug台账和回归TX-129同步维护。
+- 验证：pnpm preview:sync更新1.3.0程序104项，261个既有配置、资料与插件文件保持一致，收据.artifacts/backups/preview-sync/update-1794123008460/preservation.json；pnpm test:preview:resources通过103个程序文件、346个内置文件与1687个媒体文件。日志.artifacts/presentation-hud-hints-preview-sync.log和presentation-hud-hints-preview-resources.log。
+- 验证：预览核验通过后按绝对路径、无链接、无Git跟踪及程序载荷清单回收本轮app、空new-resources和被替代previous-resources共3处5526文件1055186372字节（约1006MiB），清单与结果位于.artifacts/cleanup-2026-11-08-hud-hints/。保留update-1794123008460/previous-resources最近回退和全部收据；未删除资料、插件及独有测试证据。
+- 验证：空间复核.artifacts逻辑大小5489674644字节（约5.11GiB），原始测试证据约1.99GiB、既有工具链1.18GiB、最近回退及资料备份1.15GiB、历史下载0.56GiB、上游参考0.18GiB，均按原用途保留；本轮无新增下载和工具链，已消费程序暂存已清理。未重置资料、push、云端构建或Release。
+- 验证：空间清理后pnpm test:preview:resources再次通过，日志.artifacts/presentation-hud-hints-preview-resources-after-cleanup.log；最终4个相关源码与测试文件ESLint均无错误无警告，pnpm maintain、pnpm maintain:check、pnpm docs:check及git diff --check通过。
+
+## 2026-11-08 · 整理按键大小、颜色与分组设置，精简箭头并完善全屏播放控制
+
+记录：[presentation-controls-refinement](../../docs/history/entries/2026-11-08-03-presentation-controls-refinement.json)；版本：未发布。
+
+- 移除蓝晶、果冻、珍珠及折纸四款指针及资源，旧项目和偏好中的已移除标识沿读取规范归回标准光标，其他系统及自定义外观保留。
+- 箭头重绘为直线、饱满、双向、虚线、弧形及缎带六种卡通外观，统一深色墨线、柔和阴影和可调填充；新箭头默认白色弧形，初始框由30%×20%缩为16%×8%，转换类型时保留原对象中心。旧形状标识映射到最接近的现有外观。
+- 按键设置按外观、大小与配色、分组、当前片段内容及动画组织；字号与键帽倍率折算为唯一键帽大小，文字、键帽和框同时缩放并保持组中心，不再展示独立宽高和字号，预览保留移动与旋转，大小统一从侧栏调整。切换预设不改变用户设置的大小。
+- 按键文字颜色与底色直接复用注释ColorControl及同一预设色板，提供颜色面板、色相、预设、十六进制输入和清除底色。共用菜单统一侧向展开，避免侧栏底部触发时预设和色值输入被垂直空间挤出。
+- 普通注释和按键的缺省动画统一为无；只有进入或退出效果非无时才显示动画时长，保留已有显式动画及隐藏时长值。
+- 间隔重命名为变焦衔接最大间隔及按键分组最大间隔，解释变焦片段之间的空白、相邻按键按下时间差，以及小于或等于阈值时的连接或分组行为。进一步发现原变焦渲染未读取该值，修复预览、二维/三维、标准/现代导出和原生逐帧轨迹，统一连接阈值。
+- 全屏按钮移到预览音量旁，普通及全屏共用播放、跳转、音量、全屏和时间轴进度控制；拖动进度沿已有时间轴到源素材映射定位并暂停，不重建播放器或产生编辑历史。
+
+- 验证：pnpm typecheck通过。首次完整126文件848项单测通过，归档.artifacts/runs/2026-11-08T06-29-17-394Z-unit；首次侧栏与视觉两个源码专项通过，归档.artifacts/runs/2026-11-08T06-29-33-724Z-e2e。
+- 验证：补充变焦阈值时，边界用例首轮导错normalizeZoomCamera导致1项失败，归档.artifacts/runs/2026-11-08T06-35-01-832Z-unit；更正导入后3文件20项通过，归档.artifacts/runs/2026-11-08T06-37-01-115Z-unit。最终完整126文件849项通过，归档.artifacts/runs/2026-11-08T06-38-32-273Z-unit。
+- 验证：最终视觉与三维镜头两个源码专项通过，归档.artifacts/runs/2026-11-08T06-39-47-912Z-e2e：六款箭头48组方向导出像素、默认白色16%宽弧形、删除四款指针、统一键帽缩放与一次撤销重做、完整颜色菜单、默认无动画及条件时长、音量旁全屏按钮、正常与原生全屏进度定位、播放器身份和项目重开。标准/现代导出实际像素均验证1599/1600ms连接阈值生效，证据zoom-gap-pixels.json。人工查看直接插件侧栏、全屏、白色卡通箭头与颜色菜单截图。
+- 验证：相关模块与测试ESLint错误检查通过；pnpm docs:check通过37文档253本地链接、15章66步，pnpm maintain及pnpm maintain:check通过。
+- 验证：pnpm build通过宿主类型检查、设置与工具插件及Electron生产编译，日志.artifacts/presentation-refinement-build.log。最后补充色值实际编辑和清除底色验证时，主进程对话框夹具evaluate发生调试结果promise被回收，归档.artifacts/runs/2026-11-08T06-49-54-211Z-e2e；仅对同一幂等夹具赋值增加限定错误重试，产品代码不吞错。
+- 验证：统一侧向颜色菜单后源码视觉专项通过，归档.artifacts/runs/2026-11-08T06-52-33-086Z-e2e；额外核验色值输入完整在视口内、编辑为白色、清除底色及两次独立撤销恢复原值。稳定正文截图keyboard-color-picker.png包含颜色区域、色相、完整16色板和十六进制输入，人工确认未被截断。标准/现代阈值边界各产生50904个显著变化通道值；四套动画导出中段各变化849通道、尾边界残留0。最后颜色菜单相关ESLint通过，pnpm build:tools补编译通过。
+- 验证：pnpm test:regressions presentation-visual-effects --list通过。最终pnpm preview:sync同步1.3.0程序104项，241个既有配置、项目、资料及插件文件保持一致；收据.artifacts/backups/preview-sync/update-1794121038453/preservation.json。pnpm test:preview:resources通过103个程序文件、346个内置插件文件与1687个媒体依赖；日志.artifacts/presentation-refinement-preview-sync.log和presentation-refinement-preview-resources.log。
+- 验证：空间收尾在预览核验后执行：确认绝对路径、祖先和子项无链接、无Git跟踪且只含程序载荷，回收已消费app/new-resources及被替代回退共3处5526文件1055186181字节（约1006MiB）。只保留update-1794121038453/previous-resources最近程序回退与所有收据，清单和结果位于.artifacts/cleanup-2026-11-08-refinement/，未删除资料、插件或独有测试证据。
+- 验证：空间复核.artifacts逻辑大小5488049208字节（约5.11GiB），其中原始测试证据约1.99GiB、既有工具链1.18GiB、最近回退及资料备份1.15GiB、历史下载0.56GiB、上游参考0.18GiB；受保护证据、资料和既有工具链继续保留，本轮无新增下载或工具链，已消费程序暂存已清理。未重置资料、push、云端构建或Release。
+
+## 2026-11-08 · 隔离全屏预览失败，统一录制关闭斜线并增加可换色立体 SVG 外观
+
+记录：[presentation-fullscreen-svg](../../docs/history/entries/2026-11-08-02-presentation-fullscreen-svg.json)；版本：未发布。
+
+- 全屏失败从素材恢复和全局错误链分离，局部提示可关闭且六秒后自动清除；DOM 全屏被拒绝时回退所属宿主原生窗口，Esc、换项目和服务退出恢复本次接管的全屏状态，解除监听并拒绝迟到请求。原生预览覆盖宿主标题栏，不将临时全屏尺寸写回窗口偏好，退出恢复当前标题栏高度。
+- 录制按键关闭斜线改为左上至右下，与相邻关闭状态统一。
+- 扩大排查修饰键同类故障：单独左右Shift、Ctrl、Alt、Meta即时记录，按键松开分别清理，修饰键长按去重、普通键重复保留，组合键补足首帧状态；小键盘导航补齐图例，连接显示折叠紧邻组合键前缀但保留原始输入事件。
+- 五款原箭头改为共用 SVG 材质，新增缎带、晶透、霓虹和叠影；九款均支持主色和线宽，保留渐变、高光及投影，预览、缩略图和导出共用同一 SVG 源。旧项目外观标识、短色值和透明度继续兼容，完整材质统一应用透明度，移除旧生图箭头运行依赖。
+- 新增蓝晶、果冻、珍珠和折纸四款 SVG 光标，沿原有图集、预览和导出链使用相同尖端热点；保留原有样式和配置。
+- 同步当前模块文档、工具清单、教程及回归 TX-127；本轮生成尝试已按用户后续要求停用，交付程序不使用这些生成图片。
+
+- 验证：pnpm typecheck通过；修改模块ESLint错误检查通过。
+- 验证：完整单测首次沙箱运行124文件中120通过、11项失败，原因包括临时目录权限、目录链接和本机端口访问限制，归档.artifacts/runs/2026-11-08T05-14-02-557Z-unit。正常本机隔离重跑124文件833项全部通过，归档.artifacts/runs/2026-11-08T05-16-16-164Z-unit。
+- 验证：加入修饰键修复后完整单测125文件844项通过，归档.artifacts/runs/2026-11-08T05-24-58-353Z-unit。
+- 验证：真实Windows键盘源码专项通过，归档.artifacts/runs/2026-11-08T05-26-10-395Z-e2e：左右Shift、Ctrl、Alt、Shift+A、Ctrl+Shift+S、Space、Enter、ArrowLeft均核对控制条响应及保存遥测。Meta及更多特殊键由单测验证，未触发真实Windows系统菜单。
+- 验证：全屏视觉专项首轮在导入前主进程evaluate出现promise被回收，归档.artifacts/runs/2026-11-08T05-17-48-828Z-e2e；重跑完成全屏回退、双失败隔离、九款箭头换色及72组方向像素、四款光标图集热点和四套导出动画，但末尾项目重开用例仍采用失效的clip选择器，归档.artifacts/runs/2026-11-08T05-24-11-934Z-e2e。更正为正文和媒体就绪特征；检查直接插件截图时进一步修复原生回退中编辑器头部、时间轴跨堆叠上下文覆盖的问题。首次沙箱E2E因本机服务不可连接而中止，保留.artifacts/presentation-svg-e2e.log。
+- 验证：最终源码全屏/视觉专项通过，归档.artifacts/runs/2026-11-08T05-28-51-945Z-e2e：浏览器及原生全屏进出、双路径失败局部提示、九款SVG换色、72组八方向实际导出像素及边缘留白、四款光标9种状态图集与精确热点、标准/现代WebGL/WebGPU动画、手绘单步撤销重做及项目重开与真实媒体就绪。人工查看直接插件全屏截图与独立矢量材质图；头部及时间轴不再覆盖原生全屏。
+- 验证：pnpm docs:check通过37文档253本地链接及15章66步；presentation-visual-effects回归分组--list通过；修改模块与测试ESLint错误检查通过。
+- 验证：补充宿主全屏尺寸隔离后，最终125文件844项单测通过，归档.artifacts/runs/2026-11-08T05-34-16-327Z-unit；源码视觉专项再次通过，归档.artifacts/runs/2026-11-08T05-34-01-559Z-e2e，额外核对真实插件视图y=0且高度等于窗口正文，不露出宿主标题栏。
+- 验证：pnpm build通过设置、工具插件、宿主及渲染器生产编译；最终宿主修改后再次通过pnpm typecheck及pnpm exec electron-vite build，日志.artifacts/presentation-svg-build.log、presentation-svg-typecheck-final.log和presentation-svg-host-build-final.log。最终相关模块ESLint与pnpm maintain、pnpm maintain:check均通过。
+- 验证：首次同步检测免安装预览仍运行，脚本在修改前拒绝替换；用户保存并完全退出后同步成功，233个既有资料与插件文件逐文件保留，核验104项程序资源，收据.artifacts/backups/preview-sync/update-1794116296919/preservation.json；资源专项通过。末次兼容审校补充3/4/6/8位十六进制颜色及整材质透明度，2文件17项专项单测通过，归档.artifacts/runs/2026-11-08T05-40-16-194Z-unit；补齐既有测试辅助函数返回类型后ESLint通过，pnpm build:tools补编译通过。
+- 验证：最终pnpm preview:sync同步1.3.0程序资源104项，233个既有配置、项目、资料及插件文件保持一致，收据.artifacts/backups/preview-sync/update-1794116526987/preservation.json。pnpm test:preview:resources通过103个程序文件、346个内置插件文件和1687个媒体依赖；日志.artifacts/presentation-svg-preview-sync-delivery.log与presentation-svg-preview-resources-final.log。
+- 验证：完成空间收尾：验证最终绝对路径、祖先与子项无链接、目标无Git跟踪且属于纯程序暂存后，清理两轮已消费app/new-resources及被替代回退共6处11054文件2112043216字节（约2014MiB）。只保留update-1794116526987/previous-resources最近程序回退和所有preservation.json，资料、插件、独有证据及其他活跃任务保留；清单与收据位于.artifacts/cleanup-2026-11-08-svg/。
+- 验证：收尾空间复核.artifacts逻辑大小5450903236字节（约5.08GiB）：主要为1.95GiB测试原始证据、1.18GiB既有工具链、1.15GiB最近回退及资料备份、0.56GiB历史下载和0.18GiB上游参考。独有证据、资料备份和仍保留的既有工具链不属于本轮消费材料；本轮没有新增下载或工具链，程序暂存已回收。未重置资料、push、云端构建或Release。
+
+## 2026-11-08 · 完善演示全屏预览、实体键帽、手绘遮罩及注释动画
+
+记录：[presentation-preview-keycaps-annotations](../../docs/history/entries/2026-11-08-01-presentation-preview-keycaps-annotations.json)；版本：未发布。
+
+- 增加复用当前播放器的全屏预览和退出、播放控制，恢复预览全区域系统鼠标。
+- 关闭按键录制时显示斜线；空格记录为显式键名，旧空格同样显示空格键符号。
+- 实体键帽共用预览和导出绘制器，提供尺寸、显示框、连接开关及连接阈值，按轨选择最新输入而非重叠覆盖。
+- 矩形、圆形与手绘笔画遮罩覆盖模糊、马赛克和聚焦，笔画沿项目历史保存。
+- 使用内置 imagegen 生成透明卡通箭头，并接入缩略图选择、八向预览和导出。
+- 所有注释增加淡入淡出、弹性缩放、浮入浮出和擦除，使用媒体时间统一计算。变焦通用设置开放连接间隔。
+
+- 验证：阅读维护流程、改动索引、Bug 台账、侧栏/镜头/默认值/空间规范及工具和设置开发要求；保留大量既有未提交改动。
+- 验证：24项初始相关单测通过，归档.artifacts/runs/2026-11-08T04-06-08-166Z-unit；首轮完整831项通过，归档.artifacts/runs/2026-11-08T04-15-09-200Z-unit。补充旧累积文本与事件版本恢复后，最终124文件832项全部通过，归档.artifacts/runs/2026-11-08T04-35-12-936Z-unit。
+- 验证：源码首轮HUD正文等待不足，随后两轮对尚未落盘模型直接取属性导致测试失败；分别保留04-08-24-694Z、04-09-39-236Z、04-11-06-985Z的e2e归档。修正稳定正文等待与自动保存轮询后，录制控制及视觉专项联合通过，归档.artifacts/runs/2026-11-08T04-12-52-542Z-e2e。
+- 验证：扩展真实导出验证时，测试使用不存在的变焦工具按钮，改为实际变焦空轨入口；失败归档.artifacts/runs/2026-11-08T04-21-00-318Z-e2e。侧栏和视觉专项通过，旧轨道测试仍依赖选择前游标及旧累积文本；分别保留04-23-12-961Z、04-26-27-138Z、04-28-34-006Z的e2e归档。按当前选中回起点规则明确定位切点及显示区间，并更新独立事件内容断言。
+- 验证：最终轨道及视觉源码专项全部通过，归档.artifacts/runs/2026-11-08T04-32-19-517Z-e2e。真实宿主覆盖全屏进出、鼠标、连接开关与阈值、键帽尺寸撤销重做、手绘一笔撤销重做、卡通箭头及保存重开；像素检查覆盖圆形/手绘聚焦、键帽、贴纸及动画。标准和现代导出分别在WebGL/WebGPU实际渲染，四组中段均产生947个显著变化通道值，尾边界残留均为0；结果见该归档export-pipelines.json。
+- 验证：原生Space采集、控制条斜线及相邻录制流程通过，归档.artifacts/runs/2026-11-08T04-28-34-006Z-e2e；侧栏规范专项通过，归档.artifacts/runs/2026-11-08T04-23-12-961Z-e2e。四项相关源码专项已分批通过。人工查看直接插件截图，包括全屏、键帽侧栏与明暗注释，未拼接宿主截图。
+- 验证：修改模块ESLint错误检查通过；新增文件按仓库Prettier格式整理。pnpm docs:check通过37文档252本地链接及15章66步，presentation-visual-effects回归分组--list通过。
+- 验证：pnpm maintain与pnpm maintain:check通过；pnpm build通过宿主类型检查、设置/工具插件和Electron生产编译，日志.artifacts/presentation-visual-effects-build.log。首次预览同步保留221个资料文件，程序和内置插件资源验证通过。
+- 验证：最后细化键帽阴影按实际字高缩放及安全留白；五种不透明键帽在80×28小区域的四周alpha均为0，确认未裁切键壁或RGB光晕。源码专项及标准/现代WebGL/WebGPU动画再次通过，归档.artifacts/runs/2026-11-08T04-44-50-949Z-e2e；pnpm build:tools补编译通过，日志.artifacts/presentation-visual-effects-build-tools-final.log。
+- 验证：最终源码再次通过完整124文件832项单测，归档.artifacts/runs/2026-11-08T04-47-16-258Z-unit；日志.artifacts/presentation-visual-effects-unit-final.log。
+- 验证：最终pnpm preview:sync更新104项程序资源，221个既有配置、项目及插件文件逐文件保持一致；保留收据.artifacts/backups/preview-sync/update-1794113309915/preservation.json。pnpm test:preview:resources及清理后复核均通过103个程序文件、347个内置插件文件及1687个媒体依赖，日志.artifacts/presentation-visual-effects-preview-sync-final.log、presentation-visual-effects-preview-resources-final.log和presentation-visual-effects-preview-after-cleanup.log。
+- 验证：完成两轮同步的空间收尾：验证最终绝对路径、祖先和子项无链接、目标无Git跟踪及纯程序边界后，清理6处已消费暂存和被替代程序回退，共11052文件2110304917字节（约2013MiB）。只保留update-1794113309915/previous-resources最近回退和所有preservation.json；配置、插件、资料备份及独有证据保留。清单、结果和占用摘要位于.artifacts/cleanup-2026-11-08/，一次性清理脚本已移除。
+- 验证：空间复核：.artifacts目录逻辑大小约5.07GiB，主要为1.95GiB原始测试证据、1.18GiB既有工具链、1.15GiB回退与资料备份、0.56GiB历史下载及0.18GiB上游材料。资料和独有证据受保护，历史材料并非本轮消费范围，继续保留；本轮无新增下载或工具链。未进行资料重置、push、云端构建或Release。
+
+## 2026-11-07 · 精简演示片段文案，统一选中定位并修复重排变焦和连续注释
+
+记录：[presentation-timeline-effects](../../docs/history/entries/2026-11-07-03-presentation-timeline-effects.json)；版本：未发布。
+
+- 变焦片段精简为2D/3D、倍率及自动/手动，悬停保留完整参数。
+- 所有类型片段选中后暂停定位到起点，重复选择同样生效。
+- 重排时按实际保留画面映射效果，分离区间拆成独立片段，不再跨越无关画面。
+- 连续添加注释共用粘贴的空闲导轨分配，片段图标按文字、图片、箭头、模糊、马赛克、聚焦及按键类型变化。
+- 审查移动、裁剪、变速、删除、插入、复制粘贴、字幕源投影、独立声音与摄像头，新增时间轴关联规则文档，移除独立音频锚点平移及渲染自动改写。
+- 移动保持原时长，短变焦不按手动最小时长拉长；注释同轨遵循避让/重排，跨轨可叠加。左键重复选择回起点，已选片段的右键保留分割/粘贴游标。
+- 录屏派生裁剪镜像从历史比较中排除，避免同一删除/变速占用额外撤销步骤。
+- context-mode 2.1.5补齐--agent codex，执行原生setup修复配置与hooks，更新旧工具名；为MCP单独提供大写PATH修复Windows Git Bash识别，不迁移或删除旧知识库。
+
+- 验证：context-mode执行和自检均返回Project source --agent is missing；回退有界本地命令，依次阅读维护、改动/Bug索引及相关模块规范，保留既有未提交内容。
+- 验证：18项初始相关单测通过，归档.artifacts/runs/2026-11-07T12-31-10-078Z-unit；扩展边界后22项通过，归档.artifacts/runs/2026-11-07T12-47-40-401Z-unit。
+- 验证：完整pnpm test在沙箱中11项临时权限、路径或回环网络失败，归档.artifacts/runs/2026-11-07T12-40-40-250Z-unit；正常本机环境同入口复跑123文件825项通过，归档.artifacts/runs/2026-11-07T12-42-01-359Z-unit。补充历史修复后的完整测试另行记录。
+- 验证：源码专项沙箱服务器未能就绪后取消，保留.artifacts/runs/2026-11-07T12-39-03-360Z-e2e日志；正常环境首轮定位到HeroUI内层gridcell被行拦截，改为可交互row，失败归档.artifacts/runs/2026-11-07T12-42-24-825Z-e2e。
+- 验证：第二轮并行生产编译与源码加载期间正文等待不足，失败归档.artifacts/runs/2026-11-07T12-44-57-950Z-e2e；改为独立运行并等待片段正文稳定。第三轮已通过连续注释、类型切换、真实分割重排、全类型选择及独立媒体检查，发现删除需额外撤销，归档.artifacts/runs/2026-11-07T12-47-47-665Z-e2e；补齐派生裁剪历史比较后联合回归。
+- 验证：已审校README、组件说明、仓库与应用内教程、镜头规范、更新说明及新时间轴规则，pnpm docs:check通过36文档243链接、15章65步；presentation-timeline-effects分组--list通过。
+- 验证：context-mode修正后新MCP连接的D1/2/3/5/5b/6/7/8/9/10/11均通过，Git Bash、PowerShell执行和文档索引搜索实际可用；D4只报告保留的旧数据。当前聊天旧连接仍需Codex重新加载后才采用新启动参数。
+- 验证：最终完整pnpm test通过123文件827项，包含移动短变焦/超长声音不改时长及派生裁剪镜像单步撤销，归档.artifacts/runs/2026-11-07T12-51-03-713Z-unit。
+- 验证：四项联合源码回归中教程与片段专项通过；摄像头专项在HUD正文未就绪时被关闭，关联轨道最终断言只因重开补齐rotation/blurIntensity默认字段失败，已有参数未丢失。保留归档.artifacts/runs/2026-11-07T12-50-41-099Z-e2e，重开断言改为全部已有值须匹配、允许新增缺省字段。
+- 验证：最终摄像头补充与关联轨道两项源码专项通过，归档.artifacts/runs/2026-11-07T12-55-14-905Z-e2e；六次连续新增注释均滚入视口且各占空闲轨道，五种类型切换及图标、真实四段分割与拖动、变焦精确拆段/10ms短段、独立声音和摄像头原样保留、字幕三段源投影、六类重复选择起点、重排/删除一次撤销重做及项目重开通过。四项相关源码专项分批全部通过。
+- 验证：人工查看直接插件WebContentsView的明暗时间轴截图，确认精简变焦标签、分离区间和文字/图片/箭头/模糊/马赛克/聚焦图标；没有拼接宿主截图。
+- 验证：修改模块ESLint错误检查通过，保留移植目录原有格式与未使用参数警告；日志.artifacts/presentation-timeline-effects-lint.log及presentation-timeline-effects-lint-final.log。pnpm docs:check通过36文档246链接，pnpm maintain、pnpm maintain:check及git diff --check通过。
+- 验证：context-mode最终新连接自检所有功能项通过，D4仅提示保留旧资料；证据.artifacts/context-mode-v2-final-verification.json与context-mode-v2-final.log。
+- 验证：最终pnpm build通过宿主类型检查、设置/工具插件和Electron生产编译，日志.artifacts/presentation-timeline-effects-build-final.log。预览同步前pnpm maintain与pnpm maintain:check通过。
+- 验证：pnpm preview:sync通过：更新104项程序资源，564个原配置/项目/插件文件逐文件保持一致；pnpm test:preview:resources通过103个归档程序文件、346个内置插件文件及1687个媒体依赖。日志.artifacts/presentation-timeline-effects-preview-sync.log与presentation-timeline-effects-preview-resources.log。
+- 验证：按本轮用户明确授权执行pnpm preview:reset --confirm-reset：预览已退出，完整备份并逐文件验证564个资料文件，再建立空data和legacy；程序资源不变。备份.artifacts/backups/portable-profile/2026-11-07T13-01-10-767Z-e48393c8，日志.artifacts/presentation-timeline-effects-preview-reset.log。已确认两个新目录均为空，下次从固定启动器运行时初始化首次安装默认值。
+- 验证：空间复核通过：原程序回退及暂存约1.50GiB、独有自动归档证据约1.92GiB、工具链约1.18GiB、历史下载约570MiB，其余资料与其他任务材料保留。本轮无新增下载。
+- 验证：核验范围、祖先/子项链接及Git跟踪边界后，清理6处已消费程序目录，共2110300719字节（约2013MiB），包括前轮曾被策略拦截的纯程序载荷；保留本次update-1794056358255/previous-resources、全部preservation.json、完整资料备份与原始证据。清单和结果.artifacts/cleanup-2026-11-07/timeline-effects-program-payloads.json、timeline-effects-program-results.json。
+- 验证：空间清理后pnpm test:preview:resources再次通过103个程序文件、346个内置插件文件与1687个媒体依赖；日志.artifacts/presentation-timeline-effects-preview-after-cleanup.log。已移除本轮context-mode临时MCP验证桥和一次性清理脚本，保留完整诊断与清理收据。
+
+## 2026-11-07 · 统一变焦文案和镜头片段信息，修复摄像头删除、重置及时间尺检查器联动
+
+记录：[presentation-editor-followup](../../docs/history/entries/2026-11-07-02-presentation-editor-followup.json)；版本：未发布。
+
+- 变焦相关按钮、提示、快捷键与教程统一名称，片段显示2D/3D镜头和倍率，悬停补齐取景方式、有效光学参数、起止时间及持续时间。
+- 光圈随景深开关挂载，关闭后保留数值；注释和变焦选中及边界变动时定位有效时间，手动时间尺浏览保留当前选区和检查器。
+- 删除最后一段摄像头时解除当前项目来源引用并撤下空轨，侧栏只保留导入入口，禁用空素材重置；磁盘素材保留，撤销恢复完整项目模型。显式片段优先于旧可见范围，删空后粘贴旧摄像头片段也能恢复编辑。
+- 当前分类重置标记状态已经完成迁移，规范化时修复已独立编辑来源的旧虚拟音频可见状态，并移除历史音频独立编辑按钮。
+
+- 验证：通过context-mode检查维护流程、当前变更/Bug索引及模块规范，保留368项既有未提交内容。
+- 验证：23项相关单测通过，归档.artifacts/runs/2026-11-07T04-08-08-123Z-unit；完整pnpm test通过122文件820项，归档.artifacts/runs/2026-11-07T04-16-06-449Z-unit。
+- 验证：新增源码Electron专项通过，归档.artifacts/runs/2026-11-07T04-14-22-900Z-e2e：伴随系统音频/麦克风及摄像头真实导入，变焦2D/3D片段名称和悬停、游标定位、时间尺保留侧栏、景深光圈显隐与保留、撤销重做；摄像头重置完整音频/录屏模型不变，删除独立音频不补回。
+- 验证：源码专项还验证摄像头分割后逐段删除、删空撤轨及文件/外观控件、空状态重置禁用、磁盘原件保留、撤销恢复和重做删除、项目完整重载不补轨及重新导入。人工查看直接插件WebContentsView空状态和重新导入明暗截图，摄像头预览实际可见。
+- 验证：开发期首轮项目列表就绪的默认5秒等待不足；改为30秒后通过该阶段。第二轮在自动保存防抖完成前读取尚未出现的camera字段报错，改为可选字段轮询并等待关闭状态落盘后通过。保留失败归档.artifacts/runs/2026-11-07T04-09-58-207Z-e2e与.artifacts/runs/2026-11-07T04-12-36-530Z-e2e。
+- 验证：修改模块ESLint错误检查通过，保留原移植文件的格式及原有未使用参数警告，不做无关重排；日志.artifacts/presentation-editor-followup-lint.log。pnpm docs:check通过35文档238链接、15章65步，新增回归分组--list确认3个单测及1个E2E文件。
+- 验证：相邻源码5项首轮3通过（教程、逐栏默认值、变焦与导出像素），导入和轨道两项旧断言仍要求空摄像头显示外观控件、时间尺清空选区；按本轮明确行为更新，并同步检查器同类断言。归档.artifacts/runs/2026-11-07T04-17-02-383Z-e2e保留。
+- 验证：审查补齐摄像头显式片段优先于旧空可见范围的统一判断，新增删空后粘贴边界单测及源码回归；pnpm test通过122文件821项，归档.artifacts/runs/2026-11-07T04-22-22-711Z-unit。
+- 验证：更新后的导入、检查器和轨道3项源码回归通过，归档.artifacts/runs/2026-11-07T04-23-39-525Z-e2e；该轮补充用例发现复制的摄像头在删空后因旧来源一致性检查无法粘贴，保留失败证据。随后补齐剪贴板来源/时长/偏移/显示快照，仅允许当前项目空来源恢复，不覆盖不同的现有来源；粘贴不生成无来源默认片段。
+- 验证：最终完整pnpm test再次通过122文件821项，归档.artifacts/runs/2026-11-07T04-28-03-816Z-unit；最终补充源码专项通过，归档.artifacts/runs/2026-11-07T04-28-40-814Z-e2e，包含删空后粘贴摄像头恢复编辑再删除，其他删除/重置/历史/重开和文案检查保持通过。
+- 验证：最终变更模块ESLint错误检查通过，日志.artifacts/presentation-editor-followup-lint-final.log。全部7个相关源码专项（教程、默认值、变焦及导出像素、导入、检查器、轨道及补充专项）分批通过；实际执行分布见上述归档。
+- 验证：pnpm build通过宿主类型检查、设置与工具插件及Electron生产编译，日志.artifacts/presentation-editor-followup-build.log。交付前pnpm maintain、pnpm maintain:check、pnpm docs:check和git diff --check通过。固定预览仍运行，等待用户退出后同步，未强制结束进程。
+- 验证：用户明确回复已退出并继续同步后，pnpm preview:sync通过：更新104项程序资源，543个现有资料与插件文件逐文件保持一致。pnpm test:preview:resources通过103个归档程序文件、346个内置插件文件及1687个媒体依赖文件。日志.artifacts/presentation-editor-followup-preview-sync.log和.artifacts/presentation-editor-followup-preview-resources.log。
+- 验证：空间收尾已审查工作区范围、链接及Git跟踪边界，形成纯程序暂存/旧回退清单。带路径保护的PowerShell清理和随后明确绝对路径的清理均在创建进程前被自动审批检查拒绝，仅返回blocked by policy，未执行删除。1055149319字节（约1006MiB）已消费载荷暂时保留；4779个受保护文件的路径、大小、修改时间及Git状态保持一致。清单和结果.artifacts/cleanup-2026-11-07/editor-followup-program-payloads.json、editor-followup-program-results.json。
+- 验证：剩余空间分类：程序回退及待清理载荷约1.50GiB，自动归档证据2061064521字节（约1.92GiB）、工具链约1.18GiB、历史下载约570MiB；证据、工具链及其他任务材料保留。本轮没有新增下载或一次性脚本，当前构建产物保留一套可用版本。
+
+## 2026-11-07 · 修复演示3D变焦提前裁切局部画面导致额外露底
+
+记录：[presentation-camera-framing](../../docs/history/entries/2026-11-07-01-presentation-camera-framing.json)；版本：未发布。
+
+- 预览和两套导出器共用的镜头滤镜按逆投影保留需要的真实画外内容，正确换算采样原点和二维取景位移、倍率。
+- 运动模糊等子滤镜临时使用相同采样区域，退出3D或销毁时恢复原裁切策略和最新布局区域；采样限制在原场景与输出视口并集内。
+- 新增TX-123与presentation-camera-framing回归，更新README、镜头文档、组件说明、工具清单、仓库与应用内教程和更新说明。
+
+- 验证：按顺序通过context-mode阅读维护、改动索引、Bug台账及模块规范，保留现有未提交修改。
+- 验证：pnpm test tests/main/presentationZoomCamera.test.ts通过8项；归档.artifacts/runs/2026-11-07T03-30-59-615Z-unit。
+- 验证：pnpm test完整通过122文件817项；归档.artifacts/runs/2026-11-07T03-39-32-349Z-unit。
+- 验证：最终源码Electron变焦镜头与local-tutorial两项通过，归档.artifacts/runs/2026-11-07T03-37-40-007Z-e2e。真实宿主5倍放大3D运镜无额外背景；原有角度手势撤销重做、项目重开、模式及光学参数回归通过。
+- 验证：标准和现代导出器分别在WebGL/WebGPU执行居中放大、偏心加裁剪、左右边缘共16组像素检查；每组独立验证3405–3600个射线落点，误差超限0个。内部放大背景0像素；真实边缘自然露出背景；每组175–772个落点来自原视口外，运动模糊输入和退出3D裁切策略恢复通过。
+- 验证：首轮沙箱源码服务器未就绪后取消，日志保留.artifacts/runs/2026-11-07T03-32-26-328Z-e2e；改在沙箱外运行。首轮完整专项的新增预览断言从非preserveDrawingBuffer的GPU画布异步读到清空缓冲而失败，16组导出检查已通过；改用实际合成截图取样后通过。失败归档.artifacts/runs/2026-11-07T03-35-23-398Z-e2e。
+- 验证：人工查看实际插件1.41倍及5倍取景截图与导出证据，深度放大保持全幅录屏；没有拼接宿主截图。
+- 验证：镜头实现、新增几何模块和两份测试的ESLint检查通过；pnpm docs:check通过35文档238链接、15章65步，pnpm test:regressions presentation-camera-framing --list确认1个单测文件和1个E2E文件。
+- 验证：构建前空间分类：已有程序回退553677642字节；自动测试归档约1.82GiB、工具链约1.18GiB、历史下载约570MiB，独有证据、工具链及其他任务材料保留。
+- 验证：pnpm build通过，包含宿主类型检查、设置与工具插件、Electron生产编译；日志.artifacts/presentation-camera-framing-build.log。
+- 验证：交付前pnpm maintain、pnpm maintain:check、pnpm docs:check和git diff --check通过。检测固定预览仍运行后等待用户退出，收到本轮明确继续同步指示后执行既有同步脚本。
+- 验证：pnpm preview:sync通过，更新104项程序资源，543个现有资料与插件文件逐文件保持一致；pnpm test:preview:resources通过，核对103个归档程序文件、346个内置插件文件和1687个媒体依赖文件。日志.artifacts/presentation-camera-framing-preview-sync.log和.artifacts/presentation-camera-framing-preview-resources.log。
+- 验证：核验后清理本次app、空new-resources及已替代的上次previous-resources，回收1055135479字节（约1006MiB）逻辑程序载荷；保留本次previous-resources和全部preservation.json。清单与收据.artifacts/cleanup-2026-11-07/camera-framing-program-payloads.json、camera-framing-program-results.json；4779个受保护文件的路径、大小、修改时间及Git状态保持一致，未新增下载或一次性脚本。
+- 验证：清理后再次通过pnpm test:preview:resources、pnpm maintain、pnpm maintain:check、pnpm docs:check及git diff --check；资源复核日志.artifacts/presentation-camera-framing-preview-resources-final.log。
+
+## 2026-11-06 · 建立项目空间管理规范，将产物保留及清理纳入每轮开发和预览交付收尾
+
+记录：[workspace-storage-policy-2026-11-06](../../docs/history/entries/2026-11-06-02-workspace-storage-policy.json)；版本：未发布。
+
+- 响应用户要求新增docs/workspace-storage.md，规范目录分类、每轮责任、预览回退保留、下载及工具链缓存、测试证据、保护边界、安全删除和验收。
+- 将每轮已消费暂存回收、预览成功核验后保留最近一次程序回退及全部审计收据写入AGENTS、维护流程、Agent指南、开发指南和脚本说明，并在文档目录增加入口。
+- 设置单轮可重建材料净增长500MiB与.artifacts总量5GiB的人工复核阈值；阈值不授权删除资料、独有证据或其他活跃任务。纯文档任务不为交付而重建或同步预览。
+- 明确当前maintain仅整理及更新索引，preview:sync与资源核验也不会自动淘汰历史副本；要求执行者同轮完成空间收尾，不将规范描述为已实现的自动清理功能。
+
+- 验证：通过context-mode审阅当前维护流程、Agent/开发指南、文档目录、脚本实现及文档校验范围，保留用户已有改动，仅增补空间管理相关条款。
+- 验证：规范复用本轮已实际验证的清理边界：不触及当前预览及持久资料，不自动删除原始测试证据，按清单校验路径和链接，常规清理不重复哈希整个资料树。
+- 验证：pnpm docs:check通过：34份文档、232项本地链接、15章65步教程，无链接或内容一致性错误；人工审阅规范与当前脚本职责，未将人工收尾写成已有自动清理能力。
+- 验证：pnpm maintain与pnpm maintain:check通过，仅更新生成改动索引；git diff --check通过。仅修改仓库规范，不运行单测/E2E，不构建或同步预览。
+
+## 2026-11-06 · 安全清理开发积累的程序暂存、旧回退载荷及下载缓存，保留当前资料和测试原始证据
+
+记录：[safe-workspace-cleanup-2026-11-06](../../docs/history/entries/2026-11-06-01-safe-workspace-cleanup.json)；版本：未发布。
+
+- 按当前用户要求盘点并清理本地项目开发产物；保留全部既有源码及未提交改动，不调整业务实现、不修改Git历史、不执行远端操作。
+- 仅按明确清单清理预览同步的程序暂存和过期回退载荷、旧发行程序副本、旧版本下载及可重建开发缓存；保留最近一次预览回退资源和全部preservation.json。
+- 历史记录中已清理的程序备份路径只代表当时事实，不再作为现存恢复点；本轮保留update-1793892596347/previous-resources共553678061字节及对应保留收据。
+- 保留.local下当前免安装程序、配置、数据库、浏览器资料、剪贴板、收藏、插件和源码预览资料；保留原始测试归档、核验日志、当前1.3.0发行下载、开发依赖、已安装原生工具链、来源与许可。
+- 删除前逐项验证工作区绝对路径边界、祖先及子项目录链接和Git跟踪状态；记录受保护文件路径、大小、修改时间，避免重复进行全目录哈希校验。
+
+- 验证：按要求使用context-mode盘点分析，依次审阅维护流程、改动索引、Bug台账、Agent指南和开发文档；工作区已有大量未提交改动，全部保留。
+- 验证：完整扫描333953个实际文件，逻辑大小47910496893字节（47.91GB、44.62GiB），跳过依赖目录链接，未出现扫描错误；其中.artifacts/backups为38615985874字节。
+- 验证：清理前pnpm test:preview:resources通过：103项程序资源、346项内置插件文件和1687项媒体依赖。未启动、重置或同步预览，避免为清理重新产生程序副本。
+- 验证：原生PowerShell按131个明确目标完成删除，共207592个文件、39669559558字节（39.67GB、36.95GiB逻辑大小）；相当于初始逻辑大小的82.8%，不等同于实测磁盘可用空间增量。计划、逐项目标日志和结果位于.artifacts/cleanup-2026-11-06/plan.json、deletions.json和verification.json。
+- 验证：分类逻辑大小：预览暂存及旧回退37612058491字节、旧发行程序副本961200663字节、旧版本下载610799967字节、已安装工具链下载缓存479380683字节、可重建开发缓存6119754字节。未清理用途不明确的工作副本、历史源码、资料目录或原始验证证据。
+- 验证：删除后15865个受保护文件的路径、大小和修改时间全部一致，131个目标全部不存在；原始测试归档772次运行、9209个文件以及.local下2725个实际文件继续保留。后续仅更新本轮维护记录与生成改动索引，不进行整树哈希或完整资料备份。
+- 验证：清理后pnpm test:preview:resources再次通过，仍为103项程序资源、346项内置插件文件、1687项媒体依赖；当前预览和媒体运行依赖可继续使用。
+- 验证：pnpm docs:check通过（33份文档、222项本地链接、15章65步教程），pnpm maintain及pnpm maintain:check通过，git diff --check通过；仅刷新1份生成索引。未修改业务代码，本轮未运行单测/E2E或启动手动预览。
+
+## 2026-11-06 · 将演示缩放升级为连续倍率与2D/3D变焦镜头
+
+记录：[presentation-zoom-camera](../../docs/history/entries/2026-11-06-01-presentation-zoom-camera.json)；版本：未发布。
+
+- 缩放侧栏升级为变焦，倍率改为1–5×、步进0.01的连续滑条；轨道同步显示真实倍率，旧六档项目保持原映射。
+- 新增2D/3D镜头切换、可拖动角度板与六种预设、水平与俯仰角度、18–200mm焦距、f/1.4–f/22光圈、景深、独立对焦点和屏幕反光；切回2D保留3D参数。
+- 预览及两套导出器共用WebGL/WebGPU透视和光学滤镜，随原变焦进出场及连接窗口混合；结束效果及实例销毁立即释放滤镜。
+- 参数沿现有项目、复制分割及完整历史链保存；重置恢复2D和1.5×，保留区间、取景焦点及其他片段。手动取景框改为按连续倍率钳制。
+- 同步README、演示组件说明、设置/UI/默认值规范、工具清单、仓库与应用内教程及更新说明；新增变焦模块文档和TX-122回归。
+
+- 验证：通过context-mode盘点维护流程、改动和Bug台账、模块规范；保留355项既有工作区改动。
+- 验证：新增5项镜头单测通过，覆盖旧六档、连续倍率与JSON保存、非法输入、时间过渡及重置；首次测试误以为原变焦在0ms尚无进场权重，改为真实进场前时刻。失败归档 .artifacts/runs/2026-11-06T08-45-11-778Z-unit。
+- 验证：pnpm test完整通过：122文件814项，归档 .artifacts/runs/2026-11-06T09-23-27-543Z-unit。沙箱内首轮有临时目录EPERM及库路径隔离失败，改在沙箱外完整复跑；保留失败归档 .artifacts/runs/2026-11-06T09-17-59-619Z-unit。
+- 验证：变焦源码专项通过，归档 .artifacts/runs/2026-11-06T09-35-56-136Z-e2e：真实宿主导入、1.41倍滑条与轨道标签、角度拖动单步撤销重做、光学开关、2D/3D切换保留参数、完整卸载后项目重开及重置历史。两套导出器分别在WebGL/WebGPU上核对透视、景深及焦距的真实像素变化。
+- 验证：开发期源码专项分别发现保存防抖等待不足、WebGPU资源命名与顶点布局、WebGL跨阶段精度不一致，均修正后复跑；失败证据保留在当日自动归档。一次沙箱源码服务器启动未完成即取消；独立GPU诊断测试已消费并移除，证据仍保留。
+- 验证：人工查看实际插件可见区域明暗截图，确认透视画面、角度板、统一侧栏层级和主题表面；没有拼接宿主截图。
+- 验证：对本轮新模块及主要修改模块强制取消移植目录忽略后运行ESLint错误检查，通过；保留原有推断返回值风格，专项关闭explicit-function-return-type。修正测试finally抛错写法；日志 .artifacts/zoom-camera-lint.log。
+- 验证：pnpm docs:check通过：35份文档238个本地链接、15章65步；pnpm test:regressions presentation-editing --list通过，14个单测文件、12个E2E文件。
+- 验证：最终相邻6项源码回归通过：local-tutorial、presentation-defaults/fragments/import/inspector/review，归档 .artifacts/runs/2026-11-06T11-16-40-300Z-e2e。该批变焦专项新增资源断言误读不存在的destroyed字段而失败；按已安装Pixi的resources/groups销毁状态修正断言后，最终变焦专项独立通过，归档 .artifacts/runs/2026-11-06T11-26-19-578Z-e2e。
+- 验证：最终变焦专项对两套导出器分别在WebGL/WebGPU验证角度、景深、焦距、光圈、对焦点及反光逐项改变实际像素，并核对导出实例销毁后镜头资源解绑；人工查看倍率/模式及明暗角度截图。重试期间一次测试进程原生退出、一次复用服务提前消失导致HUD入口未出现，均保留失败归档，重新启动独立源码服务后通过。
+- 验证：pnpm build通过，包含宿主类型检查、设置与工具插件、Electron生产编译；日志 .artifacts/zoom-camera-build.log。交付前pnpm maintain、pnpm maintain:check和git diff --check通过。
+- 验证：空间分类盘点：原有程序回退约528MiB，测试归档约1.82GiB、工具链约1.18GiB、历史下载约570MiB；独有证据、工具链和来源不明的其他任务材料保留。
+- 验证：pnpm preview:sync通过：1.3.0预览更新104项程序资源，530个现有配置、项目及插件文件逐文件保持一致；pnpm test:preview:resources通过，核验103个归档程序文件、346个内置插件文件及1687个媒体依赖文件。日志 .artifacts/zoom-camera-preview-sync.log 与 .artifacts/zoom-camera-preview-resources.log。
+- 验证：预览核验后清理本次app暂存、空new-resources及旧纯程序回退，共1055135898字节（约1006MiB），逐项验证范围、链接与Git跟踪边界；保留本次 previous-resources 和全部 preservation.json。清单和结果 .artifacts/cleanup-2026-11-06/zoom-camera-program-payloads.json、zoom-camera-program-results.json。
+
+## 2026-11-05 · 修复演示新项目外观串用、分类重置及重开整轨拖动
+
+记录：[presentation-project-defaults](../../docs/history/entries/2026-11-05-11-presentation-project-defaults.json)；版本：未发布。
+
+- 新素材与新录制建立完整出厂编辑模型，应用级偏好与项目外观分开；旧项目参数继续恢复。
+- 分类重置共用出厂默认值，补齐缩放通用参数；摄像头保留源时长与剪辑并恢复显示，按键完整恢复简约外观；独立音频补充重置，裁剪重置退出框选。
+- 轨道名称改用指针捕获并在完成、取消、失焦和卸载时清理，键盘上下移动继续保留。
+- 新增默认值与重置范围清单及源码回归，同步现行教程和设置规范。
+
+- 验证：通过context-mode阅读维护流程、改动索引、Bug台账、工具/设置及演示侧栏规范，保留工作区既有未提交内容。
+- 验证：pnpm test：121个文件809项通过；证据 .artifacts/runs/2026-11-05T15-23-34-916Z-unit。新增6项默认模型隔离、分类边界、素材同步保留及按键默认外观回归。
+- 验证：presentation-defaults源码专项通过：真实鼠标首次拖轨、完整页面重载、项目重开、Esc取消、保存与撤销重做；场景/光标/摄像头/字幕/缩放逐栏重置核对实际项目文件，裁剪取消/完成/一次撤销重做，以及旧偏好写入后新录制不继承。证据 .artifacts/runs/2026-11-05T15-27-04-445Z-e2e。
+- 验证：presentation-tracks、presentation-import、local-tutorial同批通过，覆盖独立声音重置、摄像头与录屏排序、导出及教程升级后资料保留；该批4项全部通过。
+- 验证：presentation-inspector、presentation-review源码专项通过，验证明暗侧栏、连续历史和相邻编辑；证据 .artifacts/runs/2026-11-05T15-21-59-574Z-e2e。该批另3项失败，修正测试/独立复跑情况见下条，不以整批通过记录。
+- 验证：初轮单测把留白误设为50，按源码默认20修正；初轮拖轨断言误用row-keystroke而真实ID为row-annotation-0，已修正。完整重载最初等待所有load资源超时，改为DOMContentLoaded后等待正文稳定。批量验证中default受并行构建/格式化触发的页面重载干扰，import一次丢失摄像头预览；未改产品源码的独立批复跑通过。tracks新增断言误读aria-valuenow，原生range使用value，修正后通过。保留失败证据 .artifacts/runs/2026-11-05T15-15-22-175Z-unit、2026-11-05T15-10-14-489Z-e2e、2026-11-05T15-16-16-481Z-e2e、2026-11-05T15-21-59-574Z-e2e。
+- 验证：人工审阅实际插件可见区域的缩放重置和侧栏截图，正文层级、固定标题与重置入口保持共享样式。
+- 验证：强制检查本轮13个移植编辑文件的ESLint错误；保留移植代码的推断返回值风格，仅在该命令关闭explicit-function-return-type，实际检查通过。常规入口会忽略整个移植目录，未将忽略误报为检查通过。
+- 验证：pnpm build通过，包含主程序类型检查、设置与工具插件、Electron生产编译；日志 .artifacts/presentation-defaults-build.log。
+- 验证：pnpm test:regressions presentation-editing --list通过：13个单测文件、11个E2E文件；同步TX-121与两项Bug台账。
+- 验证：对照源码人工审校README、演示组件README、设置/UI规范、仓库与应用内教程及更新说明；新增默认值与重置清单。pnpm docs:check通过，33份文档222个本地链接、15章65步教程无错误。
+- 验证：交付前pnpm maintain、pnpm maintain:check及git diff --check通过；保留既有ItemGlass.module.css换行提示。
+- 验证：第一次preview:sync因预览正在运行按脚本规则停止，未修改程序或资料；用户明确退出后重新同步通过。
+- 验证：pnpm preview:sync通过：1.3.0免安装预览替换104项程序资源，518个既有配置、项目与插件文件逐文件保持一致；回退程序 .artifacts/backups/preview-sync/update-1793892596347/previous-resources。
+- 验证：pnpm test:preview:resources通过；同步与资源核验日志分别为 .artifacts/presentation-defaults-preview-sync-final.log 和 .artifacts/presentation-defaults-preview-resources.log。收尾再次执行维护、文档与差异检查。
+
+## 2026-11-05 · 统一演示编辑侧栏层级、折叠和滚动条，精简场景与摄像头设置
+
+记录：[presentation-inspector-ui](../../docs/history/entries/2026-11-05-10-presentation-inspector-ui.json)；版本：未发布。
+
+- 编辑侧栏集中定义标题14px、小节13px、选项12px、描述11px；正文使用主题前景色，描述使用浅灰；辅助留白开关按要求使用浅灰。
+- 所有检查器共用细滚动条与稳定滚动槽；高级与缩放通用设置复用折叠布局，默认收起，子项与标题之间保留固定留白，开关对齐选项标题行。
+- 场景将录屏圆角置于阴影前，联动各边留白移至移除背景前；解除联动仍保留内边距标题并显示四边滑条；移除场景高级和重复裁剪入口。
+- 摄像头移除顶部说明、整体缩放和高级中的位置/边距入口；圆角和阴影移入普通设置，素材标题改为当前摄像头视频文件；宽高比例和预览拖动继续保留。
+- 规范和教程随当前界面同步更新，并验证相关设置进入保存、预览、撤销及重做链。
+
+- 验证：通过context-mode读取维护流程、最新改动、Bug台账、工具与设置规范，核对并保留338项既有工作区改动。
+- 验证：pnpm test：120个文件、803项通过；证据 .artifacts/runs/2026-11-05T14-13-49-623Z-unit。
+- 验证：源码E2E五专项（presentation-inspector/import/review/tracks/fragments）5项通过，覆盖字号、滚动条、折叠、选项精简，以及相邻导轨、注释、复制粘贴、保存、连续撤销重做；证据 .artifacts/runs/2026-11-05T14-12-24-766Z-e2e。
+- 验证：新增场景裁切后重置不影响裁切的断言，独立复跑presentation-inspector通过；证据 .artifacts/runs/2026-11-05T14-23-25-525Z-e2e。
+- 验证：local-tutorial源码专项通过，实际离线教程、重启和配置/插件保留均通过；同批inspector在进入编辑器前HUD页提前关闭，独立复跑通过；保留失败证据 .artifacts/runs/2026-11-05T14-18-56-010Z-e2e。
+- 验证：首次inspector断言测量到了switch交互节点而非可见轨道，改为测量data-slot=switch-control后通过；失败证据 .artifacts/runs/2026-11-05T14-09-53-680Z-e2e。
+- 验证：人工审阅实际插件可见区域截图：按键、四边留白、摄像头明暗主题、高级与通用设置；实际标题/选项/描述字号14/13/12/11px，可见开关轨道与标题行对齐，折叠正文上留白12px。
+- 验证：修改的编辑侧栏组件及专项eslint --quiet无错误；pnpm test:regressions presentation-editing --list通过，新增专项已纳入12个单测文件、10个E2E文件分组。
+- 验证：对照当前源码审校README、工具清单、设置规范、仓库/应用内教程和更新说明；新增演示编辑侧栏UI规范，AGENTS及模块规范链接至强制规则；pnpm docs:check通过。
+- 验证：pnpm build通过（含主程序类型检查、设置插件、工具插件及Electron生产编译）；构建日志 .artifacts/sidebar-ui-work/build.log。
+- 验证：交付前pnpm maintain、pnpm maintain:check和git diff --check通过；既有ItemGlass.module.css换行提示未作无关格式化。
+- 验证：pnpm preview:sync通过：1.3.0免安装预览同步104个程序资源，492个既有配置/项目/插件文件逐文件保持一致；旧程序资源保留在 .artifacts/backups/preview-sync/update-1793888771130/previous-resources。
+- 验证：pnpm test:preview:resources通过：103个归档程序文件、346个内置插件文件及1687个媒体依赖文件匹配当前构建；收尾执行文档、维护索引与差异检查。
+
+## 2026-11-05 · 优化演示编辑器多选与字号，统一片段复制粘贴删除并支持注释旋转
+
+记录：[presentation-fragment-editing](../../docs/history/entries/2026-11-05-09-presentation-fragment-editing.json)；版本：未发布。
+
+- 项目多选使用常见列表勾选图标，缩放通用设置按实际像素统一标签、说明及选项字号。
+- 注释支持中心旋转手柄及角度滑块，旋转后的局部缩放保持对角点；移除箭头方向控件，旧项目方向继续兼容。
+- 所有片段菜单提供复制、粘贴和删除片段，副本保留素材偏移、速度、样式、音量与字幕词时间；剪贴板仅属于当前项目会话。
+- 摄像头侧栏移除整份视频的删除入口，沿片段菜单删除具体区间。
+- 选中或移动注释边界时定位到有效预览时间，撤销重做同样更新，手动浏览不被强制锁定。
+- 内部粘贴视频按插入时长保留后半段注释与缩放，跨插入点的效果拆成两段；副本及被切开的右半段分别继承声音设置。
+- 根据追加反馈，删除文件设置的“所有项目及编辑改动始终自动保存。”说明；音频分类补中文标题，原始及自定义比例名称统一中文，内部native值保持兼容。
+
+- 验证：通过context-mode核对维护规范、历史索引、Bug台账与演示模块，保留工作区已有未提交内容。
+- 验证：新增片段单测与相邻历史/轨道单测21项通过，归档.artifacts/runs/2026-11-05T12-45-05-154Z-unit；首轮源码专项因测试把4×4矩阵作为六个分量断言而失败，归档.artifacts/runs/2026-11-05T12-47-23-281Z-e2e；修正后完整专项通过，归档.artifacts/runs/2026-11-05T12-49-33-233Z-e2e。
+- 验证：扩展保存重开发现内部粘贴视频会因新右半段身份裁掉原注释；增加insertTimelineGap和跨插入点回归，相关22项单测通过，归档.artifacts/runs/2026-11-05T12-57-10-258Z-unit。首轮三专项失败归档.artifacts/runs/2026-11-05T12-53-29-730Z-e2e。
+- 验证：后续源码回归纠正旧菜单名称和原复制即重复的测试假设、按CSS缩放值检查选中轮廓的断言、未重新选择的旋转手柄，以及打开当前项目未退回编辑器导致的重复项目按钮定位；失败证据保存在.artifacts/runs/2026-11-05T12-58-46-477Z-e2e和.artifacts/runs/2026-11-05T13-04-07-832Z-e2e。独立审修专项在前一归档中通过。
+- 验证：全量120文件803项单测通过，归档.artifacts/runs/2026-11-05T13-04-32-042Z-unit；追加中文显示修复后相关4文件28项单测通过，归档.artifacts/runs/2026-11-05T13-09-18-145Z-unit。
+- 验证：新增代码及相关交互文件强制ESLint错误检查通过；补充独立TypeScript诊断发现集成上游目录仍有16处既有/配置问题，涉及反馈服务缺失、旧云端组件属性和环境声明等，本轮新增旋转、剪贴板及回调链无剩余类型错误；未将该诊断描述为全目录类型检查通过。
+- 验证：文档检查通过31文档207链接15章65步；presentation-editing分组含12个单测和9个源码专项。README、工具规范与目录、两份教程和更新说明按当前行为同步审校。
+- 验证：最终片段交互、导入和完整轨道3个源码专项通过，归档.artifacts/runs/2026-11-05T13-08-57-825Z-e2e；覆盖六类复制/粘贴/删除及连续撤销重做、注释移动/旋转/缩放/取消、普通画布和现代GPU导出像素、视频内部插入保留注释和声音、保存重开、音频标题和原始比例中文及native值、文件说明移除、明暗字号截图、帧图缓存和退出释放。
+- 验证：人工查看实际插件正文截图，通用设置完整可见、标签及选项字号一致；旋转后的编辑框及手柄围绕对象中心。最终强制ESLint错误检查通过。
+- 验证：pnpm build完整通过Node/Web类型检查、设置教程、演示工具与宿主生产编译；日志.artifacts/editor-fragment-work/build.log。未执行electron-builder或build:unpack，E2E使用源码隔离实例。
+- 验证：pnpm preview:sync通过，更新本地1.3.0程序资源，逐文件保留同步前全部485个data/legacy资料与插件文件；104项程序资源核验通过。pnpm test:preview:resources通过103项程序、346项内置插件及1687项媒体依赖；回退资源保存在.artifacts/backups/preview-sync/update-1793884515555/previous-resources。
+- 验证：收尾再次执行pnpm docs:check、pnpm maintain、pnpm maintain:check和git diff --check；未执行push、云端构建、Release或资料重置。
+
+## 2026-11-05 · 审修演示编辑历史、素材关联提示、项目归类与中文界面
+
+记录：[presentation-editor-review](../../docs/history/entries/2026-11-05-08-presentation-editor-review.json)；版本：未发布。
+
+- 按键侧栏更名并补右上角重置，缩放重置恢复当前模式/倍率与通用连接和运动效果，通用文字收紧字号；预览音量与时间之间去掉竖线。
+- 箭头方向采用两行八向紧凑矩形选项，增加线形、实心、双向和虚线外观，预览与导出共用几何；移除所有注释页的快捷键与提示。
+- 项目支持多选追加到文件夹，移除单项目分享；缺失素材提供项目关联说明、回收站恢复提示与独立删除，设置页不继承打开项目错误。
+- 项目及附属文件事务回收，失败恢复原件；删除仍被引用的原始录制前列出项目影响并保存、释放当前媒体。
+- 编辑历史跟踪完整持久模型，修复轨道排序、摄像头、声音与外观遗漏；单纯选区不入栈、不清空重做，拖动中间帧合并为一次操作。
+- 核查中文翻译、共享控件、素材库、项目菜单、字幕和权限界面、系统文件选择器，外部英文故障在展示边界提供中文解释。
+- 根据用户追加反馈，公共单选卡片统一明确主题色内轮廓，覆盖按键外观、箭头方向与外观等相邻选择。
+
+- 验证：通过context-mode核对维护规范、最新改动与Bug索引及演示模块源码，保留工作区已有未提交内容。
+- 验证：相关4文件43项单测通过，归档.artifacts/runs/2026-11-05T11-17-05-075Z-unit；新增审修5项单测通过，归档.artifacts/runs/2026-11-05T11-19-22-720Z-unit。初轮因读取引用的工具模块耦合宿主初始化而无法导入，归档.artifacts/runs/2026-11-05T11-19-07-294Z-unit；将清单读取改为独立文件解析。
+- 验证：前三轮源码审修分别暴露测试将重做写为恢复、添加缩放未切换侧栏、以及5×显示倍率与内部等级6的测试假设错误；修正名称与断言，同时修复添加后切换检查器及重置使用DEFAULT_ZOOM_DEPTH。失败归档.artifacts/runs/2026-11-05T11-20-59-478Z-e2e、2026-11-05T11-23-33-571Z-e2e、2026-11-05T11-25-35-763Z-e2e。
+- 验证：默认ESLint排除集成上游目录；强制检查发现原目录存在缺少显式返回类型的规则问题，后续强制检查单独禁用该上游风格规则，保留其他错误检查。
+- 验证：全量119文件798项单测通过，归档.artifacts/runs/2026-11-05T11-33-03-994Z-unit；随后补充音频素材偏移和轨道字段到历史快照测试，并更新英文故障边界后，新增5项再次通过，归档.artifacts/runs/2026-11-05T11-40-44-241Z-unit。
+- 验证：扩展源码专项已验证按键和缩放重置、选区切换后重做、轨道排序、一次滑条拖动只需一次撤销、摄像头分割连续恢复、箭头四种实际导出像素与明暗选中轮廓。后续失败来自新测试的Tag子格命中、调用renderAnnotations时误用参数次序、取消按钮匹配到隐藏关闭控件、Dropdown菜单的无障碍名称及项目模态关闭等待；依次修正测试定位与异步边界，失败证据归档.artifacts/runs/2026-11-05T11-28-01-296Z-e2e、2026-11-05T11-30-27-159Z-e2e、2026-11-05T11-32-37-084Z-e2e、2026-11-05T11-35-43-138Z-e2e、2026-11-05T11-38-29-179Z-e2e。
+- 验证：人工查看实际插件正文截图，箭头方向两行紧凑排列，方向及实心外观均显示明确主题色内轮廓，播放音量与时间无竖线；单项目菜单无Share。pnpm docs:check通过31文档207链接15章65步，presentation-editing分组包含11个单测文件与8个源码专项。
+- 验证：完整审修源码专项通过，归档.artifacts/runs/2026-11-05T11-40-33-847Z-e2e；验证按键/缩放重置、选区保持重做、滑条手势合并、摄像头分割、箭头四种实际导出与明暗选中轮廓、项目批量归类、关联录制删除及缺失项目独立回收。
+- 验证：最终全量119文件798项单测通过，归档.artifacts/runs/2026-11-05T11-42-38-751Z-unit；导入、轨道与本地教程3个相邻源码专项通过，归档.artifacts/runs/2026-11-05T11-42-38-869Z-e2e，含帧图缓存、轨道交互与资源退出清理。
+- 验证：英文故障兜底补充单词型异常Unsupported的中文化断言，审修5项单测通过，归档.artifacts/runs/2026-11-05T11-46-14-934Z-unit。
+- 验证：pnpm build完整通过Node/Web类型检查、设置教程、演示工具及宿主生产编译；补充精确恢复路径说明后pnpm build:tools通过。仅生成程序资源，未执行electron-builder或build:unpack。
+- 验证：收尾发现中英文混合故障在半角冒号或无冒号情况下可能保留技术原文，修复并补充断言；审修5项单测通过，归档.artifacts/runs/2026-11-05T11-54-47-362Z-unit；最终工具生产编译通过。
+- 验证：pnpm preview:sync通过；同步前既有483个data/legacy文件逐文件保持一致，104项程序资源核验通过。pnpm test:preview:resources通过103项程序资源、346项内置插件资源及1687项媒体依赖。
+- 验证：收尾pnpm docs:check、pnpm maintain、pnpm maintain:check及git diff --check通过。文档名称与界面动作再次核对，未进行push、云端构建、Release或资料重置。
+
+## 2026-11-05 · 修复演示缩放落点并统一按键、音频和播放工具栏交互
+
+记录：[presentation-editor-controls](../../docs/history/entries/2026-11-05-07-presentation-editor-controls.json)；版本：未发布。
+
+- 缩放轨道按鼠标时间解析可用区间，临近下一缩放或录屏结尾自动缩短，预览和提交共用边界。
+- 去掉工具栏手动缩放按钮，音量紧邻播放时间，图标提供中文悬停提示；保留自动识别与选区分割。
+- 视频保留选中轮廓并移除已选中字样，录屏侧栏去掉裁剪画面按钮，声音只用滑条设置淡入淡出并自动保留素材偏移。
+- 录制按键自动入轨，按键侧栏使用共享选择卡片与设置行，显示按键输入开关置于外观前；项目、撤销、预览和导出保留显示选择及编辑内容。
+- 连接缩放和运动效果归入带分割线的通用设置。
+
+- 验证：通过context-mode核对维护规范、历史索引、Bug台账和演示模块源码，保留工作区既有未提交内容。
+- 验证：缩放落点及按键显示兼容单测12项通过，归档.artifacts/runs/2026-11-05T10-21-39-251Z-unit；扩展相关4文件43项单测通过，归档.artifacts/runs/2026-11-05T10-25-49-796Z-unit。
+- 验证：源码专项首次因新增局部变量与原测试重名无法启动，归档.artifacts/runs/2026-11-05T10-21-51-250Z-e2e；复用原定位器后启动。第二轮尾部添加成功，但预览测试属性由像素反算产生浮点尾差，改为与提交相同的整数毫秒，归档.artifacts/runs/2026-11-05T10-22-12-154Z-e2e。
+- 验证：后续源码专项发现普通span不消费Tooltip触发上下文，改用原生HeroUI触发器；禁用子Button又重复消费上下文和产生两个无障碍按钮，改为仅保留禁用触发器及图标。失败证据分别归档.artifacts/runs/2026-11-05T10-23-14-881Z-e2e、2026-11-05T10-24-32-274Z-e2e、2026-11-05T10-25-39-557Z-e2e。
+- 验证：误用tsc检查Vue项目导致6个.vue声明错误，日志.artifacts/work/presentation-editor-typecheck.log；正式类型验证改用仓库pnpm build中的Node/Web检查。
+- 验证：pnpm docs:check通过31文档207链接15章65步；presentation-timeline回归分组列出4个单测文件和2个源码专项。
+- 验证：禁用提示仍被React Aria的禁用状态抑制，归档.artifacts/runs/2026-11-05T10-27-00-935Z-e2e；将禁用提示显隐明确绑定悬停与焦点。后续已通过全部提示、音量弹窗与按键切换，但旧间距断言误读Tag的gridcell包装，归档.artifacts/runs/2026-11-05T10-28-29-432Z-e2e；增加卡片内部布局与精确预览标签定位。
+- 验证：完整源码轨道专项通过，归档.artifacts/runs/2026-11-05T10-30-17-141Z-e2e；验证鼠标尾部及下一缩放前的短空位、预览提交一致、占用区选择、四项实际悬停与音量弹窗、音频滑条与分割素材偏移、按键首次自动入轨、开关关闭保存重开及机械样式保留、既有排序与资源退出清理。人工查看插件正文缩放和按键侧栏截图。
+- 验证：受影响新模块、侧栏及测试的强制ESLint错误检查退出0。
+- 验证：最终导入、轨道与本地教程3个源码专项通过，归档.artifacts/runs/2026-11-05T10-32-00-400Z-e2e；补充真实按键叠加节点随开关撤下/恢复断言，以及项目加载期间禁止自动生成轨道。
+- 验证：仓库正式pnpm typecheck的Node和Web检查退出0；pnpm maintain、pnpm maintain:check及git diff --check通过。悬停控件最后统一受控状态，避免禁用切换时在受控/非受控模式间跳转。
+- 验证：统一悬停状态后源码轨道专项再次通过，归档.artifacts/runs/2026-11-05T10-34-36-162Z-e2e；真实按键叠加节点关闭为0、开启为1，片段、样式及关闭选择在保存重开后保留。
+- 验证：pnpm build完整退出0，包含Node/Web类型检查、设置教程、演示工具与宿主生产编译，日志.artifacts/work/presentation-editor-controls-build.log；未执行electron-builder或build:unpack。最终pnpm docs:check与git diff --check通过。
+- 验证：pnpm preview:sync退出0，104项程序资源通过核验，487个同步前既有data/legacy文件逐文件保持一致，配置、资料及已安装插件保留；程序回退副本.artifacts/backups/preview-sync/update-1793875051035/previous-resources。日志.artifacts/work/presentation-editor-controls-preview-sync.log。
+- 验证：pnpm test:preview:resources退出0，日志.artifacts/work/presentation-editor-controls-preview-verify.log。
+
+## 2026-11-05 · 完善演示时间轴落点与选中反馈，修复刻度点击穿透并优化视频帧渲染
+
+记录：[presentation-timeline-feedback](../../docs/history/entries/2026-11-05-06-presentation-timeline-feedback.json)；版本：未发布。
+
+- 整轨拖动按上方或下方显示插入线，隐藏名称旁的手柄；片段移动显示复用最终解析结果的目标框和插入线，完成或取消后清理。
+- 录屏和摄像头选区在实际可见帧图上方显示主色与白色双轮廓及已选中标记，不再被图像盖住。
+- 固定刻度栏接收鼠标定位事件，阻止滚动后点击穿透到下方片段；沿统一定位流程清除旧选区。
+- 帧图使用固定源时间网格与二倍采样层级；横移复用已有块，两路素材独立解码，取消旧定位并逐帧发布，去除150ms整组延迟。
+- 当前会话按素材引用共享解码器，每源最多128帧；最后一个使用者卸载立即取消任务、释放媒体和画布并清空缓存。
+- 音频及其他片段悬停提供名称、毫秒起止时间与时长，保留独立素材偏移。
+
+- 验证：通过context-mode核对当前维护记录、Bug台账、工具与内存规范和未提交源码，保留既有改动。
+- 验证：首轮新增单测2失败，归档.artifacts/runs/2026-11-05T09-20-26-052Z-unit：缩放窗口首块可能移出更细网格，不应断言不可见块复用；取消测试的后续批量阶段仍保留人为阻塞。修正测试边界及测试阻塞撤销后，12项单测通过，归档.artifacts/runs/2026-11-05T09-23-02-597Z-unit。
+- 验证：首轮源码专项的新交互与缓存断言通过，但项目回收仍进行时遇到5秒列表等待上限，归档.artifacts/runs/2026-11-05T09-23-06-529Z-e2e；按异步系统操作边界等待完成后发现项目主页覆盖编辑器仍保留摄像头解码器。
+- 验证：第二轮在并行生产编译期间导入首屏未就绪，轨道专项资源断言发现还存在1解码器25帧，归档.artifacts/runs/2026-11-05T09-25-11-334Z-e2e；为缩略图接入编辑区前台状态，主页打开或主素材卸载立即取消并释放，后续源码与生产构建按顺序执行。
+- 验证：最终完整轨道专项通过，归档.artifacts/runs/2026-11-05T09-30-08-211Z-e2e；验证真实整轨及片段落点、隐藏手柄、选中轮廓、滚动后固定刻度点击及音频完整标题，离开编辑后源、解码器和缓存均为0。
+- 验证：同机源码暖缓存横移4次为70、52、55、53ms；2源2解码器、56帧缓存，前后累计解码均为56，没有新增解码。此前两轮为51–59ms；不推广为所有长视频和设备的固定延迟承诺。
+- 验证：全量pnpm test通过118文件791项，归档.artifacts/runs/2026-11-05T09-30-18-413Z-unit；包含慢来源隔离、渐进发布、取消定位、128帧上限和最后引用释放。
+- 验证：受影响时间轴模块与新增测试的强制ESLint错误检查退出0；pnpm docs:check通过31文档207链接15章65步，presentation-timeline分组列出4个单测和2个源码专项。
+- 验证：人工查看实际片段落点截图，目标框与插入线位置一致，手柄隐藏且帧图未盖住落点提示。
+- 验证：最终三项源码专项全部通过：本地教程、导入、轨道，归档.artifacts/runs/2026-11-05T09-33-10-849Z-e2e；本轮暖缓存横移为51、52、58、48ms，累计解码帧不变。整轨与片段松开后落点撤下；项目回收完成后实际源/解码器/缓存归零。
+- 验证：最终补上编辑区失活时撤下图片节点，轨道专项再次通过，归档.artifacts/runs/2026-11-05T09-39-37-879Z-e2e；退出时图片节点为0且源、解码器和缓存均归零。本轮暖缓存横移52、55、54、100ms，中位数54.5ms，解码仍为56帧不增加。
+- 验证：pnpm build完整退出0，包含Node/Web类型检查、设置页、工具和宿主生产编译，日志.artifacts/work/presentation-timeline-feedback-build-final.log；最终图片节点释放调整后另编译工具。未执行electron-builder或build:unpack。
+- 验证：pnpm maintain、pnpm maintain:check、pnpm docs:check、git diff --check及受影响模块强制ESLint错误检查退出0。
+- 验证：最终pnpm build:tools退出0，含编辑区失活后撤下图片节点的最终实现，日志.artifacts/work/presentation-timeline-feedback-tools-final.log。
+- 验证：pnpm preview:sync退出0，104项程序资源通过核验，461个同步前既有data/legacy文件逐文件一致；回退副本.artifacts/backups/preview-sync/update-1793871748106/previous-resources。
+- 验证：pnpm test:preview:resources退出0，核验103项程序、345项内置工具与1687项媒体运行资源通过。
+
+## 2026-11-05 · 修复演示时间轴帧预览和滚动命中，支持轨道及片段拖动排序并增大轨道区
+
+记录：[presentation-timeline-arrangement](../../docs/history/entries/2026-11-05-05-presentation-timeline-arrangement.json)；版本：未发布。
+
+- 帧预览按当前可见窗口定位与采样，取消旧取帧请求，移除拖动库离屏内边距的重复偏移。
+- 片段拖动按指针位移计算，限制命中范围到可见片段，摄像头轨道参与统一纵向布局。
+- 轨道标题支持整轨拖放和上下键排列，顺序随项目保存重开，新素材清空旧顺序；字幕独立参与排列。
+- 同轨片段跨越旧邻居移动，重叠落点采用插入排列并保留时长、源偏移及留白；移除录屏菜单向前和向后移动。
+- 增加轨道区比例与最小高度，收紧外边距，保证双视频轨道与第三条普通轨道同时可见。
+- 同步当前说明、两份教程、模块规范与TX-115回归条目；保留已有未提交内容。
+
+- 验证：通过context-mode读取维护规范、当前改动索引、Bug台账和演示模块实现。
+- 验证：presentation-editing单测9文件50项通过，归档.artifacts/runs/2026-11-05T08-28-36-429Z-unit。
+- 验证：首轮源码轨道专项在项目回收阶段失败（列表仍有2项目），时间轴新断言已通过；保留归档.artifacts/runs/2026-11-05T08-25-47-288Z-e2e。未改动回收实现，下一轮完整专项通过。
+- 验证：扩展源码轨道专项通过，归档.artifacts/runs/2026-11-05T08-28-26-131Z-e2e，覆盖两路帧图随缩放变化、第三轨可见、真实标题拖动、保存顺序、录屏片段换位、留白定位和明暗菜单。
+- 验证：受影响新增模块与轨道测试的ESLint错误检查退出0。
+- 验证：导入源码专项通过，补充摄像头拖动首次失败，归档.artifacts/runs/2026-11-05T08-31-13-664Z-e2e；进一步诊断归档.artifacts/runs/2026-11-05T08-35-03-465Z-e2e确认：鼠标移动541px，手工移动DOM触发拖动库布局补偿后事件仅余9px。删除拖动中的重复DOM位置更新，保留裁剪几何与最终插入校验，调试输出已移除。
+- 验证：最终源码轨道专项通过，归档.artifacts/runs/2026-11-05T08-38-16-175Z-e2e；摄像头右段真实拖到首位、源偏移1000ms保持且自动保存通过。录屏真实换位、标题拖动/键盘/保存重开、滚动留白定位、缩放双视频帧图更新、第三轨可见及明暗菜单均通过。
+- 验证：全量pnpm test通过117文件787项，归档.artifacts/runs/2026-11-05T08-38-26-778Z-unit。
+- 验证：pnpm build完整退出0，包含Node/Web类型检查、设置和工具及宿主构建；日志.artifacts/work/presentation-timeline-arrangement-build.log。最终拖动修复后另执行工具生产编译；无electron-builder或build:unpack。
+- 验证：pnpm docs:check通过31文档207链接15章65步；presentation-timeline分组列出3个单测及2个源码E2E文件。
+- 验证：人工查看225%时间轴可见帧截图及双视频与第三轨布局，图像覆盖可见窗口；新增模块、片段与菜单模块及受影响测试的强制ESLint错误检查退出0。
+- 验证：最终pnpm build:tools退出0，日志.artifacts/work/presentation-timeline-arrangement-tools-final.log；编译含最终移除重复拖动布局的实现。
+- 验证：pnpm maintain、pnpm maintain:check、pnpm docs:check与git diff --check退出0。
+- 验证：pnpm preview:sync退出0，104项程序文件核验通过，463个既有data/legacy文件逐文件一致；程序回退副本.artifacts/backups/preview-sync/update-1793868089951/previous-resources。
+- 验证：pnpm test:preview:resources退出0，核验103项程序、345项内置工具及1687项媒体运行资源。
+
+## 2026-11-05 · 修复演示录屏控制、摄像头轨道、时间轴比例与片段操作
+
+记录：[presentation-timeline-interactions](../../docs/history/entries/2026-11-05-04-presentation-timeline-interactions.json)；版本：未发布。
+
+- 取消控制条鼠标录制开关及状态入口，录制链明确配置mouse:true；按键仍由用户单独启用。摄像头关闭与麦克风使用相同纯文字危险软按钮。
+- 新增时间轴比例滑杆、加减和适应全部；横向滚动条按可见时长显示滑块，支持点击、拖动与键盘。更改片段时保留用户比例，换素材重新适配。
+- 改进明暗刻度与固定游标头，显示分:秒.毫秒，方向键微调1ms、Shift微调1秒；250ms刻度保留两位小数。
+- 摄像头素材自动进入独立轨道，缺失区间按实际时长、偏移和旧可见范围补齐，保留明确删除的空轨；支持分割、移动、裁剪和右键删除，沿项目保存链持久化。
+- 统一片段右键菜单与选区剪刀：只处理选中目标，游标在外或无选区时不操作；声音静音/恢复、删除，录屏复制/移动等集中到菜单，移除侧栏重复操作。
+- 取消录屏切口24px人为内缩和所有录屏竖条，保持显示与媒体时间一致；分割保持独立声音倍率、右段素材偏移与外侧淡入淡出。
+- 同步README、模块/设置说明、工具清单、应用内与仓库教程、更新说明、Bug台账及TX-114回归分组；保留既有未提交改动。
+
+- 验证：通过context-mode读取维护流程、改动索引、Bug台账和相关模块，核对已有未提交改动并保留。
+- 验证：首轮3文件27项相关单测通过，归档.artifacts/runs/2026-11-05T07-07-19-936Z-unit。
+- 验证：首轮源码专项2通过1失败（控制条和导入通过），归档.artifacts/runs/2026-11-05T07-08-11-308Z-e2e；失败为自动保存完成前读取旧摄像头数据，补上明确保存等待。
+- 验证：扩展专项首轮2失败，归档.artifacts/runs/2026-11-05T07-12-31-256Z-e2e：控制测试误用弹层“关闭麦克风”寻找工具栏实际“禁用麦克风”；轨道测试在上一轮项目加载完成前开始下一次导入。修正真实名称和加载完成等待，未降低产品断言。
+- 验证：最终控制/轨道两项源码专项通过，归档.artifacts/runs/2026-11-05T07-15-37-653Z-e2e；覆盖统一关闭按钮、固定鼠标采集、真实物理输入与系统回收，摄像头与音频分割保存重开、选中录屏切口紧邻、225%比例保持、横向拖动/键盘和菜单。
+- 验证：全量pnpm test通过117文件784项，归档.artifacts/runs/2026-11-05T07-18-19-676Z-unit。
+- 验证：pnpm docs:check通过31文档、207链接、15章65步；presentation-editing分组列出9个单测和7个源码E2E文件。
+- 验证：已人工查看摄像头关闭和明暗时间轴菜单截图；浅色截图碰到侧栏过渡，补上正文和透明度稳定等待。刻度审查发现250ms被显示为0.3秒，已改为0.25并加入单测。
+- 验证：最后完整录制/轨道/本地教程源码专项运行中；本地教程已通过。新增模块的强制ESLint审查提示缺少显式返回类型，待补齐后复核。
+- 验证：最后3项源码E2E全部通过：完整录制、轨道与本地教程；归档.artifacts/runs/2026-11-05T07-19-11-932Z-e2e。录制实际验证摄像头自动入轨、两路音频、共同录制交接、预览、实际MP4导出和会话回收；轨道验证右键音频删除后自动保存且不重建、毫秒游标键盘与稳定明暗菜单截图。
+- 验证：新建模块补齐显式返回类型后，强制--no-ignore ESLint检查及相关测试文件检查退出0；最后改动仅类型与JSDoc，不改变已验收运行行为。
+- 验证：pnpm build完整退出0：Node/Web类型检查、设置页检查与构建、演示桥接、工具及宿主生产编译；日志.artifacts/work/presentation-timeline-delivery-build.log。未运行electron-builder或build:unpack；既有pnpm迁移、PostCSS和大chunk提醒保留。
+- 验证：最终人工审查稳定明暗菜单和摄像头关闭截图，刻度250ms正确显示0.25/0.75、游标0:01.000；菜单使用不透明底色，屏幕片段无端点竖条。git diff --check通过。
+- 验证：首次pnpm preview:sync因免安装预览仍运行而在任何资源替换前停止；只读进程与窗口检查确认仅宿主在托盘。用户明确回复“已退出，继续同步”后继续，未强制结束或重置资料。
+- 验证：pnpm preview:sync退出0：104项程序资源核对、451个同步前既有data/legacy文件逐文件一致；程序回退副本.artifacts/backups/preview-sync/update-1793863659586/previous-resources。
+- 验证：pnpm test:preview:resources退出0：103项程序文件、345项内置工具文件和1687项媒体运行文件核验通过。配置、素材及已安装插件保留；未push、云端构建、release或数据重置。
+
+## 2026-11-05 · 修正重命名状态图标居中，统一序号控件排布并缓解插入页拥挤
+
+记录：[rename-visual-alignment](../../docs/history/entries/2026-11-05-03-rename-visual-alignment.json)；版本：未发布。
+
+- 错误、完成、待改名与无变化状态使用SVG几何图形，行尾移除也使用居中SVG，避免字体基线偏移。
+- 编号与插入页共用横向标签/控件的序号参数行，统一数值和下拉的字体、字重、箭头列与线条；移除重复外框，增加行距和中列宽度。
+- 保留原有规则参数、编辑、冲突保护与事务行为，扩充既有源码E2E的中文序号、渲染对齐和真实窄窗口截图。
+
+- 验证：通过context-mode核对维护规范、当前改动与Bug台账，保留工作区已有修改。
+- 验证：pnpm test的2文件26项相关单测通过，归档.artifacts/runs/2026-11-05T06-02-54-767Z-unit。
+- 验证：早期源码E2E发现数字组件把class透传到内部input而没有应用外框，已改为明确的外层控件容器；失败归档.artifacts/runs/2026-11-05T06-02-44-602Z-e2e。窄窗口夹具起初只调整宿主而未同步WebContentsView边界，已调用现有布局接口，未修改宿主产品逻辑；失败归档.artifacts/runs/2026-11-05T06-03-52-289Z-e2e。
+- 验证：修正后源码E2E通过，归档.artifacts/runs/2026-11-05T06-05-15-192Z-e2e；最后将类型选中文字改为普通正文绘制后，再次专项1项通过，最终归档.artifacts/runs/2026-11-05T06-06-39-157Z-e2e。
+- 验证：最终专项核对中文大写真实预览、数字/下拉字体一致和箭头列小于1px差、错误与移除SVG居中小于0.5px差、640px真实宿主及视图下行距至少9px且无内部滚动；同时保留80文件标签隔离、多行键入/系统粘贴、冲突阻止、实际执行/撤销和刷新稳定回归。
+- 验证：已查看最终错误、中文序号、插入序号及此前同布局的窄窗口和深色截图；直接捕获稳定插件正文。受影响源码和测试ESLint通过，回归分组列出3个单测及2个E2E文件。
+- 验证：审校工具规范、指令清单、README、两份教程与更新说明；本轮不改变操作名称或行为，教程继续准确。pnpm docs:check通过31文档、207链接和15章65步。
+- 验证：最终pnpm build:tools通过，日志.artifacts/work/rename-visual-build-final.log；受影响的源码和测试ESLint、pnpm maintain、pnpm maintain:check及git diff --check退出0。
+- 验证：首次pnpm preview:sync检测免安装预览仍运行，保护机制在替换资源前停止；用户确认从托盘正常退出后继续同步成功。
+- 验证：pnpm preview:sync与pnpm test:preview:resources退出0，431个同步前已有data/legacy文件逐文件一致。同步核对104项程序文件；只读核对103项程序、345项内置资源与1687项媒体文件通过。回退资源.artifacts/backups/preview-sync/update-1793859228585/previous-resources。
+
+## 2026-11-05 · 优化重命名标签隔离、多行手动编辑、表单布局和稳定预览
+
+记录：[rename-interactions](../../docs/history/entries/2026-11-05-02-rename-interactions.json)；版本：未发布。
+
+- 切换顶层标签自动使用当前功能，移除总启用框；规则清理仅保留可勾选叠加的大小写、文件名清洗和扩展名处理，旧删除字符配置不参与预览。
+- 补充多行编辑框和应用入口，手动与智能名称独立保存；重算保留原列表节点，校验与执行仍有过期隔离和冲突防护。
+- 修复查找方式裁切、复选框对齐与数字微调按钮，收紧插入页布局，清空列表使用垃圾桶图标。
+
+- 验证：已通过context-mode核对维护规范、改动索引与Bug台账，保留工作区原有未提交修改。
+- 验证：使用仓库指定pnpm9.15.9入口：3文件30项相关单测通过，归档.artifacts/runs/2026-11-05T05-37-51-070Z-unit。
+- 验证：首轮源码E2E为1通过2失败，归档.artifacts/runs/2026-11-05T05-38-00-820Z-e2e：tools-lifecycle通过；tools-expanded在本轮未改动的图片标记颜色断言处提前失败，未到达重命名。专项滚动断言把1100 CSS px作为精确值，忽略本机DPI实际1100.363647 px；后续改为对照实际初始值，未放宽刷新位移要求。第二轮同类断言失败保留于.artifacts/runs/2026-11-05T05-39-43-745Z-e2e。
+- 验证：最终重命名专项和本地教程2项源码E2E通过，归档.artifacts/runs/2026-11-05T05-40-53-170Z-e2e。80个真实临时文件覆盖标签隔离、清理叠加、键入换行、系统剪贴板CRLF与末尾换行、条数错误保护、冲突阻止、单击执行与撤销、刷新期间滚动节点和全部采样位置精确不变。
+- 验证：已查看最终编号、替换、清洗、插入序号、手动和深色正文截图；查找方式完整显示，微调按钮跟随主题，清理勾选框在边框内对齐，插入序号含指定位置无需内部滚动。截图等待计算和校验结束及实际绘制，直接捕获插件WebContentsView。
+- 验证：新增及受影响源码/测试ESLint通过；pnpm docs:check通过31文档、207链接和15章65步；rename-interactions回归分组列出3个单测和2个E2E文件。
+- 验证：pnpm build退出0，包含Node/Web类型检查、设置页检查与构建、工具和宿主生产构建；日志.artifacts/work/rename-delivery-build.log。
+- 验证：同步前pnpm maintain及pnpm maintain:check通过；首次pnpm preview:sync检测免安装预览仍在运行，按保护机制在替换资源前停止。用户从托盘退出后继续同步成功。
+- 验证：最终pnpm preview:sync及pnpm test:preview:resources退出0：同步核对104项程序文件，425个已有data/legacy文件逐文件一致；只读资源核对103项程序、345项内置资源与1687项媒体文件通过。回退副本.artifacts/backups/preview-sync/update-1793857465336/previous-resources。
+
+## 2026-11-05 · 统一Windows无指针演示录制的采集时钟，修复摄像头首尾错位和启动等待
+
+记录：[presentation-common-capture-clock](../../docs/history/entries/2026-11-05-01-presentation-common-capture-clock.json)；版本：未发布。
+
+- Windows画面使用WGC并继续禁用系统指针，摄像头改用MediaFrameReader的SystemRelativeTime，系统声音与选定麦克风使用WASAPI包QPC；各路共用一次UTC/QPC校准和明确起止/暂停区间。
+- 并行准备设备及独立原生编码器，取得真实源帧后才提交40ms后的共同边界；相机不再由浏览器首包重新归零。音频按实际样本切片、填充真实缺口，视频按共同60Hz输出时间轴编码，不再用文件长度反推内容偏移。
+- WGC回调复制到有界队列，编码线程独立处理；静态窗口保留最新源帧，在开始和恢复边界建立画面，不依赖窗口必须刷新。窗口改用真实CreateForWindow，屏幕与区域继续显示器捕获。
+- 去掉开始时同步PowerShell显示器枚举和固定窗口激活等待；去掉控制条约300ms退场动画等待。设备准备阶段不写正式素材，取消仅清理本次文件；请求相机缺失时不能自动把部分素材作为同步成功。
+- 从仓库C++源码重编译Windows x64原生程序，加入可复用本地MSVC/SDK构建入口和协议说明；更新模块README、工具清单、更新说明、Bug台账、TX-112和回归分组。
+
+- 验证：通过context-mode核对维护流程、改动索引、Bug台账及相关模块，保留原工作区其他未提交内容。
+- 验证：早期浏览器VideoFrame/WebCodecs方案在内容专项中出现2–3帧偏差，已移除；未以缩小文件长度或放宽一帧阈值交付。原生源时间码验证屏幕与独立相机编码器同帧，双音轨PCM相对第三路独立WASAPI参考约0.03ms误差。
+- 验证：初版1秒冷启动目标未通过；分段日志显示音频约42ms、图形约172ms、硬件编码器准备约1.2s，控制条额外约300ms。当前回归分别约束冷启动小于2秒、共同起点后UI显示小于100ms；实际数据待最终运行写回。
+- 验证：真实摄像头准备和短时正式录制已通过，屏幕/相机时长均0.76665s；准备取消没有遗留素材，归档仅保存数值，真实人像临时文件随隔离目录删除。
+- 验证：控制项回归发现静态窗口不推送新帧导致空录制，已补共同起点和恢复快照，等待复测。
+- 验证：暂停前最近一轮5项源码E2E：4通过、1失败，归档.artifacts/runs/2026-11-05T03-27-01-319Z-e2e。通过真实摄像头（画面/相机均0.76665s）、实际原始帧指针排除（阳性1247像素/录制0像素）、完整录制预览编辑导出及资源回收、内容时钟专项。该次无倒计时实际采集起点约1208.6ms，UI约1243.9ms（起点后35.3ms）；5个采样位置画面/相机时间码相同，双音轨相对独立PCM参考最大约0.039ms误差。
+- 验证：失败项为静态窗口开始后没有新WGC帧而生成空录制。已补最新帧快照、开始/恢复区间首帧和不依赖下一帧的准备回执，并重新编译原生程序成功；此最后改动尚未执行E2E。
+- 验证：用户明确要求安全暂时中断。只读检查本轮Electron、原生采集、光标及仓库Node进程均已退出；系统已静音，音量0.05保持。新增测试和构建入口已格式化，改动保留于工作区。
+- 验证：暂停收尾pnpm maintain、pnpm maintain:check及git diff --check退出0；仅已有CSS的CRLF转换提示。恢复后仍须完成最后补丁的专项验证和正式交付。
+- 验证：用户明确要求继续；从暂停记录恢复并核对Git状态、维护与模块文档，先复测已编译的静态窗口快照补丁。
+- 验证：恢复后的最后静态窗口补丁复测：5项源码E2E全部通过，归档.artifacts/runs/2026-11-05T03-58-14-623Z-e2e。控制项覆盖静态窗口、键盘独立录制、目录选择及真实回收；指针阳性1247像素/原始帧0像素；真实相机/画面时长均0.783317s；完整录制预览编辑实际导出和退出回收通过。
+- 验证：最后内容专项5处画面/独立相机编码时间码相同，暂停恢复与尾段无帧偏移；双音轨对第三路独立WASAPI参考最大约0.027ms、彼此0ms。实际采集起点1614.5ms，UI1661.4ms（共同起点后46.9ms），冷启动主要为硬件编码器准备。物理来源替换与实际设备检查分别记录，未将容器时长等同于传感器内容验收。
+- 验证：7文件42项相关单测通过，归档.artifacts/runs/2026-11-05T03-59-03-897Z-unit；新增/更新专项测试和原生构建脚本ESLint通过。
+- 验证：人工核对README、工具清单、模块及原生构建说明、两处教程、更新说明与回归说明；更正旧浏览器编码/首帧前置量说明，补齐TX-112。pnpm docs:check通过31文档、207链接和15章65步；presentation-editing分组列出8个单测与7个E2E文件。
+- 验证：测试后系统静音为true、音量0.05保持；同步前只读核对免安装预览未运行。
+- 验证：最终pnpm build退出0，包含Node/Web类型检查、设置页类型检查与构建、工具和宿主生产构建；日志.artifacts/work/presentation-common-clock-delivery-build.log。
+- 验证：最终录制预览实际38个帧样本的光标/呈现媒体时间最大偏差为0ms，暂停后无新增GPU重绘；实际导出流程通过，证据在最终源码E2E归档。
+- 验证：同步前pnpm maintain、pnpm maintain:check、pnpm docs:check及git diff --check通过；pnpm preview:sync与pnpm test:preview:resources退出0，程序资源104项核对、423个既有data/legacy文件逐文件一致。
+
+## 2026-11-04 · 继续修复演示录制画面双指针、Windows源访问拒绝及关闭音频斜线
+
+记录：[presentation-cursor-and-recycle](../../docs/history/entries/2026-11-04-03-presentation-cursor-and-recycle.json)；版本：未发布。
+
+- Windows屏幕、窗口及区域录制统一使用现有WGC原生捕获，显式禁止系统指针合成；能力不足或启动失败时明确报错，避免回退到会烘焙系统指针的浏览器采集。
+- 相机及选定麦克风并行预备并同步开始；按原生首帧前置量平移输入事件、相机和麦克风，按真实视频时长补齐/裁剪独立音轨；停止时等待全部素材和遥测发布后才打开编辑器。
+- 取消使用每次录制独立的失效标记阻止迟到回调发布；清理生成录制的全部同名附属素材，涵盖原生系统/麦克风音轨及元数据。
+- Windows源访问拒绝时将普通文件独占复制到当前用户临时目录继承新权限，检查尺寸和源修改时间，调用同一无提权系统回收流程；只有回收成功才移除原暂存，失败保留原件并回滚，不修改原文件权限或绕过回收保护。
+- 系统音频图标使用与麦克风相同的左上至右下关闭斜线；同步模块说明、工具清单、更新说明、Bug台账及TX-111回归分组。
+
+- 验证：使用context-mode核对维护流程、改动及Bug索引、相关模块和当前Git状态；保留前轮及其他任务未提交工作。
+- 验证：预览日志确认0x80270021，Microsoft SDK定义为COPYENGINE_E_ACCESS_DENIED_SRC；当前用户拥有源目录及抽查文件且具有完整控制，不能据此归咎管理员权限或预览目录。只读抽帧确认用户原始WebM已包含系统指针，未删除用户故障素材。
+- 验证：原浏览器cursor约束/整屏夹具尝试的阳性对照同为零，未作为成功证据。原生专项验证实际系统指针可见且位于捕获窗口内，DrawIconEx实际指针位图阳性1247像素，原始WGC MP4对应区域0像素；也验证生成原生录制及全部附属素材取消清理。通过归档：.artifacts/runs/2026-11-04T09-23-53-126Z-e2e（原生专项及完整录制两项通过，该次控制项启动竞争失败）。
+- 验证：完整录屏源码E2E通过：真实键鼠、系统音频、选定麦克风、相机、暂停恢复、预览导出及会话释放；保留原严格时长误差断言。初次原生接入暴露音频51.733ms误差后实现音轨对齐修复，未放宽阈值。
+- 验证：控制项等待首次设置正文稳定后再启动录制，解决源码隔离首次启动竞争；最终在与预览同工作区的隔离数据路径注入首次源拒绝后，实际PowerShell系统回收新权限副本成功，同时验证前置输入开关及项目目录选择。归档：.artifacts/runs/2026-11-04T09-35-33-118Z-e2e，1项通过。
+- 验证：回收、素材事务、设置、时间线、光标行为和退出相关6文件39项单测通过；覆盖拒绝后成功/再次失败/文件占用不回退。归档：.artifacts/runs/2026-11-04T09-17-48-864Z-unit。
+- 验证：pnpm build交付构建通过（含Node/Web类型检查）；最后产品源码变更已进入构建。
+- 验证：新增及更新专项测试ESLint通过；pnpm docs:check通过31文档、207本地链接、15章65步；pnpm maintain、pnpm maintain:check和git diff --check通过。presentation-editing分组列出7个单测文件和5个E2E文件。
+
+## 2026-11-04 · 修复演示录制前输入选择、键盘采集、项目目录与按键主题间距，核实光标重叠和素材删除
+
+记录：[presentation-capture-controls](../../docs/history/entries/2026-11-04-02-presentation-capture-controls.json)；版本：未发布。
+
+- 系统音频独立放在麦克风之前；关闭麦克风以无图标的醒目按钮展示。录制前显示鼠标和按键的独立选择，首帧开始前配置本次采集。
+- 预览日志确认按键失败来自展开组件再次加载uiohook-napi时缺少node-gyp-build；改为复用宿主已加载输入单例，不停止全局监听。按键样本沿用实际鼠标位置。
+- 项目目录增加真实选择、可写验证与偏好合并保存；新项目使用新目录，已有项目沿原路径保存，不迁移素材。按键样式名称使用独立布局并增加间距。
+- 保留用户与其他任务现有未提交修改。光标捕获和删除原因继续通过隔离源码实例核实。
+- Windows回收改为独立STA辅助进程调用不带提权标志的IFileOperation，并由进度守卫拒绝不可回收的永久删除；只完成当前选择事务，失败恢复完整素材包并显示系统原因。列表不再触发遗留包回收。
+- 原始素材的UI删除登记完整必要任务，等待系统操作或回滚完成后再退出；纯按键事件不再进入光标滤波与自动缩放。预览画布仅在显示录制光标时隐藏悬停系统指针，保留标注手柄。
+
+- 验证：修改前通过context-mode阅读维护流程、改动索引、Bug台账、工具/设置及演示模块文档并核对Git状态。
+- 验证：首轮源码E2E：presentation-tracks通过；presentation-recorder因原自动保存说明的布局变化未匹配而失败，已恢复说明，失败归档.artifacts/runs/2026-11-04T07-56-01-302Z-e2e。
+- 验证：新专项首轮因仅等待5秒、正文仍在加载而失败；已按组件真实冷启动增加正文就绪等待并补充页面错误记录，失败归档.artifacts/runs/2026-11-04T07-58-31-481Z-e2e。
+- 验证：预览日志两次明确记录Cannot find module node-gyp-build；检查预览录制目录普通目录属性与继承权限正常，未改动用户文件。源码隔离临时素材正常回收；不能据此判定原先那次Windows拒绝的具体原因。
+- 验证：Windows新回收专项首轮发现PowerShell 5.1以本地代码页读取无BOM脚本，已为脚本添加UTF-8 BOM；原件回滚生效。失败归档.artifacts/runs/2026-11-04T08-05-24-984Z-e2e；随后新接口成功回收及键盘独立录制通过.artifacts/runs/2026-11-04T08-11-09-812Z-e2e。
+- 验证：一次测试启动器在任何用例执行前以3221226505退出，保留空输出归档.artifacts/runs/2026-11-04T08-08-12-257Z-e2e；随后残留服务只剩设置端口导致工具页面连接拒绝，结束后从完整源码服务重启通过。
+- 验证：8文件41项单测通过.artifacts/runs/2026-11-04T08-17-48-347Z-unit，覆盖目录/设备偏好合并及失败后队列恢复、回收失败恢复、事务隔离和纯按键不推断缩放。新增纯按键回归首次失败，证明建议生成还有独立入口，已补齐该入口过滤并复测通过。
+- 验证：5项源码E2E中教程、目录/输入/回收、导入和完整录制通过.artifacts/runs/2026-11-04T08-13-18-765Z-e2e。按键主题间距断言发现13px根字体下gap-3仅9.75px，改用gap-4确保大于10px后专项复测。
+- 验证：pnpm typecheck:node、主服务与新增测试ESLint、pnpm docs:check通过；源码专项尚在收尾，构建及预览状态随后补记。
+- 验证：最终目录/输入/回收及轨道专项2项通过.artifacts/runs/2026-11-04T08-17-53-819Z-e2e；键盘独立录制没有鼠标位置样本，启用录制光标时预览系统指针样式为none，五组主题间距均大于10 CSS像素。已直接查看插件可见区域截图和控制条截图。
+- 验证：真实录制、导入、本地教程沿此前4项通过结果；后续仅改动纯按键建议过滤、主题间距及素材删除必要任务登记，已用对应单测和两项源码专项复测。未为最终生产交付重新打包运行E2E。
+- 验证：pnpm docs:check通过31文件207链接及15章65步教程，主服务与新增测试ESLint通过，git diff --check通过；既有ItemGlass.module.css和suites.json行尾归一化提示保留。
+- 验证：pnpm build通过宿主Node/Web类型检查、设置构建、演示与工具构建以及Electron生产编译；日志.artifacts/work/presentation-capture-controls-build.log。
+- 验证：pnpm maintain与pnpm maintain:check通过，pnpm test:regressions presentation-editing --list确认6个单测文件和4个源码E2E文件。
+- 验证：pnpm preview:sync成功更新1.3.0免安装预览并逐文件保留501个现有配置、资料和插件文件，核对104项程序资源；回滚资源.artifacts/backups/preview-sync/update-1793780579535/previous-resources，日志.artifacts/work/presentation-capture-controls-preview-sync.log。
+- 验证：pnpm test:preview:resources通过103项程序、345项内置与1687项媒体资源核验，含新增无提权回收脚本及宿主输入桥接；日志.artifacts/work/presentation-capture-controls-preview-verify.log。
+
+## 2026-11-04 · 修复打开其他子组件时常驻工具关闭或正文空白
+
+记录：[temporary-residency-switch](../../docs/history/entries/2026-11-04-01-temporary-residency-switch.json)；版本：未发布。
+
+- 独立工具窗口保存功能码并按路径及功能匹配；其他工具使用自己的页面，同功能无操作重入恢复原窗口。
+- 正文WebContents独立保存重入状态，避免其他子组件退出后重进常驻工具时清空状态；Windows隐藏窗口重入先show。
+- 补测发现独立窗口快速关闭后延迟聚焦仍读取被Electron清空的view.webContents，修正为捕获所属正文、关闭时取消计时器，隐藏/最小化及销毁后禁止抢焦点。
+- 增加临时常驻切换源码E2E及回归组，同步工具规范、架构、Bug台账和更新说明；保留工作区原有未提交内容。
+
+- 验证：修改前默认使用context-mode盘点，阅读维护、改动索引、Bug台账及工具、插件、内存和Agent规范。
+- 验证：临时常驻专项源码E2E通过，归档.artifacts/runs/2026-11-04T07-10-11-961Z-e2e。
+- 验证：三项联合源码E2E通过，归档.artifacts/runs/2026-11-04T07-11-30-858Z-e2e：常驻切换与正文内部筛选状态、隐藏/最小化及同功能恢复、独立入口、取消常驻不影响新工具，以及原插件单例和工具资源清理。
+- 验证：沙箱内第一次源码服务器未就绪，手动取消后使用沙箱外隔离Electron验证；未据此宣称缺陷已复现。
+- 验证：相关四文件17项单测通过，归档.artifacts/runs/2026-11-04T07-13-09-717Z-unit；pnpm build通过类型检查及生产构建，日志.artifacts/work/temporary-residency-build.log。
+- 验证：代码检查首次指出新测试空fixture参数，改为具名fixture后ESLint通过；pnpm docs:check、pnpm maintain、pnpm maintain:check和git diff --check通过。
+- 验证：真实正文补测中常驻专项和工具清理通过，但plugin-host相邻回归捕获独立窗口关闭后的100ms聚焦访问已释放正文，主进程失败退出；失败归档.artifacts/runs/2026-11-04T07-15-13-161Z-e2e保留，已修复待最终复测。
+- 验证：首轮预览同步成功，保留493个现有配置、资料和插件文件，核验103项程序资源；补充延迟焦点修复后仍须再次同步。
+- 验证：延迟焦点修复后最终三项源码联合E2E全部通过，归档.artifacts/runs/2026-11-04T07-17-39-617Z-e2e；包含真实剪贴板正文、内部筛选状态及独立窗口快速关闭，未放宽原断言。
+- 验证：最终pnpm typecheck:node和宿主electron-vite build通过，日志.artifacts/work/temporary-residency-final-host-build.log；最终相关三文件ESLint通过。
+- 验证：最终pnpm preview:sync成功，版本保持1.3.0，493个现有配置、资料和插件文件完整保留；核验103项程序资源，回滚资源.artifacts/backups/preview-sync/update-1793776764737/previous-resources。
+- 验证：pnpm test:preview:resources通过102项程序、345项内置和1687项媒体资源核验；日志.artifacts/work/temporary-residency-preview.log及temporary-residency-preview-resources.log。已直接查看插件正文截图，真实记录在多次切换后仍可见。
+
+## 2026-10-29 · 修复演示录制同步、启动延迟、双音轨初始化和轨道名称遮挡
+
+记录：[presentation-synchronization](../../docs/history/entries/2026-10-29-03-presentation-synchronization.json)；版本：未发布。
+
+- Windows屏幕与窗口统一使用Chromium捕获，摄像头与麦克风并行准备；无倒计时在设备就绪后立即启动。四路编码在同一任务启动、暂停、恢复与停止，冻结共同录制时长，停止暂停状态不再恢复后追加画面。
+- 系统音频和麦克风不再混成单路，分别保存WebM伴随素材；宿主只对显式附属保存放行规定的音频文件名，解码验证并写入零起点元数据，不替换主视频、项目或光标。停止后等待完整素材发布再进入编辑。
+- 首次加载自动建立可独立设置、淡入淡出、分割和删除的双音轨；伴随来源查询完成前不提前重复分离内嵌声音。已初始化的路径标记进入项目，迟到音轨补齐，已删除音轨不因重开自动重建。
+- 视频提交帧时间驱动摄像头、音频和按键预览；校正阈值收紧至一帧，移除相机首帧人为前移，音频在跳转未完成时不反复重新跳转。预览与导出沿同一时间映射。
+- 按用户补图将录屏、系统音频、麦克风名称放在左侧轨道栏，移除缩略图与波形上的重复名称，保留片段无障碍名称和提示。
+- 按用户后续要求取消摄像头时间轴轨道、选择联动和分割删除检查器，保留录制、画中画侧栏、素材及旧项目时间映射。
+- 同步README、演示模块说明、工具目录、仓库与应用内教程和更新说明，增加TX-108与受限音频保存回归。保留其他未提交工作。
+
+- 验证：修改前使用context-mode阅读维护流程、改动与Bug索引及模块文档，确认并保留已有未提交内容。
+- 验证：pnpm test --maxWorkers=2通过111文件766项，归档.artifacts/runs/2026-10-29T11-40-05-025Z-unit；新增保存路径单测及来源初始化单测随后通过，归档.artifacts/runs/2026-10-29T11-49-20-031Z-unit。
+- 验证：源码E2E使用preview-main.cjs和隔离data/legacy。首轮录制通过；轨道用例两次因保留已取消摄像头分割断言而失败，已按新交互修正，保留原失败归档。
+- 验证：补测两路真实MediaRecorder音频发现音频文件名未获宿主放行，导致完整会话发布失败；补齐受限路径、音频解码校验与零偏移元数据。原失败归档.artifacts/runs/2026-10-29T11-43-25-109Z-e2e保留。
+- 验证：导入和轨道源码专项通过，归档.artifacts/runs/2026-10-29T11-40-57-810Z-e2e与11-48-58-091Z-e2e；验证首次双音轨、各自检查器、淡入淡出实际采样、分割、删除、重开不重复、摄像头轨道缺席及实际导出。
+- 验证：完整多路录制复测通过.artifacts/runs/2026-10-29T11-51-12-717Z-e2e：无倒计时输入到录制状态436ms；四路编码启动/暂停/恢复/停止跨度0.6/0.4/0.3/2.7ms，视频与相机及双音轨容器时长差小于一帧，光标尾部差12ms，预览帧偏移0ms且暂停GPU绘制增量0。资源回收和实际导出通过。
+- 验证：暂停GPU专项原先没有等待相机最终跳转并包含非预览视频，补充只等待当前预览的实际解码状态后保留相同的零绘制断言；未放宽渲染检查。
+- 验证：pnpm build通过宿主及设置类型检查与生产构建；最终工具资源编译通过，日志.artifacts/work/presentation-sync-build.log与presentation-sync-final-tools.log。新增文件强制ESLint通过；独立上游严格TypeScript仍存在原有宿主扩展、鉴权与资源类型问题，不能视为全量上游严格检查通过。
+- 验证：pnpm docs:check、pnpm maintain、pnpm maintain:check及git diff --check通过；pnpm test:regressions presentation-editing --list确认专项分组。最终包含原生按键事件的复测和预览交付结果在收尾补记。
+- 验证：最终3项源码E2E同次全通过，归档.artifacts/runs/2026-10-29T11-53-27-204Z-e2e。包含原生系统按键写入遥测、两路真实MediaRecorder音频、摄像头、共同编码边界及实际导出。最终启动/暂停/恢复/停止跨度0.8/0.5/0.5/2.9ms，无倒计时输入到录制状态437ms，轨迹末尾差4ms，预览帧偏移0ms，暂停GPU绘制增量0。
+- 验证：最终来源、设置及路径专项16项通过，归档.artifacts/runs/2026-10-29T11-54-02-261Z-unit；已人工查看直接插件截图，确认名称位于左栏且没有摄像头轨道。
+- 验证：最终pnpm build再次通过，日志.artifacts/work/presentation-sync-final-build.log；来源路径改用稳定本地路径以避免重开端口变化重复初始化后，pnpm build:tools及文档、维护校验再次通过。
+- 验证：第一次预览同步因用户正在运行免安装预览被同步器安全拒绝，未替换运行中文件；用户明确退出后再次执行pnpm preview:sync成功。保留357个现有配置、资料和插件文件，核验103项程序资源；回滚资源.artifacts/backups/preview-sync/update-1793275237783/previous-resources。
+- 验证：pnpm test:preview:resources通过102项程序、345项内置与1687项媒体资源核验，日志.artifacts/work/presentation-sync-preview.log与presentation-sync-preview-resources.log。
+
+## 2026-10-29 · 修复演示录制时长、素材删除、窗口视频及编辑器检查器与滚动交互
+
+记录：[presentation-timeline-repairs](../../docs/history/entries/2026-10-29-02-presentation-timeline-repairs.json)；版本：未发布。
+
+- 摄像头优先录制可补齐时长的WebM，冻结明确停止时刻，附属素材不改写主视频、光标遥测及项目路径；探测真实摄像头时长，默认片段按源长度和偏移显示。更换来源清空旧片段，外观偏好和预设不携带来源时长或片段。
+- 原始录制删除改为将库内主文件、摄像头、音频及匹配元数据送到系统回收站，失败回滚；原先仅隐藏的文件重新列出供用户明确删除，不静默追删。删除当前项目先退役自动保存队列并释放来源，避免删除后重建。
+- Windows应用窗口改走Chromium直接窗口捕获，避免原显示器裁剪路径漏掉视频窗口内容；屏幕录制仍使用现有原生路径。保留可编辑光标和摄像头异步交接。
+- 系统声音和麦克风名称置于轨道条中央；点击原音轨或独立音轨在预览旁打开音频编辑，可调音量、响度归一化、素材起点及淡入淡出，并分割或删除独立音频。摄像头轨道联动打开摄像头设置，移除轨道下方提示。
+- 录屏条增加文字标识；片段检查器移除显示原始音轨及片段静音入口，提供分割、复制、前后移动、裁剪、速度和删除；复制保留所属源音频设置。
+- 按键显示固定在光标旁的独立侧栏入口，提供简约、苹果、黏土、机械键盘和RGB五种样式及文字/颜色/背景调节；保存、预览和导出共用装饰参数。
+- 普通注释只对聚焦、模糊、图片和马赛克显示圆角；模糊和马赛克相邻，去掉数值控件的多余冒号，图片圆角同步Canvas导出。
+- 时间轴增加底部横向滚动条，保留Shift+滚轮横移和Ctrl+滚轮缩放；纵向滚动时标尺及游标时间固定可见。异步预览尚未建立播放链时保留提前跳转，避免游标请求丢失。
+- 同步README、设置和工具规范、目录、仓库/应用内教程及更新说明；新增TX-107及presentation-editing回归分组，保留工作区原有未提交内容。
+
+- 验证：修改前使用context-mode读取维护流程、改动索引、Bug台账和演示模块文档，并检查Git状态。
+- 验证：pnpm test --maxWorkers=2最终通过111文件765项，归档.artifacts/runs/2026-10-29T06-33-53-979Z-unit；来源时长不串入全局偏好新增回归也通过。
+- 验证：录制、导入、轨道及本地教程4项源码E2E通过，归档.artifacts/runs/2026-10-29T06-21-24-929Z-e2e。使用preview-main.cjs与隔离data/legacy，未使用electron-builder或build:unpack。
+- 验证：实际播放视频窗口、合成摄像头及暂停恢复录制复测通过，归档.artifacts/runs/2026-10-29T06-32-01-673Z-e2e中的recorder：采样帧非黑且画面变化、帧率大于15、摄像头加偏移与主视频差小于150ms，光标预览/导出与退出回收通过。
+- 验证：同次tracks复测因预览播放链异步初始化前的跳转被丢弃而失败，原失败归档保留；补齐提前跳转保留和游标位置断言后最终通过，归档.artifacts/runs/2026-10-29T06-37-18-159Z-e2e。覆盖音频实际采样、短摄像头时长/分割/重开、RGB导出像素、图片圆角透明像素、场景效果、真实纵向滚轮及横移、删完项目等待自动保存后不重建和素材实际路径消失。
+- 验证：pnpm build通过宿主Node/Web、设置类型检查及生产编译，日志.artifacts/work/presentation-repairs-build.log；新增两个检查器的强制ESLint通过。独立上游严格TypeScript检查仍有既有宿主扩展API、翻译Pick和资源声明问题，未视作全量上游严格检查通过。
+- 验证：pnpm test:regressions presentation-editing --list确认回归命令；文档按当前行为人工审校，自动文档与维护检查及最终资源交付结果在收尾补记。
+- 验证：最后播放链跳转修正后pnpm build:tools通过，日志.artifacts/work/presentation-repairs-final-tools.log。pnpm docs:check通过31文档、207链接、39功能/14分类/30普通入口、15章65步；pnpm maintain与pnpm maintain:check通过，git diff --check无错误。
+- 验证：pnpm preview:sync成功，保留496个现有配置、资料和插件文件，核验103项程序文件；程序资源备份.artifacts/backups/preview-sync/update-1793256120881/previous-resources。pnpm test:preview:resources通过102项程序、345项内置和1687项媒体资源核验；日志.artifacts/work/presentation-repairs-preview-sync.log及presentation-repairs-preview-verify.log。
+
+## 2026-10-29 · 撤销上一模型改动后重做演示录屏按键、独立素材轨道与场景注释
+
+记录：[presentation-independent-tracks](../../docs/history/entries/2026-10-29-01-presentation-independent-tracks.json)；版本：未发布。
+
+- 撤销上一模型对7个既有文件和新增标尺、未完成条目的改动，保留此前大量未提交内容；撤销前补丁存于.artifacts/work。
+- 录制时在控制条开启“按键”，可显示和记录当前会话的物理按键；编辑器点击“添加录制按键”生成可移动、裁切和改字的片段。系统声音与麦克风点击“音频独立编辑”后可分别移动、裁切、分割、静音及设置素材起点和淡入淡出；摄像头素材直接显示为独立轨道，支持拖动、两端裁切、游标处分割和删除。时间轴提供自适应标尺与可键盘微调的时间游标。注释增加聚焦、马赛克和圆角，模糊仅调强度。
+
+- 验证：新源码专项首次因读取早于自动保存而失败，补充轮询保存完成后通过，归档.artifacts/runs/2026-10-29T03-45-09-477Z-e2e；实际音频源起点和淡入淡出采样、注释像素、双音轨/人像分割、按键及项目重开通过。
+- 验证：pnpm build:tools通过；专项类型检查仅报告资源声明与已有宿主扩展类型缺失，正在补齐检查配置。
+- 验证：pnpm test --maxWorkers=2通过111文件763项，归档.artifacts/runs/2026-10-29T03-54-28-124Z-unit。
+- 验证：导入、真实录制及新轨道3项源码E2E全部通过，归档.artifacts/runs/2026-10-29T03-50-23-032Z-e2e；后置维护因本轮Bug台账格式错误退出1，修正JSON后后续源码专项和维护归档均通过，不掩盖原退出结果。
+- 验证：最终补充实际WebGL马赛克预览采样通过，归档.artifacts/runs/2026-10-29T03-58-06-941Z-e2e，直接截取插件可见区域；测试在同一项目连续重开时存在时序问题，改用独立效果项目并等待媒体就绪，未降低像素断言。
+- 验证：新增5个模块强制ESLint通过（关闭上游格式差异规则）；pnpm docs:check通过31文档、207链接、39功能/14分类/30普通入口和15章65步。专项严格TypeScript只余两处原有getTabDoSettings/openTabDoShortcuts宿主API声明缺失，未视作全项目类型检查通过。
+- 验证：最终源码专项通过，归档.artifacts/runs/2026-10-29T04-02-14-806Z-e2e；涵盖实际WebGL马赛克像素、重叠注释选中后拖动不轮换选区、双音轨和人像分割、按键编辑、重开、离屏音频采样与三种场景效果。
+- 验证：pnpm build完整通过宿主Node/Web及设置类型检查、桥接和生产编译，日志.artifacts/work/presentation-tracks-build.log；最后注释拖动修正后pnpm build:tools通过，日志.artifacts/work/presentation-tracks-final-tools.log。未使用electron-builder或build:unpack执行E2E。
+- 验证：首次preview:sync因免安装预览运行而按保护规则退出；用户正常退出后再次同步成功，保留438个现有配置、资料和插件文件，核验103项程序文件；备份.artifacts/backups/preview-sync/update-1793246688303/previous-resources。
+- 验证：pnpm test:preview:resources通过102项程序、345项内置和1687项媒体资源核验；日志.artifacts/work/presentation-tracks-preview-sync.log与presentation-tracks-preview-verify.log。
+
+## 2026-10-28 · 改进演示编辑器折叠设置、人像尺寸、原始音频和圆角裁剪
+
+记录：[presentation-editing-controls](../../docs/history/entries/2026-10-28-08-presentation-editing-controls.json)；版本：未发布。
+
+- 高级由右上角开关改为普通选项后的可展开标题，分分类记住当前会话展开状态；右上角统一当前分类重置，移除正文重复重置，人像重置保留素材及同步范围。
+- 旧默认运动偏好首次升级为平滑，重置缩放直接恢复平滑；已有项目和保存的外观预设继续保留明确的效果参数。
+- 人像增加整体比例缩放、保持宽高比例和独立宽高；手动尺寸保存显式模式，避免被旧裁剪比例自动匹配覆盖，预览和两套导出器一致。
+- 系统声音和麦克风原始音轨默认显示，片段提供显示/隐藏入口；升级旧项目的默认隐藏标记，并通过版本保留新版主动隐藏选择，不改变混音和原始素材。
+- 新增独立背景圆角，贯通偏好、项目、预设、预览和各导出链；最终画面统一圆角遮罩，原生像素导出同样读取遮罩结果，不支持该效果的静态快速路径转回帧渲染，所属中间画布结束即释放。
+- 裁剪弹窗采用紧凑布局和底部操作区，支持八向手柄、整体移动、正反向重新框选、自由/原始和常用比例；取消恢复原范围。裁剪画布只在媒体帧变化时刷新，不使用暂停时的永久动画循环。
+- 同步README、组件说明、设置规范、工具清单、仓库与应用内教程、更新说明、Bug台账和TX-105；扩展演示设置持久化及几何单测和真实源码交互回归。
+
+- 验证：通过context-mode核对维护、改动及Bug索引与模块规范，检查Git状态，保留前轮及其他未提交修改。
+- 验证：presentation-import最终扩展专项通过，归档.artifacts/runs/2026-10-28T08-37-26-093Z-e2e中的该项；真实伴随system/mic WAV自动显示、隐藏恢复、实际MP4包含音频且PCM能量大于静音阈值，人像独立宽高与整体缩放、右上角重置保留素材、独立圆角和输出角像素、八手柄/移动/比例/反向框选/取消恢复，以及项目重开和窗口尺寸通过。
+- 验证：更新后的local-tutorial通过，归档.artifacts/runs/2026-10-28T08-34-40-761Z-e2e中的该项；所有源码专项均由scripts/preview-main.cjs、源码设置/工具服务和两处隔离资料根执行，不为E2E打包或读取真实预览资料。
+- 验证：前轮裁剪手柄指针取点早于弹窗动画结束，改为等待动画与稳定正文并在可见手柄内取点；相邻录制测试的高级断言从checkbox更新为aria-expanded，并等待光标正文后点击，避免操作仍在离场的旧分类。另一次来源菜单未出现的瞬时失败保留证据，不据此改动录制捕获链。
+- 验证：9项演示设置及裁剪几何单测、5项文档单测通过，归档.artifacts/runs/2026-10-28T08-36-14-293Z-unit；覆盖偏好升级、已有项目选择、原始音轨可见性版本、独立圆角、八向几何、移动边界和反向比例框选。
+- 验证：新增或重写的高级、裁剪、几何和圆角输出模块强制ESLint通过，测试与教程源ESLint通过；47个已修改TypeScript文件语法盘点零错误。查看直接捕获的插件可见区域裁剪截图，确认紧凑布局、八手柄和双音轨，未拼接宿主画面。
+- 验证：pnpm docs:check通过31份文档、207本地链接、39功能/14分类/30普通入口及15章65步，presentation-recorder分组确认11个单测文件与4个源码E2E文件。
+- 验证：最终presentation-recorder专项通过，归档.artifacts/runs/2026-10-28T08-40-10-439Z-e2e；真实选择来源、录制、运动效果保存、实际导出、文件重开、底部高级展开及所属窗口/端口回收通过。与最终presentation-import和更新后的local-tutorial合计三项源码流程均通过，原始失败证据保留。
+- 验证：最终pnpm test --maxWorkers=2通过110文件760项，归档.artifacts/runs/2026-10-28T08-42-18-480Z-unit；测试与教程源ESLint、格式检查及git diff --check通过。
+- 验证：pnpm build完整通过宿主Node/Web与设置类型检查、桥接及全部生产编译，日志.artifacts/work/presentation-round2-build.log；保留已有pnpm配置、PostCSS、动态/静态混合导入和大chunk提示，未执行electron-builder或build:unpack。
+- 验证：首次preview:sync因预览仍运行而按保护规则拒绝替换，用户明确确认退出后继续；成功更新固定免安装预览1.3.0，415个现有配置、资料和插件文件逐文件保留，103项程序文件核验，回退副本.artifacts/backups/preview-sync/update-1793177103519/previous-resources。日志.artifacts/work/presentation-round2-preview-sync.log。
+- 验证：pnpm test:preview:resources通过102项程序、345项内置及1687项媒体运行资源核验，日志.artifacts/work/presentation-round2-preview-verify.log；未重置配置、资料或插件，未push、云端构建或发布Release。
+
+## 2026-10-28 · 整理演示编辑器设置与高级选项，支持预览拖放摄像头
+
+记录：[presentation-settings](../../docs/history/entries/2026-10-28-07-presentation-settings.json)；版本：未发布。
+
+- 主页设置移除动态效果分类和通用中的快捷键入口，自动为新录制应用缩放归入通用；连接缩放归入选中缩放片段后的设置，缺省继续开启。
+- 缩放页的动画改为普通选项运动效果，以平滑/专注二选一替代经典动画开关，缺省平滑；只调整缩放时长，不覆盖独立光标参数。读取旧经典开关时转为现行运动效果，保留已保存时长。
+- 场景、光标、字幕及摄像头高级选项集中在普通内容下方，移除没有高级内容的缩放页开关。
+- 摄像头预览接入直接指针拖放，保留抓取偏移，暂停当前帧后定位，按预览缩放换算并限制边界；取消或丢失捕获回滚，卸载释放捕获。移除九宫格，精确坐标保留在高级；人像画面圆角缺省100%并归入高级。
+- 项目归一化不再强制套用整套运动预设，仅补缺失参数，保留已有连接选择、独立光标和人像参数；自由位置沿现有项目与导出链保存。
+- 同步组件说明、README、设置规范、工具清单、仓库与应用内教程和更新说明；增加Bug台账、TX-104与演示设置持久化单测，纳入presentation-recorder分组。
+
+- 验证：通过context-mode核对维护流程、改动与Bug索引及工具、设置文档，检查Git状态并保留全部已有未提交修改。
+- 验证：最终pnpm test:e2e tests/e2e/presentation-import.spec.ts tests/e2e/presentation-recorder.spec.ts tests/e2e/local-tutorial.spec.ts三项通过，归档.artifacts/runs/2026-10-28T07-42-21-808Z-e2e；使用scripts/preview-main.cjs、源码工具/设置服务及两处隔离资料根，未为E2E打包。
+- 验证：源码交互验证通用选项及删除入口、默认连接/平滑与专注保存、摄像头真实预览指针拖放、越界钳制/取消回滚、项目重开坐标保留、100%高级圆角，以及光标/字幕/场景普通内容顺序稳定且高级统一在下部。真实录制、运动效果落盘、导出、文件重开与退出回收通过。
+- 验证：前几轮测试分别暴露HeroUI原生range使用value而非aria-valuenow、中文标签应为水平位置/垂直位置，以及页面离场动画尚未结束时读取了旧正文；修正测试为真实属性、精确标签和稳定正文后最终通过。失败证据保留于.artifacts/runs/2026-10-28T07-35-39-100Z-e2e、2026-10-28T07-37-21-330Z-e2e、2026-10-28T07-40-46-593Z-e2e。
+- 验证：查看直接捕获的插件WebContents可见区域截图，确认拖动后人像实际位置、普通摄像头设置与移除九宫格，未拼接宿主画面。
+- 验证：最终pnpm test --maxWorkers=2通过110文件755项，归档.artifacts/runs/2026-10-28T07-44-56-796Z-unit；新增四项覆盖缺省平滑/连接/100%圆角、专注与独立光标参数保留、旧经典开关退役，以及自由坐标/零圆角保存和导出参数及分辨率换算。
+- 验证：新增拖放Hook通过强制ESLint及独立严格TypeScript检查，修改测试、Vitest别名与教程源ESLint通过；初次类型检查因未配置上游路径别名失败，改用.artifacts/work中的专项配置后通过。presentation-recorder回归分组确认11个单测文件和4个源码E2E文件。
+- 验证：pnpm docs:check通过31份文档、207本地链接、39功能/14分类/30普通入口及15章65步；pnpm maintain与pnpm maintain:check通过。
+- 验证：pnpm build完整通过宿主Node/Web及设置类型检查、演示桥接、设置/工具/宿主生产编译，日志.artifacts/work/presentation-settings-build.log；保留已有pnpm配置迁移、PostCSS、动态/静态重复导入及大chunk提示。未运行electron-builder或build:unpack。
+- 验证：pnpm preview:sync成功同步固定免安装预览1.3.0，382个现有配置、资料和插件文件逐文件保留，103项程序文件核验；回退资源.artifacts/backups/preview-sync/update-1793173640773/previous-resources，日志.artifacts/work/presentation-settings-preview-sync.log。
+- 验证：pnpm test:preview:resources通过102项程序、345项内置及1687项媒体运行资源核验，日志.artifacts/work/presentation-settings-preview-verify.log。未启动真实预览写入测试资料，未重置数据，未push、云端构建或发布Release。
+
+## 2026-10-28 · 以安全闲置与重开体验联合优化内存，并固化开发规范
+
+记录：[memory-experience-policy](../../docs/history/entries/2026-10-28-06-memory-experience-policy.json)；版本：未发布。
+
+- 新增docs/memory-development.md作为内存与重开体验规范，AGENTS、开发指南、架构、工具、设置、插件和测试文档统一引用；明确无任务/无临时常驻闲置范围、两种内存口径、真实释放、任务与数据保护及重开基准。
+- 完全闲置后解除AppsAPI与PluginLifecycleAPI两处启动输入，以及已持久化匹配内存副本；上次匹配改为按需读取，初始化不再提前装载历史图片。保留指令索引和用户持久资料。
+- 启动准备与无页面操作纳入活动计数，结束才允许清除参数；数据库返回错误或抛异常时保留未保存的唯一匹配副本，诊断日志不再序列化完整启动或匹配正文。
+- 闲置先释放宿主引用，Windows工作集低于100MB时跳过冷页回收；其他平台同样执行宿主引用清理。修复同步完成的回收器仍被控制器持有的问题。
+- 扩展idle-memory联合专项：实际16MiB连续启动输入、已保存匹配恢复、设置热重开/回收后重开各三次及演示控制条初次/热/回收后重开；新增idle-input-state覆盖真实数据库容量错误及尚无页面的异步启动保护。
+
+- 验证：通过context-mode核对维护流程、改动索引、Bug台账及工具、设置、插件、性能文档，检查Git状态并保留既有改动。
+- 验证：idleMemoryReclaimer七项单测和Node类型检查通过，归档.artifacts/runs/2026-10-28T06-15-39-395Z-unit；包括低于预算仍解除引用但不启动辅助进程、同步完成释放和原有活动/退出保护。
+- 验证：首次联合源码专项因16MiB匹配夹具超过现有1MiB数据库文档上限而在恢复断言失败，归档.artifacts/runs/2026-10-28T06-19-00-543Z-e2e。由此确认dbPut可返回错误而不抛异常，补上成功结果判定；匹配夹具遵守现有限制，大启动输入独立分配并核对释放，未放宽数据库上限。
+- 验证：最终idle-memory源码专项通过，归档.artifacts/runs/2026-10-28T06-23-39-462Z-e2e。必要任务期间两处启动引用各16,777,238字符、匹配缓存349,550字符；35秒及65秒三处引用均归零，持久匹配恢复和隔离资料读写正常。
+- 验证：最终同实例设置热重开三次789.021/801.085/777.483ms，中位数789.021ms；回收后732.307/806.221/748.402ms，中位数748.402ms，通过3000ms绝对及相对容差。演示控制条初次11,179.405ms包含Vite冷编译，热重开2395.838/2377.670ms，回收后2318.183ms；这些是阶段比较，不宣称相对旧版本的性能提升。
+- 验证：本机源码全应用工作集：设置闲置15秒25.842MB，录屏和工具退出后35秒46.678MB、65秒53.142MB。对应私有提交536.916/551.547/550.715MB，仍未达到100MB；65秒Browser/GPU/Tab/网络/音频分别约189.927/254.652/75.166/17.977/12.993MB。新增大输入夹具和开关次数与前轮不同，不把两轮私有提交直接当成优化前后收益。
+- 验证：五项源码安全回归通过，归档.artifacts/runs/2026-10-28T06-27-06-043Z-e2e：idle-input-state、clipboard-interactions、settings-window-stability、third-party-lifecycle、tools-lifecycle。覆盖真实数据库返回失败保留、启动等待12秒保护、完成后解除引用和匹配恢复，临时常驻隐藏、跨窗口拖放、第三方/Provider必要任务及设置重开。
+- 验证：全量109文件751项单测通过，归档.artifacts/runs/2026-10-28T06-29-27-266Z-unit；修改范围ESLint通过，idle-memory回归组确认6个单测文件及5个源码E2E文件。
+- 验证：pnpm run build完整通过Node/Web/设置类型检查及全部生产编译，日志.artifacts/work/memory-experience-build.log；保留已有pnpm配置迁移、PostCSS和大chunk提示。构建仅用于本地交付，E2E始终直接加载源码，未运行electron-builder或build:unpack。
+- 验证：pnpm docs:check通过31份文档、207个本地链接、39功能/14分类/30普通入口及15章65步；pnpm maintain、pnpm maintain:check和git diff --check通过。
+- 验证：pnpm preview:sync完成固定免安装预览更新：360个现有配置、资料与插件文件逐文件保留，103项程序文件核验，版本仍为1.3.0；回退副本.artifacts/backups/preview-sync/update-1793169184108/previous-resources。
+- 验证：pnpm test:preview:resources通过102项程序、345项内置资源及1687项媒体运行资源核验；收尾再次通过pnpm maintain、pnpm maintain:check、pnpm docs:check与git diff --check。
+
+## 2026-10-28 · 图片标记二级图标、独立参数记忆与文字字号修复
+
+记录：[mosaic-option-icons](../../docs/history/entries/2026-10-28-05-mosaic-option-icons.json)；版本：未发布。
+
+- 马赛克二级选项全部采用截图式图标：模式为涂抹轨迹/矩形，浓度为2×2/3×3/4×4棋盘格，笔刷大小为圆点；移除浓度文字及下拉框，保留title、aria-label和选中态。二级参数区附着浅灰竖线与主工具分隔，内部细线区分三组，窄窗口换行不孤立分隔线。
+- 各标记工具在当前独立窗口分别保留颜色、笔触和字号，切换恢复自己的选择；马赛克模式、浓度和半径独立保留。取消普通工具共用penColor和笔触的状态，不新增持久配置，清空标记继续保留本次工具参数。
+- 文字二级选项改为16/24/36像素的三枚不同大小A图标，隐藏无效的笔触圆点；编辑期间调整字号保留输入焦点和正文，同步输入框、图片缩放及最终画布文字。普通配色二级区域也加浅灰主次分隔。
+- 同步工具/悬浮来源规范、应用内及仓库教程、更新说明、Bug台账和TX-102/103回归；复用既有源码交互专项验证图标、独立参数、字号及实际绘制/复制路径。
+
+- 验证：使用context-mode对照维护流程、当前改动/Bug索引、工具与悬浮规范和原生DrawMosaicPopup，保留所有既有未提交改动。
+- 验证：pnpm test:e2e tests/e2e/image-annotation-interactions.spec.ts tests/e2e/tools-polish.spec.ts tests/e2e/local-tutorial.spec.ts：最终3项通过，归档.artifacts/runs/2026-10-28T05-57-58-886Z-e2e。保持scripts/preview-main.cjs、源码设置/工具服务和两处隔离资料根，不读取正式或免安装预览资料。
+- 验证：追加真实36px导出检查后专项1/1通过，归档.artifacts/runs/2026-10-28T06-00-09-554Z-e2e。先分别设置矩形、椭圆、箭头、画笔、荧光笔、序号、橡皮擦和文字，再逐一返回确认颜色及笔触/字号恢复；马赛克图标直接选浓度、默认/340px窄窗口、无可见参数文字/下拉框、浅灰竖线、连续涂抹、框选、撤销、透明文字、焦点、缩放和复制像素均通过。
+- 验证：文字专项确认没有笔触圆点，三枚A按钮分别改变真实16/24/36px输入框，修改字号仍保留焦点和正文；50%缩放后18px输入对应原图36px，最终画布绿色字形实际高度大于28像素，避免只改变输入框而仍以24px导出。
+- 验证：第一轮因非整数DPI将1px边框吸附为0.727273 CSS像素导致过严断言失败，归档.artifacts/runs/2026-10-28T05-48-45-242Z-e2e；改为验证可见细线和正确颜色。独立参数及字号修复后，旧tools-polish仍在文字工具点击已隐藏的笔触圆点而失败，归档.artifacts/runs/2026-10-28T05-55-58-262Z-e2e；按新交互先切序号再选笔触，保留原有绘制验证，最终通过。
+- 验证：直接查看独立WebContents的默认/窄马赛克工具栏和independent-font-options截图，确认图标、浅色竖线、三档A字号及最终大字号字形；截图等待选中态短过渡及正文两帧完成，避免把过渡中的旧工具高亮当作最终显示。未拼接宿主截图。
+- 验证：pnpm test tests/scripts/documentation.test.ts：5项通过，归档.artifacts/runs/2026-10-28T06-01-00-771Z-unit。修改JS按JSDoc脚本规则强制ESLint（关闭TS显式返回类型规则），测试与教程源ESLint、Prettier、node --check及git diff --check通过。pnpm docs:check保持30份文档、193本地链接、39功能/14分类/30入口和15章65步；README与工具清单当前描述仍准确。
+- 验证：pnpm build:setting通过设置类型检查及生产编译，日志.artifacts/work/mosaic-option-icons-setting-build.log。工具画布为静态资源，由同步器直接复制；未修改其他生产编译源码，未为E2E打包或运行electron-builder。
+- 验证：pnpm maintain及pnpm maintain:check通过；同步器第一次检测到预览仍运行而安全中止，用户随后明确确认已退出，再继续程序资源同步。
+- 验证：用户确认退出后，pnpm preview:sync成功更新固定免安装预览1.3.0，359个已有配置、资料及插件文件逐项完整保留，103项程序文件核验；回退资源.artifacts/backups/preview-sync/update-1793167395397/previous-resources，日志.artifacts/work/mosaic-option-icons-preview-sync.log。
+- 验证：pnpm test:preview:resources通过102项程序、345项内置及1687项媒体运行资源核验，日志.artifacts/work/mosaic-option-icons-preview-verify.log。未启动真实预览写入测试资料，未重置配置或插件，未push、云端构建或发布Release。最终pnpm maintain、pnpm maintain:check、pnpm docs:check与git diff --check通过。
+
+## 2026-10-28 · 对齐截图的图片箭头、马赛克和透明文字输入交互
+
+记录：[image-annotation-interactions](../../docs/history/entries/2026-10-28-04-image-annotation-interactions.json)；版本：未发布。
+
+- 图片箭头沿用截图的渐宽箭身和内凹机翼几何，按用户本轮追加要求把箭尾收成单一尖点，去掉平切端面；保留短箭头长度钳制与连接抗锯齿重叠、颜色、笔触、撤销和导出。
+- 马赛克增加笔刷/框选两种模式、轻中重三档浓度及小中大三档独立半径。统一按原图低分辨率采样，通过连续圆形/胶囊路径及矩形并集揭示，快速划动无离散落点空隙；浓度统一更新已有马赛克，笔刷半径属于各次历史。
+- 马赛克笔落点显示白边深色虚线圆圈及中心准星，尺寸随图像缩放；框选期间显示参考边界，取消、离开、切换及退出撤下，两者不写入导出画布。仅保留一份低分辨率采样，浓度切换、清空和退出释放。
+- 文字输入透明底，边框、正文及插入光标跟随所选颜色，按原图落点与缩放定位并随内容伸展。编辑期间改色保留焦点和正文；回车提交、Esc取消，输入法候选Enter/Esc不提交标记或关闭窗口。
+- 同步开发/悬浮/覆盖层规范、来源说明、仓库及应用内教程和更新说明，透明文字预览按用户明确要求替代旧不透明规则；增加TX-101和源码交互专项，纳入annotations分组及Bug台账。
+
+- 验证：通过context-mode依次核对维护、当前改动及Bug索引、工具和悬浮规范，对照固定截图源码的箭头多边形、MosaicBlitRect/蒙版/圆圈光标及透明文字边框；保留全部既有未提交改动。
+- 验证：pnpm test:e2e tests/e2e/image-annotation-interactions.spec.ts tests/e2e/tools-polish.spec.ts tests/e2e/local-tutorial.spec.ts：3项通过，归档.artifacts/runs/2026-10-28T05-09-37-716Z-e2e。新增专项直接通过真实图片标记命令进入独立窗口，并使用scripts/preview-main.cjs、源码服务及两处隔离资料根。
+- 验证：补充输入法Esc候选取消不得冒泡关闭窗口后，专项再次1/1通过，归档.artifacts/runs/2026-10-28T05-11-11-475Z-e2e。覆盖机翼箭头关键像素、快速笔刷无孔、半径圆圈、浓度色块变化、反向框选/空区域/指针取消、撤销重做、指示不入画布PNG、编辑改色保留焦点及正文、50%缩放定位及12px字号、透明底/边框/光标颜色、文字取消和复制像素一致、340px窄窗口参数不越界、关闭释放。
+- 验证：首轮箭头测试把外侧抗锯齿边界当作机翼内部像素而失败，归档.artifacts/runs/2026-10-28T05-06-41-258Z-e2e保留；依据实际几何将采样移到机翼内部后通过，未改变箭头实现。原有tools-polish在首轮和最终轮均通过。
+- 验证：直接查看独立WebContents当前可见区域的arrow-wing-style、mosaic-brush-cursor、transparent-colored-text-input截图，确认箭头、圆圈与真实覆盖、透明文字框及控件布局；没有拼接宿主截图。
+- 验证：pnpm test tests/main/screenCaptureResult.test.ts tests/scripts/documentation.test.ts：2文件9项通过，归档.artifacts/runs/2026-10-28T05-11-48-182Z-unit；pnpm test:regressions annotations --list确认1单测文件及3个E2E文件。本轮未修改截图原生模块，不重编译或重复运行原生长截图专项。
+- 验证：资源JavaScript通过node --check，并按仓库JSDoc脚本规则强制ESLint（关闭仅适用于TS语法的显式返回类型规则）；新增测试和教程源ESLint、资源及测试Prettier通过。pnpm docs:check通过30份文档、193个本地链接、39功能/14分类/30普通入口及15章65步。README与工具清单现有描述仍准确。
+- 验证：pnpm build:setting通过设置类型检查及生产构建，日志.artifacts/work/image-annotation-interactions-setting-build.log；静态画布资源由同步器直接复制，未修改其他生产编译源码。同步器检测到免安装预览仍在运行，依照退出后替换资源规则未执行替换；待用户退出后继续，不清空资料。
+- 验证：用户追加指出箭尾不够尖锐后，将图片箭身由平切四边形改成从单一顶点展开的三角形，保留截图机翼头和箭身渐宽。新增起点附近像素断言，专项1/1通过，归档.artifacts/runs/2026-10-28T05-14-22-380Z-e2e；直接查看arrow-wing-style截图确认尖尾，最终资源JS与测试ESLint通过。
+- 验证：用户确认已退出预览后，pnpm preview:sync成功更新1.3.0：352个已有配置、资料与插件文件逐项完整保留，103项程序文件核验；回退资源.artifacts/backups/preview-sync/update-1793164558825/previous-resources，日志.artifacts/work/image-annotation-interactions-preview-sync.log。
+- 验证：pnpm test:preview:resources通过102项程序、345项内置及1687项媒体运行资源核验，日志.artifacts/work/image-annotation-interactions-preview-verify.log。未启动预览写入测试数据，未重置资料，未push、云端构建或发布Release。收尾pnpm maintain、pnpm maintain:check、pnpm docs:check与git diff --check通过。
+
+## 2026-10-28 · 统一图片标记与截图标记工具栏，新增序号圆圈和聚光灯
+
+记录：[unified-annotations](../../docs/history/entries/2026-10-28-03-unified-annotations.json)；版本：未发布。
+
+- 图片标记工具栏改为截图的白底、深灰细线图标、浅蓝选中态与32px按钮；九项标记的顺序和SVG共用annotation-tools.js，荧光笔和箭头图标重绘，图片橡皮擦、五档笔触和缩放保留。
+- 截图补充独立颜色的半透明荧光笔，保留既有箭头；两个入口都加入单击递增的序号圆圈和多矩形聚光灯。序号属于撤销历史，撤销后分叉与清空正确续号；聚光灯按并集保留亮度，预览、复制和保存同源。
+- 原生截图采用固定上游提交的可重现补丁，将新增类型接入输入、几何、命中、历史和PNG合成；聚光灯同时完整失效窗口显示区域，修复BeginPaint局部裁剪造成的预览残影，所有资源仍随单次工作进程释放。
+- 同步README、更新说明、应用内与仓库教程、工具/悬浮开发规范及原生来源说明；新增annotations回归组和TX-100，更新Bug台账。
+
+- 验证：使用context-mode核对维护流程、当前改动与Bug索引、工具及悬浮窗口规范，检查main分支和已有未提交改动并予以保留。未push、云端构建或发布Release。
+- 验证：原生模块使用GCC11.2、Electron42.1.0头文件及node-addon-api6.1.0完成独立编译，固定上游提交8b221e72c4b5462ba2c9b490370cc10df72108cc；最终日志.artifacts/logs/native-screenshot-build.log。未为E2E执行electron-builder或build:unpack。
+- 验证：pnpm test tests/main/screenCaptureResult.test.ts tests/scripts/documentation.test.ts：2文件9项通过，归档.artifacts/runs/2026-10-28T04-40-45-875Z-unit。
+- 验证：pnpm test:e2e tests/e2e/tools-polish.spec.ts tests/e2e/tools-screenshot.spec.ts tests/e2e/local-tutorial.spec.ts：最终3项全部通过，归档.artifacts/runs/2026-10-28T04-40-56-873Z-e2e。使用scripts/preview-main.cjs、源码服务及两个隔离资料根，不访问正式或免安装预览资料。
+- 验证：图片窗口验证9项标记、默认/340px窄窗口、颜色隔离、文字输入、序号递增/撤销/重做/分叉、反向聚光区域及重叠并集、空拖动、剪贴板与保存PNG逐像素一致、独立窗口关闭；教程由真实关于入口阅读，离线与升级配置插件保留通过。
+- 验证：原生截图通过真实系统鼠标操作荧光笔、两枚序号及反向和重叠聚光区域，同时检查实际屏幕预览与最终复制PNG：区域外RGB107/108/110、区域内与重叠区244/247/251、荧光笔246/237/191。长截图数万像素连续色带及工作进程回收继续通过。
+- 验证：早期两次原生测试因系统鼠标轮询先于移动处理而未可靠切换工具，失败归档04-31-58和04-33-27保留；加入鼠标到位等待后功能检查通过。随后直接查看截图发现局部预览残影，补全原生完整显示失效，并新增屏幕像素断言；最终源码专项通过。
+- 验证：直接查看独立图片窗口默认/窄窗口截图和原生截图预览、导出PNG，确认线图标、序号及聚光区域；未拼接宿主截图。修改脚本和测试ESLint、资源JS语法检查、pnpm docs:check及git diff --check通过。
+- 验证：pnpm build:setting通过设置页类型检查及生产构建，日志.artifacts/work/annotations-setting-build.log；共享静态画布资源和原生.node由同步器直接复制，本轮未修改宿主或内置工具的编译源码，沿用既有已编译产物。
+- 验证：pnpm maintain、pnpm maintain:check通过后执行pnpm preview:sync，用户已确认自行退出预览。1.3.0程序资源更新成功，345个现有配置、资料与插件文件逐项保留，103项程序文件核验；回退资源.artifacts/backups/preview-sync/update-1793162677243/previous-resources，日志.artifacts/work/annotations-preview-sync.log。
+- 验证：pnpm test:preview:resources通过：102项程序文件、345项内置文件及1687项媒体运行文件，包含物理展开的annotation-tools.js和更新的tabdo_screenshot.node；日志.artifacts/work/annotations-preview-verify.log。未启动真实免安装预览读写用户资料，未重置配置或插件。
+- 验证：补充清空已有序号后回到1且撤销按钮禁用的真实画布断言，pnpm test:e2e tests/e2e/tools-polish.spec.ts再次1/1通过，归档.artifacts/runs/2026-10-28T04-46-03-155Z-e2e；该次仅补测试，不改变已同步程序资源。最终修改范围ESLint与格式检查通过，pnpm maintain、pnpm maintain:check、pnpm docs:check及git diff --check全部通过。
+
+## 2026-10-28 · 继续排查演示录屏、设置及其他子组件退出后的内存，验证100MB闲时目标
+
+记录：[idle-memory-budget](../../docs/history/entries/2026-10-28-02-idle-memory-budget.json)；版本：未发布。
+
+- Windows新增事件驱动的闲置回收：全部窗口、工具页与任务结束后等待10秒，一次性归还本应用冷工作集；活动恢复撤销等待和所属辅助进程，不做周期性压缩。
+- 媒体处理、快速录屏、演示运行时、内置提供商及原生截图/取色登记活动与最终收尾；隐藏必要任务页和临时常驻会话同样阻止回收，不改变保存、导出或全局剪贴板采集。
+- 辅助进程就绪后重新检查活动与当前Electron进程清单，使用进程句柄和创建时间防止PID复用；15秒超时，完成后解除进程与监听引用，失败不会伪报成功。
+- 扩展idle-memory回归，分别记录全应用工作集和私有提交量，覆盖设置三次开关、真实录屏、编辑器三次开关、三个日常工具、必要任务保护、35/65秒闲置及设置重开读写。
+- 同步生命周期、设置和性能文档、未发布说明、Bug台账与TX-98回归分组。
+
+- 验证：修改前通过context-mode检查维护规范、历史、模块文档和Git状态，已有未提交改动全部保留。
+- 验证：本轮初始源码idle-memory通过，归档.artifacts/runs/2026-10-28T03-44-26-236Z-e2e；35秒闲置全部Electron进程工作集689.369MB，私有提交479.957MB，仅剩宿主一页。
+- 验证：首轮策略源码idle-memory通过，归档.artifacts/runs/2026-10-28T03-47-12-178Z-e2e；35秒全应用工作集43.266MB，私有提交480.412MB，说明收益来自冷工作集归还，不能宣称分配提交量已低于100MB。
+- 验证：扩展专项通过，归档.artifacts/runs/2026-10-28T03-49-43-969Z-e2e；设置三次开关后24.396MB，真实录屏和三个工具退出后35秒45.515MB；65秒及重开设置读写断言通过，必要任务未结束时没有回收。最终增加各宿主运行时活动门槛后正在复验。
+- 验证：首次单测因PS1资产被Vite作为JS解析而失败，归档.artifacts/runs/2026-10-28T03-46-38-634Z-unit；改为与打包策略一致的物理资源路径，避免运行时依赖测试专用资产转换。
+- 验证：全量109文件749项单测通过，归档.artifacts/runs/2026-10-28T03-53-18-986Z-unit。新增5项覆盖事件合并、重新活动、旧完成回调隔离、隐藏任务/原生进程阻止、就绪重检、PID参数和15秒超时。
+- 验证：修改范围ESLint、Node类型检查及git diff --check通过；pnpm docs:check通过30份文档、193个本地链接、39功能/14分类/30普通入口和15章65步。pnpm test:regressions idle-memory --list确认6个单测文件与4个E2E文件。
+- 验证：最终7项源码回归全部通过，归档.artifacts/runs/2026-10-28T03-53-54-368Z-e2e：idle-memory、native-shutdown、presentation-import、presentation-recorder、settings-window-stability、third-party-lifecycle、tools-lifecycle。包含真实录制/编辑/导出、第三方和Provider有限任务、旧页面回收与原生退出；E2E始终通过scripts/preview-main.cjs加载源码。
+- 验证：最终测量：设置三次开关后15秒工作集24.605MB，录屏及其他工具退出后35秒46.248MB、65秒59.908MB；两个闲置阶段均只剩宿主一页。对应私有提交量537.043/490.811/489.505MB，未达到100MB提交量。重开设置正文和隔离数据库读写通过，工作集可按活动需求恢复。
+- 验证：自审补充取消退出边界：before-quit可能被宿主阻止，改为will-quit才永久撤销策略；针对性5项单测及Node类型检查通过，归档.artifacts/runs/2026-10-28T03-58-07-065Z-unit。最终native-shutdown源码复验通过，归档.artifacts/runs/2026-10-28T04-01-00-064Z-e2e。
+- 验证：pnpm run build完整通过Node/Web/设置类型检查及设置、工具、宿主和preload生产编译；日志.artifacts/work/idle-memory-budget-build.log。保留既有pnpm配置迁移、PostCSS及大chunk提示；未执行electron-builder、build:unpack或任何云端构建。
+- 验证：pnpm maintain与pnpm maintain:check通过后，pnpm preview:sync完成固定免安装预览更新：329个现有配置、资料与插件文件逐文件保留，102项程序文件核验，版本仍为1.3.0；回退副本.artifacts/backups/preview-sync/update-1793160072719/previous-resources。
+- 验证：pnpm test:preview:resources通过101项程序、345项内置资源及1687项媒体运行文件布局与字节核验，包含物理展开的reclaim-idle-memory.ps1；未为E2E使用编译成品。收尾pnpm maintain、pnpm maintain:check、pnpm docs:check和git diff --check均通过。
+
+## 2026-10-28 · 优化演示录屏及日常工具退出后的闲时内存，重写本地教程与README
+
+记录：[idle-memory-and-guides](../../docs/history/entries/2026-10-28-01-idle-memory-and-guides.json)；版本：未发布。
+
+- 演示捕获辅助窗口改用独占租赁的内存Session；清理权限、连接及临时站点数据后复用，禁用HTTP缓存，避免每次开关增加原生分区；明确清空后端IPC、计时器、窗口和模块引用。
+- 编辑器交给控制条前显式卸载React树，退出时等待必要任务结束后再卸载；页面自身pagehide提供幂等后备清理，使视频、音频与Pixi清理不再依赖iframe被移除。
+- 宿主隐藏允许Chromium后台节流，退出插件清空子输入文本；可重建图标缓存请求停止30秒后释放，不影响全局剪贴板和持久资料。
+- 本地教程重写为15章65步，以具体任务组织并拆出中转、演示录屏、快速录屏和视频处理；删除旧12张SVG及说明，入口统一为阅读本地教程。
+- README独立介绍剪贴板、悬浮中转和便签；演示录屏明确自动运镜缩放、手动调整、声音人像、时间轴与无需另开剪辑工具的成片流程；同步门禁、模块规范及回归分组。
+
+- 验证：开始前Git工作区干净；通过context-mode核对维护规范、当前源码及历史索引。
+- 验证：新增专项单测12项通过：分区串行20次复用、并发隔离、等待与失败隔离，图标缓存延期/闲置/再提取，教程一致性门禁；归档.artifacts/runs/2026-10-28T02-31-55-905Z-unit。
+- 验证：初步源码idle-memory和local-tutorial两项通过，归档.artifacts/runs/2026-10-28T02-31-16-859Z-e2e；覆盖真实录制、3次开关、3个日常工具、35秒闲置及15章阅读、离线、主题与重启资料保留。随后增加显式React卸载，完整回归仍在执行。
+- 验证：未修改前同机测量归档.artifacts/runs/2026-10-28T02-20-42-154Z-e2e；比较时区分源码启动转译开销、GPU、网络与页面，不用主进程初启到闲置的下降冒充优化收益。两次后续GPU私有内存约154–204MiB，存在波动；网络进程从约46MiB降为17–18MiB。
+- 验证：诊断Memory压力通知对GPU私有内存没有明确改善，未纳入产品或最终测量；没有强制GC、压缩工作集、结束GPU进程或关闭硬件加速。
+- 验证：初次工具启动使用了运行时pnpm11且在沙箱触发依赖/缓存权限错误；随后使用已安装pnpm9.15.9及原生桌面执行。测试准备期间修正页面就绪、录制后编辑器定位和无关倒计时菜单动画；失败归档保留。
+- 验证：最终全量单测108文件744项通过，归档.artifacts/runs/2026-10-28T02-44-05-539Z-unit；包含最后一个必要任务结束前禁止卸载、完成后先卸载后关后端的两项新增测试。
+- 验证：完整源码回归4项通过：idle-memory、performance-budget、presentation-import、presentation-recorder，归档.artifacts/runs/2026-10-28T02-37-40-305Z-e2e。同轮clipboard-interactions在原生图片拖放接收处失败，单独重跑通过，归档.artifacts/runs/2026-10-28T02-43-15-789Z-e2e；未为该瞬态失败修改拖放实现。
+- 验证：严格同条件对照：临时将本轮7个运行文件替换为HEAD原内容，测试后逐文件恢复最终源码，恢复收据.artifacts/work/idle-memory-control/restored.json。原代码归档.artifacts/runs/2026-10-28T02-46-40-369Z-e2e；最终实现归档.artifacts/runs/2026-10-28T02-49-22-247Z-e2e，两次均通过相同真实录制/三次开关/三个工具/35秒闲置，未同时运行构建或单测。
+- 验证：同条件闲置总工作集685.1→658.6MiB，网络进程私有内存45.9→17.5MiB；捕获Session从3个变为复用1个，最终均只剩宿主1页。GPU私有内存190.1→192.3MiB，没有证明回到初启水平，不能将早期154MiB单次结果推广为稳定收益。
+- 验证：最终local-tutorial随同idle-memory通过：15章65步、无旧配图、开篇直接讲面板、演示运镜独立章节、离线、搜索翻页、明暗可见区域及重启资料保留；归档.artifacts/runs/2026-10-28T02-49-22-247Z-e2e。
+- 验证：pnpm run build完整通过宿主/渲染器与设置类型检查、演示桥接和全部生产构建；日志.artifacts/work/idle-memory-build.log。修改文件ESLint零错误零警告、文档门禁和差异检查通过；工具构建仍有既有大chunk和PostCSS提醒。
+- 验证：pnpm maintain、pnpm maintain:check与pnpm docs:check通过；门禁核对30份文档、192项本地链接、39功能/14分类/30普通入口和15章65步。
+- 验证：pnpm preview:sync完成固定免安装预览更新，319个既有配置、资料和插件文件逐文件保留，101项程序文件核对通过；回退资源.artifacts/backups/preview-sync/update-1793155998002/previous-resources。
+- 验证：pnpm test:preview:resources通过100项程序、345项内置资源和1687项媒体运行文件布局校验；内置资源减少12项对应已删除教程SVG。未启动真实资料的预览实例，以免改变用户当前配置。
+
 ## 2026-10-27 · 完成 TabDo 1.3.0 推送、云端构建及正式发行核验
 
 记录：[release-1.3.0](../../docs/history/entries/2026-10-27-08-release-1.3.0.json)；版本：1.3.0。

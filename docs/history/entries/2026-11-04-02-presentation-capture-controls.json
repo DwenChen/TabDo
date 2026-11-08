@@ -1,0 +1,36 @@
+{
+  "id": "presentation-capture-controls",
+  "date": "2026-11-04",
+  "summary": "修复演示录制前输入选择、键盘采集、项目目录与按键主题间距，核实光标重叠和素材删除",
+  "reason": "用户报告系统音频混入麦克风菜单、录制前缺少键盘和鼠标开关、键盘采集失败、光标重叠、项目目录无法修改及删除素材提示管理员。",
+  "changes": [
+    "系统音频独立放在麦克风之前；关闭麦克风以无图标的醒目按钮展示。录制前显示鼠标和按键的独立选择，首帧开始前配置本次采集。",
+    "预览日志确认按键失败来自展开组件再次加载uiohook-napi时缺少node-gyp-build；改为复用宿主已加载输入单例，不停止全局监听。按键样本沿用实际鼠标位置。",
+    "项目目录增加真实选择、可写验证与偏好合并保存；新项目使用新目录，已有项目沿原路径保存，不迁移素材。按键样式名称使用独立布局并增加间距。",
+    "保留用户与其他任务现有未提交修改。光标捕获和删除原因继续通过隔离源码实例核实。",
+    "Windows回收改为独立STA辅助进程调用不带提权标志的IFileOperation，并由进度守卫拒绝不可回收的永久删除；只完成当前选择事务，失败恢复完整素材包并显示系统原因。列表不再触发遗留包回收。",
+    "原始素材的UI删除登记完整必要任务，等待系统操作或回滚完成后再退出；纯按键事件不再进入光标滤波与自动缩放。预览画布仅在显示录制光标时隐藏悬停系统指针，保留标注手柄。"
+  ],
+  "checks": [
+    "修改前通过context-mode阅读维护流程、改动索引、Bug台账、工具/设置及演示模块文档并核对Git状态。",
+    "首轮源码E2E：presentation-tracks通过；presentation-recorder因原自动保存说明的布局变化未匹配而失败，已恢复说明，失败归档.artifacts/runs/2026-11-04T07-56-01-302Z-e2e。",
+    "新专项首轮因仅等待5秒、正文仍在加载而失败；已按组件真实冷启动增加正文就绪等待并补充页面错误记录，失败归档.artifacts/runs/2026-11-04T07-58-31-481Z-e2e。",
+    "预览日志两次明确记录Cannot find module node-gyp-build；检查预览录制目录普通目录属性与继承权限正常，未改动用户文件。源码隔离临时素材正常回收；不能据此判定原先那次Windows拒绝的具体原因。",
+    "Windows新回收专项首轮发现PowerShell 5.1以本地代码页读取无BOM脚本，已为脚本添加UTF-8 BOM；原件回滚生效。失败归档.artifacts/runs/2026-11-04T08-05-24-984Z-e2e；随后新接口成功回收及键盘独立录制通过.artifacts/runs/2026-11-04T08-11-09-812Z-e2e。",
+    "一次测试启动器在任何用例执行前以3221226505退出，保留空输出归档.artifacts/runs/2026-11-04T08-08-12-257Z-e2e；随后残留服务只剩设置端口导致工具页面连接拒绝，结束后从完整源码服务重启通过。",
+    "8文件41项单测通过.artifacts/runs/2026-11-04T08-17-48-347Z-unit，覆盖目录/设备偏好合并及失败后队列恢复、回收失败恢复、事务隔离和纯按键不推断缩放。新增纯按键回归首次失败，证明建议生成还有独立入口，已补齐该入口过滤并复测通过。",
+    "5项源码E2E中教程、目录/输入/回收、导入和完整录制通过.artifacts/runs/2026-11-04T08-13-18-765Z-e2e。按键主题间距断言发现13px根字体下gap-3仅9.75px，改用gap-4确保大于10px后专项复测。",
+    "pnpm typecheck:node、主服务与新增测试ESLint、pnpm docs:check通过；源码专项尚在收尾，构建及预览状态随后补记。",
+    "最终目录/输入/回收及轨道专项2项通过.artifacts/runs/2026-11-04T08-17-53-819Z-e2e；键盘独立录制没有鼠标位置样本，启用录制光标时预览系统指针样式为none，五组主题间距均大于10 CSS像素。已直接查看插件可见区域截图和控制条截图。",
+    "真实录制、导入、本地教程沿此前4项通过结果；后续仅改动纯按键建议过滤、主题间距及素材删除必要任务登记，已用对应单测和两项源码专项复测。未为最终生产交付重新打包运行E2E。",
+    "pnpm docs:check通过31文件207链接及15章65步教程，主服务与新增测试ESLint通过，git diff --check通过；既有ItemGlass.module.css和suites.json行尾归一化提示保留。",
+    "pnpm build通过宿主Node/Web类型检查、设置构建、演示与工具构建以及Electron生产编译；日志.artifacts/work/presentation-capture-controls-build.log。",
+    "pnpm maintain与pnpm maintain:check通过，pnpm test:regressions presentation-editing --list确认6个单测文件和4个源码E2E文件。",
+    "pnpm preview:sync成功更新1.3.0免安装预览并逐文件保留501个现有配置、资料和插件文件，核对104项程序资源；回滚资源.artifacts/backups/preview-sync/update-1793780579535/previous-resources，日志.artifacts/work/presentation-capture-controls-preview-sync.log。",
+    "pnpm test:preview:resources通过103项程序、345项内置与1687项媒体资源核验，含新增无提权回收脚本及宿主输入桥接；日志.artifacts/work/presentation-capture-controls-preview-verify.log。"
+  ],
+  "pending": [
+    "物理麦克风/声卡/摄像头驱动、其他DPI与多显示器仍需人工体验；原先用户素材那次系统回收拒绝未直接复现，不能断言是预览目录特有问题。"
+  ],
+  "preview": "已同步.local/portable-preview，版本保持1.3.0，通过PreviewPortable.cmd启动；501个既有配置、资料和插件文件完整保留。未重置、未push、未云端构建或发布Release。"
+}

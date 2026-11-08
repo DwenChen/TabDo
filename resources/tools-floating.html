@@ -92,67 +92,110 @@
         </div>
 
         <div class="editing-controls">
-          <div class="group" id="drawing-tools">
-            <button class="tool-btn active" data-tool="pen" aria-label="画笔" title="画笔 (B)">
-              <svg viewBox="0 0 24 24">
-                <path
-                  d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
-                />
-              </svg>
-            </button>
-            <button class="tool-btn" data-tool="highlighter" aria-label="荧光笔" title="荧光笔 (H)">
-              <svg viewBox="0 0 24 24">
-                <path
-                  d="M6 14l3 3v3H6v-3l-1 1H3v-2l1-1v-3l5-5 7 7-5 5-2-1zM18.5 2.5l3 3-7 7-3-3 7-7z"
-                />
-              </svg>
-            </button>
-            <button class="tool-btn" data-tool="rect" aria-label="矩形" title="矩形 (R)">
-              <svg viewBox="0 0 24 24">
-                <rect
-                  x="3"
-                  y="5"
-                  width="18"
-                  height="14"
+          <div class="group" id="drawing-tools" role="group" aria-label="标记工具"></div>
+
+          <div
+            class="mosaic-controls"
+            id="mosaic-controls"
+            role="group"
+            aria-label="马赛克设置"
+            hidden
+          >
+            <div class="group" role="group" aria-label="马赛克模式">
+              <button
+                class="tool-btn active"
+                data-mosaic-mode="brush"
+                aria-label="马赛克笔"
+                aria-pressed="true"
+                title="马赛克笔"
+              >
+                <svg
+                  viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
-                  stroke-width="2"
-                />
-              </svg>
-            </button>
-            <button class="tool-btn" data-tool="ellipse" aria-label="椭圆" title="椭圆 (O)">
-              <svg viewBox="0 0 24 24">
-                <ellipse
-                  cx="12"
-                  cy="12"
-                  rx="9"
-                  ry="6"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="m5 16 5-9 4 9 5-9" />
+                </svg>
+              </button>
+              <button
+                class="tool-btn"
+                data-mosaic-mode="rect"
+                aria-label="框选马赛克"
+                aria-pressed="false"
+                title="框选马赛克"
+              >
+                <svg
+                  viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
-                  stroke-width="2"
-                />
-              </svg>
-            </button>
-            <button class="tool-btn" data-tool="arrow" aria-label="箭头" title="箭头 (A)">
-              <svg viewBox="0 0 24 24">
-                <path d="M4 12h12.17l-5.59-5.59L12 5l8 8-8 8-1.42-1.41L16.17 14H4z" />
-              </svg>
-            </button>
-            <button class="tool-btn" data-tool="text" aria-label="文字" title="文字 (T)">
-              <svg viewBox="0 0 24 24"><path d="M5 5v3h5.5v12h3V8H19V5z" /></svg>
-            </button>
-            <button class="tool-btn" data-tool="mosaic" aria-label="马赛克" title="马赛克 (M)">
-              <svg viewBox="0 0 24 24">
-                <path d="M3 3h6v6H3zm0 12h6v6H3zm12-12h6v6h-6zm0 12h6v6h-6zM9 9h6v6H9z" />
-              </svg>
-            </button>
-            <button class="tool-btn" data-tool="eraser" aria-label="橡皮擦" title="橡皮擦 (E)">
-              <svg viewBox="0 0 24 24">
-                <path
-                  d="M16.24 3.56l4.95 4.94c.78.79.78 2.05 0 2.84L12 20.53a4.008 4.008 0 0 1-5.66 0L2.81 17a4.008 4.008 0 0 1 0-5.66L11.41 3a2.001 2.001 0 0 1 2.83 0l1.99-.01z"
-                />
-              </svg>
-            </button>
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <rect x="6" y="6" width="12" height="12" />
+                </svg>
+              </button>
+            </div>
+            <span class="mosaic-option-divider" aria-hidden="true"></span>
+            <div class="group" role="group" aria-label="马赛克浓度">
+              <button
+                class="tool-btn"
+                data-mosaic-density="6"
+                data-grid="2"
+                aria-label="马赛克浓度 轻"
+                aria-pressed="false"
+                title="浓度：轻"
+              ></button>
+              <button
+                class="tool-btn active"
+                data-mosaic-density="10"
+                data-grid="3"
+                aria-label="马赛克浓度 中"
+                aria-pressed="true"
+                title="浓度：中"
+              ></button>
+              <button
+                class="tool-btn"
+                data-mosaic-density="16"
+                data-grid="4"
+                aria-label="马赛克浓度 重"
+                aria-pressed="false"
+                title="浓度：重"
+              ></button>
+            </div>
+            <span class="mosaic-option-divider" aria-hidden="true"></span>
+            <div class="group" id="mosaic-brush-sizes" role="group" aria-label="马赛克笔大小">
+              <button
+                class="size-dot"
+                data-mosaic-radius="12"
+                aria-label="马赛克笔 小"
+                aria-pressed="false"
+                title="小笔刷"
+              >
+                <i style="width: 5px; height: 5px"></i>
+              </button>
+              <button
+                class="size-dot active"
+                data-mosaic-radius="22"
+                aria-label="马赛克笔 中"
+                aria-pressed="true"
+                title="中笔刷"
+              >
+                <i style="width: 10px; height: 10px"></i>
+              </button>
+              <button
+                class="size-dot"
+                data-mosaic-radius="36"
+                aria-label="马赛克笔 大"
+                aria-pressed="false"
+                title="大笔刷"
+              >
+                <i style="width: 16px; height: 16px"></i>
+              </button>
+            </div>
           </div>
 
           <div class="divider"></div>
@@ -262,6 +305,41 @@
               <i style="width: 15px; height: 15px"></i>
             </button>
           </div>
+          <div
+            class="group font-control"
+            id="font-control"
+            role="group"
+            aria-label="文字字号"
+            hidden
+          >
+            <button
+              class="tool-btn"
+              data-font-size="16"
+              aria-label="字号 16 像素"
+              aria-pressed="false"
+              title="小字号（16 像素）"
+            >
+              <span aria-hidden="true" style="font-size: 12px">A</span>
+            </button>
+            <button
+              class="tool-btn active"
+              data-font-size="24"
+              aria-label="字号 24 像素"
+              aria-pressed="true"
+              title="中字号（24 像素）"
+            >
+              <span aria-hidden="true" style="font-size: 17px">A</span>
+            </button>
+            <button
+              class="tool-btn"
+              data-font-size="36"
+              aria-label="字号 36 像素"
+              aria-pressed="false"
+              title="大字号（36 像素）"
+            >
+              <span aria-hidden="true" style="font-size: 22px">A</span>
+            </button>
+          </div>
           <input id="size" type="hidden" value="4" /><input
             id="font-size"
             type="hidden"
@@ -285,6 +363,12 @@
                 />
               </svg>
             </button>
+            <button
+              class="tool-btn"
+              data-tool="eraser"
+              aria-label="橡皮擦"
+              title="橡皮擦 (E)"
+            ></button>
             <button class="tool-btn" id="clear" aria-label="清除所有标注" title="清除所有标注">
               <svg viewBox="0 0 24 24">
                 <path d="M9 3h6l1 2h4v2H4V5h4zm-3 6h12l-1 12H7zm3 2v8h2v-8zm4 0v8h2v-8z" />
@@ -382,8 +466,13 @@
         aria-label="标注文字"
         hidden
         class="text-input"
-        placeholder="输入文字后回车确认，Esc 取消"
+        maxlength="1000"
+        autocomplete="off"
+        spellcheck="false"
+        title="回车确认 · Esc 取消"
       />
+      <div id="mosaic-cursor" aria-hidden="true" hidden></div>
+      <div id="mosaic-selection" aria-hidden="true" hidden></div>
 
       <!-- 右下角调节大小手柄（透明窗口下原生 resize 边缘体验欠佳，提供自定义手柄） -->
       <div class="resize-edge north" data-resize="n"></div>
@@ -462,6 +551,7 @@
       >
     </div>
 
+    <script src="annotation-tools.js"></script>
     <script src="tools-floating.js"></script>
   </body>
 </html>

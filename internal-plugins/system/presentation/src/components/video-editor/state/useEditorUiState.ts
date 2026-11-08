@@ -1,3 +1,4 @@
+import { DEFAULT_EDITOR_PREFERENCES } from '../editorPreferences';
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { OPEN_EDITOR_SECTION_EVENT } from "@presentation/lib/announcementActions";
 import { type AnnouncementEditorSection, isAnnouncementEditorSection } from "@presentation/lib/announcements";
@@ -12,6 +13,13 @@ type SessionPresentation = {
 	nativeCaptureUnavailable?: boolean;
 };
 
+/**
+ * 初始化编辑界面及应用级字幕偏好，新项目画面比例使用出厂值。
+ * @param initialPreferences 应用偏好，只用于字幕引擎路径等跨项目选项。
+ * @param cropRegion 当前项目裁剪范围。
+ * @param setCropRegion 裁剪弹窗的状态发布入口。
+ * @returns 播放、弹窗、会话显示及画面比例状态与操作。
+ */
 export function useEditorUiState(
 	initialPreferences: ReturnType<typeof loadEditorPreferences>,
 	cropRegion: CropRegion,
@@ -44,7 +52,7 @@ export function useEditorUiState(
 	const [whisperModelDownloadProgress, setWhisperModelDownloadProgress] = useState(0);
 	const [isGeneratingCaptions, setIsGeneratingCaptions] = useState(false);
 	const [previewVolume, setPreviewVolume] = useState(1);
-	const [aspectRatio, setAspectRatio] = useState<AspectRatio>(initialPreferences.aspectRatio);
+	const [aspectRatio, setAspectRatio] = useState<AspectRatio>(DEFAULT_EDITOR_PREFERENCES.aspectRatio);
 	const [activeEffectSection, setActiveEffectSection] = useState<EditorEffectSection>("scene");
 	const [showCropModal, setShowCropModal] = useState(false);
 	const [previewVersion, setPreviewVersion] = useState(0);

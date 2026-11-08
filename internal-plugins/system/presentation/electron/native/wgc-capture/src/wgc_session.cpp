@@ -97,6 +97,20 @@ winrt::Windows::Graphics::Capture::GraphicsCaptureItem WgcSession::createCapture
     return item;
 }
 
+/**
+ * Capture the actual window surface without monitor composition latency or occlusion.
+ * @param hwnd Selected native window handle.
+ * @returns Its capture item, or no item if Windows rejects the target.
+ */
+winrt::Windows::Graphics::Capture::GraphicsCaptureItem WgcSession::createCaptureItemForWindow(HWND hwnd) {
+    auto factory = winrt::get_activation_factory<winrt::Windows::Graphics::Capture::GraphicsCaptureItem>();
+    auto interop = factory.as<IGraphicsCaptureItemInterop>();
+    winrt::Windows::Graphics::Capture::GraphicsCaptureItem item{nullptr};
+    const HRESULT result = interop->CreateForWindow(hwnd,
+        winrt::guid_of<ABI::Windows::Graphics::Capture::IGraphicsCaptureItem>(), winrt::put_abi(item));
+    return SUCCEEDED(result) ? item : nullptr;
+}
+
 bool WgcSession::initializeWithItem(int fps) {
     if (!captureItem_) return false;
 
@@ -176,6 +190,12 @@ bool WgcSession::initialize(HMONITOR monitor, int fps) {
     return initializeWithItem(fps);
 }
 
+/**
+ * Prepare true window capture while retaining the cursor-exclusion policy.
+ * @param hwnd Selected native window.
+ * @param fps Requested output cadence.
+ * @returns Whether graphics capture is prepared successfully.
+ */
 bool WgcSession::initialize(HWND hwnd, int fps) {
     fps_ = fps;
     frameIntervalHns_ = 10000000LL / fps_;
@@ -188,11 +208,8 @@ bool WgcSession::initialize(HWND hwnd, int fps) {
         return false;
     }
 
-    HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
-    if (!monitor) return false;
-
-    captureItem_ = createCaptureItemForMonitor(monitor);
-    return initializeWithItem(fps) && initializeWindowCrop(hwnd);
+    captureItem_ = createCaptureItemForWindow(hwnd);
+    return initializeWithItem(fps);
 }
 
 bool WgcSession::initializeWindowCrop(HWND hwnd) {

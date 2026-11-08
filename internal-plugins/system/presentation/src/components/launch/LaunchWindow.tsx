@@ -4,20 +4,25 @@ import {
   House,
   MinusIcon,
   MonitorIcon,
+  Keyboard as KeyboardIcon,
   TimerIcon,
   VideoCameraIcon,
   VideoCameraSlashIcon,
   XIcon
 } from '@presentation/components/ui/icons'
-import { DragHandleIcon, RecordingMicIcon } from '@presentation/components/ui/recording-icons'
-import { AnimatePresence, motion } from 'motion/react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import {
+  DragHandleIcon,
+  RecordingMicIcon,
+  RecordingSystemAudioIcon
+} from '@presentation/components/ui/recording-icons'
+import { motion } from 'motion/react'
+import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
 import { Separator } from '@presentation/components/ui/separator'
 import { useScopedT } from '../../contexts/I18nContext'
 import { useMicrophoneDevices } from '../../hooks/useMicrophoneDevices'
 import { useScreenRecorder } from '../../hooks/useScreenRecorder'
 import { useVideoDevices } from '../../hooks/useVideoDevices'
-import { Button } from '../ui/button'
+import { HudButton as Button } from './HudButton'
 import { HudInteractionContext } from './contexts/HudInteractionContext'
 import {
   canToggleFloatingWebcamPreview,
@@ -43,7 +48,11 @@ import { RecordingControls } from './RecordingControls'
 import { HudPopover } from './popovers/PopoverScaffold'
 import { SourceSelector } from './SourceSelector'
 
-export function LaunchWindow() {
+/**
+ * 为录屏控制条提供互斥的选项弹层上下文。
+ * @returns 录屏控制条入口。
+ */
+export function LaunchWindow(): ReactElement {
   return (
     <LaunchPopoverCoordinatorProvider>
       <LaunchWindowContent />
@@ -52,10 +61,10 @@ export function LaunchWindow() {
 }
 
 /**
- * 显示当前录制控制与准备进度，设备关闭状态保持可区分的轮廓与斜线。
+ * 显示当前录制控制与准备进度，为各项操作提供悬停提示及可区分的设备状态。
  * @returns 当前录制控制条。
  */
-function LaunchWindowContent() {
+function LaunchWindowContent(): ReactElement {
   const t = useScopedT('launch')
   const { openId, requestOpen, requestClose } = useLaunchPopoverCoordinator()
 
@@ -76,6 +85,8 @@ function LaunchWindowContent() {
     setMicrophoneDeviceId,
     systemAudioEnabled,
     setSystemAudioEnabled,
+    keyboardEnabled,
+    setKeyboardEnabled,
     webcamEnabled,
     setWebcamEnabled,
     webcamDeviceId,
@@ -246,7 +257,7 @@ function LaunchWindowContent() {
    * 从控制条进入演示编辑页，项目和最近项目统一由编辑页管理。
    * @returns 无返回值。
    */
-  const openHome = () => {
+  const openHome = (): void => {
     localStorage.setItem('recordly.open-dashboard', String(Date.now()))
     void window.electronAPI.showProjectDashboard()
   }
@@ -268,6 +279,7 @@ function LaunchWindowContent() {
       onHome={openHome}
       paused={paused}
       microphoneEnabled={microphoneEnabled}
+      keyboardEnabled={keyboardEnabled}
       elapsed={elapsed}
       onPauseResume={paused ? resumeRecording : pauseRecording}
       onStopRecording={toggleRecording}
@@ -291,7 +303,7 @@ function LaunchWindowContent() {
             variant="ghost"
             size="lg"
             className={`${styles.electronNoDrag} group gap-2 px-3 min-w-0 max-w-[180px] shrink-0`}
-            title={selectedSource}
+            title={hasSelectedSource ? `选择录制来源：${selectedSource}` : '选择录制来源'}
             aria-label="选择录制来源"
             disabled={isPickerPending || !sourceReady || recording || finalizing}
           >
@@ -309,10 +321,21 @@ function LaunchWindowContent() {
       </HudPopover>
       <Separator orientation="vertical" className="mx-[5px] h-6 self-center" />
 
+      <Button
+        variant="ghost"
+        size="icon"
+        iconSize="lg"
+        aria-label={systemAudioEnabled ? '禁用系统音频' : '启用系统音频'}
+        title={systemAudioEnabled ? '禁用系统音频' : '启用系统音频'}
+        aria-pressed={systemAudioEnabled}
+        disabled={starting || countdownActive}
+        className={systemAudioEnabled ? 'text-accent' : ''}
+        onClick={() => setSystemAudioEnabled(!systemAudioEnabled)}
+      >
+        <RecordingSystemAudioIcon disabled={!systemAudioEnabled} className="size-5" />
+      </Button>
       <MicPopover
         disabled={recording}
-        systemAudioEnabled={systemAudioEnabled}
-        onToggleSystemAudio={() => setSystemAudioEnabled(!systemAudioEnabled)}
         microphoneEnabled={microphoneEnabled}
         onDisableMicrophone={() => setMicrophoneEnabled(false)}
         devices={devices}
@@ -377,6 +400,31 @@ function LaunchWindowContent() {
           </Button>
         }
       />
+
+      <Button
+        variant="ghost"
+        size="icon"
+        iconSize="lg"
+        aria-label="录制按键"
+        title={keyboardEnabled ? '录制按键：开' : '录制按键：关'}
+        aria-pressed={keyboardEnabled}
+        disabled={starting || countdownActive}
+        className={keyboardEnabled ? 'text-accent' : ''}
+        onClick={() => setKeyboardEnabled(!keyboardEnabled)}
+      >
+        <span
+          className="relative inline-flex"
+          data-keyboard-capture={keyboardEnabled ? 'on' : 'off'}
+        >
+          <KeyboardIcon className="size-5" />
+          {!keyboardEnabled && (
+            <svg aria-hidden="true" className="absolute inset-0 size-5" viewBox="0 0 20 20">
+              <path d="M3 3L17 17" stroke="var(--background, #18181b)" strokeWidth="4" />
+              <path d="M3 3L17 17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+          )}
+        </span>
+      </Button>
 
       <CountdownPopover
         countdownDelay={countdownDelay}
@@ -447,7 +495,6 @@ function LaunchWindowContent() {
     </div>
   )
 
-  const hudMode = finalizing ? 'finalizing' : recording ? 'recording' : 'idle'
   const useNativeHudBarDrag = platform === 'linux' || hudOverlayMousePassthroughSupported === false
   const shouldAnimateHudLayout = !recording && !showRecordingWebcamPreview && !isHudDragging
 
@@ -494,44 +541,17 @@ function LaunchWindowContent() {
                 </div>
 
                 <div className={styles.barStateViewport}>
-                  <AnimatePresence initial={false} mode="wait">
-                    <motion.div
-                      key={hudMode}
-                      layout={shouldAnimateHudLayout}
-                      className={styles.barState}
-                      initial={{
-                        opacity: 0,
-                        y: 10,
-                        scale: 0.985,
-                        filter: 'blur(8px)'
-                      }}
-                      animate={{
-                        opacity: 1,
-                        y: 0,
-                        scale: 1,
-                        filter: 'blur(0px)'
-                      }}
-                      exit={{
-                        opacity: 0,
-                        y: -10,
-                        scale: 0.985,
-                        filter: 'blur(6px)'
-                      }}
-                      transition={hudStateTransition}
-                    >
-                      {finalizing
-                        ? finalizingControls
-                        : recording
-                          ? recordingControls
-                          : idleControls}
-                    </motion.div>
-                  </AnimatePresence>
+                  {/* 录制状态和停止入口立即切换，不能等待旧控制条退场动画。 */}
+                  <div className={styles.barState}>
+                    {finalizing ? finalizingControls : recording ? recordingControls : idleControls}
+                  </div>
                 </div>
               </motion.div>
             </div>
             {showRecordingWebcamPreview && (
               <div
                 ref={recordingWebcamPreviewContainerRef}
+                data-hud-webcam-preview
                 className={`${styles.recordingWebcamPreview} ${styles.electronNoDrag} pointer-events-auto`}
                 data-hud-interactive
                 title={t('recording.webcam')}

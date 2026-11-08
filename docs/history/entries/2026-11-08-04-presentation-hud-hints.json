@@ -1,0 +1,23 @@
+{
+  "id": "presentation-hud-hints",
+  "date": "2026-11-08",
+  "summary": "录屏控制条补齐悬停提示，悬浮预览按钮居中显示当前开关状态",
+  "changes": [
+    "摄像头菜单将显示/隐藏悬浮预览改为悬浮预览已开启/已关闭，文字独立居中，左侧图标跟随当前状态。",
+    "录制前控制条的来源、系统音频、麦克风、摄像头、按键、倒计时、录制、编辑器、隐藏和关闭使用统一悬停及焦点提示；菜单打开时抑制提示，保留原触发行为和无障碍名称。"
+  ],
+  "checks": [
+    "pnpm test tests/main/presentationRecordingPreferences.test.ts通过1项相邻偏好单测，归档.artifacts/runs/2026-11-08T07-19-53-400Z-unit。",
+    "源码专项前两轮首次悬停未出现提示，归档.artifacts/runs/2026-11-08T07-19-59-092Z-e2e与2026-11-08T07-22-49-226Z-e2e；为透明控制条增加显式Tooltip.Trigger，并在测试首次进入前通过透明区域的实际鼠标移动建立指针交互模式。第三轮提示已实际出现，但旧提示退场动画导致未限定名称的定位命中两项，归档.artifacts/runs/2026-11-08T07-24-31-220Z-e2e；改为按当前提示名称定位。",
+    "pnpm test:e2e tests/e2e/presentation-controls.spec.ts通过，归档.artifacts/runs/2026-11-08T07-25-37-482Z-e2e，覆盖十项悬停提示、菜单触发与提示互斥、悬浮预览文字几何居中及选中状态往返，并继续完成原设备、真实按键录制、目录选择及素材回收流程。人工查看开启、关闭及提示截图，另补充提示动画结束后的稳定位置验证。",
+    "相关4个源码与测试文件ESLint无错误无警告；pnpm test:regressions presentation-hud-hints --list通过。pnpm docs:check通过37文档253本地链接、15章66步。",
+    "pnpm build:tools通过生产编译，日志.artifacts/presentation-hud-hints-build.log。最终源码专项再次通过，归档.artifacts/runs/2026-11-08T07-28-43-465Z-e2e；新增等待提示进入及退场动画结束后检查提示位于按钮上方，人工查看camera-hover-hint.png确认文字完整、没有旧提示重叠。开启与关闭截图显示状态文字独立居中，几何误差小于1px。",
+    "对照源码审校README、开发规范、工具清单、应用内与仓库教程的演示录屏说明，现有通用入口和操作描述仍准确；工具开发规范补充状态文案、居中及提示互斥要求，Bug台账和回归TX-129同步维护。",
+    "pnpm preview:sync更新1.3.0程序104项，261个既有配置、资料与插件文件保持一致，收据.artifacts/backups/preview-sync/update-1794123008460/preservation.json；pnpm test:preview:resources通过103个程序文件、346个内置文件与1687个媒体文件。日志.artifacts/presentation-hud-hints-preview-sync.log和presentation-hud-hints-preview-resources.log。",
+    "预览核验通过后按绝对路径、无链接、无Git跟踪及程序载荷清单回收本轮app、空new-resources和被替代previous-resources共3处5526文件1055186372字节（约1006MiB），清单与结果位于.artifacts/cleanup-2026-11-08-hud-hints/。保留update-1794123008460/previous-resources最近回退和全部收据；未删除资料、插件及独有测试证据。",
+    "空间复核.artifacts逻辑大小5489674644字节（约5.11GiB），原始测试证据约1.99GiB、既有工具链1.18GiB、最近回退及资料备份1.15GiB、历史下载0.56GiB、上游参考0.18GiB，均按原用途保留；本轮无新增下载和工具链，已消费程序暂存已清理。未重置资料、push、云端构建或Release。",
+    "空间清理后pnpm test:preview:resources再次通过，日志.artifacts/presentation-hud-hints-preview-resources-after-cleanup.log；最终4个相关源码与测试文件ESLint均无错误无警告，pnpm maintain、pnpm maintain:check、pnpm docs:check及git diff --check通过。"
+  ],
+  "pending": ["其他DPI、多屏及实际设备的主观观感待人工验收。"],
+  "preview": "已同步.local/portable-preview，通过PreviewPortable.cmd手动测试；261个现有配置、资料与插件文件完整保留，程序、内置工具与媒体资源复核通过，未重置资料。"
+}

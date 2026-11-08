@@ -28,14 +28,14 @@ function choose(id: string): void {
 </script>
 <template>
   <div v-if="compact" class="usage-guide-entry">
-    <h3>使用引导</h3>
-    <p>12 章本地图文教程，按步骤学习常用工具，也可搜索需要的操作。断网可阅读。</p>
-    <button class="btn" @click="router.push({ name: 'UsageGuide' })">阅读本地图文教程</button>
+    <h3>使用教程</h3>
+    <p>按任务查找操作步骤，断网可阅读。</p>
+    <button class="btn" @click="router.push({ name: 'UsageGuide' })">阅读本地教程</button>
   </div>
-  <main v-else class="usage-guide" aria-label="本地图文教程">
+  <main v-else class="usage-guide" aria-label="本地教程">
     <header class="guide-header">
       <div>
-        <h1>本地图文教程</h1>
+        <h1>本地教程</h1>
         <p>随应用提供 · 离线可读 · 按需查阅</p>
       </div>
       <button @click="router.push({ name: 'About' })">返回关于</button>
@@ -59,7 +59,6 @@ function choose(id: string): void {
           <span>{{ String(tutorialChapters.indexOf(chapter) + 1).padStart(2, '0') }}</span
           >{{ chapter.title }}
         </button>
-        <small>插图为操作示意，控件外观随主题变化。</small>
       </nav>
       <article
         ref="article"
@@ -70,38 +69,17 @@ function choose(id: string): void {
         <p class="chapter-count">第 {{ position + 1 }} / {{ tutorialChapters.length }} 章</p>
         <h2 :id="'chapter-' + current.id">{{ current.title }}</h2>
         <p class="intro">{{ current.intro }}</p>
-        <figure>
-          <img
-            :key="current.id"
-            :src="'./tutorial/' + current.id + '.svg'"
-            :alt="current.figure"
-            width="760"
-            height="340"
-          />
-          <figcaption>{{ current.figure }}（操作示意）</figcaption>
-        </figure>
         <section>
-          <h3>开始前</h3>
-          <p>{{ current.prepare }}</p>
-        </section>
-        <section>
-          <h3>跟着做</h3>
+          <h3>操作步骤</h3>
           <ol>
             <li v-for="step in current.steps" :key="step">{{ step }}</li>
           </ol>
         </section>
-        <section class="result">
-          <h3>应看到的结果</h3>
-          <p>{{ current.result }}</p>
-        </section>
         <section>
-          <h3>遇到问题</h3>
-          <dl>
-            <template v-for="item in current.problems" :key="item.question"
-              ><dt>{{ item.question }}</dt>
-              <dd>{{ item.answer }}</dd></template
-            >
-          </dl>
+          <h3>使用提示</h3>
+          <ul>
+            <li v-for="tip in current.tips" :key="tip">{{ tip }}</li>
+          </ul>
         </section>
         <footer class="chapter-controls">
           <button :disabled="position === 0" @click="choose(tutorialChapters[position - 1].id)">
@@ -208,12 +186,6 @@ button:not(.btn) {
   background: var(--hover-bg);
   border-color: var(--primary-color);
 }
-.guide-nav small {
-  display: block;
-  line-height: 1.8;
-  margin: 18px 6px;
-  color: var(--text-secondary);
-}
 .guide-article {
   flex: 1;
   min-width: 0;
@@ -228,24 +200,8 @@ button:not(.btn) {
   margin: 0 0 5px;
 }
 .intro,
-figcaption,
 .usage-guide-entry p {
   color: var(--text-secondary);
-}
-figure {
-  margin: 20px 0;
-}
-img {
-  width: 100%;
-  height: auto;
-  display: block;
-  border: 1px solid var(--divider-color);
-  border-radius: 10px;
-  background: #f4f7f6;
-}
-figcaption {
-  font-size: 12px;
-  margin-top: 6px;
 }
 section {
   margin: 22px 0;
@@ -263,18 +219,6 @@ li {
   padding-left: 4px;
   margin: 10px 0;
 }
-.result {
-  border-left: 3px solid var(--primary-color);
-  padding: 4px 16px;
-}
-dt {
-  font-weight: 600;
-  margin-top: 13px;
-}
-dd {
-  color: var(--text-secondary);
-  margin: 4px 0 0;
-}
 .chapter-controls {
   display: flex;
   align-items: center;
@@ -286,10 +230,6 @@ dd {
 .chapter-controls span {
   color: var(--text-secondary);
   font-size: 12px;
-}
-.primary {
-  background: var(--primary-color);
-  color: white;
 }
 button:disabled {
   opacity: 0.4;

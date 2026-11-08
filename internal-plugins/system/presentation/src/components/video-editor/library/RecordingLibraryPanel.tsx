@@ -64,7 +64,7 @@ export function RecordingLibraryPanel({
 				}
 				if (
 					!isInput &&
-					(event.key === "Delete" || event.key === "Backspace") &&
+					(event.key === "删除" || event.key === "Backspace") &&
 					library.selected.size
 				) {
 					event.preventDefault();
@@ -155,8 +155,8 @@ export function RecordingLibraryPanel({
 				</Checkbox>
 				<span className="flex-1 text-xs text-muted-foreground">
 					{library.selected.size
-						? `${library.selected.size} selected`
-						: `${entries.length} ${entries.length === 1 ? "recording" : "recordings"}`}
+						? `已选择 ${library.selected.size} 项`
+						: `${entries.length} 个录制`}
 				</span>
 				{library.selected.size > 0 && (
 					<Button
@@ -190,10 +190,10 @@ export function RecordingLibraryPanel({
 					<div className="flex flex-col items-center gap-2 px-5 py-12 text-center text-muted-foreground">
 						<FilmStrip className="size-7" />
 						<p className="text-sm">
-							{query ? "没有匹配的视频" : "Your recordings appear here"}
+							{query ? "没有匹配的视频" : "录制将显示在这里"}
 						</p>
 						<p className="text-xs">
-							{query ? "Try another search." : "Record a video to get started."}
+							{query ? "请尝试其他搜索词。" : "开始录制后即可添加素材。"}
 						</p>
 					</div>
 				)}
@@ -217,7 +217,7 @@ export function RecordingLibraryPanel({
 						)}
 					>
 						<Checkbox
-							aria-label={`Select ${entry.name}`}
+							aria-label={`选择录制：${entry.name}`}
 							isDisabled={library.busy || library.importing}
 							isSelected={library.selected.has(entry.path)}
 							onChange={(checked) => toggle(entry.path, checked)}
@@ -257,7 +257,7 @@ export function RecordingLibraryPanel({
 							variant="ghost"
 							size="icon"
 							className="size-7 shrink-0"
-							aria-label={`Add ${entry.name} to timeline`}
+							aria-label={`添加到时间轴：${entry.name}`}
 							title="添加到时间轴"
 							disabled={library.busy || library.importing}
 							onClick={() => void library.addToTimeline(entry.path)}
@@ -269,7 +269,7 @@ export function RecordingLibraryPanel({
 			</div>
 			<footer className="flex items-center gap-2 px-5 py-3 text-[11px] text-muted-foreground">
 				<span className="flex-1">
-					{library.canUndo ? "已移到回收站" : "Drag to the timeline or click + to add."}
+					{library.canUndo ? "已移到回收站" : "拖到时间轴，或点击加号添加。"}
 				</span>
 				{library.canUndo && (
 					<Button

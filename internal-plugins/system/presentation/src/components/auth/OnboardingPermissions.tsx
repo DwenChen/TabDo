@@ -22,7 +22,7 @@ export function OnboardingPermissions({
 			window.electronAPI.getAccessibilityPermissionStatus(),
 		]);
 		if (!screen.success || !accessibility.success)
-			throw new Error("Could not check permissions. Try again.");
+			throw new Error("无法检查权限，请重试。");
 		setScreenGranted(screen.status === "granted");
 		setAccessibilityGranted(accessibility.trusted);
 		setError(undefined);
@@ -97,12 +97,13 @@ export function OnboardingPermissions({
 			<OnboardingBody scrollable={false}>
 				{platform === "checking" ? (
 					<p role="status" className="py-12 text-center text-sm text-muted">
-						Checking permissions…
+
+						正在检查权限…
 					</p>
 				) : (
 					<>
 						<OnboardingHeader
-							title="Allow Recordly to record"
+							title="允许演示录屏使用录制权限"
 							description={
 								platform === "mac"
 									? "Enable these permissions in macOS System Settings."
@@ -115,16 +116,16 @@ export function OnboardingPermissions({
 									{[
 										{
 											key: "screen" as const,
-											name: "Screen Recording",
+											name: "屏幕录制",
 											description:
-												"Capture a screen, window or selected area.",
+												"捕获屏幕、窗口或选定区域。",
 											granted: screenGranted,
 											icon: Monitor,
 										},
 										{
 											key: "accessibility" as const,
-											name: "Accessibility",
-											description: "Track your cursor and highlight clicks.",
+											name: "辅助功能",
+											description: "记录鼠标轨迹并突出显示点击。",
 											granted: accessibilityGranted,
 											icon: Cursor,
 										},
@@ -145,7 +146,8 @@ export function OnboardingPermissions({
 											{granted ? (
 												<span className="flex shrink-0 items-center gap-1.5 text-xs font-medium text-success">
 													<Check size={16} aria-hidden="true" />
-													Allowed
+
+													已允许
 												</span>
 											) : (
 												<Button
@@ -153,9 +155,9 @@ export function OnboardingPermissions({
 													className="h-11 shrink-0 rounded-xl"
 													isDisabled={Boolean(busy)}
 													onPress={() => void allow(key)}
-													aria-label={`Allow ${name}`}
+													aria-label={`允许${name}`}
 												>
-													{busy === key ? "Opening…" : "Allow"}
+													{busy === key ? "正在打开…" : "允许"}
 												</Button>
 											)}
 										</div>
@@ -164,8 +166,8 @@ export function OnboardingPermissions({
 								<div className="onboarding-permission-help flex items-center gap-3">
 									<p className="flex-1 text-xs leading-relaxed text-muted">
 										{screenGranted && accessibilityGranted
-											? "Your screen is captured only when you start recording. Microphone and camera access are requested when you use them."
-											: "Return after enabling access. macOS may require restarting Recordly."}
+											? "仅在开始录制后捕获屏幕；麦克风和摄像头在使用时请求权限。"
+											: "开启权限后返回；macOS 可能需要重启演示录屏。"}
 									</p>
 									{(!screenGranted || !accessibilityGranted) && (
 										<Button
@@ -179,7 +181,8 @@ export function OnboardingPermissions({
 												)
 											}
 										>
-											Check again
+
+											重新检查
 										</Button>
 									)}
 								</div>
@@ -194,9 +197,10 @@ export function OnboardingPermissions({
 				)}
 			</OnboardingBody>
 			<OnboardingFooter>
-				<Button variant="ghost" aria-label="Back to account" onPress={onBack}>
+				<Button variant="ghost" aria-label="返回账户" onPress={onBack}>
 					<ArrowLeft size={16} />
-					Back
+
+					返回
 				</Button>
 				<Button
 					isDisabled={

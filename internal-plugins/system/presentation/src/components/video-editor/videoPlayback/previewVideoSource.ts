@@ -22,7 +22,7 @@ export class PreviewVideoSource {
 	 * @throws {Error} 视频元素尚未附加时抛出错误。
 	 */
 	getSource(): VideoSource {
-		if (!this.video) throw new Error("Preview video element is not attached");
+		if (!this.video) throw new Error("预览视频尚未准备好");
 		this.source ??= new VideoSource({ resource: this.video, autoPlay: false });
 		// 帧合成器统一提交纹理和光标，不再注册独立的纹理更新循环。
 		this.source.autoUpdate = false;

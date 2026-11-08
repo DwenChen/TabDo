@@ -4,6 +4,15 @@ const props = defineProps({ action: { type: Object, required: true } })
 const ready = ref(false),
   message = ref('正在准备演示录屏…'),
   revision = ref(0)
+const editor = ref(null)
+
+/**
+ * 在正文被移除前卸载其React树，立即释放视频与GPU资源。
+ * @returns 无返回值；尚未装载正文时无需处理。
+ */
+function releaseEditor() {
+  editor.value?.contentWindow?.disposePresentationRenderer?.()
+}
 
 /**
  * 文件匹配载入编辑器；普通指令直接打开控制条，按前台交接挂载或卸载编辑正文。
@@ -21,6 +30,8 @@ async function initialize() {
     const runtime = await window.toolsPresentation.open(file)
     if (window.toolsLifecycle.signal.aborted) return
     window.toolsPresentation.onNavigate(runtime.prefix, (type) => {
+      // 界面交给控制条时先释放旧编辑器，避免仅移除iframe而跳过组件清理。
+      releaseEditor()
       ready.value = type === 'editor'
       if (ready.value) revision.value++
     })
@@ -39,11 +50,13 @@ onMounted(initialize)
 <template>
   <iframe
     v-if="ready"
+    ref="editor"
     :key="revision"
     class="presentation-editor"
     src="./presentation.html?windowType=editor"
     title="演示编辑器"
-    allow="camera; microphone; display-capture"
+    allow="camera; microphone; display-capture; fullscreen"
+    allowfullscreen
   />
   <p v-else role="status">{{ message }}</p>
 </template>

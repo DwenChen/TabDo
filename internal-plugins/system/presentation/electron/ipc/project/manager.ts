@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { readProjectMediaReferences } from './mediaReferences';
 import { createProjectFirstFrameThumbnail } from "./firstFrameThumbnail";
 import { buildMediaUrl, getMediaServerBaseUrl } from "../../mediaServer";
 import type { ProjectPreviewData } from "../../../src/types/projectPreview";
@@ -16,8 +17,8 @@ import {
 	PROJECT_THUMBNAIL_SUFFIX,
 	PROJECTS_DIRECTORY_NAME,
 	RECENT_PROJECTS_FILE,
-	RECORDINGS_SETTINGS_FILE,
 } from "../constants";
+import { recordingPreferencesStore } from "../settings/recordingSettings";
 import {
 	approvedLocalReadPaths,
 	currentProjectPath,
@@ -185,17 +186,17 @@ export async function resolveProjectMediaSources(
 	| { success: false; message: string }
 > {
 	if (!project || typeof project !== "object") {
-		return { success: false, message: "Invalid project file format" };
+		return { success: false, message: "项目文件格式无效" };
 	}
 
 	const rawVideoPath = (project as { videoPath?: unknown }).videoPath;
 	if (typeof rawVideoPath !== "string") {
-		return { success: false, message: "Project file is missing a video path" };
+		return { success: false, message: "项目缺少视频素材路径" };
 	}
 
 	const normalizedVideoPath = normalizeVideoSourcePath(rawVideoPath);
 	if (!normalizedVideoPath) {
-		return { success: false, message: "Project file is missing a valid video path" };
+		return { success: false, message: "项目的视频素材路径无效" };
 	}
 
 	try {
@@ -203,7 +204,7 @@ export async function resolveProjectMediaSources(
 	} catch {
 		return {
 			success: false,
-			message: `Project video file not found: ${normalizedVideoPath}`,
+			message: `项目引用的视频素材不存在：${normalizedVideoPath}`,
 		};
 	}
 
@@ -239,20 +240,30 @@ export async function resolveProjectMediaSources(
 	}
 }
 
+/**
+ * 读取独立项目目录，旧配置继续使用录制目录下的项目文件夹。
+ * @returns 已准备的项目目录；已保存项目仍沿自身路径写入。
+ * @throws 配置目录无法访问或创建时抛出文件系统错误。
+ */
 export async function getProjectsDir() {
-	const projectsDir = path.join(await getRecordingsDir(), PROJECTS_DIRECTORY_NAME);
+	const settings = await recordingPreferencesStore.read();
+	const projectsDir = typeof settings.projectsDir === "string" && settings.projectsDir.trim()
+		? path.resolve(settings.projectsDir)
+		: path.join(await getRecordingsDir(), PROJECTS_DIRECTORY_NAME);
 	await fs.mkdir(projectsDir, { recursive: true });
 	return projectsDir;
 }
 
+/**
+ * 合并保存录制目录，成功落盘后再切换本会话路径。
+ * @param nextDir 用户通过选择器确认的目录。
+ * @returns 保存完成后的 Promise。
+ * @throws 配置写入失败时抛错并保留原运行时目录。
+ */
 export async function persistRecordingsDirectorySetting(nextDir: string) {
+	await recordingPreferencesStore.update({ recordingsDir: path.resolve(nextDir) });
 	setCustomRecordingsDir(path.resolve(nextDir));
 	setRecordingsDirLoaded(true);
-	await fs.writeFile(
-		RECORDINGS_SETTINGS_FILE,
-		JSON.stringify({ recordingsDir: path.resolve(nextDir) }, null, 2),
-		"utf-8",
-	);
 }
 
 export function hasProjectFileExtension(filePath: string) {
@@ -368,6 +379,13 @@ export function refreshProjectThumbnail(projectPath: string, revision: Stats) {
 	return task;
 }
 
+/**
+ * 构造可独立管理的项目条目，缺失素材以关联状态返回而不阻止列出或删除。
+ * @param projectPath 已发现的项目路径。
+ * @param projectsDir 当前项目库目录。
+ * @param onThumbnailReady 缩略图异步就绪通知。
+ * @returns 项目条目，或文件无效、不可访问时的空值。
+ */
 export async function buildProjectLibraryEntry(
 	projectPath: string,
 	projectsDir: string,
@@ -396,6 +414,7 @@ export async function buildProjectLibraryEntry(
 
 		return {
 			path: normalizedPath,
+			...(await readProjectMediaReferences(normalizedPath)),
 			name: path
 				.basename(normalizedPath)
 				.replace(
@@ -485,17 +504,17 @@ function isLoadableProjectData(projectData: unknown) {
 
 /** Read a listed project's preview without changing the active project or recording session. */
 export async function readProjectPreview(projectPath: string): Promise<ProjectPreviewData> {
-	if (typeof projectPath !== "string") throw new Error("Invalid project path");
+	if (typeof projectPath !== "string") throw new Error("项目路径无效");
 	const normalizedPath = normalizePath(projectPath);
 	const { entries } = await listProjectLibraryEntries();
 	if (!entries.some((entry) => entry.path === normalizedPath))
-		throw new Error("Project is not in the library");
+		throw new Error("该项目不在当前项目库中");
 	const project = parseJsonWithByteOrderMark(await fs.readFile(normalizedPath, "utf-8"));
-	if (!isLoadableProjectData(project)) throw new Error("Invalid project file format");
+	if (!isLoadableProjectData(project)) throw new Error("项目文件格式无效");
 	const media = await resolveProjectMediaSources(project);
 	if (!media.success) throw new Error(media.message);
 	const baseUrl = getMediaServerBaseUrl();
-	if (!baseUrl) throw new Error("Media server is not ready");
+	if (!baseUrl) throw new Error("媒体服务尚未准备好");
 	await rememberApprovedLocalReadPath(media.videoPath);
 	if (media.webcamPath) await rememberApprovedLocalReadPath(media.webcamPath);
 	return {
@@ -515,14 +534,14 @@ export async function loadProjectFromPath(projectPath: string) {
 		return {
 			success: false,
 			canceled: false,
-			message: `Failed to read project file: ${error instanceof Error ? error.message : String(error)}`,
+			message: `无法读取项目文件：${error instanceof Error ? error.message : String(error)}`,
 		};
 	}
 	if (!isLoadableProjectData(project)) {
 		return {
 			success: false,
 			canceled: false,
-			message: "Invalid project file format",
+			message: "项目文件格式无效",
 		};
 	}
 	const mediaSources = await resolveProjectMediaSources(project);

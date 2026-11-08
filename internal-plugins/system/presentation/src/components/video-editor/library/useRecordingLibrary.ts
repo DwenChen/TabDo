@@ -2,7 +2,7 @@ import type { useAppearanceState } from "../state/useAppearanceState";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "@presentation/components/ui/toast";
 import type { RecordingLibraryEntry } from "@presentation/types/recordingLibrary";
-import { packClipSequence, rippleRegionAnchors, rippleRegions } from "../clipSequence";
+import { packClipSequence, rippleRegions } from "../clipSequence";
 import {
 	type ZoomRegion,
 	sortClipRegions,
@@ -132,7 +132,7 @@ export function useRecordingLibrary(
 				completed++;
 				if (current.current.project.videoSourcePath !== source)
 					throw new Error(
-						"The project changed while importing. Add the recordings again.",
+						"导入期间项目已切换，请重新添加录制。",
 					);
 				media = result.value;
 				sourcePath = media.path;
@@ -183,13 +183,13 @@ export function useRecordingLibrary(
 			if (!media) return;
 			const { project, timeline, ui, appearance } = current.current;
 			if (project.videoSourcePath !== source)
-				throw new Error("The project changed while importing. Add the recordings again.");
+				throw new Error("导入期间项目已切换，请重新添加录制。");
 			// Prepare cleanup while retaining rollback ownership until the project check passes.
 			const prepared = await window.electronAPI.finishRecordingImport(media.path);
 			if (!prepared.success)
 				throw new Error(prepared.error || "无法完成素材导入");
 			if (current.current.project.videoSourcePath !== source)
-				throw new Error("The project changed while importing. Add the recordings again.");
+				throw new Error("导入期间项目已切换，请重新添加录制。");
 			// Send acceptance before synchronous project state updates; no await can switch projects here.
 			void window.electronAPI
 				.finishRecordingImport(media.path, true)
@@ -205,7 +205,7 @@ export function useRecordingLibrary(
 				...addedZooms,
 			]);
 			timeline.setAnnotationRegions((current) => rippleRegions(current, before, sequence));
-			timeline.setAudioRegions((current) => rippleRegionAnchors(current, before, sequence));
+			// 已独立编辑的音频和摄像头保留各自时间轴，不跟随录屏插入平移。
 			timeline.setSelectedClipId(id);
 			if (media.webcam)
 				appearance.setWebcam((previous) => ({

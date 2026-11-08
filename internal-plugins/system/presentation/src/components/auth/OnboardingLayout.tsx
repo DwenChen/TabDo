@@ -47,7 +47,7 @@ export function OnboardingLayout({
 				{children}
 			</motion.div>
 			<nav
-				aria-label="Onboarding pages"
+				aria-label="初次使用步骤"
 				className="flex shrink-0 justify-center gap-1 px-6 pb-4 pt-2"
 			>
 				{stages.map(({ key, label }) => (

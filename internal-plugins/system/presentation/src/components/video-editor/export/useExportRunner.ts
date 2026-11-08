@@ -174,7 +174,7 @@ export function useExportRunner(input: ExportRunnerInput) {
               const fileName = `export-${timestamp}.gif`
               if (options?.destination === 'share') {
                 const tempPath = await streamExportBlobToTempFile(result.blob, 'gif')
-                if (!tempPath) throw new Error('Could not prepare the GIF for sharing.')
+                if (!tempPath) throw new Error("无法准备要分享的 GIF。")
                 return tempPath
               }
               markExportAsSaving()
@@ -352,7 +352,7 @@ export function useExportRunner(input: ExportRunnerInput) {
                   const tempPath = await streamExportBlobToTempFile(result.blob, 'mp4')
                   if (tempPath) return tempPath
                 }
-                throw new Error('Could not prepare the video for sharing.')
+                throw new Error("无法准备要分享的视频。")
               }
               const sidecarForThisExport =
                 settings.includeCaptionSidecar && captionSidecarPayload
@@ -426,7 +426,7 @@ export function useExportRunner(input: ExportRunnerInput) {
                     encodingMode,
                     shadowIntensity: effectiveShadowIntensity,
                     elapsedMs: smokeExportElapsedMs,
-                    error: 'Save canceled',
+                    error: "已取消保存",
                     progressSamples: smokeProgressSamples,
                     metrics: result.metrics
                   })
@@ -531,7 +531,7 @@ export function useExportRunner(input: ExportRunnerInput) {
         } catch (error) {
           if (exportWasCancelled()) return
           console.error('Export error:', error)
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+          const errorMessage = error instanceof Error ? error.message : "未知错误"
           if (smokeExportConfig.enabled) {
             await writeSmokeExportReport(smokeExportConfig.outputPath, {
               success: false,

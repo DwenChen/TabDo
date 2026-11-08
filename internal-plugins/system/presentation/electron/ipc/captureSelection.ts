@@ -21,7 +21,7 @@ export async function validateCaptureSource(candidate: unknown): Promise<Selecte
 	if (typeof source.id !== "string" || typeof source.name !== "string") return null;
 	if (source.id === LINUX_PORTAL_SCREEN_SOURCE_ID)
 		return process.platform === "linux" && isLikelyLinuxWaylandSession(process.env)
-			? { id: source.id, name: "System picker", sourceType: "screen" }
+			? { id: source.id, name: "系统选择器", sourceType: "screen" }
 			: null;
 	if (process.platform === "linux" && isLikelyLinuxWaylandSession(process.env)) return null;
 	if (source.id.startsWith("window:") && process.platform === "linux") {

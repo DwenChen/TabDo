@@ -70,7 +70,7 @@ function getDetail(payload: UpdateToastPayload, t: Translate) {
 
 function getPrimaryLabel(payload: UpdateToastPayload, t: Translate) {
 	if (payload.primaryAction === "retry-check") {
-		return t("launch.updateToast.tryAgain", "Try again");
+		return t("launch.updateToast.tryAgain", "重试");
 	}
 	return payload.phase === "ready"
 		? t("launch.updateToast.restartToUpdate", "Restart to update")
@@ -158,7 +158,7 @@ export function UpdateToastWindow({
 
 	return (
 		<div className={`${styles.window} launch-theme`}>
-			<Card className="w-full flex-row gap-3" aria-live="polite" aria-label="Recordly update">
+			<Card className="w-full flex-row gap-3" aria-live="polite" aria-label="演示录屏更新">
 				<div
 					className={`${styles.icon} ${payload.phase === "error" ? styles.iconError : ""}`}
 				>
@@ -184,7 +184,7 @@ export function UpdateToastWindow({
 
 					{payload.phase === "downloading" ? (
 						<div className={styles.progressBlock}>
-							<ProgressBar aria-label="Downloading update" value={progress}>
+							<ProgressBar aria-label="正在下载更新" value={progress}>
 								<ProgressBar.Track>
 									<ProgressBar.Fill />
 								</ProgressBar.Track>

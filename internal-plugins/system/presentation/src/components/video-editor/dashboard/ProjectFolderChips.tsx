@@ -54,7 +54,7 @@ export function ProjectFolderChips({
 			variant="ghost"
 			size="sm"
 			tabIndex={measuring ? -1 : undefined}
-			aria-label={`Remove ${name} from ${folder.name}`}
+			aria-label={`从${folder.name}移除${name}`}
 			title={folder.name}
 			onClick={measuring ? undefined : () => onRemove(folder.id)}
 			className="h-6 min-w-0 max-w-28 shrink gap-1.5 rounded-full bg-default/40 px-2.5 text-[11px]"
@@ -71,14 +71,14 @@ export function ProjectFolderChips({
 	return (
 		<div
 			ref={host}
-			aria-label={`Folders for ${name}`}
+			aria-label={`所属文件夹：${name}`}
 			className="relative flex min-w-0 flex-1 items-center gap-1.5"
 		>
 			{folders.slice(0, visible).map((folder) => chip(folder))}
 			{hidden.length > 0 && (
 				<span
 					className="shrink-0 text-[11px] text-muted-foreground"
-					aria-label={`${hidden.length} more folders: ${hidden.map((folder) => folder.name).join(", ")}`}
+					aria-label={`另有 ${hidden.length} 个文件夹：${hidden.map((folder) => folder.name).join("、")}`}
 					title={hidden.map((folder) => folder.name).join(", ")}
 				>
 					+{hidden.length}

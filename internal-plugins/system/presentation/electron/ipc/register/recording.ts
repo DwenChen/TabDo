@@ -22,9 +22,10 @@ import {
 } from "../../windows";
 import { ALLOW_RECORDLY_WINDOW_CAPTURE } from "../constants";
 import { startWindowBoundsCapture, stopWindowBoundsCapture } from "../cursor/bounds";
-import { startInteractionCapture, stopInteractionCapture } from "../cursor/interaction";
+import { setKeyboardCaptureEnabled, startInteractionCapture, stopInteractionCapture } from "../cursor/interaction";
 import { startNativeCursorMonitor, stopNativeCursorMonitor } from "../cursor/monitor";
 import {
+	getCursorCaptureElapsedMs,
 	normalizeCursorTelemetrySamples,
 	pauseCursorCaptureAtBoundary,
 	persistPendingCursorTelemetry,
@@ -37,7 +38,6 @@ import {
 	writeCursorTelemetry
 } from "../cursor/telemetry";
 import { getFfmpegBinaryPath } from "../ffmpeg/binary";
-import { getMonitorHandles } from "../monitorResolver";
 import {
 	ensureNativeCaptureHelperBinary,
 	ensureSwiftHelperBinary,
@@ -89,10 +89,12 @@ import {
 	shouldUseWindowsBrowserMicrophoneFallback
 } from "../recording/windowsFallbacks";
 import {
+	activeCursorSamples,
 	cachedSystemCursorAssets,
 	cachedSystemCursorAssetsSourceMtimeMs,
 	currentVideoPath,
 	isCursorCaptureActive,
+	mouseCaptureEnabled,
 	ffmpegCaptureOutputBuffer,
 	ffmpegCaptureProcess,
 	ffmpegCaptureTargetPath,
@@ -115,6 +117,7 @@ import {
 	setFfmpegCaptureTargetPath,
 	setFfmpegScreenRecordingActive,
 	setIsCursorCaptureActive,
+	setMouseCaptureEnabled,
 	setLastLeftClick,
 	setLinuxCursorScreenPoint,
 	setNativeCaptureMicrophonePath,
@@ -410,6 +413,21 @@ async function resolveExistingPath(...candidates: Array<string | null | undefine
 export function registerRecordingHandlers(
 	onRecordingStateChange?: (recording: boolean, sourceName: string) => void
 ) {
+	let windowsCapturePrepared = false;
+	let preparedWindowsArtifacts: string[] = [];
+	let windowsCameraOutputPath: string | null = null;
+	let windowsTempCameraPath: string | null = null;
+	/**
+	 * 等待已交给原生采集的共同边界，使输入状态在同一时刻切换。
+	 * @param boundaryMs 渲染器指定的短期精确墙钟时刻。
+	 * @returns 到达边界后完成，不把封装时间算进采集。
+	 * @throws 边界不是有限短期时刻时拒绝命令。
+	 */
+	const waitForBoundary = async (boundaryMs: number): Promise<void> => {
+		const delay = boundaryMs - (performance.timeOrigin + performance.now());
+		if (!Number.isFinite(delay) || delay > 1000 || delay < -1000) throw new Error("无效的录制时间边界");
+		if (delay > 0) await new Promise<void>((resolve) => setTimeout(resolve, delay));
+	};
 	/**
 	 * 在画面捕获就绪时启动光标时间轴，重复的界面通知不重置已采集数据。
 	 * @param startedAtMs 与画面起点对应的墙钟时间。
@@ -427,18 +445,30 @@ export function registerRecordingHandlers(
 		resetCursorCaptureClock();
 		setLinuxCursorScreenPoint(null);
 		setLastLeftClick(null);
-		startWindowBoundsCapture();
-		void startNativeCursorMonitor();
-		sampleCursorPoint();
-		startCursorSampling();
+		// 鼠标关闭时不启动位置、形状轮询，键盘仍共用录制时钟。
+		if (mouseCaptureEnabled) {
+			startWindowBoundsCapture();
+			void startNativeCursorMonitor();
+			sampleCursorPoint();
+			startCursorSampling();
+		}
 		void startInteractionCapture();
 	};
+	ipcMain.handle("set-keyboard-capture", (_event, enabled: boolean) => { setKeyboardCaptureEnabled(enabled === true); return { success: true }; });
+	ipcMain.handle("configure-input-capture", (_event, options: { keyboard?: boolean; mouse?: boolean }) => {
+		// 正在录制时不接受配置替换，保证首帧开始就采用用户的明确选择。
+		if (isCursorCaptureActive) throw new Error("请在录制开始前调整输入录制");
+		setKeyboardCaptureEnabled(options?.keyboard === true);
+		setMouseCaptureEnabled(options?.mouse !== false);
+		return { success: true };
+	});
+
 	ipcMain.handle(
 		"start-native-screen-recording",
 		async (_, source: SelectedSource, options?: NativeMacRecordingOptions) => {
 			// Protect the HUD at the capture boundary, before the renderer publishes recording state.
 			beginHudCaptureProtection();
-			const visibleWindowBounds = source.id?.startsWith("window:")
+			const visibleWindowBounds = source.id?.startsWith("window:") && process.platform !== "win32"
 				? await bringSelectedWindowForward(source)
 				: null;
 
@@ -448,7 +478,7 @@ export function registerRecordingHandlers(
 				if (!windowsCaptureAvailable) {
 					return {
 						success: false,
-						message: "Native Windows capture is not available on this system."
+						message: "当前系统不支持所需的 Windows 原生捕获。"
 					};
 				}
 
@@ -469,6 +499,9 @@ export function registerRecordingHandlers(
 						message: "A native Windows screen recording is already active."
 					};
 				}
+				windowsCapturePrepared = false;
+				windowsCameraOutputPath = null;
+				windowsTempCameraPath = null;
 
 				let wcProc: ChildProcessWithoutNullStreams | null = null;
 				let tempVideoPath: string | null = null;
@@ -496,14 +529,22 @@ export function registerRecordingHandlers(
 					setWindowsOrphanedMicAudioPath(null);
 
 					const config: Record<string, unknown> = {
+						deferStart: options?.deferStart === true,
 						outputPath: tempVideoPath,
 						fps: 60
 					};
+					if (options?.capturesWebcam) {
+						windowsCameraOutputPath = path.join(recordingsDir, `recording-${timestamp}-webcam.mp4`);
+						windowsTempCameraPath = path.join(app.getPath("temp"), `recordly-native-${timestamp}-webcam.mp4`);
+						config.captureCamera = true;
+						config.cameraOutputPath = windowsTempCameraPath;
+						config.cameraName = options.webcamLabel ?? "";
+					}
 
 					if (captureTarget.kind === "invalid-window") {
 						return {
 							success: false,
-							message: "Selected window is no longer available. Please choose the window again."
+							message: "所选窗口已关闭或失效，请重新选择。"
 						};
 					}
 
@@ -512,19 +553,8 @@ export function registerRecordingHandlers(
 					} else {
 						// Windows Graphics Capture (WGC) requires a raw HMONITOR handle.
 						// We attempt to resolve the handle by matching the physical coordinates of the target display.
-						const monitors = getMonitorHandles();
-						const matchedMonitor = monitors.find(
-							(monitor) =>
-								monitor.x === Math.round(captureTarget.bounds.x) &&
-								monitor.y === Math.round(captureTarget.bounds.y)
-						);
-
-						if (matchedMonitor) {
-							config.displayId = matchedMonitor.handle;
-						} else {
-							// Fallback to coordinate-based matching if handle resolution fails
-							config.displayId = captureTarget.displayId;
-						}
+						// 原生进程直接按物理边界匹配显示器，避免每次阻塞启动PowerShell。
+						config.displayId = captureTarget.displayId;
 
 						config.displayX = Math.round(captureTarget.bounds.x);
 						config.displayY = Math.round(captureTarget.bounds.y);
@@ -585,10 +615,12 @@ export function registerRecordingHandlers(
 
 					wcProc = spawn(exePath, [JSON.stringify(config)], {
 						cwd: recordingsDir,
+						windowsHide: true,
 						stdio: ["pipe", "pipe", "pipe"],
 						env: process.env
 					});
 					setWindowsCaptureProcess(wcProc);
+					preparedWindowsArtifacts = [tempVideoPath, tempSystemAudioPath, tempMicPath, windowsTempCameraPath].filter((item): item is string => Boolean(item));
 					attachWindowsCaptureLifecycle(wcProc);
 
 					wcProc.stdout.on("data", (chunk: Buffer) => {
@@ -602,10 +634,10 @@ export function registerRecordingHandlers(
 						setWindowsCaptureOutputBuffer(captureOutput);
 					});
 
-					await waitForWindowsCaptureStart(wcProc);
-					// 不等待渲染端麦克风权限或设备枚举，立即开始同一录制的轨迹。
+					await waitForWindowsCaptureStart(wcProc, options?.deferStart === true);
+					windowsCapturePrepared = options?.deferStart === true;
 					const captureStartedAtMs = Date.now();
-					beginCursorCapture(captureStartedAtMs);
+					if (!windowsCapturePrepared) beginCursorCapture(captureStartedAtMs);
 					const microphoneFallbackRequired =
 						browserMicFallbackRequested ||
 						shouldUseWindowsBrowserMicrophoneFallback(captureOutput, options);
@@ -631,7 +663,9 @@ export function registerRecordingHandlers(
 						microphonePath,
 						processOutput: captureOutput.trim() || undefined
 					});
-					return { success: true, microphoneFallbackRequired, captureStartedAtMs };
+					const clockLine = captureOutput.match(/CAPTURE_CLOCK (\{[^\r\n]+\})/);
+					return { success: true, microphoneFallbackRequired, captureStartedAtMs,
+						captureClock: clockLine ? JSON.parse(clockLine[1]) as { epochMs: number; monotonicMs: number } : undefined };
 				} catch (error) {
 					recordNativeCaptureDiagnostics({
 						backend: "windows-wgc",
@@ -652,6 +686,7 @@ export function registerRecordingHandlers(
 						/* ignore */
 					}
 					await Promise.allSettled([
+						windowsTempCameraPath ? fs.rm(windowsTempCameraPath, { force: true }) : Promise.resolve(),
 						tempVideoPath
 							? fs.rm(tempVideoPath, { force: true }).catch(() => undefined)
 							: Promise.resolve(),
@@ -736,7 +771,7 @@ export function registerRecordingHandlers(
 				) {
 					return {
 						success: false,
-						message: "Cannot record Recordly windows. Please select another app window."
+						message: "无法录制演示录屏自身窗口，请选择其他应用窗口。"
 					};
 				}
 
@@ -870,11 +905,11 @@ export function registerRecordingHandlers(
 				) {
 					const { response } = await dialog.showMessageBox({
 						type: "warning",
-						title: "Screen Recording Permission Required",
-						message: "Recordly needs screen recording permission to capture your screen.",
+						title: "需要屏幕录制权限",
+						message: "演示录屏需要屏幕录制权限才能捕获画面。",
 						detail:
-							"Please open System Settings > Privacy & Security > Screen Recording, make sure Recordly is toggled ON, then try recording again.",
-						buttons: ["Open System Settings", "Cancel"],
+							"请在系统设置的“隐私与安全性 → 屏幕录制”中开启本应用的权限，再尝试录制。",
+						buttons: ["打开系统设置", "取消"],
 						defaultId: 0,
 						cancelId: 1
 					});
@@ -896,7 +931,7 @@ export function registerRecordingHandlers(
 					return {
 						success: false,
 						message:
-							"Screen recording permission not granted. Please allow access in System Settings and restart the app.",
+							"尚未获得屏幕录制权限，请在系统设置中允许后重启应用。",
 						userNotified: true
 					};
 				}
@@ -904,11 +939,11 @@ export function registerRecordingHandlers(
 				if (errorStr.includes("MICROPHONE_PERMISSION_DENIED")) {
 					const { response } = await dialog.showMessageBox({
 						type: "warning",
-						title: "Microphone Permission Required",
-						message: "Recordly needs microphone permission to record audio.",
+						title: "需要麦克风权限",
+						message: "演示录屏需要麦克风权限才能录制声音。",
 						detail:
-							"Please open System Settings > Privacy & Security > Microphone, make sure Recordly is toggled ON, then try recording again.",
-						buttons: ["Open System Settings", "Cancel"],
+							"请在系统设置的“隐私与安全性 → 麦克风”中开启本应用的权限，再尝试录制。",
+						buttons: ["打开系统设置", "取消"],
 						defaultId: 0,
 						cancelId: 1
 					});
@@ -929,7 +964,7 @@ export function registerRecordingHandlers(
 					setNativeCapturePaused(false);
 					return {
 						success: false,
-						message: "Microphone permission not granted. Please allow access in System Settings.",
+						message: "尚未获得麦克风权限，请在系统设置中允许访问。",
 						userNotified: true
 					};
 				}
@@ -968,8 +1003,47 @@ export function registerRecordingHandlers(
 		}
 	);
 
-	ipcMain.handle("stop-native-screen-recording", async () => {
-		const start = Date.now();
+	ipcMain.handle("commit-native-screen-recording", async (_event, boundaryMs: number) => {
+		if (!windowsCapturePrepared || !windowsCaptureProcess) return { success: false, error: "录制尚未准备完成" };
+		const proc = windowsCaptureProcess;
+		proc.stdin.write(`start ${boundaryMs.toFixed(3)}\n`);
+		await waitForBoundary(boundaryMs);
+		if (proc !== windowsCaptureProcess) return { success: false, error: "录制已取消" };
+		windowsCapturePrepared = false;
+		const inputStartedAt = performance.now();
+		beginCursorCapture(boundaryMs);
+		console.log(`[CaptureClock] Input initialization ms: ${(performance.now() - inputStartedAt).toFixed(2)}`);
+		return { success: true };
+	});
+
+	ipcMain.handle("stop-native-screen-recording", async (_event, boundaryMs?: number) => {
+		const start = boundaryMs ?? Date.now();
+		if (process.platform === "win32" && windowsCapturePrepared && windowsCaptureProcess) {
+			// 取消尚未提交的准备会话只回收本次明确生成的路径，不发布空录制。
+			const proc = windowsCaptureProcess;
+			setWindowsCaptureStopRequested(true);
+			proc.stdin.write("stop\n");
+			await waitForWindowsCaptureStop(proc).catch(() => undefined);
+			for (const artifact of preparedWindowsArtifacts) {
+				await fs.rm(artifact, { force: true });
+				await fs.rm(artifact + ".json", { force: true });
+			}
+			preparedWindowsArtifacts = [];
+			windowsCapturePrepared = false;
+			setWindowsNativeCaptureActive(false);
+			setNativeScreenRecordingActive(false);
+			setWindowsCaptureProcess(null);
+			setWindowsCaptureTargetPath(null);
+			setWindowsSystemAudioPath(null);
+			setWindowsMicAudioPath(null);
+			return { success: true };
+		}
+		// 先将共同截止时刻送入原生缓冲队列，再在同一边界结束键鼠采集。
+		if (process.platform === "win32" && windowsCaptureProcess) {
+			windowsCaptureProcess.stdin.write(`stop ${start.toFixed(3)}\n`);
+			setWindowsCaptureStopRequested(true);
+			await waitForBoundary(start);
+		}
 		if (isCursorCaptureActive) {
 			// 停止操作即结束前台采样，封装、校验和写盘期间不追加视频之外的轨迹。
 			sampleCursorPoint();
@@ -977,6 +1051,7 @@ export function registerRecordingHandlers(
 			stopCursorCapture();
 			stopInteractionCapture();
 			stopWindowBoundsCapture();
+			setKeyboardCaptureEnabled(false);
 			stopNativeCursorMonitor();
 		}
 		console.log("[PERF:MAIN] Handler: stop-native-screen-recording: STARTED");
@@ -997,7 +1072,6 @@ export function registerRecordingHandlers(
 					const diagnosticsSystemAudioPath = windowsSystemAudioPath;
 					const diagnosticsMicAudioPath = windowsMicAudioPath;
 					setWindowsCaptureStopRequested(true);
-					proc.stdin.write("stop\n");
 					const tempVideoPath = await waitForWindowsCaptureStop(proc);
 					stagedTempVideoPath = tempVideoPath;
 					const finalVideoPath = preferredVideoPath ?? tempVideoPath;
@@ -1035,6 +1109,12 @@ export function registerRecordingHandlers(
 						}
 					}
 					const validation = await validateRecordedVideo(finalVideoPath);
+					let webcamPath: string | undefined;
+					if (windowsCameraOutputPath && windowsTempCameraPath) {
+						await validateRecordedVideo(windowsTempCameraPath);
+						await moveFileWithOverwrite(windowsTempCameraPath, windowsCameraOutputPath);
+						webcamPath = windowsCameraOutputPath;
+					}
 
 					setWindowsCaptureProcess(null);
 					setWindowsNativeCaptureActive(false);
@@ -1066,7 +1146,10 @@ export function registerRecordingHandlers(
 						}
 					});
 
-					// Persist cursor telemetry before returning so the editor can find it immediately
+					// 不能再用文件时长差反推并移动内容时间戳。
+					const durationMs = Math.round(validation.durationSeconds * 1000);
+					const leadingMs = 0;
+					// Publish telemetry before returning so the editor never opens with incomplete input data.
 					snapshotCursorTelemetryForPersistence();
 					try {
 						await persistPendingCursorTelemetry(finalVideoPath);
@@ -1074,7 +1157,7 @@ export function registerRecordingHandlers(
 						console.warn("Failed to persist cursor telemetry during native stop:", error);
 					}
 
-					return { success: true, path: finalVideoPath };
+					return { success: true, path: finalVideoPath, durationMs, leadingMs, webcamPath };
 				} catch (error) {
 					console.error("Failed to stop native Windows capture:", error);
 					const fallbackPath = await resolveExistingPath(
@@ -1100,6 +1183,11 @@ export function registerRecordingHandlers(
 					setWindowsCapturePaused(false);
 					setWindowsOrphanedMicAudioPath(null);
 
+					if (windowsCameraOutputPath) {
+						// 请求过相机时不能把缺少相机的部分素材自动当作同步录制成功。
+						setWindowsPendingVideoPath(null);
+						return { success: false, strictSyncFailure: true, error: String(error) };
+					}
 					if (fallbackPath) {
 						try {
 							const validation = await validateRecordedVideo(fallbackPath);
@@ -1335,7 +1423,7 @@ export function registerRecordingHandlers(
 		};
 	});
 
-	ipcMain.handle("pause-native-screen-recording", async () => {
+	ipcMain.handle("pause-native-screen-recording", async (_event, boundaryMs?: number) => {
 		if (process.platform === "win32") {
 			if (!windowsNativeCaptureActive || !windowsCaptureProcess) {
 				return { success: false, message: "No native Windows screen recording is active." };
@@ -1346,8 +1434,10 @@ export function registerRecordingHandlers(
 			}
 
 			try {
-				windowsCaptureProcess.stdin.write("pause\n");
-				pauseCursorCaptureAtBoundary(Date.now());
+				const boundary = boundaryMs ?? Date.now();
+				windowsCaptureProcess.stdin.write(`pause ${boundary.toFixed(3)}\n`);
+				await waitForBoundary(boundary);
+				pauseCursorCaptureAtBoundary(boundary);
 				setWindowsCapturePaused(true);
 				return { success: true };
 			} catch (error) {
@@ -1389,7 +1479,7 @@ export function registerRecordingHandlers(
 		}
 	});
 
-	ipcMain.handle("resume-native-screen-recording", async () => {
+	ipcMain.handle("resume-native-screen-recording", async (_event, boundaryMs?: number) => {
 		if (process.platform === "win32") {
 			if (!windowsNativeCaptureActive || !windowsCaptureProcess) {
 				return { success: false, message: "No native Windows screen recording is active." };
@@ -1400,8 +1490,10 @@ export function registerRecordingHandlers(
 			}
 
 			try {
-				windowsCaptureProcess.stdin.write("resume\n");
-				resumeCursorCapture(Date.now());
+				const boundary = boundaryMs ?? Date.now();
+				windowsCaptureProcess.stdin.write(`resume ${boundary.toFixed(3)}\n`);
+				await waitForBoundary(boundary);
+				resumeCursorCapture(boundary);
 				setWindowsCapturePaused(false);
 				return { success: true };
 			} catch (error) {
@@ -1812,17 +1904,36 @@ export function registerRecordingHandlers(
 		}
 	);
 
-	ipcMain.handle("store-recorded-video", async (_, videoData: ArrayBuffer, fileName: unknown) => {
+	/**
+	 * Store generated recording media without letting companions replace the active screen session.
+	 * @param _ Ignored IPC event; the host binds this handler to the owning session.
+	 * @param videoData Encoded video or explicitly auxiliary audio bytes.
+	 * @param fileName Restricted generated recording basename.
+	 * @param options Whether the media is a companion requiring isolated validation.
+	 * @returns A storage result with the validated path or the original failure diagnostic.
+	 */
+	ipcMain.handle("store-recorded-video", async (_, videoData: ArrayBuffer, fileName: unknown, options?: { auxiliary?: boolean }) => {
 		try {
 			const recordingsDir = await getRecordingsDir();
-			const videoPath = resolveRecordedVideoStoragePath(recordingsDir, fileName);
+			const videoPath = resolveRecordedVideoStoragePath(recordingsDir, fileName, options?.auxiliary === true);
 			await fs.writeFile(videoPath, Buffer.from(videoData));
+			if (options?.auxiliary === true) {
+				// Companions never consume screen telemetry or replace the active project.
+				if (/\.(system|mic)\.webm$/.test(videoPath)) {
+					await execFileAsync(getFfmpegBinaryPath(), ["-v", "error", "-i", videoPath, "-map", "0:a:0", "-frames:a", "1", "-f", "null", "-"], { timeout: 20000, windowsHide: true });
+					// All browser encoders share the same boundary; never infer a delay from Opus padding.
+					await fs.writeFile(`${videoPath}.json`, JSON.stringify({ startDelayMs: 0 }));
+				} else {
+					await validateRecordedVideo(videoPath);
+				}
+				return { success: true, path: videoPath };
+			}
 			return await finalizeStoredVideo(videoPath);
 		} catch (error) {
 			console.error("Failed to store video:", error);
 			return {
 				success: false,
-				message: "Failed to store video",
+				message: "无法保存录制视频",
 				error: String(error)
 			};
 		}
@@ -1855,13 +1966,13 @@ export function registerRecordingHandlers(
 			}
 
 			if (sortedCandidates.length === 0) {
-				return { success: false, message: "No recorded video found" };
+				return { success: false, message: "尚未找到录制视频" };
 			}
 
-			return { success: false, message: "No usable recorded video found" };
+			return { success: false, message: "没有可用的录制视频" };
 		} catch (error) {
 			console.error("Failed to get video path:", error);
-			return { success: false, message: "Failed to get video path", error: String(error) };
+			return { success: false, message: "无法获取视频路径", error: String(error) };
 		}
 	});
 
@@ -1881,7 +1992,7 @@ export function registerRecordingHandlers(
 			setActiveCursorSamples([]);
 		}
 
-		const source = selectedSource || { name: "Screen" };
+		const source = selectedSource || { name: "屏幕" };
 		const recordingArea = recording ? getSourceArea(selectedSource) : null;
 		if (recordingArea) {
 			showAreaRecordingBorder(recordingArea);
@@ -1934,7 +2045,7 @@ export function registerRecordingHandlers(
 			console.error("Failed to load cursor telemetry:", error);
 			return {
 				success: false,
-				message: "Failed to load cursor telemetry",
+				message: "无法加载鼠标轨迹",
 				error: String(error),
 				samples: []
 			};
@@ -1949,7 +2060,7 @@ export function registerRecordingHandlers(
 				return {
 					success: false,
 					samples: [],
-					message: "No video path available for cursor telemetry",
+					message: "尚未加载可用于鼠标轨迹的视频",
 					error: "Missing video path"
 				};
 			}
@@ -1962,7 +2073,7 @@ export function registerRecordingHandlers(
 				return {
 					success: false,
 					samples: [],
-					message: "Failed to save cursor telemetry",
+					message: "无法保存鼠标轨迹",
 					error: String(error)
 				};
 			}

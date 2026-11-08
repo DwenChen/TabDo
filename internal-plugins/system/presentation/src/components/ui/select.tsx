@@ -18,7 +18,7 @@ export function Select({
 	return (
 		<HeroSelect
 			{...props}
-			aria-label={props["aria-label"] ?? "Select option"}
+			aria-label={props["aria-label"] ?? "选择选项"}
 			value={value || null}
 			defaultValue={defaultValue}
 			onChange={(key) => onValueChange?.(String(key ?? ""))}

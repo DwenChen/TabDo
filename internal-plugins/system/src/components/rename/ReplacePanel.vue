@@ -1,6 +1,7 @@
 <!-- 界面复用 batch-rename，来源与 MIT 许可见 public/LICENSE.batch-rename。 -->
 <script setup lang="ts">
 import type { ReplaceMode, ReplaceRule } from './types'
+import NumberInput from './NumberInput.vue'
 
 const props = defineProps<{ modelValue: ReplaceRule[] }>()
 const emit = defineEmits<{ 'update:modelValue': [value: ReplaceRule[]] }>()
@@ -73,6 +74,7 @@ function removeRule(index: number) {
           <input
             v-if="rule.mode !== 'first' && rule.mode !== 'last' && rule.mode !== 'range'"
             :value="rule.find"
+            :aria-label="`规则 ${index + 1} 的查找内容`"
             type="text"
             :placeholder="rule.mode === 'text' ? '输入要查找的字符...' : '输入定位字符...'"
             @input="update(index, { find: ($event.target as HTMLInputElement).value })"
@@ -113,17 +115,17 @@ function removeRule(index: number) {
       >
         <label v-if="rule.mode === 'range'" class="material-field"
           ><span>起始位置</span
-          ><input
+          ><NumberInput
             :value="rule.start"
-            type="number"
+            :aria-label="`规则 ${index + 1} 的起始位置`"
             min="1"
             @input="update(index, { start: Number(($event.target as HTMLInputElement).value) })"
         /></label>
         <label class="material-field"
           ><span>位数</span
-          ><input
+          ><NumberInput
             :value="rule.count"
-            type="number"
+            :aria-label="`规则 ${index + 1} 的位数`"
             min="1"
             @input="update(index, { count: Number(($event.target as HTMLInputElement).value) })"
         /></label>
@@ -228,14 +230,19 @@ function removeRule(index: number) {
   font-size: 13px;
 }
 .find-field {
-  padding-right: 44px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(118px, max-content);
+  grid-template-rows: 14px 22px;
+  column-gap: 8px;
 }
 .find-field select {
-  position: absolute;
-  right: 7px;
-  top: 9px;
-  width: 29px;
-  height: 29px;
+  grid-column: 2;
+  grid-row: 1 / 3;
+  align-self: center;
+  min-width: 0;
+  width: 100%;
+  height: 30px;
+  padding: 0 4px;
   border: 0;
   color: var(--muted);
   background: var(--surface-subdued);
@@ -243,6 +250,7 @@ function removeRule(index: number) {
   cursor: pointer;
 }
 .arrow {
+  flex: none;
   color: var(--text-muted);
   font-size: 20px;
 }

@@ -8,8 +8,21 @@ import databaseAPI from '../api/shared/database'
 import { getInternalPluginPath } from './internalPlugins'
 import detachedWindowManager from './detachedWindowManager'
 import { applyToolsWindowIdentity } from './toolsWindowIdentity'
+import { acquirePresentationCaptureSession } from './presentationCaptureSession'
+import { requestIdleMemoryReclaim } from './idleMemoryReclaimer'
+import { uIOhook, UiohookKey } from 'uiohook-napi'
+
+import { createPresentationRuntimeTimers } from './presentationRuntimeTimers'
 
 const sessions = new Map<number, { dispose: () => Promise<void> }>()
+
+/**
+ * 演示会话在捕获进程退出、临时分区清理结束前阻止闲置回收。
+ * @returns 是否还有演示运行时正在使用或释放资源。
+ */
+export function hasPresentationSessions(): boolean {
+  return sessions.size > 0
+}
 
 /**
  * 创建按 WebContents 隔离的演示录屏服务，上游不注册全局应用、托盘或更新器。
@@ -36,11 +49,34 @@ export async function openPresentation(
   const channels = new Map<string, (...args: any[]) => any>()
   const listeners: Array<[string, (...args: any[]) => any, (...args: any[]) => any]> = []
   const children = new Set<any>()
-  const timers = new Set<ReturnType<typeof setTimeout>>()
+  const timers = createPresentationRuntimeTimers()
   let disposed = false
   let disposal: Promise<void> | undefined
   let runtime: any
   let editorShown = false
+  let previewFullscreenWindow: Electron.BrowserWindow | undefined
+  let restorePreviewFullscreen = false
+  /**
+   * 原生窗口退出全屏时通知当前编辑器并解除本次预览所有权。
+   * @returns 无返回值；只处理本会话的全屏状态。
+   */
+  function leavePreviewFullscreen(): void {
+    previewFullscreenWindow?.removeListener('leave-full-screen', leavePreviewFullscreen)
+    detachedWindowManager.setPreviewFullscreen(owner.id, false)
+    previewFullscreenWindow = undefined
+    restorePreviewFullscreen = false
+    if (!owner.isDestroyed()) owner.send(prefix + 'preview-fullscreen-changed', false)
+  }
+  /**
+   * 恢复预览进入前的原生窗口状态，不影响原本已处于全屏的窗口。
+   * @returns 无返回值；销毁和重复退出均可安全调用。
+   */
+  function releasePreviewFullscreen(): void {
+    const window = previewFullscreenWindow
+    const restore = restorePreviewFullscreen
+    leavePreviewFullscreen()
+    if (restore && window && !window.isDestroyed()) window.setFullScreen(false)
+  }
   const localRequire = createRequire(bundle)
   const nativeChildProcess = localRequire('node:child_process')
   /**
@@ -112,8 +148,8 @@ export async function openPresentation(
       }
     }
   }
-  const partition = `presentation-${owner.id}-${Date.now()}`
-  const captureSession = electron.session.fromPartition(partition)
+  const captureLease = acquirePresentationCaptureSession()
+  const captureSession = captureLease.capture
   class SessionWindow extends electron.BrowserWindow {
     /**
      * 建立当前会话的辅助窗口并拒绝页面自行新开窗口。
@@ -124,7 +160,7 @@ export async function openPresentation(
     constructor(options: Electron.BrowserWindowConstructorOptions) {
       // 校验会话仍有效，避免来源边界查询完成时重新创建已退出的覆盖层。
       if (disposed || owner.isDestroyed()) throw new Error('演示会话已结束')
-      super({ ...options, webPreferences: { ...options.webPreferences, partition } })
+      super({ ...options, webPreferences: { ...options.webPreferences, session: captureSession } })
       windows.add(this)
       // 辅助窗口不继承宿主 TabDo 的任务栏身份；覆盖层继续保持无任务栏。
       if (options.skipTaskbar === false) applyToolsWindowIdentity(this, 'presentation-recorder')
@@ -162,6 +198,8 @@ export async function openPresentation(
     rendererUrl,
     assetRoot: path.join(publicRoot, 'presentation-assets'),
     moduleUrl: pathToFileURL(bundle).href,
+    // 复用宿主已加载的原生单例，展开插件目录不能再次解析 pnpm 的构建依赖。
+    inputHook: { uIOhook, UiohookKey },
     nativeRoot: path
       .join(root, 'resources/presentation')
       .replace(/\.asar([/\\])/, '.asar.unpacked$1'),
@@ -252,14 +290,13 @@ export async function openPresentation(
    */
   async function release(): Promise<void> {
     // 先阻止迟到请求和回调，再结束当前会话持有的工作。
+    owner.removeListener('destroyed', disposeOnOwnerDestroyed)
+    releasePreviewFullscreen()
     for (const name of channels.keys()) electron.ipcMain.removeHandler(prefix + name)
     for (const [name, handler] of listeners) electron.ipcMain.removeListener(prefix + name, handler)
     captureSession.setPermissionRequestHandler(null)
     captureSession.setDisplayMediaRequestHandler(null)
-    for (const timer of timers) {
-      clearTimeout(timer)
-      clearInterval(timer)
-    }
+    timers.clearAll()
     await runtime?.dispose?.().catch((error: unknown) => console.warn('[演示录屏] 清理失败', error))
     for (const window of windows) if (!window.isDestroyed()) window.destroy()
     await Promise.all(
@@ -288,10 +325,29 @@ export async function openPresentation(
       })
     )
     children.clear()
+    windows.clear()
+    channels.clear()
+    listeners.length = 0
+    // 原生停止和进程关闭回调均结束后，解除清理期间产生的短期等待。
+    timers.clearAll()
+    runtime = undefined
+    await captureLease
+      .release()
+      .catch((error: unknown) => console.warn('[演示录屏] 临时分区清理失败', error))
+    // 进程、模块与临时分区均释放后，才允许宿主进入闲置。
     sessions.delete(owner.id)
+    requestIdleMemoryReclaim()
   }
   sessions.set(owner.id, { dispose })
-  owner.once('destroyed', () => void dispose())
+  requestIdleMemoryReclaim()
+  /**
+   * 随所属页面销毁释放当前后端，普通退出时解除监听以免闭包累计。
+   * @returns 无返回值；清理沿当前会话的幂等 Promise 收尾。
+   */
+  function disposeOnOwnerDestroyed(): void {
+    void dispose()
+  }
+  owner.once('destroyed', disposeOnOwnerDestroyed)
   /**
    * 为上游模块提供依赖，并追踪其自行启动的进程。
    * @param name 依赖模块名称。
@@ -338,6 +394,8 @@ export async function openPresentation(
       '__TABDO_PRESENTATION_HOST__',
       'setTimeout',
       'setInterval',
+      'clearTimeout',
+      'clearInterval',
       fs.readFileSync(bundle, 'utf8')
     )(
       module,
@@ -346,23 +404,39 @@ export async function openPresentation(
       bundle,
       path.dirname(bundle),
       host,
-      (fn: () => void, ms: number) => {
-        const timer = setTimeout(() => {
-          timers.delete(timer)
-          fn()
-        }, ms)
-        timers.add(timer)
-        return timer
-      },
-      (fn: () => void, ms: number) => {
-        const timer = setInterval(fn, ms)
-        timers.add(timer)
-        return timer
-      }
+      timers.setTimeout,
+      timers.setInterval,
+      timers.clearTimeout,
+      timers.clearInterval
     )
     runtime = module.exports
     await runtime.initialize()
     scopedIpc.handle('tabdo-settings', () => databaseAPI.dbGet('settings-general') || {})
+    /**
+     * 为不支持嵌套页面全屏的环境切换所属原生窗口；录制覆盖层不能调用。
+     * @param event 经过会话身份校验的请求。
+     * @param active 是否进入预览全屏。
+     * @returns 原生预览全屏已接受的状态。
+     * @throws 当前编辑器窗口已关闭或请求来自覆盖层时拒绝切换。
+     */
+    scopedIpc.handle('set-preview-fullscreen', (event, active: boolean) => {
+      if (event.sender !== owner) throw new Error('仅编辑器可切换预览全屏')
+      if (!active) {
+        releasePreviewFullscreen()
+        return false
+      }
+      const window = detachedWindowManager.getWindowByPluginWebContents(owner.id)
+      if (!window || window.isDestroyed()) throw new Error('演示编辑器窗口已关闭')
+      // 只接管本次预览建立的全屏；退出及服务销毁都恢复原状态。
+      if (!previewFullscreenWindow) {
+        previewFullscreenWindow = window
+        restorePreviewFullscreen = !window.isFullScreen()
+        window.on('leave-full-screen', leavePreviewFullscreen)
+      }
+      detachedWindowManager.setPreviewFullscreen(owner.id, true)
+      window.setFullScreen(true)
+      return true
+    })
     scopedIpc.handle('tabdo-shortcuts', () => databaseAPI.dbGet('presentation-shortcuts') || {})
     scopedIpc.handle('tabdo-dispose', dispose)
     scopedIpc.handle('tabdo-stop-capture', () => {

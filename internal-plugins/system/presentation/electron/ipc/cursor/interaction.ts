@@ -1,10 +1,14 @@
 import fs from "node:fs";
+import { getHudOverlayWindow } from "../../windows";
 import { createRequire } from "node:module";
 import path from "node:path";
+import { createKeyboardCapture, type CaptureKeyEvent } from './keyboard';
 import {
+	activeCursorSamples,
 	hasLoggedInteractionHookFailure,
 	interactionCaptureCleanup,
 	isCursorCaptureActive,
+	mouseCaptureEnabled,
 	lastLeftClick,
 	setHasLoggedInteractionHookFailure,
 	setInteractionCaptureCleanup,
@@ -24,6 +28,15 @@ import {
 	isCursorCapturePaused,
 	pushCursorSample,
 } from "./telemetry";
+
+export let keyboardCaptureEnabled = false;
+
+/**
+ * Enable key display only for the current recording session.
+ * @param enabled - Explicit user choice from the recording controls.
+ * @returns Nothing; changes the session capture flag.
+ */
+export function setKeyboardCaptureEnabled(enabled: boolean): void { keyboardCaptureEnabled = enabled; }
 
 const nodeRequire = createRequire(__TABDO_PRESENTATION_HOST__.moduleUrl);
 
@@ -158,7 +171,14 @@ export function repairBundledUiohookBinaryForCurrentArch(
 	}
 }
 
+/**
+ * 优先取得宿主已加载的输入单例，独立上游环境才解析其本地依赖。
+ * @returns 可订阅的全局输入源。
+ * @throws 独立环境的原生模块不可加载且无法修复时抛错。
+ */
 function loadUiohookModule() {
+	// 宿主提供已启动的同一个输入源，预览与正式包都不二次加载原生模块。
+	if (__TABDO_PRESENTATION_HOST__.inputHook) return __TABDO_PRESENTATION_HOST__.inputHook.uIOhook;
 	try {
 		const moduleExports = nodeRequire("uiohook-napi") as UiohookModuleNamespace;
 		return resolveUiohookModule(moduleExports);
@@ -187,8 +207,13 @@ export function shouldStartGlobalInteractionHook(platform: NodeJS.Platform = pro
 	return platform !== "darwin";
 }
 
+/**
+ * 仅在本次录制允许鼠标采集时记录点击。
+ * @param button 物理鼠标按键。
+ * @returns 无返回值；关闭鼠标采集时不写入轨迹。
+ */
 export function recordCursorMouseDown(button: 1 | 2 | 3) {
-	if (!isCursorCaptureActive || isCursorCapturePaused()) {
+	if (!mouseCaptureEnabled || !isCursorCaptureActive || isCursorCapturePaused()) {
 		return;
 	}
 
@@ -220,8 +245,12 @@ export function recordCursorMouseDown(button: 1 | 2 | 3) {
 	pushCursorSample(point.cx, point.cy, timeMs, interactionType);
 }
 
+/**
+ * 记录本次鼠标释放，遵循独立鼠标开关和暂停边界。
+ * @returns 无返回值。
+ */
 export function recordCursorMouseUp() {
-	if (!isCursorCaptureActive || isCursorCapturePaused()) {
+	if (!mouseCaptureEnabled || !isCursorCaptureActive || isCursorCapturePaused()) {
 		return;
 	}
 
@@ -233,8 +262,12 @@ export function recordCursorMouseUp() {
 	pushCursorSample(point.cx, point.cy, getCursorCaptureElapsedMs(), "mouseup");
 }
 
+/**
+ * 为当前录制订阅已选择的物理输入，退出只解除所属监听。
+ * @returns 本次输入订阅完成后的 Promise，不重复启动 Windows 全局采集。
+ */
 export async function startInteractionCapture() {
-	if (!isCursorCaptureActive) {
+	if (!isCursorCaptureActive || (!keyboardCaptureEnabled && !mouseCaptureEnabled)) {
 		return;
 	}
 
@@ -289,6 +322,34 @@ export async function startInteractionCapture() {
 			setLinuxCursorScreenPoint({ x: point.x, y: point.y, updatedAt: Date.now() });
 		};
 
+
+    const keyNames = (__TABDO_PRESENTATION_HOST__.inputHook?.UiohookKey ?? nodeRequire("uiohook-napi").UiohookKey) as Record<string, number>;
+    const keyboardCapture = createKeyboardCapture(keyNames);
+    /**
+     * Collect physical keyboard input only while the recording and its toggle are active.
+     * @param event - Native key event.
+     * @returns Nothing; appends a bounded key sample to the recording telemetry.
+     */
+    const onKeyDown = (event: CaptureKeyEvent): void => {
+      if (!keyboardCaptureEnabled || !isCursorCaptureActive || isCursorCapturePaused()) { keyboardCapture.reset(); return; }
+      const keyText = keyboardCapture.keydown(event);
+      if (!keyText) return;
+      const hud = getHudOverlayWindow();
+      if (hud && !hud.isDestroyed()) hud.webContents.send("keyboard-display", keyText);
+      // 键盘事件沿用当时鼠标位置，不能把光标轨迹拉回画面中心。
+      const point = mouseCaptureEnabled ? getNormalizedCursorPoint() : { cx: 0.5, cy: 0.5 };
+      activeCursorSamples.push({ timeMs: getCursorCaptureElapsedMs(), cx: point.cx, cy: point.cy, keyText });
+      if (activeCursorSamples.length > 200000) activeCursorSamples.shift();
+    };
+    /**
+     * 即使采集暂停也解除松开的修饰键，避免恢复后组合键粘连。
+     * @param event 原生松开事件。
+     * @returns 无返回值；不追加松开遥测。
+     */
+    const onKeyUp = (event: CaptureKeyEvent): void => { keyboardCapture.keyup(event); };
+    const keyboardHook = hook as unknown as { on: (event: string, listener: typeof onKeyDown) => void; off?: (event: string, listener: typeof onKeyDown) => void; removeListener?: (event: string, listener: typeof onKeyDown) => void };
+    keyboardHook.on("keydown", onKeyDown);
+    keyboardHook.on("keyup", onKeyUp);
 		hook.on("mousedown", onMouseDown);
 		hook.on("mouseup", onMouseUp);
 		if (process.platform === "linux") {
@@ -296,6 +357,9 @@ export async function startInteractionCapture() {
 		}
 
 		setInteractionCaptureCleanup(() => {
+      (keyboardHook.off ?? keyboardHook.removeListener)?.call(keyboardHook, "keydown", onKeyDown);
+      (keyboardHook.off ?? keyboardHook.removeListener)?.call(keyboardHook, "keyup", onKeyUp);
+      keyboardCapture.reset();
 			try {
 				if (typeof hook.off === "function") {
 					hook.off("mousedown", onMouseDown);

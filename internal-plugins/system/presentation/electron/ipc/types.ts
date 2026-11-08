@@ -39,6 +39,9 @@ export type CapturePick =
 export type AreaCapturePick = Extract<CapturePick, { kind: "area" }>;
 
 export type NativeMacRecordingOptions = {
+	deferStart?: boolean;
+	capturesWebcam?: boolean;
+	webcamLabel?: string;
 	capturesSystemAudio?: boolean;
 	capturesMicrophone?: boolean;
 	microphoneDeviceId?: string;
@@ -93,6 +96,8 @@ export type RecordingSessionManifest = {
 };
 
 export type ProjectLibraryEntry = {
+	mediaPaths?: string[];
+	missingMediaPaths?: string[];
 	path: string;
 	name: string;
 	createdAt?: number;
@@ -130,6 +135,7 @@ export type CursorInteractionType =
 	| "mouseup";
 
 export interface CursorTelemetryPoint {
+	keyText?: string;
 	timeMs: number;
 	cx: number;
 	cy: number;

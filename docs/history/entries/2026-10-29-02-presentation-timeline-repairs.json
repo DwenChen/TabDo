@@ -1,0 +1,32 @@
+{
+  "id": "presentation-timeline-repairs",
+  "date": "2026-10-29",
+  "summary": "修复演示录制时长、素材删除、窗口视频及编辑器检查器与滚动交互",
+  "reason": "用户反馈摄像头没有时长、素材删除未落盘、项目重建、窗口视频黑屏卡顿及轨道编辑入口和注释/按键样式问题。",
+  "changes": [
+    "摄像头优先录制可补齐时长的WebM，冻结明确停止时刻，附属素材不改写主视频、光标遥测及项目路径；探测真实摄像头时长，默认片段按源长度和偏移显示。更换来源清空旧片段，外观偏好和预设不携带来源时长或片段。",
+    "原始录制删除改为将库内主文件、摄像头、音频及匹配元数据送到系统回收站，失败回滚；原先仅隐藏的文件重新列出供用户明确删除，不静默追删。删除当前项目先退役自动保存队列并释放来源，避免删除后重建。",
+    "Windows应用窗口改走Chromium直接窗口捕获，避免原显示器裁剪路径漏掉视频窗口内容；屏幕录制仍使用现有原生路径。保留可编辑光标和摄像头异步交接。",
+    "系统声音和麦克风名称置于轨道条中央；点击原音轨或独立音轨在预览旁打开音频编辑，可调音量、响度归一化、素材起点及淡入淡出，并分割或删除独立音频。摄像头轨道联动打开摄像头设置，移除轨道下方提示。",
+    "录屏条增加文字标识；片段检查器移除显示原始音轨及片段静音入口，提供分割、复制、前后移动、裁剪、速度和删除；复制保留所属源音频设置。",
+    "按键显示固定在光标旁的独立侧栏入口，提供简约、苹果、黏土、机械键盘和RGB五种样式及文字/颜色/背景调节；保存、预览和导出共用装饰参数。",
+    "普通注释只对聚焦、模糊、图片和马赛克显示圆角；模糊和马赛克相邻，去掉数值控件的多余冒号，图片圆角同步Canvas导出。",
+    "时间轴增加底部横向滚动条，保留Shift+滚轮横移和Ctrl+滚轮缩放；纵向滚动时标尺及游标时间固定可见。异步预览尚未建立播放链时保留提前跳转，避免游标请求丢失。",
+    "同步README、设置和工具规范、目录、仓库/应用内教程及更新说明；新增TX-107及presentation-editing回归分组，保留工作区原有未提交内容。"
+  ],
+  "checks": [
+    "修改前使用context-mode读取维护流程、改动索引、Bug台账和演示模块文档，并检查Git状态。",
+    "pnpm test --maxWorkers=2最终通过111文件765项，归档.artifacts/runs/2026-10-29T06-33-53-979Z-unit；来源时长不串入全局偏好新增回归也通过。",
+    "录制、导入、轨道及本地教程4项源码E2E通过，归档.artifacts/runs/2026-10-29T06-21-24-929Z-e2e。使用preview-main.cjs与隔离data/legacy，未使用electron-builder或build:unpack。",
+    "实际播放视频窗口、合成摄像头及暂停恢复录制复测通过，归档.artifacts/runs/2026-10-29T06-32-01-673Z-e2e中的recorder：采样帧非黑且画面变化、帧率大于15、摄像头加偏移与主视频差小于150ms，光标预览/导出与退出回收通过。",
+    "同次tracks复测因预览播放链异步初始化前的跳转被丢弃而失败，原失败归档保留；补齐提前跳转保留和游标位置断言后最终通过，归档.artifacts/runs/2026-10-29T06-37-18-159Z-e2e。覆盖音频实际采样、短摄像头时长/分割/重开、RGB导出像素、图片圆角透明像素、场景效果、真实纵向滚轮及横移、删完项目等待自动保存后不重建和素材实际路径消失。",
+    "pnpm build通过宿主Node/Web、设置类型检查及生产编译，日志.artifacts/work/presentation-repairs-build.log；新增两个检查器的强制ESLint通过。独立上游严格TypeScript检查仍有既有宿主扩展API、翻译Pick和资源声明问题，未视作全量上游严格检查通过。",
+    "pnpm test:regressions presentation-editing --list确认回归命令；文档按当前行为人工审校，自动文档与维护检查及最终资源交付结果在收尾补记。",
+    "最后播放链跳转修正后pnpm build:tools通过，日志.artifacts/work/presentation-repairs-final-tools.log。pnpm docs:check通过31文档、207链接、39功能/14分类/30普通入口、15章65步；pnpm maintain与pnpm maintain:check通过，git diff --check无错误。",
+    "pnpm preview:sync成功，保留496个现有配置、资料和插件文件，核验103项程序文件；程序资源备份.artifacts/backups/preview-sync/update-1793256120881/previous-resources。pnpm test:preview:resources通过102项程序、345项内置和1687项媒体资源核验；日志.artifacts/work/presentation-repairs-preview-sync.log及presentation-repairs-preview-verify.log。"
+  ],
+  "pending": [
+    "真实物理摄像头和麦克风、不同显卡或受保护视频、多屏/DPI与触控保留人工验收；源码录制验证采用实际视频播放窗口及合成摄像头。"
+  ],
+  "preview": "已同步.local/portable-preview，版本保持1.3.0，使用PreviewPortable.cmd启动；496个现有配置、资料和插件文件完整保留，未重置资料。未push、未云端构建或发布Release。"
+}

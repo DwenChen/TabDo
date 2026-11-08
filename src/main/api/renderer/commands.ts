@@ -22,6 +22,7 @@ import { shouldKeepMainWindowHiddenForLaunch, type PluginLaunchSource } from '@s
 import { isToolsPluginPath } from '../../core/toolsLifecycle'
 import { launchWebQuickOpen } from '../../core/webQuickOpen'
 import { getPluginDocId } from '@shared/pluginRuntimeNamespace'
+import { requestIdleMemoryReclaim } from '../../core/idleMemoryReclaimer'
 
 /**
  * 上次匹配状态接口
@@ -56,6 +57,8 @@ export class AppsAPI {
   private pluginManager: PluginManager | null = null
   private launchParam: any = null
   private lastMatchState: LastMatchState | null = null
+  private lastMatchStatePersisted = true
+  private activeLaunches = 0
   private isLocalAppSearchEnabled = true
   private cachedCommandsResult: { commands: any[]; regexCommands: any[]; plugins: any[] } | null =
     null
@@ -97,17 +100,42 @@ export class AppsAPI {
     }
   }
 
+  /**
+   * 绑定指令IPC与宿主，匹配正文保留为用户恢复时的按需读取。
+   * @param mainWindow 当前宿主窗口。
+   * @param pluginManager 指令启动使用的插件管理器。
+   * @returns 无返回值；不在初始化时装载历史图片或文件正文。
+   */
   public init(mainWindow: Electron.BrowserWindow, pluginManager: PluginManager): void {
     this.mainWindow = mainWindow
     this.pluginManager = pluginManager
     this.setupIPC()
-    this.loadLastMatchState()
+    // 上次匹配可能含大图，只有用户实际恢复时才读取，不随启动常驻。
     // 异步加载本地应用搜索设置
     this.loadLocalAppSearchSetting()
   }
 
   public getLaunchParam(): any {
     return this.launchParam
+  }
+
+  /**
+   * 启动准备与无页面宿主操作也属于活动任务，完成前不能释放其输入。
+   * @returns 是否仍有尚未完成的启动操作。
+   */
+  public hasActiveLaunches(): boolean {
+    return this.activeLaunches > 0
+  }
+
+  /**
+   * 完全闲置后解除临时输入引用，保留已持久化匹配和可重用指令索引。
+   * @returns 无返回值；启动中或尚未成功保存的匹配不会被清空。
+   */
+  public releaseIdleResources(): void {
+    if (this.hasActiveLaunches()) return
+    // 只释放运行时引用，不删除历史、匹配记录或用户文件。
+    this.launchParam = null
+    if (this.lastMatchStatePersisted) this.lastMatchState = null
   }
 
   public invalidateCommandsCache(notifyRenderer = false): void {
@@ -621,6 +649,9 @@ export class AppsAPI {
     const { path: appPath, type, param, name, cmdType, confirmDialog, launchSource } = options
     let { featureCode } = options
     this.launchParam = param || {}
+    // 异步准备期间持续保护当前输入，结束后重新安排闲置检查。
+    this.activeLaunches++
+    requestIdleMemoryReclaim()
 
     try {
       // 判断是插件还是直接启动
@@ -668,7 +699,7 @@ export class AppsAPI {
           path: appPath,
           featureCode,
           name,
-          launchParam: this.launchParam
+          inputType: this.launchParam.type || cmdType || 'text'
         })
 
         // 更新指令使用统计（所有指令都统计，用于匹配推荐排序）
@@ -692,7 +723,10 @@ export class AppsAPI {
               pastedText: inputState.pastedText || null,
               timestamp: Date.now()
             }
-            console.log('[Commands] 保存上次匹配状态:', this.lastMatchState)
+            this.lastMatchStatePersisted = false
+            console.log('[Commands] 保存上次匹配状态:', {
+              timestamp: this.lastMatchState.timestamp
+            })
             // 持久化到数据库
             this.saveLastMatchState()
 
@@ -846,6 +880,9 @@ export class AppsAPI {
     } catch (error) {
       console.error('[Commands] 启动失败:', error)
       throw error
+    } finally {
+      this.activeLaunches--
+      requestIdleMemoryReclaim()
     }
   }
 
@@ -1331,14 +1368,15 @@ export class AppsAPI {
   }
 
   /**
-   * 从数据库加载上次匹配状态
+   * 用户恢复匹配时按需读取持久记录，不在日志保留大图或文本正文。
+   * @returns 无返回值；读取失败时保留当前状态。
    */
   private loadLastMatchState(): void {
     try {
       const state = databaseAPI.dbGet('last-match-state')
       if (state) {
         this.lastMatchState = state
-        console.log('[Commands] 加载上次匹配状态:', state)
+        this.lastMatchStatePersisted = true
       }
     } catch (error) {
       console.log('[Commands] 加载上次匹配状态失败:', error)
@@ -1346,12 +1384,19 @@ export class AppsAPI {
   }
 
   /**
-   * 保存上次匹配状态到数据库
+   * 保存匹配记录，只有成功持久化后才允许闲置时移除内存副本。
+   * @returns 无返回值；失败会保留未保存的内存状态。
    */
   private saveLastMatchState(): void {
     try {
       if (this.lastMatchState) {
-        databaseAPI.dbPut('last-match-state', this.lastMatchState)
+        const saved = databaseAPI.dbPut('last-match-state', this.lastMatchState)
+        // 数据库也可能返回错误结果而不抛异常，此时必须保留唯一的内存副本。
+        if (saved?.ok !== true) {
+          console.error('[Commands] 保存上次匹配状态未成功:', saved?.message || '数据库拒绝写入')
+          return
+        }
+        this.lastMatchStatePersisted = true
         console.log('[Commands] 保存上次匹配状态到数据库')
       }
     } catch (error) {
@@ -1360,17 +1405,20 @@ export class AppsAPI {
   }
 
   /**
-   * 获取上次匹配状态
+   * 获取上次匹配，闲置释放后重新从持久资料读取。
+   * @returns 当前匹配状态；没有记录时返回null。
    */
   private getLastMatchState(): LastMatchState | null {
+    if (!this.lastMatchState) this.loadLastMatchState()
     return this.lastMatchState
   }
 
   /**
-   * 恢复上次匹配
+   * 恢复已保存的匹配，沿同一按需读取路径恢复图片和文件输入。
+   * @returns 可恢复的匹配状态；没有记录时返回null。
    */
   private restoreLastMatch(): LastMatchState | null {
-    return this.lastMatchState
+    return this.getLastMatchState()
   }
 
   /**

@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref, toRaw, watch } from 'vue'
-import { normalizeWorkflow, newRemoveRule, CASE_MODES, REMOVE_TYPES } from '../utils/renameRules'
+import { normalizeWorkflow, workflowForTab, CASE_MODES } from '../utils/renameRules'
 
 import NumberPanel from './rename/NumberPanel.vue'
 import ReplacePanel from './rename/ReplacePanel.vue'
@@ -30,13 +30,14 @@ const cleanTab = ref('case')
 const cleanTabs = [
   ['case', '大小写转换'],
   ['sanitize', '文件名清洗'],
-  ['extension', '扩展名处理'],
-  ['remove', '删除字符']
+  ['extension', '扩展名处理']
 ]
 const files = ref([])
 const workflow = ref(normalizeWorkflow(window.tabdo.dbStorage.getItem('rename-workflow')))
-/** 手动编辑与智能重命名产生的覆盖名称，键为原始路径。 */
-const overrides = ref({})
+/** 各编辑页独立保存本次会话的名称，切换标签时不叠加。 */
+const overrides = ref({ manual: {}, smart: {} })
+const manualText = ref('')
+const activeWorkflow = computed(() => workflowForTab(workflow.value, activeTab.value))
 const sortKey = ref('default')
 const sortDir = ref('asc')
 const message = ref('')
@@ -65,13 +66,14 @@ let validationVersion = 0
 const undo = ref(null)
 
 /**
- * 计算合并覆盖名称后的预览行，覆盖名称始终优先于引擎推导结果。
+ * 仅在所属编辑页合并覆盖名称，其他标签使用当前规则的引擎结果。
  * @returns 预览行列表。
  */
 const rawRows = computed(() =>
   preview.value.map((entry) => {
-    const overridden = Object.prototype.hasOwnProperty.call(overrides.value, entry.path)
-    const newName = overridden ? overrides.value[entry.path] : entry.newName
+    const names = overrides.value[activeTab.value] || {}
+    const overridden = Object.prototype.hasOwnProperty.call(names, entry.path)
+    const newName = overridden ? names[entry.path] : entry.newName
     return {
       ...entry,
       newName,
@@ -156,7 +158,7 @@ function saveWorkflow() {
  * @returns 是否需要读取尺寸。
  */
 function needsDimensions() {
-  const insert = workflow.value.insert
+  const insert = activeWorkflow.value.insert
   return insert.enabled && insert.kind === 'info' && insert.info === 'dimensions'
 }
 
@@ -200,15 +202,15 @@ async function enrichDimensions(list) {
  * @returns 计算完成后的 Promise。
  */
 async function compute() {
-  preview.value = []
   if (disposed) return
   if (!files.value.length) {
+    preview.value = []
     computing.value = false
     return
   }
   const id = revision
   computing.value = true
-  const payload = JSON.parse(JSON.stringify({ files: files.value, workflow: workflow.value }))
+  const payload = JSON.parse(JSON.stringify({ files: files.value, workflow: activeWorkflow.value }))
   if (needsDimensions()) await enrichDimensions(payload.files)
   // 预读期间若有新计算请求，旧计算直接作废。
   if (disposed || id !== revision) return
@@ -225,6 +227,7 @@ async function compute() {
   worker.onerror = () => {
     if (disposed || id !== revision || worker !== previewWorker) return
     message.value = '预览计算失败，请检查规则'
+    validationMessage.value = message.value
     computing.value = false
     clearTimeout(previewDeadline)
     worker.terminate()
@@ -237,6 +240,7 @@ async function compute() {
       previewWorker = null
       computing.value = false
       message.value = '规则计算超时，请简化查找替换条件'
+      validationMessage.value = message.value
     }
   }, 3000)
 }
@@ -246,7 +250,10 @@ async function compute() {
  * @returns 无返回值。
  */
 function scheduleCompute() {
+  // 新计划准备期间保留旧行和滚动节点，同时立即撤销旧校验，禁止执行过期计划。
   revision++
+  validationVersion++
+  clearTimeout(validationTimer)
   clearTimeout(previewTimer)
   clearTimeout(previewDeadline)
   previewWorker?.terminate()
@@ -267,9 +274,7 @@ function scheduleCompute() {
  */
 function removeRow(path) {
   files.value = files.value.filter((entry) => entry.path !== path)
-  const rest = { ...overrides.value }
-  delete rest[path]
-  overrides.value = rest
+  for (const names of Object.values(overrides.value)) delete names[path]
 }
 
 /**
@@ -279,7 +284,7 @@ function removeRow(path) {
  * @returns 无返回值。
  */
 function renameRow(path, value) {
-  overrides.value = { ...overrides.value, [path]: value }
+  overrides.value.manual = { ...overrides.value.manual, [path]: value }
 }
 
 /**
@@ -369,7 +374,8 @@ async function readFolder() {
  */
 function clearList() {
   files.value = []
-  overrides.value = {}
+  overrides.value = { manual: {}, smart: {} }
+  manualText.value = ''
   undo.value = null
   preview.value = []
   message.value = ''
@@ -401,31 +407,14 @@ function paste(event) {
 }
 
 /**
- * 追加一条删除字符规则。
- * @returns 无返回值。
- */
-function addRemoveRule() {
-  workflow.value.clean.remove.rules.push(newRemoveRule())
-}
-
-/**
- * 删除指定删除字符规则，至少保留一条。
- * @param index 规则位置。
- * @returns 无返回值。
- */
-function removeRemoveRule(index) {
-  if (workflow.value.clean.remove.rules.length <= 1) return
-  workflow.value.clean.remove.rules.splice(index, 1)
-}
-
-/**
  * 按当前列表顺序把手动编辑的多行文本写入覆盖名称，条数不符时给出明确错误。
  * @param text 多行新名称文本。
  * @returns 无返回值。
  */
 function applyManualText(text) {
   const lines = String(text ?? '')
-    .replace(/\r/g, '')
+    .replace(/\r\n?/g, '\n')
+    .replace(/\n$/, '')
     .split('\n')
   if (!rows.value.length) {
     message.value = '请先添加文件后再应用手动编辑'
@@ -435,11 +424,12 @@ function applyManualText(text) {
     message.value = `手动编辑共 ${lines.length} 行，当前列表 ${rows.value.length} 项，条数不匹配`
     return
   }
-  const next = { ...overrides.value }
+  const next = { ...overrides.value.manual }
   rows.value.forEach((row, index) => {
     next[row.path] = lines[index].trim()
   })
-  overrides.value = next
+  overrides.value.manual = next
+  manualText.value = lines.join('\n')
   message.value = `已按列表顺序填入 ${rows.value.length} 项新名称`
 }
 
@@ -586,11 +576,11 @@ async function generateSmart() {
     ])
     if (disposed || version !== smartVersion) return
     const names = parseSmartNames(content, target)
-    const next = { ...overrides.value }
+    const next = { ...overrides.value.smart }
     target.forEach((row, index) => {
       next[row.path] = names[index]
     })
-    overrides.value = next
+    overrides.value.smart = next
     message.value = `已生成 ${names.length} 项建议名称，请核对后再执行`
   } catch (error) {
     if (!disposed && version === smartVersion) message.value = error.message || String(error)
@@ -630,7 +620,8 @@ async function execute() {
       if (disposed) return
       undo.value = renamed
       files.value = latest
-      overrides.value = {}
+      overrides.value = { manual: {}, smart: {} }
+      manualText.value = ''
       saveWorkflow()
       message.value = `已重命名 ${renamed.length} 项`
     }, 120000)
@@ -674,7 +665,8 @@ async function executeUndo() {
       if (disposed) return
       undo.value = null
       files.value = latest
-      overrides.value = {}
+      overrides.value = { manual: {}, smart: {} }
+      manualText.value = ''
       message.value = '已撤销上次改名'
     }, 120000)
   } catch (error) {
@@ -709,14 +701,8 @@ function dispose() {
 
 window.toolsLifecycle.addCleanup(dispose)
 onUnmounted(dispose)
-watch(
-  [files, workflow],
-  () => {
-    saveWorkflow()
-    scheduleCompute()
-  },
-  { deep: true, immediate: true }
-)
+watch([files, activeWorkflow], scheduleCompute, { deep: true, immediate: true })
+watch(workflow, saveWorkflow, { deep: true })
 watch([sortKey, sortDir], applySort)
 watch(rawRows, scheduleValidation)
 watch(activeTab, (tab) => {
@@ -874,34 +860,13 @@ function updateSort(value) {
     </nav>
     <fieldset class="rule-panel" :disabled="busy">
       <template v-if="activeTab === 'numbering'">
-        <label class="enable-rule"
-          ><input
-            v-model="workflow.numbering.enabled"
-            type="checkbox"
-            aria-label="启用自动编号"
-          />启用自动编号</label
-        >
         <NumberPanel :model-value="numberRule" @update:model-value="updateNumberRule" />
       </template>
       <template v-else-if="activeTab === 'replace'">
-        <label class="enable-rule"
-          ><input
-            v-model="workflow.replace.enabled"
-            type="checkbox"
-            aria-label="启用查找替换"
-          />启用查找替换</label
-        >
         <ReplacePanel :model-value="replaceRules" @update:model-value="updateReplaceRules" />
       </template>
       <section v-else-if="activeTab === 'clean'" class="rename-panel">
         <div class="clean-toolbar">
-          <label
-            ><input
-              v-model="workflow.clean.enabled"
-              type="checkbox"
-              aria-label="启用规则清理"
-            />启用规则清理</label
-          >
           <nav class="clean-tabs" aria-label="清理方式">
             <button
               v-for="tab in cleanTabs"
@@ -919,8 +884,8 @@ function updateSort(value) {
             </button>
           </nav>
         </div>
-        <fieldset v-show="cleanTab === 'case'" class="sub-rule">
-          <legend>
+        <section v-show="cleanTab === 'case'" class="sub-rule">
+          <div class="sub-rule-heading">
             <label
               ><input
                 v-model="workflow.clean.case.enabled"
@@ -928,7 +893,7 @@ function updateSort(value) {
                 aria-label="启用大小写转换"
               />大小写转换</label
             >
-          </legend>
+          </div>
           <div class="actions">
             <select
               v-model="workflow.clean.case.mode"
@@ -941,9 +906,9 @@ function updateSort(value) {
             </select>
             <small>只作用于主文件名，保留扩展名。</small>
           </div>
-        </fieldset>
-        <fieldset v-show="cleanTab === 'sanitize'" class="sub-rule">
-          <legend>
+        </section>
+        <section v-show="cleanTab === 'sanitize'" class="sub-rule">
+          <div class="sub-rule-heading">
             <label
               ><input
                 v-model="workflow.clean.sanitize.enabled"
@@ -951,7 +916,7 @@ function updateSort(value) {
                 aria-label="启用文件名清洗"
               />文件名清洗</label
             >
-          </legend>
+          </div>
           <div class="actions">
             <select
               v-model="workflow.clean.sanitize.mode"
@@ -987,9 +952,9 @@ function updateSort(value) {
               />点号归一</label
             >
           </div>
-        </fieldset>
-        <fieldset v-show="cleanTab === 'extension'" class="sub-rule">
-          <legend>
+        </section>
+        <section v-show="cleanTab === 'extension'" class="sub-rule">
+          <div class="sub-rule-heading">
             <label
               ><input
                 v-model="workflow.clean.extension.enabled"
@@ -997,7 +962,7 @@ function updateSort(value) {
                 aria-label="启用扩展名处理"
               />扩展名处理</label
             >
-          </legend>
+          </div>
           <div class="actions">
             <input
               v-model="workflow.clean.extension.value"
@@ -1007,92 +972,18 @@ function updateSort(value) {
             />
             <small>不区分大小写并去掉前导点，目录不处理。</small>
           </div>
-        </fieldset>
-        <fieldset v-show="cleanTab === 'remove'" class="sub-rule">
-          <legend>
-            <label
-              ><input
-                v-model="workflow.clean.remove.enabled"
-                type="checkbox"
-                aria-label="启用删除字符"
-              />删除字符</label
-            >
-          </legend>
-          <article v-for="(rule, index) in workflow.clean.remove.rules" :key="rule.id" class="rule">
-            <div class="actions">
-              <label><input v-model="rule.enabled" type="checkbox" />第 {{ index + 1 }} 条</label
-              ><select
-                v-model="rule.kind"
-                aria-label="删除依据"
-                :disabled="!workflow.clean.remove.enabled"
-              >
-                <option value="char">指定字符</option>
-                <option value="type">按类型</option></select
-              ><input
-                v-if="rule.kind === 'char'"
-                v-model="rule.char"
-                aria-label="删除字符"
-                placeholder="要删除的字符"
-                :disabled="!workflow.clean.remove.enabled"
-              /><select
-                v-else
-                v-model="rule.type"
-                aria-label="删除类型"
-                :disabled="!workflow.clean.remove.enabled"
-              >
-                <option v-for="item in REMOVE_TYPES" :key="item[0]" :value="item[0]">
-                  {{ item[1] }}
-                </option></select
-              ><label
-                >从第
-                <input
-                  v-model.number="rule.from"
-                  type="number"
-                  min="1"
-                  aria-label="删除起始"
-                  :disabled="!workflow.clean.remove.enabled"
-                />个匹配起</label
-              ><label
-                >删除
-                <input
-                  v-model.number="rule.count"
-                  type="number"
-                  min="0"
-                  aria-label="删除数量"
-                  :disabled="!workflow.clean.remove.enabled"
-                />个（0 表示全部）</label
-              ><label
-                ><input
-                  v-model="rule.unique"
-                  type="checkbox"
-                  :disabled="!workflow.clean.remove.enabled"
-                />同字符去重</label
-              ><button
-                :disabled="workflow.clean.remove.rules.length <= 1"
-                @click="removeRemoveRule(index)"
-              >
-                删除
-              </button>
-            </div>
-          </article>
-          <div class="actions">
-            <button @click="addRemoveRule">＋添加删除规则</button>
-            <small>按 Unicode 字素簇处理，不会破坏 emoji 与组合字符。</small>
-          </div>
-        </fieldset>
+        </section>
       </section>
 
       <template v-else-if="activeTab === 'insert'">
-        <label class="enable-rule"
-          ><input
-            v-model="workflow.insert.enabled"
-            type="checkbox"
-            aria-label="启用插入内容"
-          />启用插入内容</label
-        >
         <InsertPanel :model-value="insertRule" @update:model-value="updateInsertRule" />
       </template>
-      <ManualPanel v-else-if="activeTab === 'manual'" />
+      <ManualPanel
+        v-else-if="activeTab === 'manual'"
+        v-model="manualText"
+        :names="rows.map((row) => row.newName)"
+        @apply="applyManualText"
+      />
       <SmartPanel
         v-else
         v-model:prompt="smartPrompt"
@@ -1181,13 +1072,17 @@ function updateSort(value) {
   font: var(--tool-font);
 }
 .rule-panel {
-  height: 192px;
+  height: 202px;
   min-height: 0;
   overflow: auto;
   padding: 12px 18px;
 }
 .rule-panel:has(.manual-panel) {
-  height: 72px;
+  height: 168px;
+}
+.rule-panel:has(.insert-panel) {
+  height: auto;
+  min-height: 202px;
 }
 .rule-panel:has(.smart-panel) {
   height: 184px;
@@ -1197,26 +1092,12 @@ function updateSort(value) {
   max-height: 208px;
 }
 .rule-panel :deep(.number-panel) {
-  height: calc(100% - 26px);
+  height: 100%;
   gap: 18px;
 }
 .rule-panel :deep(.insert-panel) {
   height: auto;
-  gap: 10px;
-}
-.rule-panel :deep(.mini-field) {
-  height: 37px;
-}
-.enable-rule {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  margin-bottom: 8px;
-  font-size: 11px;
-  color: var(--muted);
-}
-.enable-rule input {
-  accent-color: var(--primary);
+  gap: 14px;
 }
 .rename-panel {
   display: grid;
@@ -1227,14 +1108,6 @@ function updateSort(value) {
   align-items: center;
   gap: 16px;
   margin-bottom: 8px;
-}
-.clean-toolbar > label {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  flex: none;
-  color: var(--muted);
-  font-size: 11px;
 }
 .clean-tabs {
   display: flex;
@@ -1301,16 +1174,20 @@ function updateSort(value) {
 }
 .sub-rule {
   margin: 0;
-  padding: 7px 10px;
+  padding: 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
 }
-.sub-rule legend {
+.sub-rule-heading {
+  margin-bottom: 8px;
   color: var(--muted);
   font-size: 12px;
 }
-.rule {
-  padding: 4px 0;
+.sub-rule-heading label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 20px;
 }
 .rename-message {
   flex: none;

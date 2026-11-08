@@ -145,7 +145,7 @@ export function useProjectLibraryController({
 				thumbnailVideo.preload = "auto";
 				await new Promise<void>((resolve, reject) => {
 					const timeout = window.setTimeout(
-						() => finish(new Error("Thumbnail decode timed out")),
+						() => finish(new Error("缩略图解码超时")),
 						10000,
 					);
 					const finish = (error?: Error) => {
@@ -156,7 +156,7 @@ export function useProjectLibraryController({
 						error ? reject(error) : resolve();
 					};
 					thumbnailVideo.onerror = () =>
-						finish(new Error("Thumbnail source unavailable"));
+						finish(new Error("缩略图素材不可用"));
 					thumbnailVideo.onloadeddata = () => {
 						if (sourceSeconds > 0) {
 							thumbnailVideo.onseeked = () => finish();

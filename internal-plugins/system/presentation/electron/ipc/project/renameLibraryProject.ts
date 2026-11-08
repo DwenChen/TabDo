@@ -7,7 +7,7 @@ export async function renameLibraryProject(
 	allowedPaths: string[],
 	sidecars: (path: string) => string[],
 ) {
-	if (!allowedPaths.includes(source)) throw new Error("Project is not in the library");
+	if (!allowedPaths.includes(source)) throw new Error("该项目不在当前项目库中");
 	const clean = name.trim();
 	if (
 		!clean ||

@@ -1,0 +1,33 @@
+{
+  "id": "presentation-timeline-arrangement",
+  "date": "2026-11-05",
+  "summary": "修复演示时间轴帧预览和滚动命中，支持轨道及片段拖动排序并增大轨道区",
+  "reason": "用户反馈比例变化未更新视频帧、纵向浏览后留白被识别为片段拖动、整轨与同轨片段不能自由排序，双视频轨道挤占其他轨道。",
+  "changes": [
+    "帧预览按当前可见窗口定位与采样，取消旧取帧请求，移除拖动库离屏内边距的重复偏移。",
+    "片段拖动按指针位移计算，限制命中范围到可见片段，摄像头轨道参与统一纵向布局。",
+    "轨道标题支持整轨拖放和上下键排列，顺序随项目保存重开，新素材清空旧顺序；字幕独立参与排列。",
+    "同轨片段跨越旧邻居移动，重叠落点采用插入排列并保留时长、源偏移及留白；移除录屏菜单向前和向后移动。",
+    "增加轨道区比例与最小高度，收紧外边距，保证双视频轨道与第三条普通轨道同时可见。",
+    "同步当前说明、两份教程、模块规范与TX-115回归条目；保留已有未提交内容。"
+  ],
+  "checks": [
+    "通过context-mode读取维护规范、当前改动索引、Bug台账和演示模块实现。",
+    "presentation-editing单测9文件50项通过，归档.artifacts/runs/2026-11-05T08-28-36-429Z-unit。",
+    "首轮源码轨道专项在项目回收阶段失败（列表仍有2项目），时间轴新断言已通过；保留归档.artifacts/runs/2026-11-05T08-25-47-288Z-e2e。未改动回收实现，下一轮完整专项通过。",
+    "扩展源码轨道专项通过，归档.artifacts/runs/2026-11-05T08-28-26-131Z-e2e，覆盖两路帧图随缩放变化、第三轨可见、真实标题拖动、保存顺序、录屏片段换位、留白定位和明暗菜单。",
+    "受影响新增模块与轨道测试的ESLint错误检查退出0。",
+    "导入源码专项通过，补充摄像头拖动首次失败，归档.artifacts/runs/2026-11-05T08-31-13-664Z-e2e；进一步诊断归档.artifacts/runs/2026-11-05T08-35-03-465Z-e2e确认：鼠标移动541px，手工移动DOM触发拖动库布局补偿后事件仅余9px。删除拖动中的重复DOM位置更新，保留裁剪几何与最终插入校验，调试输出已移除。",
+    "最终源码轨道专项通过，归档.artifacts/runs/2026-11-05T08-38-16-175Z-e2e；摄像头右段真实拖到首位、源偏移1000ms保持且自动保存通过。录屏真实换位、标题拖动/键盘/保存重开、滚动留白定位、缩放双视频帧图更新、第三轨可见及明暗菜单均通过。",
+    "全量pnpm test通过117文件787项，归档.artifacts/runs/2026-11-05T08-38-26-778Z-unit。",
+    "pnpm build完整退出0，包含Node/Web类型检查、设置和工具及宿主构建；日志.artifacts/work/presentation-timeline-arrangement-build.log。最终拖动修复后另执行工具生产编译；无electron-builder或build:unpack。",
+    "pnpm docs:check通过31文档207链接15章65步；presentation-timeline分组列出3个单测及2个源码E2E文件。",
+    "人工查看225%时间轴可见帧截图及双视频与第三轨布局，图像覆盖可见窗口；新增模块、片段与菜单模块及受影响测试的强制ESLint错误检查退出0。",
+    "最终pnpm build:tools退出0，日志.artifacts/work/presentation-timeline-arrangement-tools-final.log；编译含最终移除重复拖动布局的实现。",
+    "pnpm maintain、pnpm maintain:check、pnpm docs:check与git diff --check退出0。",
+    "pnpm preview:sync退出0，104项程序文件核验通过，463个既有data/legacy文件逐文件一致；程序回退副本.artifacts/backups/preview-sync/update-1793868089951/previous-resources。",
+    "pnpm test:preview:resources退出0，核验103项程序、345项内置工具及1687项媒体运行资源。"
+  ],
+  "pending": ["其他DPI、多屏、触控和长视频解码仍需对应设备人工验收。"],
+  "preview": "已同步.local/portable-preview（1.3.0），从根PreviewPortable.cmd启动；463个既有data/legacy文件一致，配置、素材及已安装插件保留。程序回退副本.artifacts/backups/preview-sync/update-1793868089951/previous-resources。未push、云端构建、发布release或重置数据。"
+}

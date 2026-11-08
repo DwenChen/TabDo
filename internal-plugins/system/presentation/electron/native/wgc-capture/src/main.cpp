@@ -15,6 +15,15 @@
 #include <chrono>
 #include <cstdio>
 #include <fstream>
+#include <sstream>
+#include <iomanip>
+#include <future>
+#include <cstdlib>
+#include <deque>
+#include <d3d10.h>
+#include "test_tone.h"
+#include "camera_capture.h"
+#include "capture_timeline.h"
 
 static std::atomic<bool> g_stopRequested{false};
 static std::atomic<bool> g_pauseRequested{false};
@@ -23,6 +32,8 @@ static std::atomic<int64_t> g_pauseStartTimestampHns{0};
 static std::atomic<int64_t> g_accumulatedPausedHns{0};
 static std::mutex g_stopMutex;
 static std::condition_variable g_stopCv;
+static CaptureTimeline g_timeline;
+static std::atomic<int64_t> g_stopBoundaryHns{-1};
 
 static void reportMicrophoneCaptureUnavailable() {
     std::cerr << "WARNING: Failed to initialize WASAPI mic capture" << std::endl;
@@ -50,6 +61,10 @@ struct CaptureConfig {
     bool hasDisplayBounds = false;
     bool captureSystemAudio = false;
     bool captureMic = false;
+    bool deferStart = false;
+    bool captureCamera = false;
+    std::string cameraOutputPath;
+    std::string cameraName;
 };
 
 static bool parseSimpleJson(const std::string& json, CaptureConfig& config) {
@@ -142,6 +157,10 @@ static bool parseSimpleJson(const std::string& json, CaptureConfig& config) {
 
     config.captureSystemAudio = findBool("captureSystemAudio");
     config.captureMic = findBool("captureMic");
+    config.deferStart = findBool("deferStart");
+    config.captureCamera = findBool("captureCamera");
+    config.cameraOutputPath = findString("cameraOutputPath");
+    config.cameraName = findString("cameraName");
 
     int dx = findInt("displayX");
     int dy = findInt("displayY");
@@ -221,10 +240,8 @@ static void writeCompanionAudioTimingMetadata(
         return;
     }
 
-    int64_t startDelayMs = (firstPacketQpcHns - firstVideoTimestampHns + 5000) / 10000;
-    if (startDelayMs < 0) {
-        startDelayMs = 0;
-    }
+    // Shared packet slicing has already placed audio at its exact destination sample.
+    const int64_t startDelayMs = 0;
 
     std::ofstream metadataFile(audioPath + ".json", std::ios::trunc);
     if (!metadataFile) {
@@ -254,6 +271,10 @@ static void writeCompanionAudioTimingMetadata(
     metadataFile << "}";
 }
 
+/**
+ * Apply capture-clock boundaries sent before their scheduled instant.
+ * @returns No value; EOF stops this owned session immediately.
+ */
 static void stdinListenerThread() {
     std::string line;
     while (std::getline(std::cin, line)) {
@@ -262,18 +283,22 @@ static void stdinListenerThread() {
             line.pop_back();
         }
 
-        if (line == "pause") {
-            openActivePauseAt(queryPerformanceCounterHns());
+        std::istringstream command(line);
+        std::string action;
+        double epochMs = 0;
+        command >> action;
+        const int64_t boundary = (command >> epochMs) ? g_timeline.fromEpoch(epochMs) : queryPerformanceCounterHns();
+        if (action == "start" || action == "resume") {
+            g_timeline.boundary(true, boundary);
             continue;
         }
-
-        if (line == "resume") {
-            closeActivePauseAt(queryPerformanceCounterHns());
+        if (action == "pause") {
+            g_timeline.boundary(false, boundary);
             continue;
         }
-
-        if (line == "stop") {
-            g_stopRequested = true;
+        if (action == "stop") {
+            g_timeline.boundary(false, boundary);
+            g_stopBoundaryHns = boundary;
             g_stopCv.notify_all();
             return;
         }
@@ -284,7 +309,75 @@ static void stdinListenerThread() {
     g_stopCv.notify_all();
 }
 
+/**
+ * Prepare and run one owned cursor-free capture session.
+ * @param argc Command argument count.
+ * @param argv JSON configuration argument.
+ * @returns Zero after successful publication, otherwise a nonzero capture failure.
+ */
 int main(int argc, char* argv[]) {
+    const auto preparationStart = std::chrono::steady_clock::now();
+    /**
+     * Report preparation phases without changing the recording time origin.
+     * @param phase Completed preparation phase.
+     * @returns No value; diagnostics use elapsed steady-clock milliseconds.
+     */
+    const auto reportPreparation = [&](const char* phase) {
+        std::cerr << "Capture preparation " << phase << " ms: " << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - preparationStart).count() << std::endl;
+    };
+    if (argc == 2 && std::string(argv[1]) == "--test-clock") {
+        CaptureTimeline clock;
+        clock.boundary(true, 10000000); clock.boundary(false, 10500000);
+        clock.boundary(true, 11000000); clock.boundary(false, 11900000);
+        std::cout << "{\"durationMs\":" << clock.durationAt(11900000) / 10000.0 << ",\"frames\":[";
+        const int64_t points[] = {9999999,10000000,10010000,10500000,11000000,11899999,11900000};
+        bool first = true;
+        for (const auto point : points) { if (!first) std::cout << ","; first = false; const auto time = clock.map(point); if (time) std::cout << std::setprecision(12) << *time / 10000.0; else std::cout << "null"; }
+        std::cout << "],\"packets\":["; first = true;
+        for (const auto packet : {std::pair<int64_t,uint32_t>{9900000,200}, {11880000,5}, {10400000,70}}) {
+            if (!first) std::cout << ","; first = false; std::cout << "["; bool firstSlice = true;
+            for (const auto& slice : clock.slices(packet.first, packet.second, 1000)) {
+                if (!firstSlice) std::cout << ","; firstSlice = false;
+                std::cout << "{\"offset\":" << slice.offset << ",\"count\":" << slice.count << ",\"outputFrame\":" << slice.outputFrame << "}";
+            }
+            std::cout << "]";
+        }
+        std::cout << "],\"audioPacketTimes\":[";
+        CaptureAudioPacketClock audioClock;
+        const int64_t packetTimes[] = {
+            audioClock.map(0, 480, 48000, 10000000, true, false),
+            audioClock.map(480, 480, 48000, 10105000, true, false),
+            audioClock.map(960, 480, 48000, 10196000, true, false),
+            audioClock.map(0, 480, 48000, 10350000, false, false),
+            audioClock.map(1920, 480, 48000, 10403000, true, false),
+            audioClock.map(2880, 480, 48000, 10610000, true, true),
+            audioClock.map(3360, 480, 48000, 10713000, true, false),
+            audioClock.map(0, 480, 48000, 10825000, true, true)
+        };
+        first = true;
+        for (const auto time : packetTimes) { if (!first) std::cout << ","; first = false; std::cout << time; }
+        std::cout << "]}" << std::endl;
+        return 0;
+    }
+    if (argc == 2 && std::string(argv[1]) == "--test-tone-detector") {
+        std::vector<float> samples(12000), background(6000), partial(7000);
+        for (int i = 0; i < 12000; ++i) samples[i] = static_cast<float>(0.08 * std::sin(2 * 3.141592653589793 * 440 * i / 48000)) + captureDiagnosticToneSample(i - 4800, 48000);
+        for (int i = 0; i < 6000; ++i) background[i] = static_cast<float>(0.35 * std::sin(2 * 3.141592653589793 * 880 * i / 48000));
+        background[1500] = 1;
+        for (int i = 2400; i < 3072; ++i) partial[i] = captureDiagnosticToneSample(i - 2400, 48000);
+        const auto match = findCaptureDiagnosticTone(samples, 48000);
+        std::cout << "{\"sample\":" << match.sample << ",\"correlation\":" << match.correlation << ",\"backgroundOnly\":" << (findCaptureDiagnosticTone(background, 48000).sample >= 0 ? "true" : "false") << ",\"partial\":" << (findCaptureDiagnosticTone(partial, 48000).sample >= 0 ? "true" : "false") << "}" << std::endl;
+        return 0;
+    }
+    if (argc == 2 && std::string(argv[1]) == "--test-tone") {
+        char testMode[8] = {};
+        GetEnvironmentVariableA("TABDO_E2E", testMode, sizeof(testMode));
+        if (std::string(testMode) != "1") return 1;
+        const int64_t firstSample = playCaptureDiagnosticTone();
+        if (firstSample < 0) return 1;
+        std::cout << std::setprecision(17) << "{\"firstSampleEpochMs\":" << g_timeline.toEpoch(firstSample) << "}" << std::endl;
+        return 0;
+    }
     if (argc < 2) {
         std::cerr << "ERROR: Missing JSON config argument" << std::endl;
         return 1;
@@ -302,6 +395,33 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    // Prepare independent audio endpoints concurrently with the graphics device and encoder.
+    WasapiCapture loopback;
+    WasapiCapture micCapture;
+    loopback.setTimeline(&g_timeline);
+    micCapture.setTimeline(&g_timeline);
+    bool audioActive = false;
+    bool audioInitialized = false;
+    bool micActive = false;
+    bool micInitialized = false;
+    auto audioPreparation = std::async(std::launch::async, [&]() {
+        CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+        if (config.captureSystemAudio && !config.audioOutputPath.empty()) {
+            audioInitialized = loopback.initializeLoopback(config.audioOutputPath);
+            if (!audioInitialized) std::cerr << "WARNING: Failed to initialize WASAPI loopback" << std::endl;
+        }
+        if (config.captureMic && !config.micOutputPath.empty()) {
+            char testMode[8] = {}, testLoopback[8] = {};
+            GetEnvironmentVariableA("TABDO_E2E", testMode, sizeof(testMode));
+            GetEnvironmentVariableA("TABDO_E2E_CAPTURE_MIC_LOOPBACK", testLoopback, sizeof(testLoopback));
+            micInitialized = std::string(testMode) == "1" && std::string(testLoopback) == "1"
+                ? micCapture.initializeLoopback(config.micOutputPath)
+                : micCapture.initializeMic(config.micOutputPath, config.micDeviceId, config.micDeviceName);
+            if (!micInitialized) reportMicrophoneCaptureUnavailable();
+        }
+        CoUninitialize();
+        reportPreparation("audio");
+    });
     WgcSession session;
 
     if (config.windowHandle > 0) {
@@ -310,17 +430,21 @@ int main(int argc, char* argv[]) {
             std::cerr << "ERROR: Invalid window handle " << config.windowHandle << std::endl;
             return 1;
         }
+        // Restore the target in-process; the prepared-frame handshake replaces shell activation delays.
+        if (IsIconic(hwnd)) ShowWindow(hwnd, SW_RESTORE);
+        SetForegroundWindow(hwnd);
         if (!session.initialize(hwnd, config.fps)) {
             std::cerr << "ERROR: Failed to initialize WGC window capture session" << std::endl;
             return 1;
         }
     } else {
-        HMONITOR monitor = findMonitorByDisplayId(config.displayId);
-        if (!monitor && config.hasDisplayBounds) {
+        HMONITOR monitor = nullptr;
+        if (config.hasDisplayBounds) {
             std::cerr << "Monitor ID match failed, attempting coordinate-based match: "
                       << config.displayX << "," << config.displayY << " " << config.displayW << "x" << config.displayH << std::endl;
             monitor = findMonitorByBounds(config.displayX, config.displayY, config.displayW, config.displayH);
         }
+        if (!monitor) monitor = findMonitorByDisplayId(config.displayId);
 
         if (!monitor) {
             std::cerr << "ERROR: Could not find monitor for displayId " << config.displayId << std::endl;
@@ -332,13 +456,32 @@ int main(int argc, char* argv[]) {
         }
     }
 
+    reportPreparation("graphics");
     int captureWidth = config.width > 0 ? config.width : session.captureWidth();
     int captureHeight = config.height > 0 ? config.height : session.captureHeight();
 
     // Ensure even dimensions for H.264
     captureWidth = (captureWidth / 2) * 2;
     captureHeight = (captureHeight / 2) * 2;
+    Microsoft::WRL::ComPtr<ID3D10Multithread> graphicsGuard;
+    if (SUCCEEDED(session.context()->QueryInterface(IID_PPV_ARGS(&graphicsGuard)))) graphicsGuard->SetMultithreadProtected(TRUE);
 
+    std::unique_ptr<CameraCapture> camera;
+    std::future<bool> cameraPreparation;
+    if (config.captureCamera && !config.cameraOutputPath.empty()) {
+        char testMode[8] = {}, referenceMode[8] = {};
+        GetEnvironmentVariableA("TABDO_E2E", testMode, sizeof(testMode));
+        GetEnvironmentVariableA("TABDO_E2E_NATIVE_CAMERA_REFERENCE", referenceMode, sizeof(referenceMode));
+        const bool reference = std::string(testMode) == "1" && std::string(referenceMode) == "1";
+        camera = std::make_unique<CameraCapture>(g_timeline, session.device(), session.context());
+        cameraPreparation = std::async(std::launch::async, [&, reference]() {
+            winrt::init_apartment(winrt::apartment_type::multi_threaded);
+            const bool ready = camera->prepare(utf8ToWide(config.cameraOutputPath), utf8ToWide(config.cameraName), reference, captureWidth, captureHeight);
+            reportPreparation("camera");
+            winrt::uninit_apartment();
+            return ready;
+        });
+    }
     // Initialize encoder
     MFEncoder encoder;
     std::wstring outputPathW = utf8ToWide(config.outputPath);
@@ -348,57 +491,63 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    reportPreparation("encoder");
     // Set up frame callback
     std::atomic<int64_t> frameCount{0};
     std::atomic<int64_t> firstVideoTimestampHns{-1};
     std::atomic<bool> recordingStartedAnnounced{false};
     std::atomic<bool> captureSetupComplete{false};
+    std::atomic<bool> captureReadyAnnounced{false};
+    struct PendingFrame { Microsoft::WRL::ComPtr<ID3D11Texture2D> texture; int64_t qpc; uint64_t bytes; };
+    PendingFrame latestFrame;
+    std::deque<PendingFrame> pendingFrames;
+    std::mutex queueMutex;
+    std::condition_variable queueCv;
+    uint64_t queuedBytes = 0;
+    bool queueClosed = false;
+    std::atomic<bool> encodingFailed{false};
+    int64_t lastOutputFrame = -1;
+    encoder.setTimelineOriginHns(0);
     session.setFrameCallback([&](ID3D11Texture2D* texture, int64_t timestampHns) {
         g_lastFrameTimestampHns = timestampHns;
-        int64_t expectedFirstVideoTimestampHns = -1;
-        firstVideoTimestampHns.compare_exchange_strong(expectedFirstVideoTimestampHns, timestampHns);
         if (g_stopRequested) return;
-
-        if (g_pauseRequested) return;
-
-        const int64_t adjustedTimestampHns = adjustedVideoTimestampHns(timestampHns);
-
-        if (encoder.writeFrame(texture, adjustedTimestampHns)) {
-            const int64_t writtenFrames = frameCount.fetch_add(1) + 1;
-            if (captureSetupComplete && writtenFrames >= 1 && !recordingStartedAnnounced.exchange(true)) {
-                std::cout << "Recording started" << std::endl;
-                std::cout.flush();
+        const auto elapsed = g_timeline.map(timestampHns);
+        // Copy the owned texture promptly: codec startup must not block WGC and lose the first frames.
+        D3D11_TEXTURE2D_DESC desc;
+        texture->GetDesc(&desc);
+        desc.Usage = D3D11_USAGE_DEFAULT; desc.BindFlags = 0; desc.CPUAccessFlags = 0; desc.MiscFlags = 0;
+        Microsoft::WRL::ComPtr<ID3D11Texture2D> copy;
+        if (FAILED(session.device()->CreateTexture2D(&desc, nullptr, &copy))) { encodingFailed = true; g_stopRequested = true; return; }
+        session.context()->CopyResource(copy.Get(), texture);
+        const uint64_t bytes = static_cast<uint64_t>(desc.Width) * desc.Height * 4;
+        {
+            std::lock_guard<std::mutex> lock(queueMutex);
+            // Retain one latest source snapshot: static windows need not emit a new frame after start/resume.
+            latestFrame = {copy, timestampHns, bytes};
+            if (!elapsed) { queueCv.notify_one(); return; }
+            if (queuedBytes + bytes > 256ULL * 1024 * 1024 || pendingFrames.size() >= 60) {
+                std::cerr << "ERROR: Capture encoder cannot keep up with timestamped frames" << std::endl;
+                encodingFailed = true; g_stopRequested = true; return;
             }
+            pendingFrames.push_back({copy, timestampHns, bytes});
+            queuedBytes += bytes;
         }
+        queueCv.notify_one();
     });
 
     // Start stdin listener
     std::thread stdinThread(stdinListenerThread);
     stdinThread.detach();
 
-    // Initialize WASAPI captures (but don't start yet)
-    WasapiCapture loopback;
-    WasapiCapture micCapture;
-    bool audioActive = false;
-    bool audioInitialized = false;
-    bool micActive = false;
-    bool micInitialized = false;
-
-    if (config.captureSystemAudio && !config.audioOutputPath.empty()) {
-        audioInitialized = loopback.initializeLoopback(config.audioOutputPath);
-        if (!audioInitialized) {
-            std::cerr << "WARNING: Failed to initialize WASAPI loopback" << std::endl;
-        }
+    // Do not announce readiness until the parallel preparation is complete.
+    audioPreparation.get();
+    if (cameraPreparation.valid() && !cameraPreparation.get()) {
+        std::cerr << "ERROR: Requested camera could not provide a capture-clock frame" << std::endl;
+        return 1;
     }
-
-    if (config.captureMic && !config.micOutputPath.empty()) {
-        micInitialized = micCapture.initializeMic(
-            config.micOutputPath,
-            config.micDeviceId,
-            config.micDeviceName);
-        if (!micInitialized) {
-            reportMicrophoneCaptureUnavailable();
-        }
+    if (config.captureMic && !micInitialized) {
+        std::cerr << "ERROR: Requested microphone could not provide native timestamped audio" << std::endl;
+        return 1;
     }
 
     // Start video capture, then audio immediately after for sync
@@ -416,32 +565,83 @@ int main(int argc, char* argv[]) {
             reportMicrophoneCaptureUnavailable();
         }
     }
+    std::thread encodingThread([&]() {
+        CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+        int64_t seededBoundary = -1;
+        while (true) {
+            PendingFrame frame;
+            {
+                std::unique_lock<std::mutex> lock(queueMutex);
+                queueCv.wait_for(lock, std::chrono::milliseconds(2), [&]() { return queueClosed || !pendingFrames.empty(); });
+                const auto boundary = g_timeline.activeBoundary(queryPerformanceCounterHns());
+                // Publish the retained desktop at the agreed boundary, never its preparation timestamp.
+                if (boundary && *boundary != seededBoundary && latestFrame.texture) {
+                    seededBoundary = *boundary;
+                    frame = latestFrame;
+                    frame.qpc = *boundary;
+                } else if (!pendingFrames.empty()) {
+                    frame = std::move(pendingFrames.front()); pendingFrames.pop_front(); queuedBytes -= frame.bytes;
+                } else if (queueClosed) break;
+                else continue;
+            }
+            const auto elapsed = g_timeline.map(frame.qpc);
+            if (!elapsed) continue;
+            int64_t expectedFirst = -1;
+            firstVideoTimestampHns.compare_exchange_strong(expectedFirst, frame.qpc - *elapsed);
+            const int64_t frameIndex = *elapsed * config.fps / 10000000LL;
+            if (frameIndex <= lastOutputFrame) continue;
+            const int64_t outputTime = lastOutputFrame < 0 ? 0 : frameIndex * 10000000LL / config.fps;
+            if (!encoder.writeFrame(frame.texture.Get(), outputTime) || (camera && !camera->writeReference(frame.texture.Get(), frame.qpc))) { encodingFailed = true; g_stopRequested = true; break; }
+            lastOutputFrame = frameIndex;
+            if (frameCount.fetch_add(1) == 0 && !recordingStartedAnnounced.exchange(true)) std::cout << "Recording started" << std::endl;
+        }
+        CoUninitialize();
+    });
     captureSetupComplete = true;
 
-    // Wait for stop signal while pausing/resuming audio tracks in lockstep.
+    // Keep draining timestamped packets across pauses; every stream uses the same scheduled boundaries.
     while (!g_stopRequested && !session.hasFatalError()) {
-        if (g_pauseRequested) {
-            if (audioActive) loopback.pause();
-            if (micActive) micCapture.pause();
-        } else {
-            if (audioActive) loopback.resume();
-            if (micActive) micCapture.resume();
+        {
+            std::lock_guard<std::mutex> lock(queueMutex);
+            // A static source's first frame may arrive before parallel preparation finishes.
+            if (captureSetupComplete && latestFrame.texture && !captureReadyAnnounced.exchange(true)) {
+                const int64_t clockQpc = queryPerformanceCounterHns();
+                std::cout << std::setprecision(17) << "CAPTURE_CLOCK {\"epochMs\":" << g_timeline.toEpoch(clockQpc) << ",\"monotonicMs\":" << static_cast<double>(clockQpc) / 10000.0 << "}" << std::endl;
+                std::cout << "Capture preparation ms: " << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - preparationStart).count() << std::endl;
+                std::cout << "Capture ready" << std::endl;
+                if (!config.deferStart) g_timeline.boundary(true, clockQpc);
+            }
+        }
+        const int64_t stopBoundary = g_stopBoundaryHns.load();
+        if (stopBoundary >= 0 && queryPerformanceCounterHns() >= stopBoundary + 1000000LL) {
+            // Allow queued WASAPI packets to drain; packet slicing excludes every sample after stop.
+            g_stopRequested = true;
+            break;
         }
 
         std::unique_lock<std::mutex> lock(g_stopMutex);
-        g_stopCv.wait_for(lock, std::chrono::milliseconds(20), [] { return g_stopRequested.load(); });
+        g_stopCv.wait_for(lock, std::chrono::milliseconds(2), [] { return g_stopRequested.load(); });
     }
 
     // Stop capture and finalize
-    const int64_t adjustedStopTimestampHns = adjustedVideoTimestampHns(queryPerformanceCounterHns());
+    const int64_t stopBoundary = g_stopBoundaryHns.load();
+    const int64_t adjustedStopTimestampHns = g_timeline.durationAt(stopBoundary >= 0 ? stopBoundary : queryPerformanceCounterHns());
     session.stopCapture();
+    {
+        std::lock_guard<std::mutex> lock(queueMutex);
+        queueClosed = true;
+    }
+    queueCv.notify_one();
+    encodingThread.join();
     if (audioActive) loopback.stop();
     if (micActive) micCapture.stop();
+    if (camera && !camera->stop(adjustedStopTimestampHns)) encodingFailed = true;
 
-    if (session.hasFatalError()) {
+    if (session.hasFatalError() || encodingFailed) {
         std::cerr << "ERROR: WGC capture session failed during recording" << std::endl;
         encoder.finalize();
         DeleteFileW(outputPathW.c_str());
+        if (!config.cameraOutputPath.empty()) DeleteFileW(utf8ToWide(config.cameraOutputPath).c_str());
         if (!config.audioOutputPath.empty()) {
             const std::wstring audioPathW = utf8ToWide(config.audioOutputPath);
             const std::wstring audioMetadataPathW = utf8ToWide(config.audioOutputPath + ".json");
@@ -476,7 +676,10 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    if (!encoder.extendLastFrameTo(adjustedStopTimestampHns)) {
+    // Every companion covers the same final output frame, without capturing post-stop content.
+    const int64_t finalFrameCount = std::max<int64_t>(1, (adjustedStopTimestampHns * config.fps + 9999999LL) / 10000000LL);
+    const int64_t finalDurationHns = finalFrameCount * 10000000LL / config.fps;
+    if (!encoder.extendLastFrameTo(finalDurationHns)) {
         std::cerr << "WARNING: Failed to extend the last video frame to the stop timestamp" << std::endl;
     }
 
@@ -486,6 +689,7 @@ int main(int argc, char* argv[]) {
     }
 
     std::cout << "Recording stopped. Output path: " << config.outputPath << std::endl;
+    if (camera) std::cout << "Camera path: " << config.cameraOutputPath << std::endl;
     if (audioActive) {
         if (
             loopback.dataDiscontinuityCount() > 0 ||

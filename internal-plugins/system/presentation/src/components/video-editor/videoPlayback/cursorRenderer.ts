@@ -619,7 +619,7 @@ export async function preloadCursorAssets() {
 			>;
 
 			if (!loadedCursorAssets.arrow) {
-				throw new Error("Failed to initialize the fallback arrow cursor asset");
+				throw new Error("无法初始化备用箭头光标");
 			}
 		})();
 	}

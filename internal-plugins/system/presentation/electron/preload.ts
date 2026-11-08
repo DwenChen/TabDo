@@ -563,12 +563,16 @@ contextBridge.exposeInMainWorld("electronAPI", {
 			capturesMicrophone?: boolean;
 			microphoneDeviceId?: string;
 			microphoneLabel?: string;
+			deferStart?: boolean;
+			capturesWebcam?: boolean;
+			webcamLabel?: string;
 		}
 	) => {
 		return ipcRenderer.invoke("start-native-screen-recording", source, options);
 	},
-	stopNativeScreenRecording: () => {
-		return ipcRenderer.invoke("stop-native-screen-recording");
+	commitNativeScreenRecording: (boundaryMs: number) => ipcRenderer.invoke("commit-native-screen-recording", boundaryMs),
+	stopNativeScreenRecording: (boundaryMs?: number) => {
+		return ipcRenderer.invoke("stop-native-screen-recording", boundaryMs);
 	},
 	recoverNativeScreenRecording: () => {
 		return ipcRenderer.invoke("recover-native-screen-recording");
@@ -576,11 +580,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	getLastNativeCaptureDiagnostics: () => {
 		return ipcRenderer.invoke("get-last-native-capture-diagnostics");
 	},
-	pauseNativeScreenRecording: () => {
-		return ipcRenderer.invoke("pause-native-screen-recording");
+	pauseNativeScreenRecording: (boundaryMs?: number) => {
+		return ipcRenderer.invoke("pause-native-screen-recording", boundaryMs);
 	},
-	resumeNativeScreenRecording: () => {
-		return ipcRenderer.invoke("resume-native-screen-recording");
+	resumeNativeScreenRecording: (boundaryMs?: number) => {
+		return ipcRenderer.invoke("resume-native-screen-recording", boundaryMs);
 	},
 	pauseCursorCapture: (pausedAtMs?: number) => {
 		return ipcRenderer.invoke("pause-cursor-capture", pausedAtMs);
@@ -594,8 +598,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	stopFfmpegRecording: () => {
 		return ipcRenderer.invoke("stop-ffmpeg-recording");
 	},
-	storeRecordedVideo: (videoData: ArrayBuffer, fileName: string) => {
-		return ipcRenderer.invoke("store-recorded-video", videoData, fileName);
+	storeRecordedVideo: (videoData: ArrayBuffer, fileName: string, options?: { auxiliary?: boolean }) => {
+		return ipcRenderer.invoke("store-recorded-video", videoData, fileName, options);
 	},
 	storeMicrophoneSidecar: (
 		audioData: ArrayBuffer,
@@ -629,6 +633,24 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	getRecordedVideoPath: () => {
 		return ipcRenderer.invoke("get-recorded-video-path");
 	},
+  /**
+   * Enable physical key display for the current recording only.
+   * @param enabled - User toggle state.
+   * @returns The capture update result.
+   */
+  setKeyboardCapture: (enabled: boolean) => ipcRenderer.invoke("set-keyboard-capture", enabled),
+  configureInputCapture: (options: { keyboard: boolean; mouse: boolean }) => ipcRenderer.invoke("configure-input-capture", options),
+  /**
+   * Subscribe to current recording key display updates.
+   * @param callback - Receives the formatted physical key.
+   * @returns Listener cleanup function.
+   */
+  onKeyboardDisplay: (callback: (text: string) => void) => {
+    const listener = (_event: unknown, text: string): void => callback(text);
+    ipcRenderer.on("keyboard-display", listener);
+    return () => { ipcRenderer.removeListener("keyboard-display", listener); };
+  },
+
 	/**
 	 * 公布录制状态，浏览器捕获可传入实际启动时间以对齐光标基准。
 	 * @param recording 是否正在录制。
@@ -837,6 +859,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	deleteRecordingFile: (filePath: string) => {
 		return ipcRenderer.invoke("delete-recording-file", filePath);
 	},
+	trashRecordingFiles: (paths: string[]) => ipcRenderer.invoke("trash-recording-files", paths),
+	getVideoSourceDuration: (filePath: string) => ipcRenderer.invoke("get-video-source-duration", filePath),
 	getLocalMediaUrl: (filePath: string) => {
 		return ipcRenderer.invoke("get-local-media-url", filePath) as Promise<
 			{ success: true; url: string } | { success: false }
@@ -1065,6 +1089,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	chooseRecordingsDirectory: () => {
 		return ipcRenderer.invoke("choose-recordings-directory");
 	},
+	chooseProjectsDirectory: () => ipcRenderer.invoke("choose-projects-directory"),
 	getShortcuts: () => {
 		return ipcRenderer.invoke("get-shortcuts");
 	},

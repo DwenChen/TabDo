@@ -1,6 +1,7 @@
 import type { Range, Span } from "dnd-timeline";
 import { CLIP_ROW_ID } from "../core/constants";
 import type { ClipSequenceSpan, TimelineRegionSpan } from "../core/timelineTypes";
+import { reorderTimedRegions } from "../core/trackArrangement";
 
 export interface DndEngineConfig {
 	totalMs: number;
@@ -129,6 +130,14 @@ function resolveClipSequenceDrag(
 	return { start, end: start + duration, sequenceIndex };
 }
 
+/**
+ * 将跨轨拖动约束在落点附近的可用间隔，允许越过原来的相邻片段。
+ * @param span 指针提出的区间。
+ * @param activeItemId 被移动的片段。
+ * @param rowId 接收轨道身份。
+ * @param config 时间边界和当前片段集合。
+ * @returns 时长不变且位于有效边界内的区间。
+ */
 export function clampDraggedSpanToNeighbours(
 	span: Span,
 	activeItemId: string,
@@ -142,22 +151,20 @@ export function clampDraggedSpanToNeighbours(
 	}
 
 	const siblings = getSiblingSpans(activeItemId, rowId, allRegionSpans);
-	const duration = Math.max(
-		activeItem.end - activeItem.start,
-		Math.min(minItemDurationMs, totalMs || minItemDurationMs),
-	);
+	const duration = activeItem.end - activeItem.start;
 	const proposedStart = Number.isFinite(span.start) ? span.start : activeItem.start;
 
 	if (activeItem.rowId === CLIP_ROW_ID && (rowId ?? activeItem.rowId) === CLIP_ROW_ID) {
 		return resolveClipSequenceDrag(activeItem, siblings, proposedStart);
 	}
 
-	const effectiveTotalMs = totalMs;
+	const effectiveTotalMs = Math.max(totalMs, duration);
 
+	// 以落点寻找相邻片段，允许跨越旧邻居移动到其他空位。
 	const previousSibling = [...siblings]
 		.reverse()
-		.find((region) => region.end <= activeItem.start);
-	const nextSibling = siblings.find((region) => region.start >= activeItem.end);
+		.find((region) => region.end <= proposedStart);
+	const nextSibling = siblings.find((region) => region.start >= proposedStart + duration);
 	const minStart = previousSibling ? previousSibling.end : 0;
 	const maxStart = nextSibling
 		? nextSibling.start - duration
@@ -168,7 +175,7 @@ export function clampDraggedSpanToNeighbours(
 	const start = Math.max(minStart, Math.min(proposedStart, maxStart));
 	return clampSpanToBounds(
 		{ start, end: start + duration },
-		{ totalMs: effectiveTotalMs, minItemDurationMs },
+		{ totalMs: effectiveTotalMs, minItemDurationMs: Math.min(minItemDurationMs, duration) },
 	);
 }
 
@@ -223,6 +230,15 @@ export function resolveResizeEnd(
 	return clamped;
 }
 
+/**
+ * 解析拖放，录屏按连续序列插入，其他同轨重叠落点重排且跨轨保留空位校验。
+ * @param activeItemId 被移动片段的身份。
+ * @param updatedSpan 实际指针位移提出的区间。
+ * @param proposedRowId 命中的轨道身份。
+ * @param config 当前媒体时长、片段和重叠约束。
+ * @param resolveTargetRowId 将不兼容的落点归回所属轨道。
+ * @returns 可发布的区间及轨道，无有效落点时返回空值。
+ */
 export function resolveDragEnd(
 	activeItemId: string,
 	updatedSpan: Span,
@@ -254,13 +270,22 @@ export function resolveDragEnd(
 			rowId: resolvedRowId,
 		};
 	}
-	const effectiveTotalMs = totalMs;
-
-	let clamped = clampSpanToBounds(dragSpan, { totalMs: effectiveTotalMs, minItemDurationMs });
+	// 移动只改变位置，不用手动裁剪的最小时长拉长短效果或截短独立媒体。
+	const effectiveTotalMs = Math.max(totalMs, originalDuration);
+	const minDragDurationMs = Math.min(minItemDurationMs, originalDuration);
+	let clamped = clampSpanToBounds(dragSpan, { totalMs: effectiveTotalMs, minItemDurationMs: minDragDurationMs });
 	if (hasOverlap(clamped, activeItemId, resolvedRowId)) {
+		// 同轨落在其他片段上时插入排序；跨轨落点继续使用空位约束。
+		if (activeItem && activeItem.rowId === resolvedRowId) {
+			const siblings = getSiblingSpans(activeItemId, resolvedRowId, allRegionSpans);
+			const insertion = resolveClipSequenceDrag(activeItem, siblings, updatedSpan.start);
+			const planned = reorderTimedRegions([activeItem, ...siblings].map((region) => ({ id: region.id, startMs: region.start, endMs: region.end })), activeItemId, insertion.sequenceIndex!);
+			const moved = planned.find((region) => region.id === activeItemId)!;
+			return { span: { start: moved.startMs, end: moved.endMs, sequenceIndex: insertion.sequenceIndex }, rowId: resolvedRowId };
+		}
 		clamped = clampDraggedSpanToNeighbours(clamped, activeItemId, resolvedRowId, {
 			allRegionSpans,
-			minItemDurationMs,
+			minItemDurationMs: minDragDurationMs,
 			totalMs: effectiveTotalMs,
 		});
 		if (hasOverlap(clamped, activeItemId, resolvedRowId)) {

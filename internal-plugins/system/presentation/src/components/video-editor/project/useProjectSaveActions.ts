@@ -75,6 +75,19 @@ export function useProjectSaveActions({
   }, [currentSourcePath])
   const autosaveTimeoutRef = useRef<number | null>(null)
   const saveQueueRef = useRef<Promise<unknown>>(Promise.resolve())
+  /**
+   * Retire pending writes before removing the active project from its library.
+   * @returns Resolves after already dispatched writes settle; queued writes become stale.
+   */
+  const retireProjectSaves = useCallback(async () => {
+    // Clear the source synchronously so queued closures cannot recreate a deleted project.
+    activeSourceRef.current = null
+    if (autosaveTimeoutRef.current !== null) {
+      window.clearTimeout(autosaveTimeoutRef.current)
+      autosaveTimeoutRef.current = null
+    }
+    await saveQueueRef.current
+  }, [])
   const clearPendingAutosave = useCallback(() => {
     if (autosaveTimeoutRef.current !== null) {
       window.clearTimeout(autosaveTimeoutRef.current)
@@ -367,6 +380,7 @@ export function useProjectSaveActions({
   }, [saveProject, setProjectBrowserOpen])
 
   return {
+    retireProjectSaves,
     saveProject,
     handleSaveProject,
     handleSaveProjectAs,

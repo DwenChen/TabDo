@@ -63,6 +63,7 @@ private:
     bool createD3DDevice();
     winrt::Windows::Graphics::DirectX::Direct3D11::IDirect3DDevice createWinRTDevice();
     winrt::Windows::Graphics::Capture::GraphicsCaptureItem createCaptureItemForMonitor(HMONITOR monitor);
+    winrt::Windows::Graphics::Capture::GraphicsCaptureItem createCaptureItemForWindow(HWND hwnd);
     bool initializeWithItem(int fps);
     bool initializeWindowCrop(HWND hwnd);
     bool updateWindowCropRect(bool initializeSize = false);

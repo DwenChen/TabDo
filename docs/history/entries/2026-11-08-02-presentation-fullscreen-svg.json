@@ -1,0 +1,31 @@
+{
+  "id": "presentation-fullscreen-svg",
+  "date": "2026-11-08",
+  "summary": "隔离全屏预览失败，统一录制关闭斜线并增加可换色立体 SVG 外观",
+  "reason": "用户反馈上一轮全屏失败污染全局错误并阻塞项目、按键录制关闭斜线不一致；要求重做箭头及新增四款箭头、四款指针，随后明确改用更灵活的 SVG，不再采用生图。保留工作区既有未提交内容。",
+  "changes": [
+    "全屏失败从素材恢复和全局错误链分离，局部提示可关闭且六秒后自动清除；DOM 全屏被拒绝时回退所属宿主原生窗口，Esc、换项目和服务退出恢复本次接管的全屏状态，解除监听并拒绝迟到请求。原生预览覆盖宿主标题栏，不将临时全屏尺寸写回窗口偏好，退出恢复当前标题栏高度。",
+    "录制按键关闭斜线改为左上至右下，与相邻关闭状态统一。",
+    "扩大排查修饰键同类故障：单独左右Shift、Ctrl、Alt、Meta即时记录，按键松开分别清理，修饰键长按去重、普通键重复保留，组合键补足首帧状态；小键盘导航补齐图例，连接显示折叠紧邻组合键前缀但保留原始输入事件。",
+    "五款原箭头改为共用 SVG 材质，新增缎带、晶透、霓虹和叠影；九款均支持主色和线宽，保留渐变、高光及投影，预览、缩略图和导出共用同一 SVG 源。旧项目外观标识、短色值和透明度继续兼容，完整材质统一应用透明度，移除旧生图箭头运行依赖。",
+    "新增蓝晶、果冻、珍珠和折纸四款 SVG 光标，沿原有图集、预览和导出链使用相同尖端热点；保留原有样式和配置。",
+    "同步当前模块文档、工具清单、教程及回归 TX-127；本轮生成尝试已按用户后续要求停用，交付程序不使用这些生成图片。"
+  ],
+  "checks": [
+    "pnpm typecheck通过；修改模块ESLint错误检查通过。",
+    "完整单测首次沙箱运行124文件中120通过、11项失败，原因包括临时目录权限、目录链接和本机端口访问限制，归档.artifacts/runs/2026-11-08T05-14-02-557Z-unit。正常本机隔离重跑124文件833项全部通过，归档.artifacts/runs/2026-11-08T05-16-16-164Z-unit。",
+    "加入修饰键修复后完整单测125文件844项通过，归档.artifacts/runs/2026-11-08T05-24-58-353Z-unit。",
+    "真实Windows键盘源码专项通过，归档.artifacts/runs/2026-11-08T05-26-10-395Z-e2e：左右Shift、Ctrl、Alt、Shift+A、Ctrl+Shift+S、Space、Enter、ArrowLeft均核对控制条响应及保存遥测。Meta及更多特殊键由单测验证，未触发真实Windows系统菜单。",
+    "全屏视觉专项首轮在导入前主进程evaluate出现promise被回收，归档.artifacts/runs/2026-11-08T05-17-48-828Z-e2e；重跑完成全屏回退、双失败隔离、九款箭头换色及72组方向像素、四款光标图集热点和四套导出动画，但末尾项目重开用例仍采用失效的clip选择器，归档.artifacts/runs/2026-11-08T05-24-11-934Z-e2e。更正为正文和媒体就绪特征；检查直接插件截图时进一步修复原生回退中编辑器头部、时间轴跨堆叠上下文覆盖的问题。首次沙箱E2E因本机服务不可连接而中止，保留.artifacts/presentation-svg-e2e.log。",
+    "最终源码全屏/视觉专项通过，归档.artifacts/runs/2026-11-08T05-28-51-945Z-e2e：浏览器及原生全屏进出、双路径失败局部提示、九款SVG换色、72组八方向实际导出像素及边缘留白、四款光标9种状态图集与精确热点、标准/现代WebGL/WebGPU动画、手绘单步撤销重做及项目重开与真实媒体就绪。人工查看直接插件全屏截图与独立矢量材质图；头部及时间轴不再覆盖原生全屏。",
+    "pnpm docs:check通过37文档253本地链接及15章66步；presentation-visual-effects回归分组--list通过；修改模块与测试ESLint错误检查通过。",
+    "补充宿主全屏尺寸隔离后，最终125文件844项单测通过，归档.artifacts/runs/2026-11-08T05-34-16-327Z-unit；源码视觉专项再次通过，归档.artifacts/runs/2026-11-08T05-34-01-559Z-e2e，额外核对真实插件视图y=0且高度等于窗口正文，不露出宿主标题栏。",
+    "pnpm build通过设置、工具插件、宿主及渲染器生产编译；最终宿主修改后再次通过pnpm typecheck及pnpm exec electron-vite build，日志.artifacts/presentation-svg-build.log、presentation-svg-typecheck-final.log和presentation-svg-host-build-final.log。最终相关模块ESLint与pnpm maintain、pnpm maintain:check均通过。",
+    "首次同步检测免安装预览仍运行，脚本在修改前拒绝替换；用户保存并完全退出后同步成功，233个既有资料与插件文件逐文件保留，核验104项程序资源，收据.artifacts/backups/preview-sync/update-1794116296919/preservation.json；资源专项通过。末次兼容审校补充3/4/6/8位十六进制颜色及整材质透明度，2文件17项专项单测通过，归档.artifacts/runs/2026-11-08T05-40-16-194Z-unit；补齐既有测试辅助函数返回类型后ESLint通过，pnpm build:tools补编译通过。",
+    "最终pnpm preview:sync同步1.3.0程序资源104项，233个既有配置、项目、资料及插件文件保持一致，收据.artifacts/backups/preview-sync/update-1794116526987/preservation.json。pnpm test:preview:resources通过103个程序文件、346个内置插件文件和1687个媒体依赖；日志.artifacts/presentation-svg-preview-sync-delivery.log与presentation-svg-preview-resources-final.log。",
+    "完成空间收尾：验证最终绝对路径、祖先与子项无链接、目标无Git跟踪且属于纯程序暂存后，清理两轮已消费app/new-resources及被替代回退共6处11054文件2112043216字节（约2014MiB）。只保留update-1794116526987/previous-resources最近程序回退和所有preservation.json，资料、插件、独有证据及其他活跃任务保留；清单与收据位于.artifacts/cleanup-2026-11-08-svg/。",
+    "收尾空间复核.artifacts逻辑大小5450903236字节（约5.08GiB）：主要为1.95GiB测试原始证据、1.18GiB既有工具链、1.15GiB最近回退及资料备份、0.56GiB历史下载和0.18GiB上游参考。独有证据、资料备份和仍保留的既有工具链不属于本轮消费材料；本轮没有新增下载或工具链，程序暂存已回收。未重置资料、push、云端构建或Release。"
+  ],
+  "pending": ["其他DPI、多屏、触控及材质主观观感待人工验收。", "真实Meta系统菜单交互和长视频/4K导出性能未专项验收；Meta采集与更多特殊按键已由单测覆盖。"],
+  "preview": "已同步.local/portable-preview，使用PreviewPortable.cmd手动测试；233个既有配置、项目、资料及插件文件保持一致，程序与内置资源复核通过，未重置资料。"
+}

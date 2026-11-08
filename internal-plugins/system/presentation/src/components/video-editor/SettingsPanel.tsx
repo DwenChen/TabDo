@@ -1,12 +1,16 @@
+import { AdvancedSettings } from "./AdvancedSettings";
+import { ZoomCameraControls, type ZoomCameraPatch } from './ZoomCameraControls';
+import { hasWebcamFootage } from './mediaSegments';
+import type { ZoomRegion } from './types';
 import type { User } from "@supabase/supabase-js";
 import { SettingsSections, SettingsCategory } from "./SettingsSections";
-import { Card, RadioGroup, Radio, Label, Description } from "@heroui/react";
+import { Card, Label } from "@heroui/react";
 import { ProgressBar } from "@heroui/react";
 import { ColorControl, ColorPalette } from "@presentation/components/ui/color-picker";
 import {
 	Palette,
 	Trash as Trash2,
-	UploadSimple as Upload,
+	UploadSimple as Upload
 } from "@presentation/components/ui/icons";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -18,7 +22,7 @@ import {
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
-	SelectValue,
+	SelectValue
 } from "@presentation/components/ui/select";
 import { Switch } from "@presentation/components/ui/switch";
 import { ChoiceGroup, ChoiceItem } from "@presentation/components/ui/choice-group";
@@ -26,14 +30,14 @@ import { useTheme } from "@presentation/contexts/ThemeContext";
 import {
 	getAssetPath,
 	getRenderableVideoUrl,
-	getWallpaperThumbnailUrl,
+	getWallpaperThumbnailUrl
 } from "@presentation/lib/assetPath";
 import { cn } from "@presentation/lib/utils";
 import type { BuiltInWallpaper } from "@presentation/lib/wallpapers";
 import {
 	BUILT_IN_WALLPAPERS,
 	getAvailableWallpapers,
-	isVideoWallpaperSource,
+	isVideoWallpaperSource
 } from "@presentation/lib/wallpapers";
 import { type AspectRatio } from "@presentation/utils/aspectRatioUtils";
 import { useI18n, useScopedT } from "../../contexts/I18nContext";
@@ -42,13 +46,10 @@ import { SUPPORTED_LOCALES } from "../../i18n/config";
 import { AnnotationSettingsPanel } from "./AnnotationSettingsPanel";
 import CaptionListPanel from "./CaptionListPanel";
 import type { CaptionRetimeSpan } from "./captionOps";
-import {
-	CURSOR_MOTION_PRESETS,
-	type CursorMotionPresetId,
-	getMatchingCursorMotionPresetId,
-} from "./cursorMotionPresets";
+import { CURSOR_MOTION_PRESETS, type CursorMotionPresetId } from "./cursorMotionPresets";
 import { loadEditorPreferences, saveEditorPreferences } from "./editorPreferences";
 import { getDefaultBorderRadiusPercent } from "./projectPersistence";
+import { createDefaultProjectEditor } from './editorDefaults';
 import { SliderControl } from "./SliderControl";
 import { WallpaperGrid } from "./WallpaperGrid";
 import { useShortcuts } from "@presentation/contexts/ShortcutsContext";
@@ -66,15 +67,13 @@ import type {
 	FigureData,
 	Padding,
 	WebcamOverlaySettings,
-	WebcamPositionPreset,
 	ZoomDepth,
 	ZoomMode,
-	ZoomTransitionEasing,
+	ZoomTransitionEasing
 } from "./types";
 import {
 	ADVANCED_VERTICAL_PADDING_MAX,
 	DEFAULT_AUTO_CAPTION_SETTINGS,
-	DEFAULT_CROP_REGION,
 	DEFAULT_CURSOR_CLICK_BOUNCE_DURATION,
 	DEFAULT_CURSOR_CLICK_EFFECT,
 	DEFAULT_CURSOR_CLICK_EFFECT_COLOR,
@@ -84,30 +83,25 @@ import {
 	DEFAULT_CURSOR_STYLE,
 	DEFAULT_CURSOR_SWAY,
 	DEFAULT_PADDING,
-	DEFAULT_WEBCAM_MARGIN,
-	DEFAULT_WEBCAM_POSITION_PRESET,
-	DEFAULT_WEBCAM_POSITION_X,
-	DEFAULT_WEBCAM_POSITION_Y,
 	DEFAULT_WEBCAM_REACT_TO_ZOOM,
 	DEFAULT_WEBCAM_ROUNDNESS,
 	DEFAULT_WEBCAM_SHADOW,
 	DEFAULT_WEBCAM_SIZE,
 	DEFAULT_ZOOM_IN_DURATION_MS,
-	DEFAULT_ZOOM_OUT_DURATION_MS,
+	DEFAULT_CONNECTED_ZOOM_GAP_MS,
+	DEFAULT_ZOOM_OUT_DURATION_MS
 } from "./types";
 import { fromCursorSwaySliderValue, toCursorSwaySliderValue } from "./videoPlayback/cursorSway";
 import { isZeroPadding } from "./videoPlayback/layoutUtils";
 import { getPreviewPlaybackRateRange } from "./videoPlayback/playbackRate";
 import {
 	cursorSetAssets,
-	getCursorStyleSizeMultiplier,
+	getCursorStyleSizeMultiplier
 } from "./videoPlayback/uploadedCursorAssets";
 import { WebcamCropControl } from "./WebcamCropControl";
 import {
 	getCropMatchedWebcamHeightPercent,
-	getWebcamPositionForPreset,
-	normalizeWebcamCropRegion,
-	resolveWebcamCorner,
+	normalizeWebcamCropRegion
 } from "./webcamOverlay";
 
 const tahoeCursorUrl = cursorSetAssets.tahoe.arrow.url;
@@ -138,14 +132,14 @@ const GRADIENTS = [
 	"linear-gradient(to top, #c471f5 0%, #fa71cd 100%)",
 	"linear-gradient(to right, #f78ca0 0%, #f9748f 19%, #fd868c 60%, #fe9a8b 100%)",
 	"linear-gradient(to top, #48c6ef 0%, #6f86d6 100%)",
-	"linear-gradient(to right, #0acffe 0%, #495aff 100%)",
+	"linear-gradient(to right, #0acffe 0%, #495aff 100%)"
 ];
 
 const CAPTION_ANIMATION_OPTIONS: Array<{ value: AutoCaptionAnimation; label: string }> = [
-	{ value: "none", label: "Off" },
-	{ value: "fade", label: "Fade" },
-	{ value: "rise", label: "Rise" },
-	{ value: "pop", label: "Pop" },
+	{ value: "none", label: "关闭" },
+	{ value: "fade", label: "淡入淡出" },
+	{ value: "rise", label: "上移" },
+	{ value: "pop", label: "弹入" }
 ];
 
 const CLICK_EFFECT_COLOR_OPTIONS = [
@@ -156,7 +150,7 @@ const CLICK_EFFECT_COLOR_OPTIONS = [
 	"#A855F7",
 	"#EC4899",
 	"#14B8A6",
-	"#F97316",
+	"#F97316"
 ] as const;
 
 type BackgroundTab = "image" | "video" | "color" | "gradient";
@@ -193,11 +187,14 @@ function getBackgroundTabForWallpaper(value: string): BackgroundTab {
 	return "image";
 }
 
+/**
+ * 统一侧栏分组标题的实际像素字号。
+ * @param props 分组标题内容。
+ * @returns 使用十三像素字体的标题。
+ */
 function SectionLabel({ children }: { children: React.ReactNode }) {
-	return <Label className="text-[13px]">{children}</Label>;
+	return <span className="inspector-section-title">{children}</span>;
 }
-
-const MOTION_PRESET_ORDER: CursorMotionPresetId[] = ["focused", "smooth"];
 
 const CURSOR_CLICK_EFFECT_OPTIONS: Array<{
 	id: CursorClickEffectStyle;
@@ -206,67 +203,29 @@ const CURSOR_CLICK_EFFECT_OPTIONS: Array<{
 }> = [
 	{
 		id: "none",
-		label: "Off",
-		description: "不显示点击动画，点击时保持光标稳定。",
+		label: "关闭",
+		description: "不显示点击动画，点击时保持光标稳定。"
 	},
 	{
 		id: "spotlight",
 		label: "聚光",
-		description: "点击时在光标后方展开柔和脉冲。",
+		description: "点击时在光标后方展开柔和脉冲。"
 	},
 	{
 		id: "ripple",
 		label: "波纹",
-		description: "从点击位置向外扩散的同心圆。",
+		description: "从点击位置向外扩散的同心圆。"
 	},
 	{
 		id: "echo",
 		label: "回响",
-		description: "使用两层柔和圆环向外扩散，形成清晰的脉冲效果。",
-	},
+		description: "使用两层柔和圆环向外扩散，形成清晰的脉冲效果。"
+	}
 ];
-
-function MotionPresetCards({
-	title,
-	activePresetId,
-	onApply,
-	tSettings,
-}: {
-	title: string;
-	activePresetId: CursorMotionPresetId | null;
-	onApply: (presetId: CursorMotionPresetId) => void;
-	tSettings: (key: string, fallback?: string) => string;
-}) {
-	return (
-		<RadioGroup
-			value={activePresetId ?? undefined}
-			onChange={(value) => onApply(value as CursorMotionPresetId)}
-		>
-			<Label className="text-[13px] font-medium">{title}</Label>
-			{MOTION_PRESET_ORDER.map((presetId) => (
-				<Radio key={presetId} value={presetId} className="rounded-xl border border-separator p-3">
-					<Radio.Content>
-						<Radio.Control>
-							<Radio.Indicator />
-						</Radio.Control>
-						<div className="flex min-w-0 flex-col gap-1">
-							<Label className="text-[13px] font-medium">
-								{tSettings(`effects.motionPresets.${presetId}.label`)}
-							</Label>
-							<Description className="text-xs leading-relaxed">
-								{tSettings(`effects.motionPresets.${presetId}.description`)}
-							</Description>
-						</div>
-					</Radio.Content>
-				</Radio>
-			))}
-		</RadioGroup>
-	);
-}
 
 function CursorClickEffectPreview({
 	effect,
-	color = DEFAULT_CURSOR_CLICK_EFFECT_COLOR,
+	color = DEFAULT_CURSOR_CLICK_EFFECT_COLOR
 }: {
 	effect: CursorClickEffectStyle;
 	color?: string;
@@ -276,7 +235,7 @@ function CursorClickEffectPreview({
 			className="relative flex items-center justify-center"
 			style={{
 				width: `${BUILTIN_CURSOR_PREVIEW_FRAME_SIZE}px`,
-				height: `${BUILTIN_CURSOR_PREVIEW_FRAME_SIZE}px`,
+				height: `${BUILTIN_CURSOR_PREVIEW_FRAME_SIZE}px`
 			}}
 		>
 			{effect === "none" ? (
@@ -358,7 +317,7 @@ function CursorClickEffectCards({
 	activeEffectId,
 	effectColor,
 	onApply,
-	tSettings,
+	tSettings
 }: {
 	title: string;
 	activeEffectId: CursorClickEffectStyle;
@@ -386,7 +345,7 @@ function CursorClickEffectCards({
 					const label = tSettings(`effects.cursorClickEffects.${effect.id}.label`, effect.label);
 					const description = tSettings(
 						`effects.cursorClickEffects.${effect.id}.description`,
-						effect.description,
+						effect.description
 					);
 
 					return (
@@ -414,11 +373,16 @@ interface SettingsPanelProps {
 	accountUser?: User | null;
 	onShowOnboarding?: () => void;
 	advanced?: boolean;
+	onAdvancedChange?: (open: boolean) => void;
+	resetRef?: React.RefObject<(() => void) | null>;
+	onResetEditorSection?: (section: EditorEffectSection) => void;
 	panelMode?: "editor" | "background";
 	activeEffectSection?: EditorEffectSection;
 	selected: string;
 	onWallpaperChange: (path: string) => void;
 	selectedZoomDepth?: ZoomDepth | null;
+	selectedZoomRegion?: ZoomRegion;
+	onZoomCameraChange?: (patch: ZoomCameraPatch) => void;
 	onZoomDepthChange?: (depth: ZoomDepth) => void;
 	selectedZoomId?: string | null;
 	selectedZoomMode?: ZoomMode | null;
@@ -427,6 +391,8 @@ interface SettingsPanelProps {
 	selectedClipId?: string | null;
 	selectedClipSpeed?: number | null;
 	selectedClipMuted?: boolean | null;
+	selectedClipShowSourceAudio?: boolean;
+	onClipShowSourceAudioChange?: (show: boolean) => void;
 	hasClipAudioOverrides?: boolean;
 	onResetClipAudio?: () => void;
 	onClipSpeedChange?: (speed: number) => void;
@@ -503,6 +469,8 @@ interface SettingsPanelProps {
 	cursorSway?: number;
 	onCursorSwayChange?: (amount: number) => void;
 	borderRadius?: number;
+	backgroundBorderRadius?: number;
+	onBackgroundBorderRadiusChange?: (value: number) => void;
 	onBorderRadiusChange?: (radius: number) => void;
 	webcam?: WebcamOverlaySettings;
 	webcamPreviewSrc?: string | null;
@@ -510,8 +478,7 @@ interface SettingsPanelProps {
 	webcamPreviewPlaying?: boolean;
 	onWebcamChange?: (webcam: WebcamOverlaySettings) => void;
 	onUploadWebcam?: () => void;
-	onClearWebcam?: () => void;
-	padding?: Padding;
+		padding?: Padding;
 	onPaddingChange?: (padding: Padding) => void;
 	cropRegion?: CropRegion;
 	onCropChange?: (region: CropRegion) => void;
@@ -521,6 +488,7 @@ interface SettingsPanelProps {
 	annotationRegions?: AnnotationRegion[];
 	onAnnotationContentChange?: (id: string, content: string) => void;
 	onAnnotationTypeChange?: (id: string, type: AnnotationType) => void;
+	onAnnotationRotationChange?: (id: string, rotation: number) => void;
 	onAnnotationStyleChange?: (id: string, style: Partial<AnnotationRegion["style"]>) => void;
 	onAnnotationFigureDataChange?: (id: string, figureData: FigureData) => void;
 	onAnnotationBlurIntensityChange?: (id: string, intensity: number) => void;
@@ -552,30 +520,6 @@ interface SettingsPanelProps {
 	onOpenNativeCaptureUnavailableModal?: () => void;
 }
 
-const ZOOM_DEPTH_OPTIONS: Array<{ depth: ZoomDepth; label: string }> = [
-	{ depth: 1, label: "1.25×" },
-	{ depth: 2, label: "1.5×" },
-	{ depth: 3, label: "1.8×" },
-	{ depth: 4, label: "2.2×" },
-	{ depth: 5, label: "3.5×" },
-	{ depth: 6, label: "5×" },
-];
-
-const WEBCAM_POSITION_PRESETS: Array<{
-	preset: Exclude<WebcamPositionPreset, "custom">;
-	label: string;
-}> = [
-	{ preset: "top-left", label: "左上" },
-	{ preset: "top-center", label: "上中" },
-	{ preset: "top-right", label: "右上" },
-	{ preset: "center-left", label: "左中" },
-	{ preset: "center", label: "居中" },
-	{ preset: "center-right", label: "右中" },
-	{ preset: "bottom-left", label: "左下" },
-	{ preset: "bottom-center", label: "下中" },
-	{ preset: "bottom-right", label: "右下" },
-];
-
 type CursorStyleOption = { value: CursorStyle; label: string };
 
 type WallpaperTile = {
@@ -587,28 +531,28 @@ type WallpaperTile = {
 
 const BUILTIN_CURSOR_STYLE_OPTIONS: CursorStyleOption[] = [
 	{ value: "macos", label: "macOS" },
-	{ value: "tahoe", label: "Golden Gate" },
-	{ value: "tahoe-inverted", label: "Golden Gate Inverted" },
+	{ value: "tahoe", label: "金门" },
+	{ value: "tahoe-inverted", label: "反色金门" },
 	{ value: "windows11", label: "Windows 11" },
-	{ value: "dot", label: "Dot" },
-	{ value: "figma", label: "Minimal" },
+	{ value: "dot", label: "圆点" },
+	{ value: "figma", label: "极简" }
 ];
 
 const CAPTION_LANGUAGE_OPTIONS = [
 	{ value: "auto", label: "自动检测" },
-	{ value: "en", label: "English" },
-	{ value: "es", label: "Spanish" },
-	{ value: "fr", label: "French" },
-	{ value: "de", label: "German" },
-	{ value: "it", label: "Italian" },
-	{ value: "pt", label: "Portuguese" },
-	{ value: "zh", label: "Chinese (Simplified)" },
-	{ value: "ja", label: "Japanese" },
-	{ value: "ko", label: "Korean" },
+	{ value: "en", label: "英语" },
+	{ value: "es", label: "西班牙语" },
+	{ value: "fr", label: "法语" },
+	{ value: "de", label: "德语" },
+	{ value: "it", label: "意大利语" },
+	{ value: "pt", label: "葡萄牙语" },
+	{ value: "zh", label: "中文（简体）" },
+	{ value: "ja", label: "日语" },
+	{ value: "ko", label: "韩语" }
 ] as const;
 
 const APP_LANGUAGE_LABELS: Record<AppLocale, string> = {
-	en: "English",
+	en: "英语",
 	es: "Español",
 	fr: "Français",
 	de: "Deutsch",
@@ -617,7 +561,7 @@ const APP_LANGUAGE_LABELS: Record<AppLocale, string> = {
 	ko: "한국어",
 	"pt-BR": "Português",
 	"zh-CN": "簡體中文",
-	"zh-TW": "繁體中文",
+	"zh-TW": "繁體中文"
 };
 
 function loadPreviewImage(url: string) {
@@ -636,7 +580,7 @@ function trimCanvasToAlpha(canvas: HTMLCanvasElement, hotspot?: { x: number; y: 
 			dataUrl: canvas.toDataURL("image/png"),
 			width: canvas.width,
 			height: canvas.height,
-			hotspot,
+			hotspot
 		};
 	}
 
@@ -667,7 +611,7 @@ function trimCanvasToAlpha(canvas: HTMLCanvasElement, hotspot?: { x: number; y: 
 			dataUrl: canvas.toDataURL("image/png"),
 			width,
 			height,
-			hotspot,
+			hotspot
 		};
 	}
 
@@ -686,7 +630,7 @@ function trimCanvasToAlpha(canvas: HTMLCanvasElement, hotspot?: { x: number; y: 
 		0,
 		0,
 		croppedWidth,
-		croppedHeight,
+		croppedHeight
 	);
 
 	return {
@@ -696,16 +640,16 @@ function trimCanvasToAlpha(canvas: HTMLCanvasElement, hotspot?: { x: number; y: 
 		hotspot: hotspot
 			? {
 					x: hotspot.x - minX,
-					y: hotspot.y - minY,
+					y: hotspot.y - minY
 				}
-			: undefined,
+			: undefined
 	};
 }
 
 async function createTrimmedSvgPreview(
 	url: string,
 	sampleSize: number,
-	trim?: { x: number; y: number; width: number; height: number },
+	trim?: { x: number; y: number; width: number; height: number }
 ) {
 	const image = await loadPreviewImage(url);
 	const sourceCanvas = document.createElement("canvas");
@@ -728,7 +672,7 @@ async function createTrimmedSvgPreview(
 			0,
 			0,
 			trim.width,
-			trim.height,
+			trim.height
 		);
 		return croppedCanvas.toDataURL("image/png");
 	}
@@ -761,7 +705,7 @@ function CursorStylePreview({
 	style,
 	previewUrls,
 	frameSize = BUILTIN_CURSOR_PREVIEW_FRAME_SIZE,
-	previewSize,
+	previewSize
 }: {
 	style: CursorStyle;
 	previewUrls: Partial<Record<string, string>>;
@@ -795,7 +739,7 @@ function CursorStylePreview({
 				className="flex items-center justify-center"
 				style={{
 					width: `${frameSize}px`,
-					height: `${frameSize}px`,
+					height: `${frameSize}px`
 				}}
 			>
 				<img
@@ -805,7 +749,7 @@ function CursorStylePreview({
 					draggable={false}
 					style={{
 						width: `${resolvedPreviewSize}px`,
-						height: `${resolvedPreviewSize}px`,
+						height: `${resolvedPreviewSize}px`
 					}}
 				/>
 			</div>
@@ -826,7 +770,7 @@ function CursorStylePreview({
 					draggable={false}
 					style={{
 						width: `${resolvedPreviewSize}px`,
-						height: `${resolvedPreviewSize}px`,
+						height: `${resolvedPreviewSize}px`
 					}}
 				/>
 			</div>
@@ -844,7 +788,7 @@ function CursorStylePreview({
 					className="rounded-full border-[2.5px] border-neutral-800 bg-white shadow-[0_8px_12px_rgba(15,23,42,0.16)]"
 					style={{
 						width: `${resolvedPreviewSize}px`,
-						height: `${resolvedPreviewSize}px`,
+						height: `${resolvedPreviewSize}px`
 					}}
 				/>
 			</div>
@@ -869,30 +813,29 @@ function CursorStylePreview({
 }
 
 /**
- * 显示当前工具可用的中文设置，按分类与能力隐藏空的高级内容。
+ * 按编辑任务显示设置，保持普通内容顺序并将高级选项集中到底部。
  * @param props 当前效果参数、平台能力及更新操作。
  * @returns 当前设置正文。
  */
 export function SettingsPanel({
 	accountUser = null,
 	advanced = false,
+	onAdvancedChange,
+	resetRef,
+	onResetEditorSection,
 	panelMode = "editor",
 	activeEffectSection: activeEffectSectionProp,
 	selected,
 	onWallpaperChange,
-	selectedZoomDepth,
-	onZoomDepthChange,
+	selectedZoomRegion,
+	onZoomCameraChange,
 	selectedZoomId,
 	selectedZoomMode,
 	onZoomModeChange,
 	onZoomDelete,
 	selectedClipId,
 	selectedClipSpeed,
-	selectedClipMuted,
-	hasClipAudioOverrides = false,
-	onResetClipAudio,
 	onClipSpeedChange,
-	onClipMutedChange,
 	onClipDelete,
 	selectedAudioId,
 	selectedAudioVolume,
@@ -906,6 +849,8 @@ export function SettingsPanel({
 	onBackgroundBlurChange,
 	connectZooms = true,
 	onConnectZoomsChange,
+	connectedZoomGapMs = DEFAULT_CONNECTED_ZOOM_GAP_MS,
+	onConnectedZoomGapMsChange,
 	autoApplyFreshRecordingAutoZooms = true,
 	onAutoApplyFreshRecordingAutoZoomsChange,
 	zoomInDurationMs = DEFAULT_ZOOM_IN_DURATION_MS,
@@ -934,7 +879,6 @@ export function SettingsPanel({
 	onCameraSpringDampingMultiplierChange,
 	cameraSpringMassMultiplier = 1.12,
 	onCameraSpringMassMultiplierChange,
-	zoomClassicMode = false,
 	onZoomClassicModeChange,
 	cursorClickEffect = DEFAULT_CURSOR_CLICK_EFFECT,
 	onCursorClickEffectChange,
@@ -953,6 +897,8 @@ export function SettingsPanel({
 	cursorSway = DEFAULT_CURSOR_SWAY,
 	onCursorSwayChange,
 	borderRadius = getDefaultBorderRadiusPercent(),
+	backgroundBorderRadius = 0,
+	onBackgroundBorderRadiusChange,
 	onBorderRadiusChange,
 	webcam,
 	webcamPreviewSrc = null,
@@ -960,11 +906,8 @@ export function SettingsPanel({
 	webcamPreviewPlaying = false,
 	onWebcamChange,
 	onUploadWebcam,
-	onClearWebcam,
 	padding = DEFAULT_PADDING,
 	onPaddingChange,
-	cropRegion,
-	onCropChange,
 	aspectRatio,
 	onAspectRatioChange,
 	selectedAnnotationId,
@@ -972,6 +915,7 @@ export function SettingsPanel({
 	onAnnotationContentChange,
 	onAnnotationTypeChange,
 	onAnnotationStyleChange,
+	onAnnotationRotationChange,
 	onAnnotationFigureDataChange,
 	onAnnotationBlurIntensityChange,
 	onAnnotationBlurColorChange,
@@ -1004,12 +948,13 @@ export function SettingsPanel({
 	const { preference: themePreference, setPreference: setThemePreference } = useTheme();
 	const isBackgroundPanel = panelMode === "background";
 	const initialEditorPreferences = useMemo(() => loadEditorPreferences(), []);
+	const defaultEditor = useMemo(createDefaultProjectEditor, []);
 	const clipSpeedRange = useMemo(getPreviewPlaybackRateRange, []);
 	const [builtInWallpapers, setBuiltInWallpapers] =
 		useState<BuiltInWallpaper[]>(BUILT_IN_WALLPAPERS);
 	const [wallpaperPreviewPaths, setWallpaperPreviewPaths] = useState<string[]>([]);
 	const [customImages, setCustomImages] = useState<string[]>(
-		initialEditorPreferences.customWallpapers,
+		initialEditorPreferences.customWallpapers
 	);
 	const [experimentalUpdatesEnabled, setExperimentalUpdatesEnabled] = useState(false);
 	const [savingExperimentalUpdates, setSavingExperimentalUpdates] = useState(false);
@@ -1023,13 +968,13 @@ export function SettingsPanel({
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const builtInWallpaperPaths = useMemo(
 		() => builtInWallpapers.map((wallpaper) => wallpaper.publicPath),
-		[builtInWallpapers],
+		[builtInWallpapers]
 	);
 	const captionCueCount = autoCaptions.length;
 	const updateAutoCaptionSettings = (partial: Partial<AutoCaptionSettings>) => {
 		onAutoCaptionSettingsChange?.({
 			...autoCaptionSettings,
-			...partial,
+			...partial
 		});
 	};
 
@@ -1057,13 +1002,13 @@ export function SettingsPanel({
 			setExperimentalUpdatesEnabled(result.enabled);
 			if (!result.success) {
 				toast.error(
-					result.error || tSettings("updates.saveFailed", "Failed to change the update channel."),
+					result.error || tSettings("updates.saveFailed", "Failed to change the update channel.")
 				);
 			}
 		} catch (error) {
 			setExperimentalUpdatesEnabled(previousValue);
 			toast.error(
-				`${tSettings("updates.saveFailed", "Failed to change the update channel.")} ${String(error)}`,
+				`${tSettings("updates.saveFailed", "Failed to change the update channel.")} ${String(error)}`
 			);
 		} finally {
 			setSavingExperimentalUpdates(false);
@@ -1094,7 +1039,7 @@ export function SettingsPanel({
 							return getRenderableVideoUrl(assetUrl);
 						}
 						return getWallpaperThumbnailUrl(assetUrl);
-					}),
+					})
 				);
 				if (mounted) {
 					setBuiltInWallpapers(availableWallpapers);
@@ -1128,22 +1073,22 @@ export function SettingsPanel({
 		"#2563EB",
 		"#000000",
 		"#607D8B",
-		"#795548",
+		"#795548"
 	];
 
 	const [selectedColor, setSelectedColor] = useState(
-		isHexWallpaper(selected) ? selected : "#ADADAD",
+		isHexWallpaper(selected) ? selected : "#ADADAD"
 	);
 	const [gradient, setGradient] = useState<string>(
-		GRADIENTS.includes(selected) ? selected : GRADIENTS[0],
+		GRADIENTS.includes(selected) ? selected : GRADIENTS[0]
 	);
 	const removeBackgroundEnabled = aspectRatio === "native" && isZeroPadding(padding);
 
 	const [backgroundTab, setBackgroundTab] = useState<BackgroundTab>(() =>
-		getBackgroundTabForWallpaper(selected),
+		getBackgroundTabForWallpaper(selected)
 	);
 
-	const defaultWebcam = initialEditorPreferences.webcam;
+	const [webcamAspectLocked, setWebcamAspectLocked] = useState(true);
 	const [builtInCursorPreviewUrls, setBuiltInCursorPreviewUrls] = useState<
 		Partial<Record<string, string>>
 	>({});
@@ -1161,7 +1106,7 @@ export function SettingsPanel({
 				const tahoePreview = cursorSetAssets.tahoe.arrow.url;
 				const [windows11Preview, minimalPreview] = await Promise.all([
 					createTrimmedSvgPreview(cursorSetAssets.windows11.arrow.url, 512),
-					createTrimmedSvgPreview(minimalCursorUrl, 512),
+					createTrimmedSvgPreview(minimalCursorUrl, 512)
 				]);
 				const invertedPreview = await createInvertedPreview(tahoePreview);
 
@@ -1171,7 +1116,7 @@ export function SettingsPanel({
 						tahoe: tahoePreview,
 						windows11: windows11Preview,
 						figma: minimalPreview,
-						"tahoe-inverted": invertedPreview,
+						"tahoe-inverted": invertedPreview
 					});
 				}
 			} catch {
@@ -1181,7 +1126,7 @@ export function SettingsPanel({
 						tahoe: tahoeCursorUrl,
 						windows11: tahoeCursorUrl,
 						figma: minimalCursorUrl,
-						"tahoe-inverted": tahoeCursorUrl,
+						"tahoe-inverted": tahoeCursorUrl
 					});
 				}
 			}
@@ -1220,7 +1165,7 @@ export function SettingsPanel({
 
 	const imageWallpaperTiles = useMemo<WallpaperTile[]>(() => {
 		const imageWallpapers = builtInWallpapers.filter(
-			(wallpaper) => !isVideoWallpaperSource(wallpaper.publicPath),
+			(wallpaper) => !isVideoWallpaperSource(wallpaper.publicPath)
 		);
 		const builtInTiles = (
 			wallpaperPreviewPaths.length > 0 ? wallpaperPreviewPaths : builtInWallpaperPaths
@@ -1232,7 +1177,7 @@ export function SettingsPanel({
 					key: wallpaper ? `builtin/${wallpaper.id}` : previewPath,
 					label: wallpaper?.label ?? `Wallpaper ${index + 1}`,
 					value: wallpaper?.publicPath ?? previewPath,
-					previewUrl: wallpaperPreviewPaths.length ? previewPath : "",
+					previewUrl: wallpaperPreviewPaths.length ? previewPath : ""
 				};
 			});
 
@@ -1246,7 +1191,7 @@ export function SettingsPanel({
 				key: `builtin/${wallpaper.id}`,
 				label: wallpaper.label,
 				value: wallpaper.publicPath,
-				previewUrl: wallpaper.publicPath,
+				previewUrl: wallpaper.publicPath
 			}));
 
 		return builtInTiles;
@@ -1260,7 +1205,7 @@ export function SettingsPanel({
 		if (checked) {
 			removeBackgroundStateRef.current = {
 				aspectRatio,
-				padding,
+				padding
 			};
 			onAspectRatioChange?.("native");
 			onPaddingChange?.({ top: 0, bottom: 0, left: 0, right: 0, linked: padding.linked });
@@ -1276,10 +1221,14 @@ export function SettingsPanel({
 		}
 
 		// Fallback if the project loaded in a "background removed" state already
-		onAspectRatioChange?.(initialEditorPreferences.aspectRatio);
+		onAspectRatioChange?.(defaultEditor.aspectRatio);
 		onPaddingChange?.({ ...DEFAULT_PADDING });
 	};
 
+	/**
+	 * 切换四边联动，重新联动时以均值保持画面稳定。
+	 * @returns 无返回值；发布已有四边值及联动选择。
+	 */
 	const togglePaddingLink = () => {
 		const isLinked = padding.linked !== false;
 		const nextLinked = !isLinked;
@@ -1291,38 +1240,43 @@ export function SettingsPanel({
 				bottom: avg,
 				left: avg,
 				right: avg,
-				linked: true,
+				linked: true
 			});
 		} else {
 			onPaddingChange?.({
 				...padding,
-				linked: false,
+				linked: false
 			});
 		}
 	};
 
-	const handlePaddingSideChange = (side: keyof Padding, value: number) => {
+	/**
+	 * 按联动状态修改内边距，独立模式只更新指定边。
+	 * @param side 被调整的边。
+	 * @param value 百分比数值。
+	 * @returns 无返回值；沿既有项目及撤销链发布布局。
+	 */
+	const handlePaddingSideChange = (side: "top" | "bottom" | "left" | "right", value: number) => {
 		if (padding.linked !== false) {
 			onPaddingChange?.({
 				top: value,
 				bottom: value,
 				left: value,
 				right: value,
-				linked: true,
+				linked: true
 			});
 		} else {
 			onPaddingChange?.({
 				...padding,
-				[side]: value,
+				[side]: value
 			});
 		}
 	};
 
 	const webcamFileName = webcam?.sourcePath?.split(/[\\/]/).pop() ?? null;
+	const hasCameraFootage = hasWebcamFootage(webcam);
 	const visibleColorPalette = colorPalette.slice(0, 15);
-	const webcamPositionPreset = webcam?.positionPreset ?? DEFAULT_WEBCAM_POSITION_PRESET;
-	const webcamPositionX = webcam?.positionX ?? DEFAULT_WEBCAM_POSITION_X;
-	const webcamPositionY = webcam?.positionY ?? DEFAULT_WEBCAM_POSITION_Y;
+
 	const webcamWidth = webcam?.width ?? webcam?.size ?? DEFAULT_WEBCAM_SIZE;
 	const webcamHeight = webcam?.height ?? webcam?.size ?? DEFAULT_WEBCAM_SIZE;
 	const webcamCrop = normalizeWebcamCropRegion(webcam?.cropRegion);
@@ -1345,180 +1299,57 @@ export function SettingsPanel({
 	const wallpaperTileClass = (isSelected: boolean) =>
 		cn(
 			"group relative aspect-[4/3] h-auto w-full min-w-0 overflow-hidden rounded-md p-1",
-			isSelected && "opacity-70",
+			isSelected && "opacity-70"
 		);
 
-	const crop = cropRegion ?? {
-		x: 0,
-		y: 0,
-		width: 1,
-		height: 1,
-	};
-	const cropTop = Math.round(crop.y * 100);
-	const cropLeft = Math.round(crop.x * 100);
-	const cropBottom = Math.round((1 - crop.y - crop.height) * 100);
-	const cropRight = Math.round((1 - crop.x - crop.width) * 100);
-	const isCropped = cropTop > 0 || cropLeft > 0 || cropBottom > 0 || cropRight > 0;
 
-	const setCropInset = (side: "top" | "bottom" | "left" | "right", pct: number) => {
-		if (!onCropChange) return;
-
-		const v = pct / 100;
-		let { x, y, width, height } = crop;
-
-		if (side === "top") {
-			const nextY = Math.min(v, 1 - y - height + v);
-			y = nextY;
-			height = Math.max(0.05, height - (nextY - crop.y));
-		}
-
-		if (side === "left") {
-			const nextX = Math.min(v, 1 - x - width + v);
-			x = nextX;
-			width = Math.max(0.05, width - (nextX - crop.x));
-		}
-
-		if (side === "bottom") {
-			height = Math.max(0.05, 1 - crop.y - v);
-		}
-
-		if (side === "right") {
-			width = Math.max(0.05, 1 - crop.x - v);
-		}
-
-		onCropChange({ x, y, width, height });
-	};
-
-	const resetBackgroundSection = () => {
-		onBackgroundBlurChange?.(initialEditorPreferences.backgroundBlur);
-
-		const preferredWallpaper = initialEditorPreferences.wallpaper;
-		const hasPreferredWallpaper =
-			(preferredWallpaper && builtInWallpaperPaths.includes(preferredWallpaper)) ||
-			(preferredWallpaper && customImages.includes(preferredWallpaper)) ||
-			(preferredWallpaper && isHexWallpaper(preferredWallpaper)) ||
-			(preferredWallpaper && GRADIENTS.includes(preferredWallpaper));
-
-		onWallpaperChange(
-			(hasPreferredWallpaper ? preferredWallpaper : "") ||
-				builtInWallpaperPaths[0] ||
-				BUILT_IN_WALLPAPERS[0]?.publicPath ||
-				"",
-		);
-	};
-
-	const resetZoomSection = () => {
-		onCameraSpringStiffnessMultiplierChange?.(
-			initialEditorPreferences.cameraSpringStiffnessMultiplier,
-		);
-		onCameraSpringDampingMultiplierChange?.(initialEditorPreferences.cameraSpringDampingMultiplier);
-		onCameraSpringMassMultiplierChange?.(initialEditorPreferences.cameraSpringMassMultiplier);
-		onZoomInDurationMsChange?.(initialEditorPreferences.zoomInDurationMs);
-		onZoomOutDurationMsChange?.(initialEditorPreferences.zoomOutDurationMs);
-		onZoomClassicModeChange?.(false);
-	};
-
-	const resetCursorSection = () => {
-		onShowCursorChange?.(initialEditorPreferences.showCursor);
-		onLoopCursorChange?.(initialEditorPreferences.loopCursor);
-		onCursorStyleChange?.(initialEditorPreferences.cursorStyle);
-		onCursorSizeChange?.(initialEditorPreferences.cursorSize);
-		onCursorSmoothingChange?.(initialEditorPreferences.cursorSmoothing);
-		onCursorSpringStiffnessMultiplierChange?.(
-			initialEditorPreferences.cursorSpringStiffnessMultiplier,
-		);
-		onCursorSpringDampingMultiplierChange?.(initialEditorPreferences.cursorSpringDampingMultiplier);
-		onCursorSpringMassMultiplierChange?.(initialEditorPreferences.cursorSpringMassMultiplier);
-		onCursorClickEffectChange?.(initialEditorPreferences.cursorClickEffect);
-		onCursorClickEffectColorChange?.(initialEditorPreferences.cursorClickEffectColor);
-		onCursorClickEffectScaleChange?.(initialEditorPreferences.cursorClickEffectScale);
-		onCursorClickEffectOpacityChange?.(initialEditorPreferences.cursorClickEffectOpacity);
-		onCursorClickEffectDurationMsChange?.(initialEditorPreferences.cursorClickEffectDurationMs);
-		onCursorClickBounceChange?.(initialEditorPreferences.cursorClickBounce);
-		onCursorClickBounceDurationChange?.(initialEditorPreferences.cursorClickBounceDuration);
-		onCursorSwayChange?.(initialEditorPreferences.cursorSway);
-	};
-
-	const activeMotionPresetId = useMemo(() => {
-		return (
-			getMatchingCursorMotionPresetId({
-				zoomInDurationMs,
-				zoomOutDurationMs,
-				cursorSize,
-				cursorSmoothing,
-				cursorSpringStiffnessMultiplier,
-				cursorSpringDampingMultiplier,
-				cursorSpringMassMultiplier,
-				cursorClickBounce,
-				cursorClickBounceDuration,
-			}) ?? "focused"
-		);
-	}, [
-		cursorClickBounce,
-		cursorClickBounceDuration,
-		cursorSize,
-		cursorSmoothing,
-		cursorSpringDampingMultiplier,
-		cursorSpringMassMultiplier,
-		cursorSpringStiffnessMultiplier,
-		zoomInDurationMs,
-		zoomOutDurationMs,
-	]);
+	// 运动效果按缩放时长识别，不受用户单独调整光标外观的影响。
+	const activeMotionEffect =
+		zoomInDurationMs <= 200 && zoomOutDurationMs <= 200 ? "focused" : "smooth";
 
 	/**
-	 * 立即更新当前项目的光标与缩放参数，由偏好和项目保存链持久化。
-	 * @param presetId 用户选择的运动预设。
-	 * @returns 无返回值。
+	 * 为当前项目应用缩放运动效果，并退出旧的经典动画模式。
+	 * @param effect 用户选择的平滑或专注效果。
+	 * @returns 无返回值；当前项目沿现有保存链更新。
 	 */
-	const applyMotionPreset = (presetId: CursorMotionPresetId) => {
-		const preset = CURSOR_MOTION_PRESETS[presetId];
+	const applyMotionEffect = (effect: CursorMotionPresetId) => {
+		const preset = CURSOR_MOTION_PRESETS[effect];
+		onZoomClassicModeChange?.(false);
 		onZoomInDurationMsChange?.(preset.zoomInDurationMs);
 		onZoomOutDurationMsChange?.(preset.zoomOutDurationMs);
-		onCursorSizeChange?.(preset.cursorSize);
-		onCursorSmoothingChange?.(preset.cursorSmoothing);
-		onCursorSpringStiffnessMultiplierChange?.(preset.cursorSpringStiffnessMultiplier);
-		onCursorSpringDampingMultiplierChange?.(preset.cursorSpringDampingMultiplier);
-		onCursorSpringMassMultiplierChange?.(preset.cursorSpringMassMultiplier);
-		onCursorClickBounceChange?.(preset.cursorClickBounce);
-		onCursorClickBounceDurationChange?.(preset.cursorClickBounceDuration);
 	};
 
-	const resetFrameSection = () => {
-		onShadowChange?.(initialEditorPreferences.shadowIntensity);
-		onBorderRadiusChange?.(initialEditorPreferences.borderRadius);
-		onAspectRatioChange?.(initialEditorPreferences.aspectRatio);
-		onPaddingChange?.({ ...initialEditorPreferences.padding });
-		removeBackgroundStateRef.current = null;
-	};
-
-	const resetWebcamSection = () => {
-		if (!onWebcamChange) return;
-		onWebcamChange({ ...defaultWebcam });
-	};
-
-	const resetCropSection = () => {
-		onCropChange?.(DEFAULT_CROP_REGION);
-	};
+	// 重置只恢复当前分类的出厂选项，本地控件状态同步回到初始状态。
+	useEffect(() => {
+		if (!resetRef) return;
+		resetRef.current = () => {
+			if (activeEffectSection === "webcam") setWebcamAspectLocked(true);
+			if (["scene", "frame", "crop"].includes(activeEffectSection)) removeBackgroundStateRef.current = null;
+			onResetEditorSection?.(activeEffectSection);
+		};
+		return () => { resetRef.current = null; };
+	});
 
 	const updateWebcam = (patch: Partial<WebcamOverlaySettings>) => {
 		if (!webcam || !onWebcamChange) return;
 		onWebcamChange({ ...webcam, ...patch });
 	};
 
-	const applyWebcamPositionPreset = (preset: WebcamPositionPreset) => {
-		if (!webcam) return;
-
-		if (preset === "custom") {
-			updateWebcam({ positionPreset: "custom" });
-			return;
-		}
-
-		const position = getWebcamPositionForPreset(preset);
+	/**
+	 * 联动缩放当前人像宽高，在边界处保持现有比例。
+	 * @param factor 相对当前宽高的缩放倍率。
+	 * @returns 无返回值，更新所属项目的人像尺寸。
+	 */
+	const scaleWebcam = (factor: number) => {
+		const safe = Math.min(
+			100 / Math.max(webcamWidth, webcamHeight),
+			Math.max(10 / Math.min(webcamWidth, webcamHeight), factor)
+		);
 		updateWebcam({
-			positionPreset: preset,
-			positionX: position.x,
-			positionY: position.y,
-			corner: resolveWebcamCorner(preset, webcam.corner),
+			dimensionsMode: "manual",
+			width: webcamWidth * safe,
+			height: webcamHeight * safe,
+			size: webcamWidth * safe
 		});
 	};
 
@@ -1532,7 +1363,7 @@ export function SettingsPanel({
 		const validTypes = ["image/jpeg", "image/jpg"];
 		if (!validTypes.includes(file.type)) {
 			toast.error(tSettings("background.uploadError"), {
-				description: tSettings("background.uploadErrorDescription"),
+				description: tSettings("background.uploadErrorDescription")
 			});
 			event.target.value = "";
 			return;
@@ -1551,7 +1382,7 @@ export function SettingsPanel({
 
 		reader.onerror = () => {
 			toast.error(t("common.errors.failedToUploadImage"), {
-				description: t("common.errors.fileReadError"),
+				description: t("common.errors.fileReadError")
 			});
 		};
 
@@ -1567,7 +1398,7 @@ export function SettingsPanel({
 			const filePath = result.path;
 			if (!isVideoWallpaperSource(filePath)) {
 				toast.error("不支持的格式", {
-					description: "Please select a video file (mp4, webm, mov, etc.)",
+					description: "请选择视频文件（MP4、WebM、MOV 等）"
 				});
 				return;
 			}
@@ -1597,15 +1428,6 @@ export function SettingsPanel({
 			<section className="flex flex-col gap-4">
 				<div className="flex items-center justify-between gap-3">
 					<SectionLabel>{tSettings("background.title")}</SectionLabel>
-					<Button
-						variant="ghost"
-						size="sm"
-						className="text-xs text-muted"
-						type="button"
-						onClick={resetBackgroundSection}
-					>
-						{t("common.actions.reset", "重置")}
-					</Button>
 				</div>
 				<SliderControl
 					label={tSettings("effects.backgroundBlur")}
@@ -1635,7 +1457,7 @@ export function SettingsPanel({
 							{ value: "image", label: tSettings("background.image") },
 							{ value: "video", label: tSettings("background.video", "视频") },
 							{ value: "color", label: tSettings("background.color") },
-							{ value: "gradient", label: tSettings("background.gradient") },
+							{ value: "gradient", label: tSettings("background.gradient") }
 						] as const
 					).map((option) => (
 						<ChoiceItem key={option.value} value={option.value} className="flex-1 min-w-0 px-2">
@@ -1683,9 +1505,9 @@ export function SettingsPanel({
 												label: isVideoWallpaperSource(url)
 													? (url.split(/[\\/]/).pop() ?? "自定义视频背景")
 													: `${tSettings("background.customWallpaper", "自定义背景")} ${index + 1}`,
-												removable: true,
+												removable: true
 											})),
-										...(backgroundTab === "image" ? imageWallpaperTiles : videoWallpaperTiles),
+										...(backgroundTab === "image" ? imageWallpaperTiles : videoWallpaperTiles)
 									]}
 								/>
 							</>
@@ -1717,7 +1539,7 @@ export function SettingsPanel({
 										variant="ghost"
 										key={g}
 										className={wallpaperTileClass(gradient === g)}
-										aria-label={`Gradient ${idx + 1}`}
+										aria-label={`渐变 ${idx + 1}`}
 										onClick={() => {
 											setGradient(g);
 											onWallpaperChange(g);
@@ -1750,6 +1572,7 @@ export function SettingsPanel({
 		return (
 			<AnnotationSettingsPanel
 				annotation={selectedAnnotation}
+				onRotationChange={(rotation) => onAnnotationRotationChange?.(selectedAnnotation.id, rotation)}
 				onContentChange={(content) => onAnnotationContentChange(selectedAnnotation.id, content)}
 				onTypeChange={(type) => onAnnotationTypeChange(selectedAnnotation.id, type)}
 				onStyleChange={(style) => onAnnotationStyleChange(selectedAnnotation.id, style)}
@@ -1768,7 +1591,6 @@ export function SettingsPanel({
 						? (color) => onAnnotationBlurColorChange(selectedAnnotation.id, color)
 						: undefined
 				}
-				onDelete={() => onAnnotationDelete(selectedAnnotation.id)}
 			/>
 		);
 	}
@@ -1777,8 +1599,7 @@ export function SettingsPanel({
 		return (
 			<Card className="flex min-h-0 flex-1 flex-col gap-0 overflow-hidden rounded-none bg-transparent p-0 shadow-none">
 				<div
-					className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-5 pb-6 pt-1"
-					style={{ scrollbarGutter: "stable" }}
+					className="flex-1 min-h-0 inspector-scroll custom-scrollbar"
 				>
 					<div className="mb-4 flex items-center gap-2">
 						<Palette className="w-4 h-4 text-accent" />
@@ -1792,187 +1613,40 @@ export function SettingsPanel({
 		);
 	}
 
-	const frameSectionContent = (
-		<section className="flex flex-col gap-4">
-			<div className="flex items-center justify-between gap-3">
-				<SectionLabel>{tSettings("sections.frame", "Frame")}</SectionLabel>
-				<Button
-					variant="ghost"
-					size="sm"
-					className="text-xs text-muted"
-					type="button"
-					onClick={resetFrameSection}
-				>
-					{t("common.actions.reset", "重置")}
-				</Button>
-			</div>
-			<div className="flex flex-col gap-3">
-				<SliderControl
-					label={tSettings("effects.shadow")}
-					value={shadowIntensity}
-					min={0}
-					max={1}
-					step={0.01}
-					onChange={(v) => onShadowChange?.(v)}
-					formatValue={(v) => `${Math.round(v * 100)}%`}
-				/>
-				<SliderControl
-					label={tSettings("effects.radius", "Radius")}
-					value={borderRadius}
-					min={0}
-					max={50}
-					step={0.1}
-					onChange={(v) => onBorderRadiusChange?.(v)}
-					formatValue={(v) => `${v}%`}
-				/>
-				<div className="flex flex-col gap-3 pt-0.5">
-					{advanced && (
-						<div className="flex items-center justify-between gap-3">
-							<Label>联动各边留白</Label>
-							<Switch
-								aria-label="联动各边留白"
-								checked={padding.linked !== false}
-								onCheckedChange={togglePaddingLink}
-							/>
-						</div>
-					)}
-
-					{padding.linked !== false ? (
-						<SliderControl
-							label={tSettings("effects.padding")}
-							value={padding.top}
-							min={0}
-							max={100}
-							step={1}
-							onChange={(v) => handlePaddingSideChange("top", v)}
-							formatValue={(v) => `${v}%`}
-						/>
-					) : (
-						<div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-							<SliderControl
-								label={tSettings("effects.paddingTop", "Top")}
-								value={padding.top}
-								min={0}
-								max={ADVANCED_VERTICAL_PADDING_MAX}
-								step={1}
-								onChange={(v) => handlePaddingSideChange("top", v)}
-								formatValue={(v) => `${v}%`}
-							/>
-							<SliderControl
-								label={tSettings("effects.paddingBottom", "Bottom")}
-								value={padding.bottom}
-								min={0}
-								max={ADVANCED_VERTICAL_PADDING_MAX}
-								step={1}
-								onChange={(v) => handlePaddingSideChange("bottom", v)}
-								formatValue={(v) => `${v}%`}
-							/>
-							<SliderControl
-								label={tSettings("effects.paddingLeft", "Left")}
-								value={padding.left}
-								min={0}
-								max={100}
-								step={1}
-								onChange={(v) => handlePaddingSideChange("left", v)}
-								formatValue={(v) => `${v}%`}
-							/>
-							<SliderControl
-								label={tSettings("effects.paddingRight", "Right")}
-								value={padding.right}
-								min={0}
-								max={100}
-								step={1}
-								onChange={(v) => handlePaddingSideChange("right", v)}
-								formatValue={(v) => `${v}%`}
-							/>
-						</div>
-					)}
-				</div>
-				<div className="flex items-center justify-between py-2">
-					<span className="text-xs text-muted-foreground">
-						{tSettings("effects.removeBackground")}
-					</span>
-					<Switch
-						aria-label={tSettings("effects.removeBackground")}
-						checked={removeBackgroundEnabled}
-						onCheckedChange={handleRemoveBackgroundToggle}
-					/>
-				</div>
-			</div>
-		</section>
-	);
-
-	const cropSectionContent = (
-		<section className="flex flex-col gap-4">
-			<div className="flex items-center justify-between gap-3">
-				<SectionLabel>{tSettings("sections.crop", "画面裁剪")}</SectionLabel>
-				{isCropped ? (
-					<Button
-						variant="ghost"
-						size="sm"
-						className="text-xs text-muted"
-						type="button"
-						onClick={resetCropSection}
-					>
-						{t("common.actions.reset", "重置")}
-					</Button>
-				) : null}
-			</div>
-			<div className="flex flex-col gap-3">
-				<SliderControl
-					label={tSettings("crop.top", "Top")}
-					value={cropTop}
-					min={0}
-					max={50}
-					step={1}
-					onChange={(v) => setCropInset("top", v)}
-					formatValue={(v) => `${Math.round(v)}%`}
-				/>
-				<SliderControl
-					label={tSettings("crop.bottom", "Bottom")}
-					value={cropBottom}
-					min={0}
-					max={50}
-					step={1}
-					onChange={(v) => setCropInset("bottom", v)}
-					formatValue={(v) => `${Math.round(v)}%`}
-				/>
-				<SliderControl
-					label={tSettings("crop.left", "Left")}
-					value={cropLeft}
-					min={0}
-					max={50}
-					step={1}
-					onChange={(v) => setCropInset("left", v)}
-					formatValue={(v) => `${Math.round(v)}%`}
-				/>
-				<SliderControl
-					label={tSettings("crop.right", "Right")}
-					value={cropRight}
-					min={0}
-					max={50}
-					step={1}
-					onChange={(v) => setCropInset("right", v)}
-					formatValue={(v) => `${Math.round(v)}%`}
-				/>
-			</div>
-		</section>
-	);
+  const frameSectionContent = (
+    <section className="flex flex-col gap-4" data-scene-layout>
+      <SectionLabel>{tSettings("sections.frame", "边框")}</SectionLabel>
+      <SliderControl label="背景圆角" value={backgroundBorderRadius} min={0} max={50} step={1}
+        onChange={(value) => onBackgroundBorderRadiusChange?.(value)} formatValue={(value) => `${value}%`} />
+      <SliderControl label="录屏圆角" value={borderRadius} min={0} max={50} step={0.1}
+        onChange={(value) => onBorderRadiusChange?.(value)} formatValue={(value) => `${value}%`} />
+      <SliderControl label={tSettings("effects.shadow")} value={shadowIntensity} min={0} max={1} step={0.01}
+        onChange={(value) => onShadowChange?.(value)} formatValue={(value) => `${Math.round(value * 100)}%`} />
+      <section className="flex flex-col gap-3" aria-label="内边距设置">
+        {padding.linked !== false ? <SliderControl label={tSettings("effects.padding")} value={padding.top} min={0} max={100} step={1}
+          onChange={(value) => handlePaddingSideChange("top", value)} formatValue={(value) => `${value}%`} /> : <>
+          <span className="inspector-control-label">{tSettings("effects.padding")}</span>
+          {([['top', '上'], ['bottom', '下'], ['left', '左'], ['right', '右']] as const).map(([side, label]) => (
+            <SliderControl key={side} label={label} ariaLabel={tSettings(`effects.padding${side.charAt(0).toUpperCase() + side.slice(1)}`, label)}
+              value={padding[side]} min={0} max={side === 'top' || side === 'bottom' ? ADVANCED_VERTICAL_PADDING_MAX : 100} step={1}
+              onChange={(value) => handlePaddingSideChange(side, value)} formatValue={(value) => `${value}%`} />
+          ))}
+        </>}
+      </section>
+      <SettingsRow title="联动各边留白" muted>
+        <Switch aria-label="联动各边留白" checked={padding.linked !== false} onCheckedChange={togglePaddingLink} />
+      </SettingsRow>
+      <SettingsRow title={tSettings("effects.removeBackground")} muted>
+        <Switch aria-label={tSettings("effects.removeBackground")} checked={removeBackgroundEnabled} onCheckedChange={handleRemoveBackgroundToggle} />
+      </SettingsRow>
+    </section>
+  );
 
 	const captionsSectionContent = (
 		<section className="flex flex-col gap-4">
 			<div className="flex items-center justify-between gap-3">
 				<div className="flex items-center gap-3">
 					<SectionLabel>{tSettings("captions.generation", "生成")}</SectionLabel>
-					<Button
-						className="text-xs text-muted"
-						size="sm"
-						variant="ghost"
-						type="button"
-						onClick={() => onAutoCaptionSettingsChange?.(DEFAULT_AUTO_CAPTION_SETTINGS)}
-					>
-						{t("common.actions.reset", "重置")}
-					</Button>
 				</div>
 				<div className="flex items-center gap-2 text-xs text-muted-foreground">
 					<span>{tSettings("captions.enabled", "Show")}</span>
@@ -1985,18 +1659,6 @@ export function SettingsPanel({
 			</div>
 
 			<div className="py-2 space-y-3">
-				{advanced && (
-					<div>
-						<Button
-							type="button"
-							variant="outline"
-							onClick={onPickWhisperModel}
-							className="h-9 w-full px-4 text-sm"
-						>
-							{tSettings("captions.useCustomModel", "使用自定义模型")}
-						</Button>
-					</div>
-				)}
 				<div className="flex items-center justify-between gap-3">
 					<div className="text-sm font-medium text-foreground">
 						{tSettings("captions.language", "Language")}
@@ -2025,7 +1687,7 @@ export function SettingsPanel({
 						value={autoCaptionSettings.animationStyle}
 						onValueChange={(value) =>
 							updateAutoCaptionSettings({
-								animationStyle: value as AutoCaptionAnimation,
+								animationStyle: value as AutoCaptionAnimation
 							})
 						}
 					>
@@ -2114,21 +1776,6 @@ export function SettingsPanel({
 			</div>
 
 			<div className="flex flex-col gap-3">
-				{advanced && (
-					<div className="flex items-center justify-between gap-3 py-2">
-						<div className="text-xs text-muted-foreground">
-							{tSettings("captions.timelineQuickAdd", "悬停后添加到时间轴")}
-						</div>
-						<Switch
-							checked={autoCaptionSettings.timelineQuickAdd}
-							onCheckedChange={(timelineQuickAdd) =>
-								updateAutoCaptionSettings({ timelineQuickAdd })
-							}
-							aria-label={tSettings("captions.timelineQuickAdd", "悬停后添加到时间轴")}
-						/>
-					</div>
-				)}
-
 				<div className="mb-1 text-sm font-medium text-foreground">
 					{tSettings("captions.fontSettings", "字体设置")}
 				</div>
@@ -2152,7 +1799,35 @@ export function SettingsPanel({
 						onChange={(color) => updateAutoCaptionSettings({ textColor: color })}
 					/>
 				</div>
-				{advanced && (
+			</div>
+			<AdvancedSettings open={advanced} onOpenChange={onAdvancedChange}>
+				{
+					<div>
+						<Button
+							type="button"
+							variant="outline"
+							onClick={onPickWhisperModel}
+							className="h-9 w-full px-4 text-sm"
+						>
+							{tSettings("captions.useCustomModel", "使用自定义模型")}
+						</Button>
+					</div>
+				}
+				{
+					<div className="flex items-center justify-between gap-3 py-2">
+						<div className="text-xs text-muted-foreground">
+							{tSettings("captions.timelineQuickAdd", "悬停后添加到时间轴")}
+						</div>
+						<Switch
+							checked={autoCaptionSettings.timelineQuickAdd}
+							onCheckedChange={(timelineQuickAdd) =>
+								updateAutoCaptionSettings({ timelineQuickAdd })
+							}
+							aria-label={tSettings("captions.timelineQuickAdd", "悬停后添加到时间轴")}
+						/>
+					</div>
+				}
+				{
 					<SliderControl
 						label={tSettings("captions.rowCount", "Rows")}
 						value={autoCaptionSettings.maxRows}
@@ -2162,8 +1837,8 @@ export function SettingsPanel({
 						onChange={(value) => updateAutoCaptionSettings({ maxRows: Math.round(value) })}
 						formatValue={(value) => `${Math.round(value)}`}
 					/>
-				)}
-				{advanced && (
+				}
+				{
 					<SliderControl
 						label={tSettings("captions.bottomOffset", "底部偏移")}
 						value={autoCaptionSettings.bottomOffset}
@@ -2173,8 +1848,8 @@ export function SettingsPanel({
 						onChange={(value) => updateAutoCaptionSettings({ bottomOffset: value })}
 						formatValue={(value) => `${Math.round(value)}%`}
 					/>
-				)}
-				{advanced && (
+				}
+				{
 					<SliderControl
 						label={tSettings("captions.maxWidth", "最大宽度")}
 						value={autoCaptionSettings.maxWidth}
@@ -2184,8 +1859,8 @@ export function SettingsPanel({
 						onChange={(value) => updateAutoCaptionSettings({ maxWidth: value })}
 						formatValue={(value) => `${Math.round(value)}%`}
 					/>
-				)}
-				{advanced && (
+				}
+				{
 					<SliderControl
 						label={tSettings("captions.boxRadius", "方框圆角")}
 						value={autoCaptionSettings.boxRadius}
@@ -2197,8 +1872,8 @@ export function SettingsPanel({
 							`${Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1)}px`
 						}
 					/>
-				)}
-				{advanced && (
+				}
+				{
 					<SliderControl
 						label={tSettings("captions.backgroundOpacity", "背景不透明度")}
 						value={autoCaptionSettings.backgroundOpacity}
@@ -2208,80 +1883,38 @@ export function SettingsPanel({
 						onChange={(value) => updateAutoCaptionSettings({ backgroundOpacity: value })}
 						formatValue={(value) => `${Math.round(value * 100)}%`}
 					/>
-				)}
-			</div>
+				}
+			</AdvancedSettings>
 		</section>
 	);
 
 	const effectSectionContent = (() => {
 		const settingsSectionContent = (
 			<SettingsSections
-				categories={
-					advanced && showDevMotionControls
-						? ["general", "motion", "advanced"]
-						: ["general", "motion"]
-				}
+				categories={advanced && showDevMotionControls ? ["general", "advanced"] : ["general"]}
 			>
-				<SettingsCategory category="general"></SettingsCategory>
-
-				<SettingsCategory category="motion">
+				<SettingsCategory category="general">
 					<section className="flex flex-col gap-6">
 						<SettingsRow
 							title={tSettings(
 								"effects.autoApplyFreshRecordingZooms",
-								"Auto-apply fresh recording zooms",
+								"Auto-apply fresh recording zooms"
 							)}
 							description={tSettings(
 								"effects.autoApplyFreshRecordingZoomsDescription",
-								"Suggest cursor-follow zooms automatically when you open a new recording.",
+								"Suggest cursor-follow zooms automatically when you open a new recording."
 							)}
 						>
 							<Switch
 								aria-label={tSettings(
 									"effects.autoApplyFreshRecordingZooms",
-									"Auto-apply fresh recording zooms",
+									"Auto-apply fresh recording zooms"
 								)}
 								checked={autoApplyFreshRecordingAutoZooms}
 								onCheckedChange={onAutoApplyFreshRecordingAutoZoomsChange}
 							/>
 						</SettingsRow>
-						<SettingsRow
-							title={tSettings("effects.connectZooms", "Connect neighboring zooms")}
-							description={tSettings(
-								"effects.connectZoomsDescription",
-								"Smooth consecutive zoom regions into a continuous camera move.",
-							)}
-						>
-							<Switch
-								aria-label={tSettings("effects.connectZooms", "Connect neighboring zooms")}
-								checked={connectZooms}
-								onCheckedChange={onConnectZoomsChange}
-							/>
-						</SettingsRow>
 					</section>
-
-					<section className="flex flex-col gap-4">
-						<p className="text-xs text-muted-foreground">
-							立即应用到当前项目，并作为新项目的默认效果。
-						</p>
-						<MotionPresetCards
-							title={tSettings("effects.motionPresetsTitle", "动态预设")}
-							activePresetId={activeMotionPresetId}
-							onApply={applyMotionPreset}
-							tSettings={tSettings}
-						/>
-					</section>
-				</SettingsCategory>
-				<SettingsCategory category="general">
-					<SettingsRow title={t("editor.keyboardShortcuts.title")}>
-						<Button
-							variant="secondary"
-							size="sm"
-							onClick={() => window.electronAPI.openTabDoShortcuts()}
-						>
-							{t("editor.keyboardShortcuts.customize")}
-						</Button>
-					</SettingsRow>
 				</SettingsCategory>
 				<SettingsCategory category="advanced">
 					{advanced && showDevMotionControls ? (
@@ -2289,7 +1922,7 @@ export function SettingsPanel({
 							<div className="flex items-center justify-between gap-3">
 								<div>
 									<SectionLabel>{tSettings("effects.devSection", "开发者选项")}</SectionLabel>
-									<div className="mt-0.5 text-xs text-muted-foreground">
+									<div className="inspector-description mt-0.5">
 										{tSettings("effects.devSectionHint", "用于调试原生捕获和动画的临时选项。")}
 									</div>
 								</div>
@@ -2304,15 +1937,15 @@ export function SettingsPanel({
 										<div className="text-sm font-medium text-foreground">
 											{tSettings("effects.nativeCaptureWarningTester", "原生捕获提示")}
 										</div>
-										<div className="mt-0.5 text-xs text-muted-foreground">
+										<div className="inspector-description mt-0.5">
 											{nativeCaptureUnavailableSession
 												? tSettings(
 														"effects.nativeCaptureWarningTesterUnavailable",
-														"此项目已标记为无法使用原生捕获。",
+														"此项目已标记为无法使用原生捕获。"
 													)
 												: tSettings(
 														"effects.nativeCaptureWarningTesterAvailable",
-														"此项目支持原生捕获，可打开提示窗口检查显示。",
+														"此项目支持原生捕获，可打开提示窗口检查显示。"
 													)}
 										</div>
 									</div>
@@ -2333,7 +1966,7 @@ export function SettingsPanel({
 									<div className="text-sm font-medium text-foreground">
 										{tSettings("effects.cameraDebugTuning", "镜头动画调试")}
 									</div>
-									<div className="mt-0.5 text-xs text-muted-foreground">
+									<div className="inspector-description mt-0.5">
 										{tSettings("effects.cameraDebugTuningHint", "用于开发调试的镜头弹簧参数。")}
 									</div>
 								</div>
@@ -2371,7 +2004,7 @@ export function SettingsPanel({
 									<div className="text-sm font-medium text-foreground">
 										{tSettings("effects.cursorDebugTuning", "光标动画调试")}
 									</div>
-									<div className="mt-0.5 text-xs text-muted-foreground">
+									<div className="inspector-description mt-0.5">
 										{tSettings("effects.cursorDebugTuningHint", "用于开发调试的弹簧参数。")}
 									</div>
 								</div>
@@ -2409,87 +2042,64 @@ export function SettingsPanel({
 			</SettingsSections>
 		);
 
-		const sceneSectionContent = (
-			<div className="space-y-5">
-				{backgroundSettingsContent}
-				{frameSectionContent}
-				{advanced && cropSectionContent}
-			</div>
-		);
+    const sceneSectionContent = <div className="space-y-5">{backgroundSettingsContent}{frameSectionContent}</div>;
 
 		const zoomItemSectionContent = (
 			<section className="flex flex-col gap-4">
 				{selectedZoomId && (
 					<>
-						<SectionLabel>{tSettings("zoom.mode", "模式")}</SectionLabel>
+						{selectedZoomRegion && <ZoomCameraControls region={selectedZoomRegion} onChange={(patch) => onZoomCameraChange?.(patch)} />}
+						<SectionLabel>取景方式</SectionLabel>
 						<div className="mb-1">
 							<ChoiceGroup
-								aria-label="缩放模式"
+                                aria-label="变焦取景方式"
 								value={selectedZoomMode ?? "auto"}
 								onValueChange={(value) => onZoomModeChange?.(value as ZoomMode)}
 								className="grid grid-cols-2 gap-2"
 							>
-								<ChoiceItem value="auto">{tSettings("zoom.modeAuto", "Auto")}</ChoiceItem>
-								<ChoiceItem value="manual">{tSettings("zoom.modeManual", "Manual")}</ChoiceItem>
+								<ChoiceItem value="auto">{tSettings("zoom.modeAuto", "自动")}</ChoiceItem>
+								<ChoiceItem value="manual">{tSettings("zoom.modeManual", "手动")}</ChoiceItem>
 							</ChoiceGroup>
 							<p className="mt-1.5 text-xs text-muted-foreground/70">
 								{selectedZoomMode === "manual"
 									? tSettings("zoom.modeManualDescription", "Set a fixed focus point for this zoom")
 									: tSettings(
 											"zoom.modeAutoDescription",
-											"Camera recenters when the cursor nears the edge of the zoomed view",
+											"Camera recenters when the cursor nears the edge of the zoomed view"
 										)}
 							</p>
 						</div>
-						<SectionLabel>{tSettings("zoom.amount", "幅度")}</SectionLabel>
-						<ChoiceGroup
-							aria-label="缩放级别"
-							value={String(selectedZoomDepth)}
-							onValueChange={(value) => onZoomDepthChange?.(Number(value) as ZoomDepth)}
-							className="grid grid-cols-3 gap-2"
-						>
-							{ZOOM_DEPTH_OPTIONS.map((option) => (
-								<ChoiceItem key={option.depth} value={String(option.depth)}>
-									{option.label}
-								</ChoiceItem>
-							))}
-						</ChoiceGroup>
 					</>
 				)}
-				{advanced && (
-					<>
-						<div className="flex items-center justify-between gap-3">
-							<SectionLabel>{tSettings("zoom.globalSettings", "动画")}</SectionLabel>
-							<Button
-								variant="ghost"
-								size="sm"
-								className="text-xs text-muted"
-								type="button"
-								onClick={resetZoomSection}
-							>
-								{t("common.actions.reset", "重置")}
-							</Button>
-						</div>
-						<div className="flex items-center justify-between py-2">
-							<span className="text-xs text-muted-foreground">
-								{tSettings("effects.classicZoom", "经典动画")}
-							</span>
-							<Switch
-								aria-label={tSettings("effects.classicZoom", "经典动画")}
-								checked={zoomClassicMode}
-								onCheckedChange={(v) => onZoomClassicModeChange?.(v)}
-							/>
-						</div>
-						{!zoomClassicMode && (
-							<div className="text-xs text-muted-foreground">
-								{tSettings(
-									"effects.motionPresetsZoomHint",
-									"Zoom motion presets are available in Settings.",
-								)}
-							</div>
-						)}
-					</>
-				)}
+				{!selectedZoomId && <p className="inspector-description">在变焦轨道空白处点击添加，或选择已有片段调整镜头。</p>}
+				<AdvancedSettings title="通用设置" label="变焦通用设置" groupLabel="变焦通用设置" open={advanced} onOpenChange={onAdvancedChange}>
+				<SettingsRow
+                    title={tSettings("effects.connectZooms", "连接变焦")}
+					description={tSettings(
+						"effects.connectZoomsDescription",
+						"Smooth consecutive zoom regions into a continuous camera move."
+					)}
+				>
+					<Switch
+						aria-label={tSettings("effects.connectZooms", "Connect neighboring zooms")}
+						checked={connectZooms}
+						onCheckedChange={onConnectZoomsChange}
+					/>
+				</SettingsRow>
+        {connectZooms && <SliderControl label="变焦衔接最大间隔" description="相邻两段变焦之间的空白时长小于或等于此值时，保持放大状态并平滑衔接；超过此值则分别进出场。" value={connectedZoomGapMs} min={0} max={5000} step={100} onChange={value => onConnectedZoomGapMsChange?.(value)} formatValue={value => `${value} ms`} />}
+				<div className="flex items-center justify-between gap-3">
+					<span className="inspector-control-label">运动效果</span>
+				</div>
+				<ChoiceGroup
+					aria-label="运动效果"
+					value={activeMotionEffect}
+					onValueChange={(value) => applyMotionEffect(value as CursorMotionPresetId)}
+					className="grid grid-cols-2 gap-2"
+				>
+					<ChoiceItem value="smooth" style={{ fontSize: 12 }}>平滑</ChoiceItem>
+					<ChoiceItem value="focused" style={{ fontSize: 12 }}>专注</ChoiceItem>
+				</ChoiceGroup>
+				</AdvancedSettings>
 			</section>
 		);
 
@@ -2497,18 +2107,6 @@ export function SettingsPanel({
 			<section className="flex flex-col gap-3">
 				<div className="flex items-center justify-between gap-3">
 					<SectionLabel>{tSettings("audio.volumeTitle", "Audio")}</SectionLabel>
-					<Button
-						className="text-xs text-muted"
-						size="sm"
-						variant="ghost"
-						type="button"
-						onClick={() => {
-							onAudioVolumeChange?.(1);
-							onAudioNormalizeChange?.(false);
-						}}
-					>
-						{t("common.actions.reset", "重置")}
-					</Button>
 				</div>
 				<SliderControl
 					label={tSettings("audio.volume", "音量")}
@@ -2549,21 +2147,6 @@ export function SettingsPanel({
 							{selectedClipSpeed}× — {tSettings("speed.unsupported", "当前设备不支持预览")}
 						</p>
 					)}
-				<label className="flex items-center justify-between py-2">
-					<span className="text-xs text-muted-foreground">
-						{tSettings("clip.mute", "片段静音")}
-					</span>
-					<Switch
-						checked={selectedClipMuted ?? false}
-						onCheckedChange={(muted) => onClipMutedChange?.(muted)}
-						aria-label={tSettings("clip.mute", "片段静音")}
-					/>
-				</label>
-				{hasClipAudioOverrides && onResetClipAudio && (
-					<Button type="button" variant="ghost" onClick={onResetClipAudio}>
-						{tSettings("clip.resetAudioSettings", "Reset audio settings")}
-					</Button>
-				)}
 			</section>
 		);
 
@@ -2586,7 +2169,7 @@ export function SettingsPanel({
 						<p className="text-xs text-muted-foreground">
 							{tSettings(
 								"captions.selectOnTimeline",
-								"Select a caption on the timeline to edit it.",
+								"Select a caption on the timeline to edit it."
 							)}
 						</p>
 					</div>
@@ -2619,41 +2202,7 @@ export function SettingsPanel({
 						<div className="flex flex-col gap-4">
 							<div className="flex items-center justify-between gap-3">
 								<SectionLabel>{tSettings("sections.appearance", "外观")}</SectionLabel>
-								<Button
-									variant="ghost"
-									size="sm"
-									className="text-xs text-muted"
-									type="button"
-									onClick={resetCursorSection}
-								>
-									{t("common.actions.reset", "重置")}
-								</Button>
 							</div>
-							{advanced && (
-								<div className="flex flex-col gap-3">
-									<label className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-										<span>{tSettings("effects.showCursor")}</span>
-										<Switch
-											aria-label={tSettings("effects.showCursor")}
-											checked={showCursor}
-											onCheckedChange={onShowCursorChange}
-										/>
-									</label>
-									<label className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-										<span title="将当前片段的光标轨迹首尾衔接，循环播放时光标平滑回到起点；不会重复录制视频或移动系统鼠标。">
-											{tSettings("effects.loopCursor")}
-											<small className="block text-xs text-muted-foreground">
-												循环播放时让光标轨迹首尾衔接，不影响系统鼠标。
-											</small>
-										</span>
-										<Switch
-											aria-label={tSettings("effects.loopCursor")}
-											checked={loopCursor}
-											onCheckedChange={onLoopCursorChange}
-										/>
-									</label>
-								</div>
-							)}
 						</div>
 						<div className="flex flex-col gap-3">
 							<div className="space-y-1.5">
@@ -2704,7 +2253,37 @@ export function SettingsPanel({
 								onApply={(effectId) => onCursorClickEffectChange?.(effectId)}
 								tSettings={tSettings}
 							/>
-							{advanced ? (
+
+							<SliderControl
+								label={tSettings("effects.cursorClickBounce")}
+								value={cursorClickBounce}
+								min={0}
+								max={5}
+								step={0.05}
+								onChange={(v) => onCursorClickBounceChange?.(v)}
+								formatValue={(v) => `${v.toFixed(2)}×`}
+							/>
+						</div>
+						<AdvancedSettings open={advanced} onOpenChange={onAdvancedChange}>
+							{
+								<div className="flex flex-col gap-3">
+									<SettingsRow title={tSettings("effects.showCursor")}>
+										<Switch
+											aria-label={tSettings("effects.showCursor")}
+											checked={showCursor}
+											onCheckedChange={onShowCursorChange}
+										/>
+									</SettingsRow>
+									<SettingsRow title={tSettings("effects.loopCursor")} description="循环播放时让光标轨迹首尾衔接，不影响系统鼠标。">
+										<Switch
+											aria-label={tSettings("effects.loopCursor")}
+											checked={loopCursor}
+											onCheckedChange={onLoopCursorChange}
+										/>
+									</SettingsRow>
+								</div>
+							}
+							{
 								<div className="grid gap-3">
 									<div className="grid gap-1">
 										<div className="text-xs text-muted-foreground">
@@ -2751,17 +2330,8 @@ export function SettingsPanel({
 										formatValue={(v) => `${Math.round(v)} ms`}
 									/>
 								</div>
-							) : null}
-							<SliderControl
-								label={tSettings("effects.cursorClickBounce")}
-								value={cursorClickBounce}
-								min={0}
-								max={5}
-								step={0.05}
-								onChange={(v) => onCursorClickBounceChange?.(v)}
-								formatValue={(v) => `${v.toFixed(2)}×`}
-							/>
-							{advanced && (
+							}
+							{
 								<SliderControl
 									label={tSettings("effects.cursorClickBounceDuration", "弹跳速度")}
 									value={cursorClickBounceDuration}
@@ -2771,8 +2341,8 @@ export function SettingsPanel({
 									onChange={(v) => onCursorClickBounceDurationChange?.(v)}
 									formatValue={(v) => `${Math.round(v)} ms`}
 								/>
-							)}
-							{advanced && (
+							}
+							{
 								<SliderControl
 									label={tSettings("effects.cursorSway")}
 									value={toCursorSwaySliderValue(cursorSway)}
@@ -2782,291 +2352,78 @@ export function SettingsPanel({
 									onChange={(v) => onCursorSwayChange?.(fromCursorSwaySliderValue(v))}
 									formatValue={(v) => (v <= 0 ? tSettings("effects.off") : `${v.toFixed(2)}×`)}
 								/>
-							)}
-							{advanced && showDevMotionControls ? (
+							}
+							{showDevMotionControls ? (
 								<div className="rounded-lg border border-foreground/10 bg-foreground/[0.03] px-3 py-2">
 									<div className="text-xs text-muted-foreground">
 										{tSettings(
 											"effects.cursorDebugMovedToDev",
-											"可在设置的开发者选项中调整光标弹簧参数。",
+											"可在设置的开发者选项中调整光标弹簧参数。"
 										)}
 									</div>
 								</div>
 							) : null}
-						</div>
+						</AdvancedSettings>
 					</section>
 				);
-			case "webcam":
-				return (
-					<section className="flex flex-col gap-4" data-webcam-settings>
-						<p className="text-xs leading-5 text-muted-foreground">
-							这里调整成片中的摄像头画中画。先录制或导入摄像头素材；录制设备请在控制条选择。
-						</p>
-						<div className="flex items-center justify-between gap-3">
-							<SectionLabel>{tSettings("sections.appearance", "外观")}</SectionLabel>
-							<Button
-								variant="ghost"
-								size="sm"
-								className="text-xs text-muted"
-								type="button"
-								onClick={resetWebcamSection}
-							>
-								{t("common.actions.reset", "重置")}
-							</Button>
-						</div>
-						<div className="flex flex-col gap-3">
-							<div className="flex items-center justify-between py-2">
-								<span className="text-xs text-muted-foreground">{"显示摄像头画面"}</span>
-								<Switch
-									aria-label={"显示摄像头画面"}
-									checked={webcam?.enabled ?? false}
-									onCheckedChange={(enabled) => updateWebcam({ enabled })}
-								/>
-							</div>
-							{advanced && (
-								<>
-									<div className="flex items-center justify-between py-2">
-										<div className="min-w-0 pr-3">
-											<span className="text-xs text-muted-foreground">
-												{tSettings("effects.webcamReactToZoom")}
-											</span>
-											<p className="mt-1 text-xs leading-5 text-muted-foreground">
-												开启后，屏幕放大时人像会相应缩小，减少遮挡；关闭则保持人像大小。
-											</p>
-										</div>
-										<Switch
-											aria-label={tSettings("effects.webcamReactToZoom")}
-											checked={webcam?.reactToZoom ?? DEFAULT_WEBCAM_REACT_TO_ZOOM}
-											onCheckedChange={(reactToZoom) => updateWebcam({ reactToZoom })}
-										/>
-									</div>
-									<div className="flex items-center justify-between py-2">
-										<div className="min-w-0 pr-3">
-											<span className="text-xs text-muted-foreground">
-												{tSettings("effects.webcamMirror", "Mirror webcam")}
-											</span>
-											<p className="mt-1 text-xs leading-5 text-muted-foreground">
-												像照镜子一样左右翻转人像，画面中的文字也会反向。
-											</p>
-										</div>
-										<Switch
-											aria-label={tSettings("effects.webcamMirror", "Mirror webcam")}
-											checked={webcam?.mirror ?? true}
-											onCheckedChange={(mirror) => updateWebcam({ mirror })}
-										/>
-									</div>
-								</>
-							)}
-							<SliderControl
-								label={tSettings("effects.webcamWidth", "Webcam Width")}
-								description="按成片较短边的百分比计算；调大可放大人像，画面高度随素材比例自动匹配。"
-								value={webcamWidth}
-								min={10}
-								max={100}
-								step={1}
-								onChange={(v) => updateWebcam({ width: v, size: v })}
-								formatValue={(v) => `${Math.round(v)}%`}
-							/>
-							{advanced && (
-								<p className="text-xs leading-5 text-muted-foreground">
-									高度随素材裁剪比例自动匹配；需要改变画面形状时，请调整下方“画面裁剪”。
-								</p>
-							)}
-							{advanced && (
-								<div className="py-2">
-									<div className="mb-2 flex items-center justify-between gap-2">
-										<div className="text-xs text-muted-foreground">
-											{tSettings("effects.webcamCrop", "画面裁剪")}
-										</div>
-										<Button
-											className="text-xs text-muted"
-											size="sm"
-											variant="ghost"
-											type="button"
-											onClick={() => updateWebcam({ cropRegion: DEFAULT_CROP_REGION })}
-										>
-											{t("common.actions.reset", "重置")}
-										</Button>
-									</div>
-									<div className="mx-auto w-full max-w-56">
-										<p className="mb-2 text-xs leading-5 text-muted-foreground">
-											拖动裁剪框选择保留的人像区域，只影响成片中的摄像头画面。
-										</p>
-										<WebcamCropControl
-											cropRegion={webcamCrop}
-											mirrored={webcam?.mirror ?? true}
-											previewSrc={webcamPreviewSrc}
-											previewCurrentTime={webcamPreviewCurrentTime}
-											previewPlaying={webcamPreviewPlaying}
-											previewTimeOffsetMs={webcam?.timeOffsetMs}
-											onCropChange={(cropRegion, previewFrame) =>
-												updateWebcam({
-													cropRegion,
-													height: previewFrame
-														? getCropMatchedWebcamHeightPercent(
-																webcamWidth,
-																webcamHeight,
-																previewFrame.width,
-																previewFrame.height,
-																cropRegion,
-															)
-														: webcamHeight,
-												})
-											}
-										/>
-									</div>
-								</div>
-							)}
-							<div className="py-2">
-								<div className="mb-2 text-xs text-muted-foreground">{"画面位置"}</div>
-								<ChoiceGroup
-									aria-label={tSettings("effects.webcamPosition", "位置")}
-									value={webcamPositionPreset}
-									onValueChange={(value) =>
-										applyWebcamPositionPreset(value as WebcamPositionPreset)
-									}
-									className="grid grid-cols-3 gap-2"
-								>
-									{WEBCAM_POSITION_PRESETS.map((option) => (
-										<ChoiceItem
-											key={option.preset}
-											value={option.preset}
-											textValue={option.label}
-											aria-label={option.label}
-											title={option.label}
-										>
-											{option.label}
-										</ChoiceItem>
-									))}
-								</ChoiceGroup>
-								{advanced && (
-									<div className="mt-2 flex items-center justify-between py-3">
-										<span className="text-xs text-muted-foreground">
-											{tSettings("effects.webcamCustomPosition", "自定义位置")}
-										</span>
-										<Switch
-											aria-label={tSettings("effects.webcamCustomPosition", "自定义位置")}
-											checked={webcamPositionPreset === "custom"}
-											onCheckedChange={(checked) =>
-												applyWebcamPositionPreset(
-													checked ? "custom" : DEFAULT_WEBCAM_POSITION_PRESET,
-												)
-											}
-										/>
-									</div>
-								)}
-							</div>
-							{advanced && webcamPositionPreset === "custom" ? (
-								<>
-									<SliderControl
-										label={tSettings("effects.webcamHorizontal", "水平")}
-										description="0%靠左，50%居中，100%靠右；在留出边距后的可用范围内移动。"
-										value={webcamPositionX * 100}
-										min={0}
-										max={100}
-										step={1}
-										onChange={(v) =>
-											updateWebcam({
-												positionPreset: "custom",
-												positionX: v / 100,
-											})
-										}
-										formatValue={(v) => `${Math.round(v)}%`}
-									/>
-									<SliderControl
-										label={tSettings("effects.webcamVertical", "垂直")}
-										description="0%靠上，50%居中，100%靠下；在留出边距后的可用范围内移动。"
-										value={webcamPositionY * 100}
-										min={0}
-										max={100}
-										step={1}
-										onChange={(v) =>
-											updateWebcam({
-												positionPreset: "custom",
-												positionY: v / 100,
-											})
-										}
-										formatValue={(v) => `${Math.round(v)}%`}
-									/>
-								</>
-							) : null}
-							{advanced && (
-								<SliderControl
-									label={tSettings("effects.webcamMargin", "边距")}
-									description="摄像头画面与成片边缘之间的留白，预览会按输出尺寸等比例显示。"
-									value={webcam?.margin ?? DEFAULT_WEBCAM_MARGIN}
-									min={0}
-									max={96}
-									step={1}
-									onChange={(v) => updateWebcam({ margin: v })}
-									formatValue={(v) => `${Math.round(v)}px`}
-								/>
-							)}
-							<SliderControl
-								label={tSettings("effects.webcamRoundness")}
-								description="0%为直角，100%为最大圆角；正方形画面可显示为圆形。"
-								value={webcam?.roundness ?? DEFAULT_WEBCAM_ROUNDNESS}
-								min={0}
-								max={100}
-								step={1}
-								onChange={(v) => updateWebcam({ roundness: v })}
-								formatValue={(v) => `${Math.round(v)}%`}
-							/>
-							{advanced && (
-								<SliderControl
-									label={tSettings("effects.webcamShadow")}
-									description="调节人像画面周围阴影的深浅；0%不显示阴影。"
-									value={webcam?.shadow ?? DEFAULT_WEBCAM_SHADOW}
-									min={0}
-									max={1}
-									step={0.01}
-									onChange={(v) => updateWebcam({ shadow: v })}
-									formatValue={(v) => `${Math.round(v * 100)}%`}
-								/>
-							)}
-							<div className="py-2">
-								<div className="flex flex-col gap-4">
-									<div className="min-w-0">
-										<div className="text-xs text-muted-foreground">
-											{tSettings("effects.webcamFootage")}
-										</div>
-										<div className="mt-0.5 break-all text-xs leading-4 text-muted-foreground/70">
-											{webcamFileName ?? tSettings("effects.webcamFootageDescription")}
-										</div>
-									</div>
-									<div className="grid grid-cols-1 gap-2">
-										<Button
-											type="button"
-											variant="outline"
-											onClick={onUploadWebcam}
-											className="h-9 w-full min-w-0 justify-start gap-2 px-3"
-										>
-											<Upload className="h-3 w-3" />
-											<span className="min-w-0 truncate">
-												{webcam?.sourcePath
-													? tSettings("effects.replaceWebcamFootage")
-													: tSettings("effects.uploadWebcamFootage")}
-											</span>
-										</Button>
-										{webcam?.sourcePath ? (
-											<Button
-												type="button"
-												variant="outline"
-												onClick={onClearWebcam}
-												className="h-9 w-full min-w-0 justify-start gap-2 px-3"
-											>
-												<Trash2 className="h-3 w-3" />
-												<span className="min-w-0 truncate">
-													{tSettings("effects.removeWebcamFootage")}
-												</span>
-											</Button>
-										) : null}
-									</div>
-								</div>
-							</div>
-						</div>
-					</section>
-				);
+      case "webcam":
+        // 无片段时只保留导入入口；历史空区间不能继续显示文件和无效外观控件。
+        if (!hasCameraFootage) return <section className="flex flex-col gap-4" data-webcam-settings>
+          <p className="inspector-description">暂无摄像头片段，导入视频后可编辑。</p>
+          <Button type="button" variant="outline" onClick={onUploadWebcam} className="h-9 w-full min-w-0 justify-start gap-2 px-3">
+            <Upload className="h-3 w-3" /><span className="min-w-0 truncate">{tSettings("effects.uploadWebcamFootage")}</span>
+          </Button>
+        </section>;
+        return <section className="flex flex-col gap-4" data-webcam-settings>
+          <SectionLabel>{tSettings("sections.appearance", "外观")}</SectionLabel>
+          <SettingsRow title="显示摄像头画面">
+            <Switch aria-label="显示摄像头画面" checked={webcam?.enabled ?? false} onCheckedChange={(enabled) => updateWebcam({ enabled })} />
+          </SettingsRow>
+          <SettingsRow title="保持宽高比例">
+            <Switch aria-label="保持宽高比例" checked={webcamAspectLocked} onCheckedChange={setWebcamAspectLocked} />
+          </SettingsRow>
+          <SliderControl label="人像画面宽度" description="按成片较短边的百分比计算；锁定比例时宽高一起变化。"
+            value={webcamWidth} min={10} max={100} step={1}
+            onChange={(value) => webcamAspectLocked ? scaleWebcam(value / webcamWidth) : updateWebcam({ width: value, size: value, dimensionsMode: 'manual' })}
+            formatValue={(value) => `${Math.round(value)}%`} />
+          <SliderControl label="人像画面高度" value={webcamHeight} min={10} max={100} step={1}
+            onChange={(value) => webcamAspectLocked ? scaleWebcam(value / webcamHeight) : updateWebcam({ height: value, dimensionsMode: 'manual' })}
+            formatValue={(value) => `${Math.round(value)}%`} />
+          <SliderControl label="圆角" description="0%为直角，100%为最大圆角；正方形画面可显示为圆形。"
+            value={webcam?.roundness ?? DEFAULT_WEBCAM_ROUNDNESS} min={0} max={100} step={1}
+            onChange={(value) => updateWebcam({ roundness: value })} formatValue={(value) => `${Math.round(value)}%`} />
+          <SliderControl label="阴影" description="调节人像画面周围阴影的深浅；0%不显示阴影。"
+            value={webcam?.shadow ?? DEFAULT_WEBCAM_SHADOW} min={0} max={1} step={0.01}
+            onChange={(value) => updateWebcam({ shadow: value })} formatValue={(value) => `${Math.round(value * 100)}%`} />
+          <p className="inspector-description">在预览中直接拖动摄像头画面调整位置。</p>
+          <div className="flex flex-col gap-2">
+            <span className="inspector-control-label">当前摄像头视频文件</span>
+            <div className="inspector-description break-all">{webcamFileName ?? tSettings("effects.webcamFootageDescription")}</div>
+            <Button type="button" variant="outline" onClick={onUploadWebcam} className="h-9 w-full min-w-0 justify-start gap-2 px-3">
+              <Upload className="h-3 w-3" /><span className="min-w-0 truncate">{webcam?.sourcePath ? tSettings("effects.replaceWebcamFootage") : tSettings("effects.uploadWebcamFootage")}</span>
+            </Button>
+          </div>
+          <AdvancedSettings open={advanced} onOpenChange={onAdvancedChange}>
+            <SettingsRow title={tSettings("effects.webcamReactToZoom")} description="开启后，屏幕放大时人像会相应缩小，减少遮挡；关闭则保持人像大小。">
+              <Switch aria-label={tSettings("effects.webcamReactToZoom")} checked={webcam?.reactToZoom ?? DEFAULT_WEBCAM_REACT_TO_ZOOM}
+                onCheckedChange={(reactToZoom) => updateWebcam({ reactToZoom })} />
+            </SettingsRow>
+            <SettingsRow title={tSettings("effects.webcamMirror", "镜像")} description="像照镜子一样左右翻转人像，画面中的文字也会反向。">
+              <Switch aria-label={tSettings("effects.webcamMirror", "镜像")} checked={webcam?.mirror ?? true} onCheckedChange={(mirror) => updateWebcam({ mirror })} />
+            </SettingsRow>
+            <section className="flex flex-col gap-2">
+              <span className="inspector-control-label">{tSettings("effects.webcamCrop", "画面裁剪")}</span>
+              <p className="inspector-description">拖动裁剪框选择保留的人像区域，只影响成片中的摄像头画面。</p>
+              <div className="mx-auto w-full max-w-56">
+                <WebcamCropControl cropRegion={webcamCrop} mirrored={webcam?.mirror ?? true} previewSrc={webcamPreviewSrc}
+                  previewCurrentTime={webcamPreviewCurrentTime} previewPlaying={webcamPreviewPlaying} previewTimeOffsetMs={webcam?.timeOffsetMs}
+                  onCropChange={(cropRegion, previewFrame) => updateWebcam({ cropRegion,
+                    height: previewFrame ? getCropMatchedWebcamHeightPercent(webcamWidth, webcamHeight, previewFrame.width, previewFrame.height, cropRegion) : webcamHeight })} />
+              </div>
+            </section>
+          </AdvancedSettings>
+        </section>;
+
 			default: {
 				return sceneSectionContent;
 			}
@@ -3076,8 +2433,7 @@ export function SettingsPanel({
 	return (
 		<Card className="flex min-h-0 flex-1 flex-col gap-0 overflow-hidden rounded-none bg-transparent p-0 shadow-none">
 			<div
-				className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-5 pb-6 pt-1"
-				style={{ scrollbarGutter: "stable" }}
+				className="flex-1 min-h-0 inspector-scroll custom-scrollbar"
 			>
 				<AnimatePresence mode="wait" initial={false}>
 					<motion.div
@@ -3092,72 +2448,6 @@ export function SettingsPanel({
 				</AnimatePresence>
 			</div>
 
-			<div
-				className={cn(
-					"shrink-0 px-5 py-4",
-					(() => {
-						if (activeEffectSection === "clip" && selectedClipId) return false;
-						if (activeEffectSection === "zoom" && selectedZoomId) return false;
-						if (activeEffectSection === "audio" && selectedAudioId) return false;
-						if (selectedAnnotationId) return false; // Annotation editor handles its own but let's see
-						return true;
-					})() && "hidden",
-				)}
-			>
-				{activeEffectSection === "clip" && selectedClipId && (
-					<Button
-						onClick={() => {
-							if (selectedClipId && onClipDelete) onClipDelete(selectedClipId);
-						}}
-						variant="destructive-soft"
-						size="sm"
-						className="h-9 w-full gap-2 text-xs"
-					>
-						<Trash2 className="h-3 w-3" />
-						{tSettings("clip.delete", "删除片段")}
-					</Button>
-				)}
-				{activeEffectSection === "zoom" && selectedZoomId && (
-					<Button
-						onClick={() => {
-							if (selectedZoomId && onZoomDelete) onZoomDelete(selectedZoomId);
-						}}
-						variant="destructive-soft"
-						size="sm"
-						className="h-9 w-full gap-2 text-xs"
-					>
-						<Trash2 className="h-3 w-3" />
-						{tSettings("zoom.deleteZoom", "删除缩放")}
-					</Button>
-				)}
-				{activeEffectSection === "audio" && selectedAudioId && (
-					<Button
-						onClick={() => {
-							if (selectedAudioId && onAudioDelete) onAudioDelete(selectedAudioId);
-						}}
-						variant="destructive-soft"
-						size="sm"
-						className="h-9 w-full gap-2 text-xs"
-					>
-						<Trash2 className="h-3 w-3" />
-						{tSettings("audio.deleteRegion", "删除音频")}
-					</Button>
-				)}
-				{selectedAnnotationId && (
-					<Button
-						onClick={() => {
-							if (selectedAnnotationId && onAnnotationDelete)
-								onAnnotationDelete(selectedAnnotationId);
-						}}
-						variant="destructive-soft"
-						size="sm"
-						className="h-9 w-full gap-2 text-xs"
-					>
-						<Trash2 className="h-3 w-3" />
-						{tSettings("annotation.delete", "删除标注")}
-					</Button>
-				)}
-			</div>
 		</Card>
 	);
 }

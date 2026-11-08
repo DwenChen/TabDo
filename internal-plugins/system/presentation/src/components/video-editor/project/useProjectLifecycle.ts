@@ -1,3 +1,5 @@
+import { applyProjectEditorState } from './applyProjectEditorState';
+import { createDefaultProjectEditor } from '../editorDefaults';
 /* biome-ignore-all lint/correctness/useExhaustiveDependencies: editor domain setters and refs are stable. */
 import {
 	type Dispatch,
@@ -68,6 +70,11 @@ type Input = {
 	};
 };
 
+/**
+ * 恢复项目外观及时间轴状态并管理素材切换。
+ * @param input 当前状态与操作参数。
+ * @returns 规范化状态或所属编辑操作。
+ */
 export function useProjectLifecycle(input: Input) {
 	const { project, appearance } = input;
 	const inputRef = useRef(input);
@@ -165,11 +172,13 @@ export function useProjectLifecycle(input: Input) {
 		appearance.setCursorClickBounceDuration(editor.cursorClickBounceDuration);
 		appearance.setCursorSway(editor.cursorSway);
 		appearance.setBorderRadius(editor.borderRadius);
+		appearance.setBackgroundBorderRadius(editor.backgroundBorderRadius ?? 0);
 		appearance.setPadding(editor.padding);
 		appearance.setCropRegion(editor.cropRegion);
 		appearance.setWebcam(editor.webcam);
 		timeline.setZoomRegions(editor.zoomRegions);
 		timeline.setTrimRegions(editor.trimRegions);
+		timeline.setTrackOrder(editor.trackOrder ?? []);
 		timeline.setClipRegions(editor.clipRegions);
 		// An explicit empty clip list means the user deleted all footage, not a legacy project.
 		refs.clipInitializedRef.current = Array.isArray(persistedEditor.clipRegions);
@@ -177,6 +186,7 @@ export function useProjectLifecycle(input: Input) {
 		refs.autoFullTrackClipEndMsRef.current = null;
 		timeline.setSpeedRegions(editor.speedRegions);
 		timeline.setAnnotationRegions(editor.annotationRegions);
+		timeline.setKeyboardDisplayEnabled(editor.keyboardDisplayEnabled);
 		timeline.setAudioRegions(editor.audioRegions);
 		timeline.setSourceAudioTrackSettingsByClip(editor.sourceAudioTrackSettingsByClip ?? {});
 		timeline.setDefaultSourceAudioTrackSettings(editor.defaultSourceAudioTrackSettings ?? {});
@@ -318,29 +328,26 @@ export function useProjectLifecycle(input: Input) {
 		},
 		[appearance.webcam.timeOffsetMs, project.currentProjectPath],
 	);
+	/**
+	 * 为新素材恢复完整出厂编辑模型，清除旧项目外观、轨道及历史。
+	 * @returns 无返回值；重置当前会话的片段、选区和历史。
+	 */
 	const resetSourceScopedEditorState = useCallback(() => {
 		const current = inputRef.current;
 		const { timeline, refs } = current;
-		timeline.setZoomRegions([]);
-		timeline.setTrimRegions([]);
-		timeline.setClipRegions([]);
+		// 在新素材绑定时同步发布完整默认值，随后只附加本次录制的伴随素材。
+		applyProjectEditorState(createDefaultProjectEditor(), current.appearance, timeline, current.setAspectRatio);
 		refs.clipInitializedRef.current = false;
 		refs.autoFullTrackClipIdRef.current = null;
 		refs.autoFullTrackClipEndMsRef.current = null;
-		timeline.setSpeedRegions([]);
-		timeline.setAnnotationRegions([]);
-		timeline.setAudioRegions([]);
 		timeline.setCursorTelemetry([]);
 		timeline.setCursorTelemetrySourcePath(null);
-		timeline.setSourceAudioTrackSettingsByClip({});
-		timeline.setDefaultSourceAudioTrackSettings({});
 		timeline.setHasClipSourceAudio(false);
-		timeline.setAutoCaptions([]);
-		timeline.setAutoCaptionSettings((previous) => ({ ...previous, enabled: false }));
 		timeline.setSelectedZoomId(null);
 		timeline.setSelectedClipId(null);
 		timeline.setSelectedAnnotationId(null);
 		timeline.setSelectedAudioId(null);
+		timeline.setSelectedCaptionId(null);
 		refs.nextZoomIdRef.current = 1;
 		refs.nextClipIdRef.current = 1;
 		refs.nextAudioIdRef.current = 1;
@@ -350,6 +357,10 @@ export function useProjectLifecycle(input: Input) {
 		refs.autoSuggestedVideoPathRef.current = null;
 		current.resetHistory();
 	}, []);
+	/**
+	 * Replace camera footage while retiring segments and duration from the previous source.
+	 * @returns Resolves after the selected source is attached; cancellation leaves the project intact.
+	 */
 	const handleUploadWebcam = useCallback(async () => {
 		const result = await window.electronAPI.openVideoFilePicker();
 		if (!result.success || !result.path) return;
@@ -357,17 +368,25 @@ export function useProjectLifecycle(input: Input) {
 			...previous,
 			enabled: true,
 			sourcePath: result.path ?? null,
+			sourceDurationMs: undefined,
+			segments: undefined,
 			visibleRanges: undefined,
 			timeOffsetMs: DEFAULT_WEBCAM_TIME_OFFSET_MS,
 		}));
 		await syncRecordingSessionWebcam(result.path, DEFAULT_WEBCAM_TIME_OFFSET_MS);
 		toast.success(input.t("settings.effects.webcamFootageAdded"));
 	}, [appearance.setWebcam, syncRecordingSessionWebcam, input.t]);
+	/**
+	 * Detach camera footage and clear only its source-specific timing.
+	 * @returns Resolves after removing the camera from the recording session.
+	 */
 	const handleClearWebcam = useCallback(async () => {
 		appearance.setWebcam((previous) => ({
 			...previous,
 			enabled: false,
 			sourcePath: null,
+			sourceDurationMs: undefined,
+			segments: undefined,
 			visibleRanges: undefined,
 			timeOffsetMs: DEFAULT_WEBCAM_TIME_OFFSET_MS,
 		}));

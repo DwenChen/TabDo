@@ -400,7 +400,8 @@ class WindowManager {
       webPreferences: {
         preload: getPreloadPath(),
         sandbox: process.env.TABDO_SOURCE_PREVIEW !== '1',
-        backgroundThrottling: false, // 窗口最小化时是否继续动画和定时器
+        // 隐藏的宿主允许Chromium挂起绘制并回收合成缓存；必要工具任务由各自页面持有。
+        backgroundThrottling: true,
         contextIsolation: true, // 禁用上下文隔离, 渲染进程和preload共用window对象
         nodeIntegration: false, // 渲染进程禁止直接使用 Node
         spellcheck: false, // 禁用拼写检查

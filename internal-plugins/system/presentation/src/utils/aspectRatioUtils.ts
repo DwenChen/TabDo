@@ -82,12 +82,17 @@ export function getAspectRatioDimensions(
 	};
 }
 
+/**
+ * 将内部比例标识转为中文界面名称，不改变已保存的比例值。
+ * @param aspectRatio 原始、预设或自定义比例。
+ * @returns 用于比例菜单和触发按钮的中文名称。
+ */
 export function getAspectRatioLabel(aspectRatio: AspectRatio): string {
 	if (aspectRatio === "native") {
-		return "Native";
+		return "原始";
 	}
 	if (isCustomAspectRatio(aspectRatio)) {
-		return `Custom ${aspectRatio}`;
+		return `自定义 ${aspectRatio}`;
 	}
 	return aspectRatio;
 }

@@ -7,7 +7,6 @@ import {
 	AlignRight,
 	TextB as Bold,
 	ImageSquare as ImageIcon,
-	Info,
 	TextItalic as Italic,
 	BoundingBox as SquareDashed,
 	Trash as Trash2,
@@ -15,7 +14,7 @@ import {
 	TextUnderline as Underline,
 	UploadSimple as Upload,
 } from "@presentation/components/ui/icons";
-import { ColorControl, ColorPalette } from "@presentation/components/ui/color-picker";
+import { ColorControl, ColorPalette, ANNOTATION_COLOR_PALETTE } from "@presentation/components/ui/color-picker";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "@presentation/components/ui/toast";
 import { Button } from "@presentation/components/ui/button";
@@ -27,6 +26,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@presentation/components/ui/select";
+import { SliderControl } from "./SliderControl";
 import { Slider } from "@presentation/components/ui/slider";
 import { ChoiceGroup, ChoiceItem } from "@presentation/components/ui/choice-group";
 import { ToggleGroup, ToggleGroupItem } from "@presentation/components/ui/toggle-group";
@@ -34,18 +34,20 @@ import { type CustomFont, getCustomFonts } from "@presentation/lib/customFonts";
 import { cn } from "@presentation/lib/utils";
 import { useScopedT } from "../../contexts/I18nContext";
 import { AddCustomFontDialog } from "./AddCustomFontDialog";
-import { getArrowComponent } from "./ArrowSvgs";
-import type { AnnotationRegion, AnnotationType, ArrowDirection, FigureData } from "./types";
+import { ArrowPreview } from "./ArrowSvgs";
+import { ARROW_STYLES, normalizeArrowStyle } from "./arrowGeometry";
+import { AnnotationAnimationControls } from './AnnotationAnimationControls';
+import type { AnnotationRegion, AnnotationType, FigureData } from "./types";
 
 interface AnnotationSettingsPanelProps {
 	annotation: AnnotationRegion;
+	onRotationChange?: (rotation: number) => void;
 	onContentChange: (content: string) => void;
 	onTypeChange: (type: AnnotationType) => void;
 	onStyleChange: (style: Partial<AnnotationRegion["style"]>) => void;
 	onFigureDataChange?: (figureData: FigureData) => void;
 	onBlurIntensityChange?: (intensity: number) => void;
 	onBlurColorChange?: (color: string) => void;
-	onDelete: () => void;
 }
 
 export const FONT_FAMILY_VALUES = [
@@ -61,17 +63,22 @@ export const FONT_FAMILY_VALUES = [
 
 export const FONT_SIZES = [12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48, 56, 64, 72, 80, 96, 128];
 
+/**
+ * Render the current editor values with synchronized timeline interactions.
+ * @param props - Current state and editing callbacks.
+ * @returns The interactive editor component.
+ */
 export function AnnotationSettingsPanel({
 	annotation,
 	onContentChange,
+	onRotationChange,
 	onTypeChange,
 	onStyleChange,
 	onFigureDataChange,
 	onBlurIntensityChange,
-	onBlurColorChange,
-	onDelete,
 }: AnnotationSettingsPanelProps) {
 	const t = useScopedT("editor");
+	const effectLabel = annotation.type === "focus" ? "遮罩强度" : annotation.type === "mosaic" ? "像素大小" : "模糊强度";
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const [customFonts, setCustomFonts] = useState<CustomFont[]>([]);
 
@@ -85,24 +92,7 @@ export function AnnotationSettingsPanel({
 		setCustomFonts(getCustomFonts());
 	}, []);
 
-	const colorPalette = [
-		"#FF0000", // Red
-		"#FFD700", // Yellow/Gold
-		"#00FF00", // Green
-		"#FFFFFF", // White
-		"#0000FF", // Blue
-		"#FF6B00", // Orange
-		"#9B59B6", // Purple
-		"#E91E63", // Pink
-		"#00BCD4", // Cyan
-		"#FF5722", // Deep Orange
-		"#8BC34A", // Light Green
-		"#FFC107", // Amber
-		"#2563EB", // Brand Blue
-		"#000000", // Black
-		"#607D8B", // Blue Grey
-		"#795548", // Brown
-	];
+	const colorPalette = ANNOTATION_COLOR_PALETTE;
 
 	const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
 		const files = event.target.files;
@@ -142,7 +132,7 @@ export function AnnotationSettingsPanel({
 
 	return (
 		<Card className="flex min-h-0 flex-1 flex-col gap-0 overflow-hidden rounded-none bg-transparent p-0 shadow-none">
-			<div className="flex-1 min-h-0 px-5 pb-6 pt-1 overflow-y-auto custom-scrollbar">
+			<div className="flex-1 inspector-scroll custom-scrollbar">
 				<div className="mb-6">
 					{/* Type Selector */}
 					<div className="space-y-4">
@@ -150,7 +140,7 @@ export function AnnotationSettingsPanel({
 							aria-label="标注类型"
 							value={annotation.type}
 							onValueChange={(value) => onTypeChange(value as AnnotationType)}
-							className="grid grid-cols-4 gap-2"
+							className="grid grid-cols-3 gap-2"
 						>
 							<ChoiceItem
 								value="text"
@@ -196,10 +186,12 @@ export function AnnotationSettingsPanel({
 								<SquareDashed className="w-4 h-4" />
 								{t("annotations.blur")}
 							</ChoiceItem>
-						</ChoiceGroup>
+              <ChoiceItem value="mosaic" aria-label="马赛克" className="min-w-0 gap-1 px-1 text-xs">▦ 马赛克</ChoiceItem>
+              <ChoiceItem value="focus" aria-label="聚焦" className="min-w-0 gap-1 px-1 text-xs">◉ 聚焦</ChoiceItem>
+            </ChoiceGroup>
 
 						{/* Text Content */}
-						{annotation.type === "text" && (
+						{(annotation.type === "text" || annotation.type === "keystroke") && (
 							<div className="space-y-4">
 								<div>
 									<label className="text-sm font-medium text-foreground mb-2 block">
@@ -483,8 +475,8 @@ export function AnnotationSettingsPanel({
 									annotation.content.startsWith("data:image") && (
 										<div className="rounded-lg border border-foreground/10 overflow-hidden bg-foreground/5 p-2">
 											<img
-												src={annotation.content}
-												alt="Uploaded annotation"
+												src={annotation.content || undefined}
+												alt="已上传的注释图片"
 												className="w-full h-auto rounded-md"
 											/>
 										</div>
@@ -496,124 +488,52 @@ export function AnnotationSettingsPanel({
 							</div>
 						)}
 
-						{annotation.type === "figure" && (
+
+            <SliderControl label="旋转" value={annotation.rotation ?? 0} min={0} max={360} step={1}
+              onChange={(rotation) => onRotationChange?.(rotation)} formatValue={(value) => `${Math.round(value)}°`} />
+
+            {annotation.type === "figure" && (
+              <div className="space-y-4">
+                <section className="space-y-2">
+                  <span className="inspector-section-title">箭头外观</span>
+                  <ChoiceGroup aria-label="箭头外观" value={normalizeArrowStyle(annotation.figureData?.arrowStyle)}
+                    onValueChange={(arrowStyle) => onFigureDataChange?.({ ...annotation.figureData!, arrowStyle: arrowStyle as FigureData['arrowStyle'] })}
+                    className="grid grid-cols-2 gap-1.5">
+                    {Object.entries(ARROW_STYLES).map(([value, label]) => (
+                      <ChoiceItem key={value} value={value} aria-label={label} title={label} className="h-20 min-w-0 px-3 py-2" style={{ borderRadius: 8 }}>
+                        <span className="block h-14 w-full"><ArrowPreview direction="right" color={annotation.figureData?.color ?? '#ffffff'} strokeWidth={5} arrowStyle={value as FigureData['arrowStyle']} /></span>
+                      </ChoiceItem>
+                    ))}
+                  </ChoiceGroup>
+                </section>
+                <SliderControl label="线宽" value={annotation.figureData?.strokeWidth ?? 4} min={1} max={6} step={1}
+                  onChange={(strokeWidth) => onFigureDataChange?.({ ...annotation.figureData!, strokeWidth })} formatValue={(value) => String(value)} />
+                <ColorControl value={annotation.figureData?.color || '#ffffff'} label="箭头颜色" compact colors={colorPalette}
+                  onChange={(color) => onFigureDataChange?.({ ...annotation.figureData!, color })} />
+                <p className="inspector-description">填充颜色可调整，深色描边保证清晰；可在预览中调整尺寸和旋转。</p>
+              </div>
+            )}
+
+						{["blur", "mosaic", "focus"].includes(annotation.type) && (
 							<div className="space-y-4">
-								<div>
-									<label className="text-sm font-medium text-foreground mb-3 block">
-										{t("annotations.arrowDirection")}
-									</label>
-									<div className="grid grid-cols-4 gap-2">
-										{(
-											[
-												"up",
-												"down",
-												"left",
-												"right",
-												"up-right",
-												"up-left",
-												"down-right",
-												"down-left",
-											] as ArrowDirection[]
-										).map((direction) => {
-											const ArrowComponent = getArrowComponent(direction);
-											return (
-												<ToggleButton
-													isSelected={
-														annotation.figureData?.arrowDirection ===
-														direction
-													}
-													key={direction}
-													onClick={() => {
-														const newFigureData: FigureData = {
-															...annotation.figureData!,
-															arrowDirection: direction,
-														};
-														onFigureDataChange?.(newFigureData);
-													}}
-													aria-label={t(
-														"annotations.arrowDirectionOption",
-														"箭头方向：{{direction}}",
-														{ direction: direction.replace(/-/g, " ") },
-													)}
-													className={cn(
-														"h-16 flex items-center justify-center p-2",
-													)}
-												>
-													<ArrowComponent
-														color={
-															annotation.figureData
-																?.arrowDirection === direction
-																? "#ffffff"
-																: "#94a3b8"
-														}
-														strokeWidth={3}
-													/>
-												</ToggleButton>
-											);
-										})}
-									</div>
-								</div>
-
-								<div>
-									<label className="text-sm font-medium text-foreground mb-2 block">
-										{t("annotations.strokeWidth", undefined, {
-											width: annotation.figureData?.strokeWidth || 4,
-										})}
-									</label>
-									<Slider
-										aria-label={t("annotations.strokeWidth", undefined, {
-											width: annotation.figureData?.strokeWidth || 4,
-										})}
-										value={[annotation.figureData?.strokeWidth || 4]}
-										onValueChange={([value]) => {
-											const newFigureData: FigureData = {
-												...annotation.figureData!,
-												strokeWidth: value,
-											};
-											onFigureDataChange?.(newFigureData);
-										}}
-										min={1}
-										max={6}
-										step={1}
-										className="my-3 w-full"
-									/>
-								</div>
-
-								<div>
-									<label className="text-sm font-medium text-foreground mb-2 block">
-										{t("annotations.arrowColor")}
-									</label>
-									<ColorControl
-										value={annotation.figureData?.color || "#2563EB"}
-										label={t("annotations.arrowColor")}
-										onChange={(color) =>
-											onFigureDataChange?.({
-												...annotation.figureData!,
-												color,
-											})
-										}
-										colors={colorPalette}
-										compact
-									/>
-								</div>
-							</div>
-						)}
-
-						{annotation.type === "blur" && (
-							<div className="space-y-4">
+                  <span className="inspector-section-title">遮罩形状</span>
+                  <ChoiceGroup aria-label="遮罩形状" className="grid grid-cols-3 gap-2" value={annotation.style.maskShape ?? 'rectangle'} onValueChange={maskShape => onStyleChange({ maskShape: maskShape as 'rectangle' | 'ellipse' | 'brush' })}>
+                    <ChoiceItem value="rectangle">矩形</ChoiceItem><ChoiceItem value="ellipse">圆形</ChoiceItem><ChoiceItem value="brush">手绘涂抹</ChoiceItem>
+                  </ChoiceGroup>
+                  {annotation.style.maskShape === 'brush' && <>
+                    <SliderControl label="笔刷大小" value={annotation.style.maskBrushSize ?? 16} min={4} max={60} step={1} onChange={maskBrushSize => onStyleChange({ maskBrushSize })} formatValue={v => `${v}%`} />
+                    <p className="inspector-description">在预览中选择该注释，点击“涂抹遮罩”后绘制；每一笔支持撤销，Esc 取消当前笔画。</p>
+                    <Button size="sm" variant="ghost" onClick={() => onStyleChange({ maskStrokes: [] })}>清空笔画</Button>
+                  </>}
 								<div className="flex flex-col items-center">
 									<div className="w-full space-y-5">
 										<div className="flex items-center justify-between">
 											<span className="text-sm font-medium text-foreground">
-												{t("annotations.blurStrength", undefined, {
-													strength: annotation.blurIntensity ?? 20,
-												})}
+												{`${effectLabel} ${annotation.blurIntensity ?? 20}`}
 											</span>
 										</div>
 										<Slider
-											aria-label={t("annotations.blurStrength", undefined, {
-												strength: annotation.blurIntensity ?? 20,
-											})}
+											aria-label={effectLabel}
 											value={[annotation.blurIntensity ?? 20]}
 											onValueChange={([value]) =>
 												onBlurIntensityChange?.(value)
@@ -625,68 +545,14 @@ export function AnnotationSettingsPanel({
 										/>
 									</div>
 
-									<div className="w-full space-y-5 mt-4">
-										<div className="flex items-center justify-between">
-											<span className="text-sm font-medium text-foreground">
-												{t(
-													"annotations.solidColor",
-													"纯色遮挡",
-												)}
-											</span>
-										</div>
-										<div className="flex flex-col gap-3">
-											<Button
-												variant="secondary"
-												aria-pressed={
-													!annotation.blurColor ||
-													annotation.blurColor === "transparent"
-												}
-												onClick={() => onBlurColorChange?.("")}
-											>
-												{t("annotations.none", "无")}
-											</Button>
-											<ColorPalette
-												color={annotation.blurColor || "transparent"}
-												colors={colorPalette}
-												onChange={({ hex }) => onBlurColorChange?.(hex)}
-											/>
-											<ColorControl
-												label={t("annotations.customColor", "自定义颜色")}
-												value={annotation.blurColor || "#000000"}
-												onChange={(color) => onBlurColorChange?.(color)}
-											/>
-										</div>
-									</div>
 								</div>
 							</div>
 						)}
 					</div>
 
-					<details className="mt-4 text-muted-foreground">
-						<summary className="flex cursor-pointer items-center gap-2 py-2">
-							<Info className="w-3.5 h-3.5" />
-							<span className="text-xs font-medium">
-								{t("annotations.shortcutsAndTips")}
-							</span>
-						</summary>
-						<ul className="text-xs text-muted-foreground space-y-1.5 list-disc pl-3 leading-relaxed">
-							<li>{t("annotations.tipSelectAnnotation")}</li>
-							<li>{t("annotations.tipCycleForward")}</li>
-							<li>{t("annotations.tipCycleBackward")}</li>
-						</ul>
-					</details>
+					{["focus", "blur", "image", "mosaic"].includes(annotation.type) && <div className="space-y-3 mt-4"><label className="text-sm font-medium">圆角 {annotation.style.borderRadius ?? 0}</label><Slider aria-label="注释圆角" value={[annotation.style.borderRadius ?? 0]} min={0} max={200} step={1} onValueChange={([value]) => onStyleChange({ borderRadius: value })} /></div>}
+          <div className="mt-5"><AnnotationAnimationControls style={annotation.style} onChange={onStyleChange} /></div>
 				</div>
-			</div>
-			<div className="shrink-0 px-5 py-4">
-				<Button
-					onClick={onDelete}
-					variant="destructive-soft"
-					size="sm"
-					className="w-full gap-2"
-				>
-					<Trash2 className="w-4 h-4" />
-					{t("annotations.deleteAnnotation")}
-				</Button>
 			</div>
 		</Card>
 	);

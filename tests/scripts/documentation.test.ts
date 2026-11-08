@@ -36,15 +36,11 @@ beforeEach(() => {
   )
   write(
     'internal-plugins/setting/src/views/UsageGuide/tutorialChapters.ts',
-    "export const tutorialChapters = [{id:'start',title:'开始',intro:'阅读说明',figure:'操作示意',prepare:'准备内容',steps:['先复制内容','再按 Ctrl+C'],result:'看到结果',problems:[{question:'没有内容？',answer:'重新复制'}]}]"
-  )
-  write(
-    'internal-plugins/setting/public/tutorial/start.svg',
-    '<svg xmlns="http://www.w3.org/2000/svg"/>'
+    "export const tutorialChapters = [{id:'start',title:'开始',intro:'阅读说明',steps:['先复制内容','再按 Ctrl+C'],tips:['重新复制']} ]"
   )
   write(
     'docs/usage-guide.md',
-    '# 教程\n\n<a id="start"></a>\n\n## 开始\n\n阅读说明\n\n操作示意\n\n准备内容\n\n1. 先复制内容\n2. 再按 `Ctrl+C`\n\n看到结果\n\n**没有内容？** 重新复制\n'
+    '# 教程\n\n<a id="start"></a>\n\n## 开始\n\n阅读说明\n\n1. 先复制内容\n2. 再按 `Ctrl+C`\n\n重新复制\n'
   )
 })
 
@@ -90,14 +86,10 @@ describe('documentation release gate', () => {
     )
   })
 
-  it('rejects stale tutorial text and missing distributed artwork', () => {
-    write('docs/usage-guide.md', '# 开始\n\n旧版教程')
-    fs.unlinkSync(path.join(root, 'internal-plugins/setting/public/tutorial/start.svg'))
-    expect(checkDocumentation(root).errors).toEqual(
-      expect.arrayContaining([
-        expect.stringContaining('与应用内教程不一致'),
-        expect.stringContaining('教程插图不存在')
-      ])
-    )
+  it('rejects stale tutorial text without requiring removed artwork', () => {
+    write('docs/usage-guide.md', '<a id="start"></a>\n\n# 开始\n\n旧版教程')
+    expect(checkDocumentation(root).errors).toEqual([
+      'docs/usage-guide.md: start 与应用内教程不一致'
+    ])
   })
 })

@@ -55,20 +55,20 @@ export function FeedbackDialog({
 			}}
 		>
 			<DialogTrigger asChild>
-				<Button variant="ghost" size="sm" className={className} aria-label="Feedback">
+				<Button variant="ghost" size="sm" className={className} aria-label="反馈">
 					<ChatDots className="size-4" />
-					{showLabel && "Feedback"}
+					{showLabel && "反馈"}
 				</Button>
 			</DialogTrigger>
 			<DialogContent className="max-w-sm max-h-[90vh] overflow-y-auto">
 				<DialogHeader>
-					<DialogTitle>{sent ? "Thanks for your feedback" : "Send feedback"}</DialogTitle>
+					<DialogTitle>{sent ? "感谢反馈" : "发送反馈"}</DialogTitle>
 				</DialogHeader>
 				{sent ? (
-					<Button onPress={() => setOpen(false)}>Done</Button>
+					<Button onPress={() => setOpen(false)}>完成</Button>
 				) : !auth.user ? (
 					<div className="flex flex-col gap-4">
-						<Description>Sign in to send feedback.</Description>
+						<Description>登录后发送反馈。</Description>
 						{onSignIn ? (
 							<Button
 								onPress={() => {
@@ -79,7 +79,7 @@ export function FeedbackDialog({
 								登录
 							</Button>
 						) : (
-							<Description>Open Home to sign in.</Description>
+							<Description>返回项目主页登录。</Description>
 						)}
 					</div>
 				) : (
@@ -126,8 +126,8 @@ export function FeedbackDialog({
 							}}
 							className="w-full"
 						>
-							<Label>Subject</Label>
-							<Input maxLength={160} placeholder="What’s on your mind?" />
+							<Label>主题</Label>
+							<Input maxLength={160} placeholder="反馈主题" />
 						</TextField>
 						<TextField
 							name="description"
@@ -140,12 +140,12 @@ export function FeedbackDialog({
 							}}
 							className="w-full"
 						>
-							<Label>Description</Label>
+							<Label>说明</Label>
 							<TextArea
 								maxLength={10000}
 								rows={5}
 								className="resize-y"
-								placeholder="Tell us more…"
+								placeholder="请描述具体情况…"
 								onPaste={(event) => {
 									const pasted = Array.from(event.clipboardData.files);
 									if (pasted.length) {
@@ -161,7 +161,7 @@ export function FeedbackDialog({
 							multiple
 							hidden
 							disabled={sending}
-							aria-label="Attach files"
+							aria-label="添加附件"
 							onChange={(event) => {
 								addFiles(Array.from(event.target.files ?? []));
 								event.target.value = "";
@@ -176,7 +176,8 @@ export function FeedbackDialog({
 							onPress={() => picker.current?.click()}
 						>
 							<File className="size-4" />
-							Attach files
+
+							添加附件
 						</Button>
 						{files.length > 0 && (
 							<div className="flex flex-col gap-1">
@@ -192,7 +193,7 @@ export function FeedbackDialog({
 											size="sm"
 											variant="ghost"
 											isDisabled={sending}
-											aria-label={`Remove ${file.name}`}
+											aria-label={`移除${file.name}`}
 											onPress={() =>
 												setFiles(files.filter((_, i) => i !== index))
 											}
@@ -204,7 +205,8 @@ export function FeedbackDialog({
 							</div>
 						)}
 						<Description className="text-xs">
-							Diagnostics will be sent along with your feedback.
+
+							反馈将附带诊断信息。
 						</Description>
 						{error && (
 							<Description role="alert" className="text-danger">
@@ -212,7 +214,7 @@ export function FeedbackDialog({
 							</Description>
 						)}
 						<Button type="submit" isDisabled={sending} className="w-full">
-							{sending ? "Sending…" : "Send feedback"}
+							{sending ? "正在发送…" : "发送反馈"}
 						</Button>
 					</Form>
 				)}

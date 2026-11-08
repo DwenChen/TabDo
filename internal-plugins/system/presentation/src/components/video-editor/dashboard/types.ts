@@ -9,6 +9,8 @@ export type DashboardProps = {
 	error: string | null;
 	onSignIn: () => void;
 	onDeleteProjects: (paths: string[]) => Promise<string[]>;
+	onBeforeDeleteRecordings?: (paths: string[]) => Promise<void>;
+	onRefreshProjects?: () => Promise<void>;
 	onRenameProject: (path: string, name: string) => Promise<string>;
 	onShareProject: (path: string) => Promise<void>;
 	accountLabel?: string;

@@ -1,11 +1,12 @@
 const fs = require('node:fs')
 const path = require('node:path')
 const { execFileSync, spawnSync } = require('node:child_process')
+const { patchAnnotations, patchIcons } = require('./patch-screenshot-annotations.cjs')
 const root = path.resolve(__dirname, '..')
 const revision = '8b221e72c4b5462ba2c9b490370cc10df72108cc'
 
 /**
- * 在固定版本源码上编译 Windows 截图模块，精简工具栏并修复长截图采样。
+ * 在固定版本源码上编译 Windows 截图模块，统一标记工具栏并保留长截图采样修复。
  * @returns {void} 无返回值。
  * @throws 源码版本、工具链、头文件或编译结果无效时抛出错误。
  */
@@ -59,7 +60,7 @@ function main() {
       encoding: 'utf8',
       windowsHide: true
     })
-    fs.writeFileSync(path.join(source, file), transform(original))
+    fs.writeFileSync(path.join(source, file), patchAnnotations(file, transform(original)))
   }
   patch('src/screenshot/windows/sc_types.h', (s) =>
     s
@@ -69,6 +70,10 @@ function main() {
         '    TB_Count\n};\n// 工具栏不再包含翻译；保留不可命中的内部值，避免改动其他标注和长截图逻辑。\nstatic constexpr int TB_Translate = -100;'
       )
   )
+  // 标注数据、输入和绘制必须来自同一固定版本，再一次性扩展新增工具。
+  for (const file of ['sc_annotations.h', 'capture_context.h', 'overlay_input_windows.cpp']) {
+    patch('src/screenshot/windows/' + file, (s) => s)
+  }
   patch('src/screenshot/windows/internal.h', (s) =>
     s.replace(
       'int CalcToolbarWidth(const SCToolbarMetrics& m);',
@@ -267,6 +272,7 @@ bool RunLongCapture(LongCaptureContext* c) {`
         'kIconSvg_Text, kIconSvg_LongCapture'
       )
   )
+  patchIcons(source)
   fs.writeFileSync(
     path.join(source, 'tools_binding.cpp'),
     `#include "src/screenshot/windows/screenshot_windows.h"

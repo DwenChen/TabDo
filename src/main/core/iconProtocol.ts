@@ -9,9 +9,26 @@ const MAX_ICON_CACHE = 128
 const MAX_ICON_CACHE_BYTES = 16 * 1024 * 1024
 let iconCacheBytes = 0
 const pendingExtractions = new Map<string, Promise<Buffer>>()
+const ICON_IDLE_RELEASE_MS = 30_000
+let idleReleaseTimer: ReturnType<typeof setTimeout> | undefined
 
 /**
- * 按条数和总字节双重限制图标 LRU，超大图标只交付当前请求。
+ * 图标请求停止后释放可重建的内存副本，不移除用户文件或持久图标。
+ * @returns 无返回值；新请求会重新开始闲置计时。
+ */
+function scheduleIdleIconRelease(): void {
+  if (idleReleaseTimer) clearTimeout(idleReleaseTimer)
+  idleReleaseTimer = setTimeout(() => {
+    // 仅清空已完成请求的内存缓存，不取消调用方正在等待的原生提取。
+    iconMemoryCache.clear()
+    iconCacheBytes = 0
+    idleReleaseTimer = undefined
+  }, ICON_IDLE_RELEASE_MS)
+  idleReleaseTimer.unref()
+}
+
+/**
+ * 按条数、总字节和闲置时间限制图标 LRU，超大图标只交付当前请求。
  * @param key 图标来源路径。
  * @param buffer 图标 PNG 字节。
  * @returns 无返回值。
@@ -37,6 +54,7 @@ function setIconCache(key: string, buffer: Buffer): void {
   }
   iconMemoryCache.set(key, buffer)
   iconCacheBytes += buffer.length
+  scheduleIdleIconRelease()
 }
 
 /**

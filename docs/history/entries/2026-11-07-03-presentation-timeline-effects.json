@@ -1,0 +1,42 @@
+{
+  "id": "presentation-timeline-effects",
+  "date": "2026-11-07",
+  "summary": "精简演示片段文案，统一选中定位并修复重排变焦和连续注释",
+  "reason": "录屏切割重排后关联变焦跨空隙扩展，渲染及拖动还会拉长短段；连续新增注释可能同轨重叠或位于视口外，类型图标未传入。用户追加审查全部关联轨道、修复context-mode，并明确授权同步后重置隔离预览。",
+  "changes": [
+    "变焦片段精简为2D/3D、倍率及自动/手动，悬停保留完整参数。",
+    "所有类型片段选中后暂停定位到起点，重复选择同样生效。",
+    "重排时按实际保留画面映射效果，分离区间拆成独立片段，不再跨越无关画面。",
+    "连续添加注释共用粘贴的空闲导轨分配，片段图标按文字、图片、箭头、模糊、马赛克、聚焦及按键类型变化。",
+    "审查移动、裁剪、变速、删除、插入、复制粘贴、字幕源投影、独立声音与摄像头，新增时间轴关联规则文档，移除独立音频锚点平移及渲染自动改写。",
+    "移动保持原时长，短变焦不按手动最小时长拉长；注释同轨遵循避让/重排，跨轨可叠加。左键重复选择回起点，已选片段的右键保留分割/粘贴游标。",
+    "录屏派生裁剪镜像从历史比较中排除，避免同一删除/变速占用额外撤销步骤。",
+    "context-mode 2.1.5补齐--agent codex，执行原生setup修复配置与hooks，更新旧工具名；为MCP单独提供大写PATH修复Windows Git Bash识别，不迁移或删除旧知识库。"
+  ],
+  "checks": [
+    "context-mode执行和自检均返回Project source --agent is missing；回退有界本地命令，依次阅读维护、改动/Bug索引及相关模块规范，保留既有未提交内容。",
+    "18项初始相关单测通过，归档.artifacts/runs/2026-11-07T12-31-10-078Z-unit；扩展边界后22项通过，归档.artifacts/runs/2026-11-07T12-47-40-401Z-unit。",
+    "完整pnpm test在沙箱中11项临时权限、路径或回环网络失败，归档.artifacts/runs/2026-11-07T12-40-40-250Z-unit；正常本机环境同入口复跑123文件825项通过，归档.artifacts/runs/2026-11-07T12-42-01-359Z-unit。补充历史修复后的完整测试另行记录。",
+    "源码专项沙箱服务器未能就绪后取消，保留.artifacts/runs/2026-11-07T12-39-03-360Z-e2e日志；正常环境首轮定位到HeroUI内层gridcell被行拦截，改为可交互row，失败归档.artifacts/runs/2026-11-07T12-42-24-825Z-e2e。",
+    "第二轮并行生产编译与源码加载期间正文等待不足，失败归档.artifacts/runs/2026-11-07T12-44-57-950Z-e2e；改为独立运行并等待片段正文稳定。第三轮已通过连续注释、类型切换、真实分割重排、全类型选择及独立媒体检查，发现删除需额外撤销，归档.artifacts/runs/2026-11-07T12-47-47-665Z-e2e；补齐派生裁剪历史比较后联合回归。",
+    "已审校README、组件说明、仓库与应用内教程、镜头规范、更新说明及新时间轴规则，pnpm docs:check通过36文档243链接、15章65步；presentation-timeline-effects分组--list通过。",
+    "context-mode修正后新MCP连接的D1/2/3/5/5b/6/7/8/9/10/11均通过，Git Bash、PowerShell执行和文档索引搜索实际可用；D4只报告保留的旧数据。当前聊天旧连接仍需Codex重新加载后才采用新启动参数。",
+    "最终完整pnpm test通过123文件827项，包含移动短变焦/超长声音不改时长及派生裁剪镜像单步撤销，归档.artifacts/runs/2026-11-07T12-51-03-713Z-unit。",
+    "四项联合源码回归中教程与片段专项通过；摄像头专项在HUD正文未就绪时被关闭，关联轨道最终断言只因重开补齐rotation/blurIntensity默认字段失败，已有参数未丢失。保留归档.artifacts/runs/2026-11-07T12-50-41-099Z-e2e，重开断言改为全部已有值须匹配、允许新增缺省字段。",
+    "最终摄像头补充与关联轨道两项源码专项通过，归档.artifacts/runs/2026-11-07T12-55-14-905Z-e2e；六次连续新增注释均滚入视口且各占空闲轨道，五种类型切换及图标、真实四段分割与拖动、变焦精确拆段/10ms短段、独立声音和摄像头原样保留、字幕三段源投影、六类重复选择起点、重排/删除一次撤销重做及项目重开通过。四项相关源码专项分批全部通过。",
+    "人工查看直接插件WebContentsView的明暗时间轴截图，确认精简变焦标签、分离区间和文字/图片/箭头/模糊/马赛克/聚焦图标；没有拼接宿主截图。",
+    "修改模块ESLint错误检查通过，保留移植目录原有格式与未使用参数警告；日志.artifacts/presentation-timeline-effects-lint.log及presentation-timeline-effects-lint-final.log。pnpm docs:check通过36文档246链接，pnpm maintain、pnpm maintain:check及git diff --check通过。",
+    "context-mode最终新连接自检所有功能项通过，D4仅提示保留旧资料；证据.artifacts/context-mode-v2-final-verification.json与context-mode-v2-final.log。",
+    "最终pnpm build通过宿主类型检查、设置/工具插件和Electron生产编译，日志.artifacts/presentation-timeline-effects-build-final.log。预览同步前pnpm maintain与pnpm maintain:check通过。",
+    "pnpm preview:sync通过：更新104项程序资源，564个原配置/项目/插件文件逐文件保持一致；pnpm test:preview:resources通过103个归档程序文件、346个内置插件文件及1687个媒体依赖。日志.artifacts/presentation-timeline-effects-preview-sync.log与presentation-timeline-effects-preview-resources.log。",
+    "按本轮用户明确授权执行pnpm preview:reset --confirm-reset：预览已退出，完整备份并逐文件验证564个资料文件，再建立空data和legacy；程序资源不变。备份.artifacts/backups/portable-profile/2026-11-07T13-01-10-767Z-e48393c8，日志.artifacts/presentation-timeline-effects-preview-reset.log。已确认两个新目录均为空，下次从固定启动器运行时初始化首次安装默认值。",
+    "空间复核通过：原程序回退及暂存约1.50GiB、独有自动归档证据约1.92GiB、工具链约1.18GiB、历史下载约570MiB，其余资料与其他任务材料保留。本轮无新增下载。",
+    "核验范围、祖先/子项链接及Git跟踪边界后，清理6处已消费程序目录，共2110300719字节（约2013MiB），包括前轮曾被策略拦截的纯程序载荷；保留本次update-1794056358255/previous-resources、全部preservation.json、完整资料备份与原始证据。清单和结果.artifacts/cleanup-2026-11-07/timeline-effects-program-payloads.json、timeline-effects-program-results.json。",
+    "空间清理后pnpm test:preview:resources再次通过103个程序文件、346个内置插件文件与1687个媒体依赖；日志.artifacts/presentation-timeline-effects-preview-after-cleanup.log。已移除本轮context-mode临时MCP验证桥和一次性清理脚本，保留完整诊断与清理收据。"
+  ],
+  "pending": [
+    "其他DPI、多屏、触控及主观操作手感待人工验收。",
+    "当前Codex聊天持有旧MCP连接，重新加载Codex后使用已修正的context-mode配置；新连接各项功能验证已通过，旧知识库完整保留。"
+  ],
+  "preview": "已同步.local/portable-preview/（1.3.0）并按本轮明确指示恢复首次安装状态；通过PreviewPortable.cmd启动。旧资料564文件完整备份在.artifacts/backups/portable-profile/2026-11-07T13-01-10-767Z-e48393c8；保留最近一次程序回退及全部收据。未push、云端构建或发布Release。"
+}

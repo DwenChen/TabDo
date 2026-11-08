@@ -1,0 +1,32 @@
+{
+  "id": "presentation-inspector-ui",
+  "date": "2026-11-05",
+  "summary": "统一演示编辑侧栏层级、折叠和滚动条，精简场景与摄像头设置",
+  "reason": "用户反馈按键滚动条、设置字号与颜色不一致，要求统一高级子项和通用设置的层级，调整场景留白与圆角顺序，移除重复的裁剪和摄像头位置入口，并固化后续UI规范。",
+  "changes": [
+    "编辑侧栏集中定义标题14px、小节13px、选项12px、描述11px；正文使用主题前景色，描述使用浅灰；辅助留白开关按要求使用浅灰。",
+    "所有检查器共用细滚动条与稳定滚动槽；高级与缩放通用设置复用折叠布局，默认收起，子项与标题之间保留固定留白，开关对齐选项标题行。",
+    "场景将录屏圆角置于阴影前，联动各边留白移至移除背景前；解除联动仍保留内边距标题并显示四边滑条；移除场景高级和重复裁剪入口。",
+    "摄像头移除顶部说明、整体缩放和高级中的位置/边距入口；圆角和阴影移入普通设置，素材标题改为当前摄像头视频文件；宽高比例和预览拖动继续保留。",
+    "规范和教程随当前界面同步更新，并验证相关设置进入保存、预览、撤销及重做链。"
+  ],
+  "checks": [
+    "通过context-mode读取维护流程、最新改动、Bug台账、工具与设置规范，核对并保留338项既有工作区改动。",
+    "pnpm test：120个文件、803项通过；证据 .artifacts/runs/2026-11-05T14-13-49-623Z-unit。",
+    "源码E2E五专项（presentation-inspector/import/review/tracks/fragments）5项通过，覆盖字号、滚动条、折叠、选项精简，以及相邻导轨、注释、复制粘贴、保存、连续撤销重做；证据 .artifacts/runs/2026-11-05T14-12-24-766Z-e2e。",
+    "新增场景裁切后重置不影响裁切的断言，独立复跑presentation-inspector通过；证据 .artifacts/runs/2026-11-05T14-23-25-525Z-e2e。",
+    "local-tutorial源码专项通过，实际离线教程、重启和配置/插件保留均通过；同批inspector在进入编辑器前HUD页提前关闭，独立复跑通过；保留失败证据 .artifacts/runs/2026-11-05T14-18-56-010Z-e2e。",
+    "首次inspector断言测量到了switch交互节点而非可见轨道，改为测量data-slot=switch-control后通过；失败证据 .artifacts/runs/2026-11-05T14-09-53-680Z-e2e。",
+    "人工审阅实际插件可见区域截图：按键、四边留白、摄像头明暗主题、高级与通用设置；实际标题/选项/描述字号14/13/12/11px，可见开关轨道与标题行对齐，折叠正文上留白12px。",
+    "修改的编辑侧栏组件及专项eslint --quiet无错误；pnpm test:regressions presentation-editing --list通过，新增专项已纳入12个单测文件、10个E2E文件分组。",
+    "对照当前源码审校README、工具清单、设置规范、仓库/应用内教程和更新说明；新增演示编辑侧栏UI规范，AGENTS及模块规范链接至强制规则；pnpm docs:check通过。",
+    "pnpm build通过（含主程序类型检查、设置插件、工具插件及Electron生产编译）；构建日志 .artifacts/sidebar-ui-work/build.log。",
+    "交付前pnpm maintain、pnpm maintain:check和git diff --check通过；既有ItemGlass.module.css换行提示未作无关格式化。",
+    "pnpm preview:sync通过：1.3.0免安装预览同步104个程序资源，492个既有配置/项目/插件文件逐文件保持一致；旧程序资源保留在 .artifacts/backups/preview-sync/update-1793888771130/previous-resources。",
+    "pnpm test:preview:resources通过：103个归档程序文件、346个内置插件文件及1687个媒体依赖文件匹配当前构建；收尾执行文档、维护索引与差异检查。"
+  ],
+  "pending": [
+    "其他DPI、多屏和触控交互仍需人工验收。"
+  ],
+  "preview": "已同步至 .local/portable-preview/（1.3.0），通过 PreviewPortable.cmd 使用原有隔离资料；保留492个既有文件及已安装插件，未重置数据、推送、云端构建或发布。"
+}

@@ -36,6 +36,7 @@ interface DetachedWindowInfo {
   pluginPath: string
   pluginName: string
   pluginLogo?: string
+  toolFeatureCode?: string
   toggleDevTools?: (
     webContents: Electron.WebContents,
     pluginPath: string
@@ -45,6 +46,7 @@ interface DetachedWindowInfo {
   savedFocusTarget: 'titlebar' | 'plugin' // 窗口失焦时快照的焦点状态
   foregroundWindow?: BrowserWindow
   releaseHiddenTools?: (force?: boolean) => void
+  previewFullscreen?: boolean
 }
 
 export interface DetachedPluginUpgradeSnapshot {
@@ -105,6 +107,8 @@ class DetachedWindowManager {
       const windowBounds = info.window.getContentBounds()
       const viewBounds = info.view.getBounds()
       info.window.webContents.send('update-compact-main-window-header', compactWindowHeader)
+      // 预览占满正文期间只更新标题栏偏好，退出预览时再恢复其实际高度。
+      if (info.previewFullscreen) continue
       if (process.platform === 'darwin') {
         info.window.setWindowButtonPosition(this.resolveTrafficLightPosition(titlebarHeight))
       }
@@ -320,8 +324,13 @@ class DetachedWindowManager {
 
       win.loadURL(titlebarUrl)
 
+      // 延迟焦点只属于这份正文；关闭窗口后取消，不能读取 Electron 已清空的 view 属性。
+      const contents = pluginView.webContents
+      let focusTimer: ReturnType<typeof setTimeout> | undefined
+      win.once('closed', () => clearTimeout(focusTimer))
       // 标题栏加载完成后发送插件信息，并添加插件视图
       win.webContents.on('did-finish-load', () => {
+        if (win.isDestroyed() || contents.isDestroyed()) return
         console.log('[DetachedWindow] 标题栏加载完成，发送插件信息', {
           pluginName,
           options
@@ -344,7 +353,7 @@ class DetachedWindowManager {
 
         // 添加插件视图（在标题栏下方）
         const bounds = win.getContentBounds()
-        const currentTitlebarHeight = this.getTitlebarHeight()
+        const currentTitlebarHeight = this.detachedWindowMap.get(windowId)?.previewFullscreen ? 0 : this.getTitlebarHeight()
         pluginView.setBounds({
           x: 0,
           y: currentTitlebarHeight,
@@ -354,26 +363,24 @@ class DetachedWindowManager {
 
         // 如果需要自动聚焦子输入框，延迟聚焦搜索框（等待 DOM 渲染完成）
         if (options.show === false) return
-        if (options.autoFocusSubInput === true) {
-          setTimeout(() => {
+        clearTimeout(focusTimer)
+        focusTimer = setTimeout(() => {
+          // 隐藏、最小化或退役后的页面不抢焦点，也不再访问原视图。
+          if (win.isDestroyed() || contents.isDestroyed() || !win.isVisible() || win.isMinimized())
+            return
+          if (options.autoFocusSubInput === true) {
             win.webContents.focus()
             win.webContents.send('focus-sub-input')
-          }, 100) // 延迟 100ms，确保 Vue 组件已经渲染
-        } else {
-          // 插件视图聚焦：分离前焦点在插件上，分离后恢复插件焦点
-          setTimeout(() => {
-            if (!pluginView.webContents.isDestroyed()) {
-              pluginView.webContents.focus()
-            }
-          }, 100)
-        }
+          } else contents.focus()
+        }, 100)
       })
 
       // 监听窗口大小变化
       win.on('resize', () => {
         if (!win.isDestroyed()) {
           const newBounds = win.getContentBounds()
-          const currentTitlebarHeight = this.getTitlebarHeight()
+          const previewFullscreen = this.detachedWindowMap.get(windowId)?.previewFullscreen
+          const currentTitlebarHeight = previewFullscreen ? 0 : this.getTitlebarHeight()
           // 只需要更新插件视图大小（标题栏由窗口自动处理）
           pluginView.setBounds({
             x: 0,
@@ -383,7 +390,7 @@ class DetachedWindowManager {
           })
 
           // 升级期间的 0 高度是临时状态，不得覆盖用户保存的窗口尺寸。
-          if (!this.suppressedSizePersistenceWindows.has(windowId)) {
+          if (!previewFullscreen && !win.isFullScreen() && !this.suppressedSizePersistenceWindows.has(windowId)) {
             this.schedulePersistWindowSize(
               windowId,
               pluginName,
@@ -401,6 +408,7 @@ class DetachedWindowManager {
         pluginPath,
         pluginName,
         pluginLogo: options.logo,
+        toolFeatureCode: options.toolFeatureCode,
         toggleDevTools: options.toggleDevTools,
         isAlwaysOnTop: false,
         lastFocusTarget: options.autoFocusSubInput ? 'titlebar' : 'plugin',
@@ -708,16 +716,21 @@ class DetachedWindowManager {
   }
 
   /**
-   * 聚焦指定插件的分离窗口（单例模式使用）
-   * 如果插件已有分离窗口，则聚焦该窗口并返回 true
+   * 恢复并聚焦指定插件及可选工具功能的独立窗口。
+   * @param pluginPath 插件物理路径。
+   * @param toolFeatureCode 内置工具功能码，省略时按插件匹配。
+   * @returns 是否找到并恢复窗口。
    */
-  public focusByPlugin(pluginPath: string): boolean {
+  public focusByPlugin(pluginPath: string, toolFeatureCode?: string): boolean {
     for (const windowInfo of this.detachedWindowMap.values()) {
-      if (windowInfo.pluginPath === pluginPath && !windowInfo.window.isDestroyed()) {
+      if (
+        windowInfo.pluginPath === pluginPath &&
+        (toolFeatureCode === undefined || windowInfo.toolFeatureCode === toolFeatureCode) &&
+        !windowInfo.window.isDestroyed()
+      ) {
         if (windowInfo.window.isMinimized()) windowInfo.window.restore()
-        // fix: macOS 上分离窗口即使已经是显示状态，也可能被其他 App/window 完全盖住，
-        // 单独 focus() 不一定能提升窗口层级，所以先 show() 再 focus()，确保重入插件时窗口前置。
-        if (process.platform === 'darwin') windowInfo.window.show()
+        // 隐藏的临时常驻窗口也必须先显示，单独 focus 在 Windows 不会恢复可见性。
+        windowInfo.window.show()
         windowInfo.window.focus()
         return true
       }
@@ -726,11 +739,19 @@ class DetachedWindowManager {
   }
 
   /**
-   * 获取指定插件的分离窗口中的 WebContentsView（单例重入使用）
+   * 获取指定插件及可选工具功能的独立正文，避免其他子组件接管常驻页面。
+   * @param pluginPath 插件物理路径。
+   * @param toolFeatureCode 内置工具功能码，省略时按插件匹配。
+   * @returns 匹配的存活正文，没有匹配时返回 null。
    */
-  public getViewByPlugin(pluginPath: string): WebContentsView | null {
+  public getViewByPlugin(pluginPath: string, toolFeatureCode?: string): WebContentsView | null {
     for (const windowInfo of this.detachedWindowMap.values()) {
-      if (windowInfo.pluginPath === pluginPath && !windowInfo.window.isDestroyed()) {
+      if (
+        windowInfo.pluginPath === pluginPath &&
+        (toolFeatureCode === undefined || windowInfo.toolFeatureCode === toolFeatureCode) &&
+        !windowInfo.window.isDestroyed() &&
+        !windowInfo.view.webContents.isDestroyed()
+      ) {
         return windowInfo.view
       }
     }
@@ -879,6 +900,25 @@ class DetachedWindowManager {
       }
     }
     return null
+  }
+
+  /**
+   * 将所属插件预览铺满窗口并隔离临时全屏尺寸，退出后恢复宿主标题栏。
+   * @param webContentsId 当前预览所属正文的身份。
+   * @param enabled 是否由预览临时接管整个窗口正文。
+   * @returns 已找到且更新当前会话窗口时返回 true，否则返回 false。
+   */
+  public setPreviewFullscreen(webContentsId: number, enabled: boolean): boolean {
+    for (const info of this.detachedWindowMap.values()) {
+      if (info.view.webContents.id !== webContentsId || info.window.isDestroyed() || info.view.webContents.isDestroyed()) continue
+      // 先切换所有权，保证后续原生 resize 不保存临时全屏尺寸。
+      info.previewFullscreen = enabled
+      const bounds = info.window.getContentBounds()
+      const titlebarHeight = enabled ? 0 : this.getTitlebarHeight()
+      info.view.setBounds({ x: 0, y: titlebarHeight, width: bounds.width, height: Math.max(1, bounds.height - titlebarHeight) })
+      return true
+    }
+    return false
   }
 
   /**

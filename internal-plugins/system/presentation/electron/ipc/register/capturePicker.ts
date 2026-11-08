@@ -70,7 +70,7 @@ export function registerCapturePickerHandlers({
 			// when recording starts; overlay selection cannot identify Wayland windows.
 			const source = {
 				id: "screen:linux-portal",
-				name: "System picker",
+				name: "系统选择器",
 				sourceType: "screen" as const,
 			};
 			setSelectedSource(source);
@@ -78,7 +78,7 @@ export function registerCapturePickerHandlers({
 			return {
 				success: true,
 				source,
-				message: "Choose a screen or window in the system picker when you start recording.",
+				message: "开始录制时在系统选择器中选择屏幕或窗口。",
 			};
 		}
 

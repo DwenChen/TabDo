@@ -37,12 +37,14 @@ export function DashboardSettings({ onImportFile }: { onImportFile: () => Promis
     let active = true
     void Promise.all([
       window.electronAPI.getRecordingsDirectory(),
+      window.electronAPI.getProjectsDirectory(),
       window.electronAPI.getHudOverlayCaptureProtection(),
       window.electronAPI.getPlatform()
     ])
-      .then(([directory, protection, platform]) => {
+      .then(([directory, projects, protection, platform]) => {
         if (!active) return
         if (directory.success) setRecordings(directory.path)
+        if (projects.success && projects.path) setDirectory(projects.path)
         if (protection.success) setHideHud(protection.enabled)
         setCaptureSupported(supportsHudCaptureProtection(platform))
       })
@@ -54,10 +56,8 @@ export function DashboardSettings({ onImportFile }: { onImportFile: () => Promis
   return (
     <section aria-label="编辑器设置" className="dashboard-settings max-w-2xl py-10">
       <h1 className="mb-8 text-lg font-semibold">设置</h1>
-      <SettingsSections categories={['general', 'motion', 'recording', 'files']}>
-        <SettingsCategory category={['general', 'motion', 'advanced']}>
-          {settingsContent}
-        </SettingsCategory>
+      <SettingsSections categories={['general', 'recording', 'files']}>
+        <SettingsCategory category={['general', 'advanced']}>{settingsContent}</SettingsCategory>
         <SettingsCategory category="files">
           <SettingsRow title="导入视频或项目">
             <Button
@@ -119,23 +119,20 @@ export function DashboardSettings({ onImportFile }: { onImportFile: () => Promis
         <SettingsCategory category="files">
           <SettingsRow
             title="项目保存目录"
-            description={directory || '所有项目及编辑改动始终自动保存。'}
+            description={<span className="block break-all" title={directory}>{directory}<span className="block text-xs">用于新建项目；已有项目继续保存在原位置。</span></span>}
           >
             <Button
               variant="secondary"
               size="sm"
-              onClick={async () => {
-                try {
-                  const result = await window.electronAPI.getProjectsDirectory()
-                  if (!result.success || !result.path) throw Error('无法打开项目目录')
+              disabled={busy}
+              onClick={() => void run(async () => {
+                  const result = await window.electronAPI.chooseProjectsDirectory()
+                  if (result.canceled) return
+                  if (!result.success || !result.path) throw Error(result.error || '无法更改项目目录')
                   setDirectory(result.path)
-                  await window.electronAPI.revealInFolder(result.path)
-                } catch (e) {
-                  toast.error(String(e))
-                }
-              }}
+              })}
             >
-              打开目录
+              更改目录
             </Button>
           </SettingsRow>
         </SettingsCategory>

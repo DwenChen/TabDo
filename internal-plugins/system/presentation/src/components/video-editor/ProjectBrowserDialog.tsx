@@ -4,6 +4,8 @@ import { Button } from "@presentation/components/ui/button";
 import { toFileUrl } from "./projectPersistence";
 
 export type ProjectLibraryEntry = {
+	mediaPaths?: string[];
+	missingMediaPaths?: string[];
 	rawSource?: import("@presentation/types/recordingLibrary").RecordingLibraryEntry;
 	path: string;
 	name: string;

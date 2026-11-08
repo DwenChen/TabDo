@@ -280,7 +280,14 @@ ipcMain.handle('set-hud-overlay-capture-protection', (_event: any, enabled: bool
   beginHudCaptureProtection()
   return { success: true, enabled }
 })
-ipcMain.handle('get-hud-overlay-mouse-passthrough-supported', () => ({ supported: true }))
+/**
+ * 按预加载契约报告当前宿主支持鼠标穿透，使渲染器能够启用可交互的悬浮相机。
+ * @returns 成功标记与当前宿主的穿透支持状态。
+ */
+ipcMain.handle(
+  'get-hud-overlay-mouse-passthrough-supported',
+  (): { success: boolean; supported: boolean } => ({ success: true, supported: true })
+)
 ipcMain.handle('finish-recording-startup', () => ({ success: true }))
 ipcMain.on('hud-overlay-close', () => hud?.close())
 ipcMain.on('hud-overlay-hide', () => hud?.minimize())

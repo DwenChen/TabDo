@@ -373,7 +373,17 @@ export class OfflineAudioProcessor extends AudioMediaProcessor {
 		}
 	}
 
-	// Schedule an audio region overlay clipped to a specific chunk window.
+	/**
+   * Schedule a sound clip with its source offset, playback speed and gain envelope.
+   * @param ctx - Offline destination context.
+   * @param buffer - Decoded sound source.
+   * @param region - Independent clip settings.
+   * @param slices - Legacy source-to-output mapping.
+   * @param chunkOutputStartSec - Timeline start of the current output chunk.
+   * @param chunkDurationSec - Current output chunk duration.
+   * @param usesClipTimeline - Whether region positions already use output time.
+   * @returns Nothing; schedules source and gain nodes in the offline context.
+   */
 	protected scheduleRegionForChunk(
 		ctx: OfflineAudioContext,
 		buffer: AudioBuffer,
@@ -397,16 +407,17 @@ export class OfflineAudioProcessor extends AudioMediaProcessor {
 		if (localEndSec <= 0 || localStartSec >= chunkDurationSec) return;
 
 		// Clip to chunk bounds
-		let bufferOffsetSec = 0;
+		const rate = region.playbackRate ?? 1;
+		let bufferOffsetSec = (region.sourceStartMs ?? 0) / 1000;
 		if (localStartSec < 0) {
-			bufferOffsetSec = -localStartSec;
+			bufferOffsetSec += -localStartSec * rate;
 			localStartSec = 0;
 		}
 		if (localEndSec > chunkDurationSec) {
 			localEndSec = chunkDurationSec;
 		}
 
-		const duration = Math.min(localEndSec - localStartSec, buffer.duration - bufferOffsetSec);
+		const duration = Math.min((localEndSec - localStartSec) * rate, buffer.duration - bufferOffsetSec);
 		if (duration <= 0.001) return;
 
 		const gainNode = ctx.createGain();
@@ -415,9 +426,21 @@ export class OfflineAudioProcessor extends AudioMediaProcessor {
 		gainNode.connect(ctx.destination);
 
 		const source = ctx.createBufferSource();
-		source.buffer = buffer;
+		const stretch = Math.abs(rate - 1) > 0.001;
+		source.buffer = stretch ? this.stretchAudioBuffer(buffer, rate, bufferOffsetSec, duration, duration / rate, ctx) : buffer;
+		source.playbackRate.value = 1;
+		// Evaluate fades in timeline time so chunk boundaries preserve the same envelope.
+		const gain = gainNode.gain.value;
+		const fadeIn = (region.fadeInMs ?? 0) / 1000;
+		const fadeOut = (region.fadeOutMs ?? 0) / 1000;
+		const outputStart = outputStartMs / 1000 - chunkOutputStartSec;
+		const outputEnd = outputEndMs / 1000 - chunkOutputStartSec;
+		const envelope = (time: number): number => gain * Math.max(0, Math.min(1, fadeIn > 0 ? (time - outputStart) / fadeIn : 1, fadeOut > 0 ? (outputEnd - time) / fadeOut : 1));
+		const times = [localStartSec, outputStart + fadeIn, outputEnd - fadeOut, localEndSec].filter((time) => time >= localStartSec && time <= localEndSec).sort((a, b) => a - b);
+		gainNode.gain.setValueAtTime(envelope(localStartSec), localStartSec);
+		for (const time of times) gainNode.gain.linearRampToValueAtTime(envelope(time), time);
 		source.connect(gainNode);
-		source.start(localStartSec, bufferOffsetSec, duration);
+		source.start(localStartSec, stretch ? 0 : bufferOffsetSec, stretch ? duration / rate : duration);
 	}
 
 	// Feed a rendered AudioBuffer chunk to an AudioEncoder with a timestamp offset.

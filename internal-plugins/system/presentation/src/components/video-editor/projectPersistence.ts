@@ -1,9 +1,15 @@
+import { normalizeAnnotationRotation } from "./annotationGeometry";
+import { getZoomScale, normalizeZoomCamera } from './zoomCamera';
 import { getLocalMediaServerPath } from "@presentation/lib/localMediaUrl";
 import type { SourceAudioTrackSettings } from "@presentation/components/video-editor/audio/audioTypes";
 import { DEFAULT_WALLPAPER_PATH } from "@presentation/lib/wallpapers";
-import { ASPECT_RATIOS, type AspectRatio, isCustomAspectRatio } from "@presentation/utils/aspectRatioUtils";
-import { closeClipGaps, rippleRegionAnchors, rippleRegions } from "./clipSequence";
-import { CURSOR_MOTION_PRESETS, resolveCursorMotionPresetId } from "./cursorMotionPresets";
+import {
+	ASPECT_RATIOS,
+	type AspectRatio,
+	isCustomAspectRatio,
+} from "@presentation/utils/aspectRatioUtils";
+import { closeClipGaps, rippleRegions } from "./clipSequence";
+import { CURSOR_MOTION_PRESETS } from "./cursorMotionPresets";
 import {
 	ADVANCED_VERTICAL_PADDING_MAX,
 	type AnnotationRegion,
@@ -31,6 +37,7 @@ import {
 	DEFAULT_CURSOR_CLICK_EFFECT_SCALE,
 	DEFAULT_CURSOR_MOTION_BLUR,
 	DEFAULT_CURSOR_STYLE,
+	normalizeCursorStyle,
 	DEFAULT_CURSOR_SWAY,
 	DEFAULT_FIGURE_DATA,
 	DEFAULT_PADDING,
@@ -79,9 +86,10 @@ export function legacyBorderRadiusPixelsToPercent(value: number): number {
 	return (value / LEGACY_BORDER_RADIUS_REFERENCE_PX) * 100;
 }
 
-const DEFAULT_MOTION_PRESET = CURSOR_MOTION_PRESETS.focused;
+const DEFAULT_MOTION_PRESET = CURSOR_MOTION_PRESETS.smooth;
 
 export interface ProjectEditorState {
+	sourceAudioVisibilityVersion: number;
 	wallpaper: string;
 	shadowIntensity: number;
 	backgroundBlur: number;
@@ -119,15 +127,18 @@ export interface ProjectEditorState {
 	cursorClickBounceDuration: number;
 	cursorSway: number;
 	borderRadius: number;
+	backgroundBorderRadius: number;
 	padding: Padding;
 	cropRegion: CropRegion;
 	zoomRegions: ZoomRegion[];
 	trimRegions: TrimRegion[];
+	trackOrder?: string[];
 	clipRegions: ClipRegion[];
 	autoFullTrackClipId?: string | null;
 	autoFullTrackClipEndMs?: number | null;
 	speedRegions: SpeedRegion[];
 	annotationRegions: AnnotationRegion[];
+	keyboardDisplayEnabled: boolean | null;
 	audioRegions: AudioRegion[];
 	autoCaptions: CaptionCue[];
 	autoCaptionSettings: AutoCaptionSettings;
@@ -300,6 +311,11 @@ export function validateProjectData(candidate: unknown): candidate is EditorProj
 	return true;
 }
 
+/**
+ * 校验项目编辑状态，补齐缺失默认值并保留已保存的独立参数。
+ * @param editor 读取的项目编辑状态或新项目的空设置。
+ * @returns 可用于预览、编辑和导出的完整状态。
+ */
 export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): ProjectEditorState {
 	const validAspectRatios = new Set<AspectRatio>(ASPECT_RATIOS);
 	const legacyMotionBlurEnabled = (editor as Partial<{ motionBlurEnabled: boolean }>)
@@ -366,16 +382,10 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 
 	const normalizedZoomRegions: ZoomRegion[] = Array.isArray(editor.zoomRegions)
 		? editor.zoomRegions
-				.filter((region): region is ZoomRegion =>
-					Boolean(region && typeof region.id === "string"),
-				)
+				.filter((region): region is ZoomRegion => Boolean(region && typeof region.id === "string"))
 				.map((region) => {
-					const rawStart = isFiniteNumber(region.startMs)
-						? Math.round(region.startMs)
-						: 0;
-					const rawEnd = isFiniteNumber(region.endMs)
-						? Math.round(region.endMs)
-						: rawStart + 1000;
+					const rawStart = isFiniteNumber(region.startMs) ? Math.round(region.startMs) : 0;
+					const rawEnd = isFiniteNumber(region.endMs) ? Math.round(region.endMs) : rawStart + 1000;
 					const startMs = Math.max(0, Math.min(rawStart, rawEnd));
 					const endMs = Math.max(startMs + 1, rawEnd);
 
@@ -383,41 +393,24 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 						id: region.id,
 						startMs,
 						endMs,
-						depth: [1, 2, 3, 4, 5, 6].includes(region.depth)
-							? region.depth
-							: DEFAULT_ZOOM_DEPTH,
+						depth: [1, 2, 3, 4, 5, 6].includes(region.depth) ? region.depth : DEFAULT_ZOOM_DEPTH,
+						...(region.scale !== undefined ? { scale: getZoomScale(region) } : {}),
+						...(region.camera ? { camera: normalizeZoomCamera(region.camera) } : {}),
 						focus: {
-							cx: clamp(
-								isFiniteNumber(region.focus?.cx) ? region.focus.cx : 0.5,
-								0,
-								1,
-							),
-							cy: clamp(
-								isFiniteNumber(region.focus?.cy) ? region.focus.cy : 0.5,
-								0,
-								1,
-							),
+							cx: clamp(isFiniteNumber(region.focus?.cx) ? region.focus.cx : 0.5, 0, 1),
+							cy: clamp(isFiniteNumber(region.focus?.cy) ? region.focus.cy : 0.5, 0, 1),
 						},
-						mode:
-							region.mode === "auto" || region.mode === "manual"
-								? region.mode
-								: undefined,
+						mode: region.mode === "auto" || region.mode === "manual" ? region.mode : undefined,
 					};
 				})
 		: [];
 
 	const normalizedTrimRegions: TrimRegion[] = Array.isArray(editor.trimRegions)
 		? editor.trimRegions
-				.filter((region): region is TrimRegion =>
-					Boolean(region && typeof region.id === "string"),
-				)
+				.filter((region): region is TrimRegion => Boolean(region && typeof region.id === "string"))
 				.map((region) => {
-					const rawStart = isFiniteNumber(region.startMs)
-						? Math.round(region.startMs)
-						: 0;
-					const rawEnd = isFiniteNumber(region.endMs)
-						? Math.round(region.endMs)
-						: rawStart + 1000;
+					const rawStart = isFiniteNumber(region.startMs) ? Math.round(region.startMs) : 0;
+					const rawEnd = isFiniteNumber(region.endMs) ? Math.round(region.endMs) : rawStart + 1000;
 					const startMs = Math.max(0, Math.min(rawStart, rawEnd));
 					const endMs = Math.max(startMs + 1, rawEnd);
 					return {
@@ -430,16 +423,10 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 
 	const normalizedClipRegions: ClipRegion[] = Array.isArray(editor.clipRegions)
 		? editor.clipRegions
-				.filter((region): region is ClipRegion =>
-					Boolean(region && typeof region.id === "string"),
-				)
+				.filter((region): region is ClipRegion => Boolean(region && typeof region.id === "string"))
 				.map((region) => {
-					const rawStart = isFiniteNumber(region.startMs)
-						? Math.round(region.startMs)
-						: 0;
-					const rawEnd = isFiniteNumber(region.endMs)
-						? Math.round(region.endMs)
-						: rawStart + 1000;
+					const rawStart = isFiniteNumber(region.startMs) ? Math.round(region.startMs) : 0;
+					const rawEnd = isFiniteNumber(region.endMs) ? Math.round(region.endMs) : rawStart + 1000;
 					const startMs = Math.max(0, Math.min(rawStart, rawEnd));
 					const endMs = Math.max(startMs + 1, rawEnd);
 					const sourceStartMs = isFiniteNumber(region.sourceStartMs)
@@ -467,10 +454,19 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 						sourceMaxMs,
 						speed: isFiniteNumber(region.speed) && region.speed > 0 ? region.speed : 1,
 						muted: typeof region.muted === "boolean" ? region.muted : false,
+						detachedAudioPaths: Array.isArray(region.detachedAudioPaths)
+							? region.detachedAudioPaths.filter(
+									(value): value is string => typeof value === "string",
+								)
+							: undefined,
 						showSourceAudio:
-							typeof region.showSourceAudio === "boolean"
-								? region.showSourceAudio
-								: false,
+							// 已独立编辑的来源不再生成旧虚拟音频条，兼容修复此前重置留下的错误状态。
+							Array.isArray(region.detachedAudioPaths) && region.detachedAudioPaths.length > 0
+								? false : typeof region.showSourceAudio === "boolean"
+								? editor.sourceAudioVisibilityVersion === 1
+									? region.showSourceAudio
+									: true
+								: true,
 					};
 				})
 		: [];
@@ -490,16 +486,10 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 
 	const normalizedSpeedRegions: SpeedRegion[] = Array.isArray(editor.speedRegions)
 		? editor.speedRegions
-				.filter((region): region is SpeedRegion =>
-					Boolean(region && typeof region.id === "string"),
-				)
+				.filter((region): region is SpeedRegion => Boolean(region && typeof region.id === "string"))
 				.map((region) => {
-					const rawStart = isFiniteNumber(region.startMs)
-						? Math.round(region.startMs)
-						: 0;
-					const rawEnd = isFiniteNumber(region.endMs)
-						? Math.round(region.endMs)
-						: rawStart + 1000;
+					const rawStart = isFiniteNumber(region.startMs) ? Math.round(region.startMs) : 0;
+					const rawEnd = isFiniteNumber(region.endMs) ? Math.round(region.endMs) : rawStart + 1000;
 					const startMs = Math.max(0, Math.min(rawStart, rawEnd));
 					const endMs = Math.max(startMs + 1, rawEnd);
 
@@ -529,32 +519,26 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 					Boolean(region && typeof region.id === "string"),
 				)
 				.map((region, index) => {
-					const rawStart = isFiniteNumber(region.startMs)
-						? Math.round(region.startMs)
-						: 0;
-					const rawEnd = isFiniteNumber(region.endMs)
-						? Math.round(region.endMs)
-						: rawStart + 1000;
+					const rawStart = isFiniteNumber(region.startMs) ? Math.round(region.startMs) : 0;
+					const rawEnd = isFiniteNumber(region.endMs) ? Math.round(region.endMs) : rawStart + 1000;
 					const startMs = Math.max(0, Math.min(rawStart, rawEnd));
 					const endMs = Math.max(startMs + 1, rawEnd);
 
 					return {
 						id: region.id,
+						rotation: normalizeAnnotationRotation(region.rotation),
+						keystrokeVersion: region.keystrokeVersion === 1 ? 1 as const : undefined,
 						startMs,
 						endMs,
 						type:
 							region.type === "image" ||
 							region.type === "figure" ||
-							region.type === "blur"
+							["blur", "focus", "mosaic", "keystroke"].includes(region.type)
 								? region.type
 								: "text",
 						content: typeof region.content === "string" ? region.content : "",
-						textContent:
-							typeof region.textContent === "string" ? region.textContent : undefined,
-						imageContent:
-							typeof region.imageContent === "string"
-								? region.imageContent
-								: undefined,
+						textContent: typeof region.textContent === "string" ? region.textContent : undefined,
+						imageContent: typeof region.imageContent === "string" ? region.imageContent : undefined,
 						position: {
 							x: isFiniteNumber(region.position?.x)
 								? region.position.x
@@ -581,9 +565,7 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 						},
 						style: {
 							...DEFAULT_ANNOTATION_STYLE,
-							...(region.style && typeof region.style === "object"
-								? region.style
-								: {}),
+							...(region.style && typeof region.style === "object" ? region.style : {}),
 						},
 						zIndex: isFiniteNumber(region.zIndex) ? region.zIndex : index + 1,
 						figureData: region.figureData
@@ -595,8 +577,7 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 						blurIntensity: isFiniteNumber(region.blurIntensity)
 							? clamp(region.blurIntensity, 1, 100)
 							: 20,
-						blurColor:
-							typeof region.blurColor === "string" ? region.blurColor : undefined,
+						blurColor: typeof region.blurColor === "string" ? region.blurColor : undefined,
 						trackIndex: isFiniteNumber(region.trackIndex)
 							? Math.max(0, Math.floor(region.trackIndex))
 							: 0,
@@ -608,16 +589,10 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 		(editor as Partial<ProjectEditorState>).audioRegions,
 	)
 		? ((editor as Partial<ProjectEditorState>).audioRegions as AudioRegion[])
-				.filter((region): region is AudioRegion =>
-					Boolean(region && typeof region.id === "string"),
-				)
+				.filter((region): region is AudioRegion => Boolean(region && typeof region.id === "string"))
 				.map((region) => {
-					const rawStart = isFiniteNumber(region.startMs)
-						? Math.round(region.startMs)
-						: 0;
-					const rawEnd = isFiniteNumber(region.endMs)
-						? Math.round(region.endMs)
-						: rawStart + 1000;
+					const rawStart = isFiniteNumber(region.startMs) ? Math.round(region.startMs) : 0;
+					const rawEnd = isFiniteNumber(region.endMs) ? Math.round(region.endMs) : rawStart + 1000;
 					const startMs = Math.max(0, Math.min(rawStart, rawEnd));
 					const endMs = Math.max(startMs + 1, rawEnd);
 
@@ -625,6 +600,11 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 						id: region.id,
 						startMs,
 						endMs,
+						sourceStartMs: Math.max(0, Number(region.sourceStartMs) || 0),
+						playbackRate: clamp(Number(region.playbackRate) || 1, 0.25, 4),
+						fadeInMs: Math.max(0, Number(region.fadeInMs) || 0),
+						fadeOutMs: Math.max(0, Number(region.fadeOutMs) || 0),
+						label: typeof region.label === "string" ? region.label : undefined,
 						audioPath: typeof region.audioPath === "string" ? region.audioPath : "",
 						volume: isFiniteNumber(region.volume) ? clamp(region.volume, 0, 1) : 1,
 						normalize: Boolean(region.normalize),
@@ -642,9 +622,7 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 				.filter((cue): cue is CaptionCue => Boolean(cue && typeof cue.id === "string"))
 				.map((cue) => {
 					const rawStart = isFiniteNumber(cue.startMs) ? Math.round(cue.startMs) : 0;
-					const rawEnd = isFiniteNumber(cue.endMs)
-						? Math.round(cue.endMs)
-						: rawStart + 1000;
+					const rawEnd = isFiniteNumber(cue.endMs) ? Math.round(cue.endMs) : rawStart + 1000;
 					const startMs = Math.max(0, Math.min(rawStart, rawEnd));
 					const endMs = Math.max(startMs + 1, rawEnd);
 					const words: CaptionCueWord[] | undefined = Array.isArray(cue.words)
@@ -659,16 +637,8 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 									const rawWordEnd = isFiniteNumber(word.endMs)
 										? Math.round(word.endMs)
 										: rawWordStart + 1;
-									const normalizedWordStart = clamp(
-										rawWordStart,
-										startMs,
-										endMs - 1,
-									);
-									const normalizedWordEnd = clamp(
-										rawWordEnd,
-										normalizedWordStart + 1,
-										endMs,
-									);
+									const normalizedWordStart = clamp(rawWordStart, startMs, endMs - 1);
+									const normalizedWordEnd = clamp(rawWordEnd, normalizedWordStart + 1, endMs);
 
 									return {
 										text: word.text.trim(),
@@ -705,8 +675,7 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 				? rawAutoCaptionSettings.timelineQuickAdd
 				: DEFAULT_AUTO_CAPTION_SETTINGS.timelineQuickAdd,
 		language:
-			typeof rawAutoCaptionSettings.language === "string" &&
-			rawAutoCaptionSettings.language.trim()
+			typeof rawAutoCaptionSettings.language === "string" && rawAutoCaptionSettings.language.trim()
 				? rawAutoCaptionSettings.language.trim()
 				: DEFAULT_AUTO_CAPTION_SETTINGS.language,
 		fontFamily: getDefaultCaptionFontFamily(),
@@ -774,7 +743,7 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 		typeof editor.cursorStyle === "string" && editor.cursorStyle.trim().length > 0
 			? editor.cursorStyle === "mono"
 				? "tahoe-inverted"
-				: editor.cursorStyle
+				: normalizeCursorStyle(editor.cursorStyle)
 			: DEFAULT_CURSOR_STYLE;
 	const normalizedMotionValues = {
 		zoomInDurationMs: normalizedZoomInDurationMs,
@@ -800,11 +769,7 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 		cursorClickBounceDuration: isFiniteNumber(
 			(editor as Partial<ProjectEditorState>).cursorClickBounceDuration,
 		)
-			? clamp(
-					(editor as Partial<ProjectEditorState>).cursorClickBounceDuration as number,
-					60,
-					500,
-				)
+			? clamp((editor as Partial<ProjectEditorState>).cursorClickBounceDuration as number, 60, 500)
 			: DEFAULT_MOTION_PRESET.cursorClickBounceDuration,
 	};
 	const normalizedCursorClickEffectScale = isFiniteNumber(
@@ -830,10 +795,11 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 		(editor as Partial<ProjectEditorState>).cursorClickEffectColor,
 		DEFAULT_CURSOR_CLICK_EFFECT_COLOR,
 	);
-	const normalizedMotionPreset =
-		CURSOR_MOTION_PRESETS[resolveCursorMotionPresetId(normalizedMotionValues)];
+	// 分别保留已保存的运动与光标参数，缺失值才使用平滑默认值。
+	const normalizedMotionPreset = normalizedMotionValues;
 
 	return {
+		sourceAudioVisibilityVersion: 1,
 		wallpaper: typeof editor.wallpaper === "string" ? editor.wallpaper : DEFAULT_WALLPAPER_PATH,
 		shadowIntensity: typeof editor.shadowIntensity === "number" ? editor.shadowIntensity : 0.67,
 		backgroundBlur: normalizedBackgroundBlur,
@@ -877,14 +843,17 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 			? clamp(editor.cameraSpringMassMultiplier, 0.25, 3)
 			: 1.12,
 		zoomSmoothness: DEFAULT_ZOOM_SMOOTHNESS,
-		zoomClassicMode:
-			typeof editor.zoomClassicMode === "boolean" ? editor.zoomClassicMode : false,
+		// 旧经典开关由运动效果取代，继续使用已保存的缩放时长。
+		zoomClassicMode: false,
 		cursorMotionBlur: DEFAULT_CURSOR_MOTION_BLUR,
 		cursorClickBounce: normalizedMotionPreset.cursorClickBounce,
 		cursorClickBounceDuration: normalizedMotionPreset.cursorClickBounceDuration,
 		cursorSway: isFiniteNumber((editor as Partial<ProjectEditorState>).cursorSway)
 			? clamp((editor as Partial<ProjectEditorState>).cursorSway as number, 0, 2)
 			: DEFAULT_CURSOR_SWAY,
+		backgroundBorderRadius: isFiniteNumber(editor.backgroundBorderRadius)
+			? clamp(editor.backgroundBorderRadius, 0, 50)
+			: 0,
 		borderRadius: isFiniteNumber(editor.borderRadius)
 			? clamp(editor.borderRadius, 0, 50)
 			: getDefaultBorderRadiusPercent(),
@@ -893,9 +862,7 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 			if (p && typeof p === "object") {
 				const linked = typeof p.linked === "boolean" ? p.linked : true;
 				const verticalMax = linked ? 100 : ADVANCED_VERTICAL_PADDING_MAX;
-				const top = isFiniteNumber(p.top)
-					? clamp(p.top, 0, verticalMax)
-					: DEFAULT_PADDING.top;
+				const top = isFiniteNumber(p.top) ? clamp(p.top, 0, verticalMax) : DEFAULT_PADDING.top;
 				if (linked) {
 					return { top, bottom: top, left: top, right: top, linked: true };
 				}
@@ -925,19 +892,40 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 			? rippleRegions(normalizedZoomRegions, normalizedClipRegions, sequenceClips)
 			: normalizedZoomRegions,
 		trimRegions: normalizedTrimRegions,
+		trackOrder: Array.isArray(editor.trackOrder) ? [...new Set(editor.trackOrder.filter((id): id is string => typeof id === "string" && id.length > 0))] : [],
 		clipRegions: sequenceClips,
 		autoFullTrackClipId: normalizedAutoFullTrackClipId,
 		autoFullTrackClipEndMs: normalizedAutoFullTrackClipEndMs,
 		speedRegions: normalizedSpeedRegions,
+		keyboardDisplayEnabled: typeof editor.keyboardDisplayEnabled === 'boolean' ? editor.keyboardDisplayEnabled : null,
 		annotationRegions: sequenceChanged
 			? rippleRegions(normalizedAnnotationRegions, normalizedClipRegions, sequenceClips)
 			: normalizedAnnotationRegions,
-		audioRegions: sequenceChanged
-			? rippleRegionAnchors(normalizedAudioRegions, normalizedClipRegions, sequenceClips)
-			: normalizedAudioRegions,
+		audioRegions: normalizedAudioRegions,
 		autoCaptions: normalizedAutoCaptions,
 		autoCaptionSettings: normalizedAutoCaptionSettings,
 		webcam: {
+			sourceDurationMs:
+				isFiniteNumber(webcam.sourceDurationMs) && webcam.sourceDurationMs > 0
+					? webcam.sourceDurationMs
+					: undefined,
+			segments: Array.isArray(webcam.segments)
+				? webcam.segments
+						.filter(
+							(segment) =>
+								typeof segment.id === "string" &&
+								isFiniteNumber(segment.startMs) &&
+								isFiniteNumber(segment.endMs) &&
+								segment.endMs > segment.startMs &&
+								isFiniteNumber(segment.sourceStartMs),
+						)
+						.map((segment) => ({
+							id: segment.id,
+							startMs: Math.max(0, segment.startMs),
+							endMs: segment.endMs,
+							sourceStartMs: Math.max(0, segment.sourceStartMs),
+						}))
+				: undefined,
 			visibleRanges: Array.isArray(webcam.visibleRanges)
 				? webcam.visibleRanges
 						.filter(
@@ -950,12 +938,9 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 						.map(({ startMs, endMs }) => ({ startMs, endMs }))
 				: undefined,
 			enabled:
-				typeof webcam.enabled === "boolean"
-					? webcam.enabled
-					: DEFAULT_WEBCAM_OVERLAY.enabled,
+				typeof webcam.enabled === "boolean" ? webcam.enabled : DEFAULT_WEBCAM_OVERLAY.enabled,
 			sourcePath: webcamSourcePath,
-			mirror:
-				typeof webcam.mirror === "boolean" ? webcam.mirror : DEFAULT_WEBCAM_OVERLAY.mirror,
+			mirror: typeof webcam.mirror === "boolean" ? webcam.mirror : DEFAULT_WEBCAM_OVERLAY.mirror,
 			cropRegion: normalizeWebcamCropRegion(webcam.cropRegion),
 			positionPreset:
 				webcam.positionPreset === "top-left" ||
@@ -970,9 +955,9 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 				webcam.positionPreset === "custom"
 					? webcam.positionPreset
 					: webcam.corner === "top-left" ||
-							webcam.corner === "top-right" ||
-							webcam.corner === "bottom-left" ||
-							webcam.corner === "bottom-right"
+						  webcam.corner === "top-right" ||
+						  webcam.corner === "bottom-left" ||
+						  webcam.corner === "bottom-right"
 						? webcam.corner
 						: DEFAULT_WEBCAM_POSITION_PRESET,
 			positionX: isFiniteNumber(webcam.positionX)
@@ -989,6 +974,7 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 					? webcam.corner
 					: DEFAULT_WEBCAM_OVERLAY.corner,
 			size: isFiniteNumber(webcam.size) ? clamp(webcam.size, 10, 100) : DEFAULT_WEBCAM_SIZE,
+			dimensionsMode: webcam.dimensionsMode === "manual" ? "manual" : undefined,
 			width: isFiniteNumber(webcam.width)
 				? clamp(webcam.width, 10, 100)
 				: isFiniteNumber(webcam.size)
@@ -1022,15 +1008,11 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 									: DEFAULT_WEBCAM_SIZE,
 						)
 					: DEFAULT_WEBCAM_ROUNDNESS,
-			shadow: isFiniteNumber(webcam.shadow)
-				? clamp(webcam.shadow, 0, 1)
-				: DEFAULT_WEBCAM_SHADOW,
+			shadow: isFiniteNumber(webcam.shadow) ? clamp(webcam.shadow, 0, 1) : DEFAULT_WEBCAM_SHADOW,
 			timeOffsetMs: isFiniteNumber(webcam.timeOffsetMs)
 				? Math.round(webcam.timeOffsetMs)
 				: DEFAULT_WEBCAM_TIME_OFFSET_MS,
-			margin: isFiniteNumber(webcam.margin)
-				? clamp(webcam.margin, 0, 96)
-				: DEFAULT_WEBCAM_MARGIN,
+			margin: isFiniteNumber(webcam.margin) ? clamp(webcam.margin, 0, 96) : DEFAULT_WEBCAM_MARGIN,
 		},
 		sourceAudioTrackSettingsByClip:
 			editor.sourceAudioTrackSettingsByClip &&

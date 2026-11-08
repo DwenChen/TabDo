@@ -1,4 +1,28 @@
 {
+  "rename-interactions": {
+    "unit": [
+      "tests/main/toolsRenameRules.test.ts",
+      "tests/main/toolsFiles.test.ts",
+      "tests/main/toolsLifecycle.test.ts"
+    ],
+    "e2e": [
+      "tests/e2e/rename-interactions.spec.ts",
+      "tests/e2e/tools-lifecycle.spec.ts"
+    ]
+  },
+  "temporary-residency": {
+    "unit": [
+      "tests/main/temporaryResidencyApi.test.ts",
+      "tests/main/toolsLifecycle.test.ts",
+      "tests/main/detachedWindowUpgrade.test.ts",
+      "tests/main/pluginRuntimeResources.test.ts"
+    ],
+    "e2e": [
+      "tests/e2e/temporary-residency-switch.spec.ts",
+      "tests/e2e/plugin-host-regressions.spec.ts",
+      "tests/e2e/tools-lifecycle.spec.ts"
+    ]
+  },
   "usage-guide": {
     "unit": [
       "tests/main/pluginDialogGetPath.test.ts",
@@ -66,6 +90,7 @@
       "tests/main/internalPluginDefaults.test.ts"
     ],
     "e2e": [
+      "tests/e2e/rename-interactions.spec.ts",
       "tests/e2e/tools-expanded.spec.ts",
       "tests/e2e/builtin-providers.spec.ts",
       "tests/e2e/tools-lifecycle.spec.ts"
@@ -431,19 +456,200 @@
   "presentation-recorder": {
     "unit": [
       "tests/main/presentationBehavior.test.ts",
+      "tests/main/presentationSettings.test.ts",
       "tests/main/detachedWindowUpgrade.test.ts",
       "tests/main/toolsLifecycle.test.ts",
       "tests/main/commandContextShared.test.ts",
       "tests/main/builtinProviderService.test.ts",
       "tests/main/temporaryResidencyApi.test.ts",
       "tests/scripts/portablePreviewResources.test.ts",
-      "tests/main/localEditionDefaults.test.ts"
+      "tests/main/localEditionDefaults.test.ts",
+      "tests/main/presentationCaptureSession.test.ts",
+      "tests/main/presentationRetirement.test.ts",
+      "tests/main/presentationTimeline.test.ts",
+      "tests/main/presentationRecycle.test.ts",
+      "tests/main/presentationCaptureClock.test.ts",
+      "tests/main/presentationTimelineInteractions.test.ts"
     ],
     "e2e": [
       "tests/e2e/presentation-recorder.spec.ts",
       "tests/e2e/presentation-import.spec.ts",
       "tests/e2e/builtin-providers.spec.ts",
-      "tests/e2e/settings-cleanup.spec.ts"
+      "tests/e2e/settings-cleanup.spec.ts",
+      "tests/e2e/presentation-tracks.spec.ts",
+      "tests/e2e/presentation-cursor-capture.spec.ts",
+      "tests/e2e/presentation-synchronization.spec.ts",
+      "tests/e2e/presentation-native-camera.spec.ts"
+    ]
+  },
+  "idle-memory": {
+    "unit": [
+      "tests/main/idleMemoryReclaimer.test.ts",
+      "tests/main/presentationCaptureSession.test.ts",
+      "tests/main/iconProtocol.test.ts",
+      "tests/main/toolsLifecycle.test.ts",
+      "tests/main/toolsHostLifecycle.test.ts",
+      "tests/main/presentationRetirement.test.ts"
+    ],
+    "e2e": [
+      "tests/e2e/idle-memory.spec.ts",
+      "tests/e2e/idle-input-state.spec.ts",
+      "tests/e2e/performance-budget.spec.ts",
+      "tests/e2e/presentation-recorder.spec.ts",
+      "tests/e2e/presentation-import.spec.ts"
+    ]
+  },
+  "annotations": {
+    "unit": [
+      "tests/main/screenCaptureResult.test.ts"
+    ],
+    "e2e": [
+      "tests/e2e/tools-polish.spec.ts",
+      "tests/e2e/tools-screenshot.spec.ts",
+      "tests/e2e/image-annotation-interactions.spec.ts"
+    ]
+  },
+  "presentation-timeline": {
+    "unit": [
+      "tests/main/presentationFilmstripCache.test.ts",
+      "tests/main/presentationTimelineInteractions.test.ts",
+      "tests/main/presentationTimeline.test.ts",
+      "tests/main/presentationBehavior.test.ts",
+      "tests/main/presentationEditorReview.test.ts",
+      "tests/main/presentationDefaults.test.ts"
+    ],
+    "e2e": [
+      "tests/e2e/presentation-tracks.spec.ts",
+      "tests/e2e/presentation-import.spec.ts",
+      "tests/e2e/presentation-review.spec.ts",
+      "tests/e2e/presentation-defaults.spec.ts"
+    ]
+  },
+  "presentation-camera-framing": {
+    "unit": [
+      "tests/main/presentationZoomCamera.test.ts"
+    ],
+    "e2e": [
+      "tests/e2e/presentation-zoom-camera.spec.ts"
+    ]
+  },
+  "presentation-editor-followup": {
+    "unit": [
+      "tests/main/presentationTimeline.test.ts",
+      "tests/main/presentationDefaults.test.ts",
+      "tests/main/presentationZoomCamera.test.ts"
+    ],
+    "e2e": [
+      "tests/e2e/presentation-editor-followup.spec.ts"
+    ]
+  },
+  "presentation-pending-verification": {
+    "unit": [
+      "tests/main/presentationDiagnosticTone.test.ts",
+      "tests/main/presentationCaptureClock.test.ts",
+      "tests/main/presentationTimeline.test.ts"
+    ],
+    "e2e": [
+      "tests/e2e/presentation-startup.spec.ts",
+      "tests/e2e/presentation-synchronization.spec.ts",
+      "tests/e2e/presentation-native-camera.spec.ts",
+      "tests/e2e/presentation-controls.spec.ts"
+    ]
+  },
+  "presentation-camera-preview-tail": {
+    "unit": [
+      "tests/main/presentationTimeline.test.ts",
+      "tests/main/presentationCaptureClock.test.ts",
+      "tests/main/presentationRecordingPreferences.test.ts"
+    ],
+    "e2e": [
+      "tests/e2e/presentation-controls.spec.ts",
+      "tests/e2e/presentation-synchronization.spec.ts",
+      "tests/e2e/presentation-native-camera.spec.ts"
+    ]
+  },
+  "presentation-hud-hints": {
+    "unit": [
+      "tests/main/presentationRecordingPreferences.test.ts"
+    ],
+    "e2e": [
+      "tests/e2e/presentation-controls.spec.ts"
+    ]
+  },
+  "presentation-visual-effects": {
+    "unit": [
+      "tests/main/presentationRefinement.test.ts",
+      "tests/main/presentationKeyboardCapture.test.ts",
+      "tests/main/presentationVisualEffects.test.ts",
+      "tests/main/presentationTimeline.test.ts",
+      "tests/main/presentationDefaults.test.ts"
+    ],
+    "e2e": [
+      "tests/e2e/presentation-visual-effects.spec.ts",
+      "tests/e2e/presentation-controls.spec.ts"
+    ]
+  },
+  "presentation-timeline-effects": {
+    "unit": [
+      "tests/main/presentationTimelineEffects.test.ts",
+      "tests/main/presentationFragments.test.ts",
+      "tests/main/presentationZoomCamera.test.ts"
+    ],
+    "e2e": [
+      "tests/e2e/presentation-timeline-effects.spec.ts"
+    ]
+  },
+  "presentation-editing": {
+    "unit": [
+      "tests/main/presentationTimelineEffects.test.ts",
+      "tests/main/presentationZoomCamera.test.ts",
+      "tests/main/presentationFilmstripCache.test.ts",
+      "tests/main/presentationTimeline.test.ts",
+      "tests/main/presentationSettings.test.ts",
+      "tests/main/presentationStoragePath.test.ts",
+      "tests/main/presentationRecordingLibrary.test.ts",
+      "tests/main/presentationRecordingPreferences.test.ts",
+      "tests/main/presentationBehavior.test.ts",
+      "tests/main/presentationRecycle.test.ts",
+      "tests/main/presentationCaptureClock.test.ts",
+      "tests/main/presentationTimelineInteractions.test.ts",
+      "tests/main/presentationEditorReview.test.ts",
+      "tests/main/presentationFragments.test.ts",
+      "tests/main/presentationDefaults.test.ts"
+    ],
+    "e2e": [
+      "tests/e2e/presentation-timeline-effects.spec.ts",
+      "tests/e2e/presentation-recorder.spec.ts",
+      "tests/e2e/presentation-import.spec.ts",
+      "tests/e2e/presentation-tracks.spec.ts",
+      "tests/e2e/presentation-controls.spec.ts",
+      "tests/e2e/presentation-cursor-capture.spec.ts",
+      "tests/e2e/presentation-synchronization.spec.ts",
+      "tests/e2e/presentation-native-camera.spec.ts",
+      "tests/e2e/presentation-review.spec.ts",
+      "tests/e2e/presentation-fragments.spec.ts",
+      "tests/e2e/presentation-inspector.spec.ts",
+      "tests/e2e/presentation-defaults.spec.ts",
+      "tests/e2e/presentation-zoom-camera.spec.ts",
+      "tests/e2e/presentation-editor-followup.spec.ts"
+    ]
+  },
+  "presentation-final-review": {
+    "unit": [
+      "tests/main/presentationAudioMeter.test.ts",
+      "tests/main/presentationForwardFrames.test.ts",
+      "tests/main/presentationRuntimeTimers.test.ts",
+      "tests/main/presentationRetirement.test.ts",
+      "tests/main/presentationCaptureSession.test.ts",
+      "tests/main/presentationCaptureClock.test.ts",
+      "tests/main/presentationDiagnosticTone.test.ts"
+    ],
+    "e2e": [
+      "tests/e2e/presentation-runtime.spec.ts",
+      "tests/e2e/presentation-controls.spec.ts",
+      "tests/e2e/presentation-recorder.spec.ts",
+      "tests/e2e/presentation-import.spec.ts",
+      "tests/e2e/presentation-synchronization.spec.ts"
     ]
   }
 }

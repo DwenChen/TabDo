@@ -1,4 +1,5 @@
 import { LibrarySkeleton } from "./LibrarySkeleton";
+import { localizePresentationMessage } from '@presentation/lib/presentationMessages';
 import { RecordNewButton } from "./RecordNewButton";
 import { RawPreview } from "./RawRecordings";
 import { Cloud, ImageSquare } from "@presentation/components/ui/icons";
@@ -66,7 +67,7 @@ export function DashboardGrid({
 	| "folders"
 	| "save"
 	| "assignFolder"
-	| "项已选择"
+	| "selected"
 	| "openEntry"
 	| "query"
 	| "hasActiveFilters"
@@ -77,9 +78,9 @@ export function DashboardGrid({
 	return (
 		<>
 			<main className="custom-scrollbar min-h-0 flex-1 overflow-y-auto px-7 pb-10 lg:px-10">
-				{error && (
+				{error && section !== 'settings' && (
 					<p role="alert" className="mb-4 text-sm text-danger">
-						{error}
+						{localizePresentationMessage(error)}
 					</p>
 				)}
 				{section === "settings" ? (
@@ -104,7 +105,6 @@ export function DashboardGrid({
 									toggleSelected,
 									openEntry,
 									run,
-									onShareProject,
 									onRenameProject,
 									folders,
 									save,
@@ -125,11 +125,11 @@ export function DashboardGrid({
 						<p>
 							{isRaw
 								? rawLoading
-									? "Loading recordings…"
+									? "正在加载录制…"
 									: rawError ||
 										(hasActiveFilters
 											? "没有匹配的录制"
-											: "No raw recordings yet")
+											: "暂无原始录制")
 								: hasActiveFilters
 									? "没有匹配项目"
 									: "还没有项目，开始录制或导入文件。"}

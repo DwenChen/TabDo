@@ -30,7 +30,7 @@ export function FolderColors({
 			<Button
 				variant="ghost"
 				size="icon"
-				aria-label={`Change color for ${name}`}
+				aria-label={`更改文件夹颜色：${name}`}
 				className="size-8 min-w-8 rounded-md"
 			>
 				<FolderSimple weight="fill" className="size-[18px]" style={{ color: value }} />
@@ -66,7 +66,7 @@ export function FolderColors({
 							variant="ghost"
 							size="icon"
 							aria-label={
-								custom.includes(value) ? "Remove custom color" : "Save custom color"
+								custom.includes(value) ? "移除自定义颜色" : "保存自定义颜色"
 							}
 							disabled={FOLDER_COLORS.includes(value)}
 							className="size-8 min-w-8"

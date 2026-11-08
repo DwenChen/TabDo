@@ -9,6 +9,17 @@ let presentationPrefix = '',
   finishPresentationCapture
 let presentationPendingTasks = 0,
   presentationForegroundClosed = false
+
+/**
+ * 完整任务结束后先卸载编辑器，再关闭本次后端；项目文件与已保存偏好保留。
+ * @returns {Promise<void>} 当前渲染资源和后端释放完成后的Promise。
+ */
+async function closePresentationRuntime() {
+  // 只有最后一个必要任务完成后才撤下React树，防止中断正在导出的成片。
+  for (const frame of document.querySelectorAll('iframe.presentation-editor'))
+    frame.contentWindow?.disposePresentationRenderer?.()
+  await ipcRenderer.invoke('internal:presentation-close')
+}
 window.toolsPresentation = {
   /**
    * 登记演示组件的完整确认操作，前台退出后延迟释放仍归属任务的服务。
@@ -23,7 +34,7 @@ window.toolsPresentation = {
     } finally {
       presentationPendingTasks--
       if (presentationForegroundClosed && !presentationPendingTasks)
-        await ipcRenderer.invoke('internal:presentation-close')
+        await closePresentationRuntime()
     }
   },
   /**
@@ -88,7 +99,7 @@ window.toolsPresentation = {
           window.toolsPresentation.endCapture()
         }
       }
-      if (!presentationPendingTasks) return ipcRenderer.invoke('internal:presentation-close')
+      if (!presentationPendingTasks) return closePresentationRuntime()
     })
     presentationPrefix = result.prefix
     return result

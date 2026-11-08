@@ -31,7 +31,7 @@ export function registerCaptionHandlers() {
 					...(includeProjects
 						? [
 								{
-									name: "Media or Recordly Projects",
+									name: "媒体或演示项目",
 									extensions: [
 										...VIDEO_FILE_EXTENSIONS,
 										...PROJECT_FILE_EXTENSIONS,
@@ -39,11 +39,11 @@ export function registerCaptionHandlers() {
 								},
 							]
 						: []),
-					{ name: "Video Files", extensions: VIDEO_FILE_EXTENSIONS },
+					{ name: "视频文件", extensions: VIDEO_FILE_EXTENSIONS },
 					...(includeProjects
-						? [{ name: "Recordly Projects", extensions: PROJECT_FILE_EXTENSIONS }]
+						? [{ name: "演示项目", extensions: PROJECT_FILE_EXTENSIONS }]
 						: []),
-					{ name: "All Files", extensions: ["*"] },
+					{ name: "所有文件", extensions: ["*"] },
 				],
 				properties: ["openFile"],
 			});
@@ -73,7 +73,7 @@ export function registerCaptionHandlers() {
 			console.error("Failed to open file picker:", error);
 			return {
 				success: false,
-				message: "Failed to open file picker",
+				message: "无法打开文件选择器",
 				error: String(error),
 			};
 		}
@@ -82,13 +82,13 @@ export function registerCaptionHandlers() {
 	ipcMain.handle("open-audio-file-picker", async () => {
 		try {
 			const result = await dialog.showOpenDialog({
-				title: "Select Audio File",
+				title: "选择音频文件",
 				filters: [
 					{
-						name: "Audio Files",
+						name: "音频文件",
 						extensions: ["mp3", "wav", "aac", "m4a", "flac", "ogg"],
 					},
-					{ name: "All Files", extensions: ["*"] },
+					{ name: "所有文件", extensions: ["*"] },
 				],
 				properties: ["openFile"],
 			});
@@ -106,7 +106,7 @@ export function registerCaptionHandlers() {
 			console.error("Failed to open audio file picker:", error);
 			return {
 				success: false,
-				message: "Failed to open audio file picker",
+				message: "无法打开音频选择器",
 				error: String(error),
 			};
 		}
@@ -115,13 +115,13 @@ export function registerCaptionHandlers() {
 	ipcMain.handle("open-whisper-executable-picker", async () => {
 		try {
 			const result = await dialog.showOpenDialog({
-				title: "Select Whisper Executable",
+				title: "选择 Whisper 程序",
 				filters: [
 					{
-						name: "Executables",
+						name: "可执行程序",
 						extensions: process.platform === "win32" ? ["exe", "cmd", "bat"] : ["*"],
 					},
-					{ name: "All Files", extensions: ["*"] },
+					{ name: "所有文件", extensions: ["*"] },
 				],
 				properties: ["openFile"],
 			});
@@ -141,10 +141,10 @@ export function registerCaptionHandlers() {
 	ipcMain.handle("open-whisper-model-picker", async () => {
 		try {
 			const result = await dialog.showOpenDialog({
-				title: "Select Whisper Model",
+				title: "选择 Whisper 模型",
 				filters: [
-					{ name: "Whisper Models", extensions: ["bin"] },
-					{ name: "All Files", extensions: ["*"] },
+					{ name: "Whisper 模型", extensions: ["bin"] },
+					{ name: "所有文件", extensions: ["*"] },
 				],
 				properties: ["openFile"],
 			});

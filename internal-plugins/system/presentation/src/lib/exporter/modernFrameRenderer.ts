@@ -1,3 +1,5 @@
+import { roundOutputFrame } from "./roundedOutput";
+import { applyZoomCamera, releaseZoomCamera } from '@presentation/components/video-editor/videoPlayback/zoomCameraFilter';
 import { Application, BlurFilter, Container, Graphics, Rectangle, Sprite, Texture } from "pixi.js";
 import { MotionBlurFilter } from "pixi-filters/motion-blur";
 import { ZoomBlurFilter } from "pixi-filters/zoom-blur";
@@ -84,7 +86,6 @@ import {
 	type AnnotationRenderAssets,
 	preloadAnnotationAssets,
 	renderAnnotations,
-	renderAnnotationToCanvas,
 } from "./annotationRenderer";
 import { ForwardFrameSource } from "./forwardFrameSource";
 import { resolveMediaElementSource } from "./localMediaSource";
@@ -118,6 +119,7 @@ interface FrameRenderConfig {
 	zoomOutEasing?: ZoomTransitionEasing;
 	connectedZoomEasing?: ZoomTransitionEasing;
 	borderRadius?: number;
+	backgroundBorderRadius?: number;
 	padding?: Padding | number;
 	cropRegion: CropRegion;
 	webcam?: WebcamOverlaySettings;
@@ -362,6 +364,7 @@ function areNearlyEqual(first: number, second: number, epsilon = 0.01): boolean 
 // Renders video frames with all effects directly into a GPU-backed Pixi scene for export.
 export class FrameRenderer {
 	private app: Application | null = null;
+	private retired = false;
 	private rendererBackend: ExportRenderBackend = "webgl";
 	private backgroundContainer: Container | null = null;
 	private cameraContainer: Container | null = null;
@@ -428,6 +431,7 @@ export class FrameRenderer {
 	private lastContentTimeMs: number | null = null;
 	private layoutCache: LayoutCache | null = null;
 	private currentVideoTime = 0;
+	private currentWebcamTimelineTime = 0;
 	private cursorOverlay: PixiCursorOverlay | null = null;
 	private lastSyncedWebcamTime: number | null = null;
 	private webcamRenderMode: "hidden" | "live" | "cached" = "hidden";
@@ -1089,10 +1093,16 @@ export class FrameRenderer {
 		this.backgroundContainer?.removeChildren();
 	}
 
+	/**
+	 * Prepare the export background and publish decoder ownership before awaiting media.
+	 * @returns Completion after active media preparation.
+	 * @throws {Error} When media preparation fails or the renderer is retired.
+	 */
 	private async setupBackground(): Promise<void> {
 		this.resetBackgroundLayer();
 
 		const wallpaper = await this.resolveWallpaperForExport(this.config.wallpaper);
+		if (this.retired) throw new DOMException("Renderer retired", "AbortError");
 
 		try {
 			if (isVideoWallpaperSource(wallpaper)) {
@@ -1102,9 +1112,11 @@ export class FrameRenderer {
 				}
 
 				try {
+					if (this.retired) throw new DOMException("Renderer retired", "AbortError");
 					const frameSource = new ForwardFrameSource();
-					const metadata = await frameSource.initialize(videoSrc);
+					// Publish ownership before asynchronous preparation so destroy can cancel it.
 					this.backgroundForwardFrameSource = frameSource;
+					const metadata = await frameSource.initialize(videoSrc);
 					this.backgroundForwardFrameSourceUrl = videoSrc;
 					this.backgroundForwardFrameDurationSec = getEffectiveVideoStreamDurationSeconds(
 						{
@@ -1117,6 +1129,9 @@ export class FrameRenderer {
 					this.lastSyncedBackgroundLoopTimeSec = null;
 					return;
 				} catch (error) {
+					// Retirement must not revive a media-element fallback.
+					if (this.retired) throw error;
+					this.backgroundForwardFrameSource = null;
 					console.warn(
 						"[FrameRenderer] Decoder-backed video wallpaper unavailable during export; falling back to media element sync:",
 						error,
@@ -1241,6 +1256,8 @@ export class FrameRenderer {
 				this.config.height / 2,
 			);
 		} catch (error) {
+			// A cancelled decoder must not create a fallback canvas or texture.
+			if (this.retired) throw error;
 			console.error("[FrameRenderer] Error setting up background, using fallback:", error);
 			const fallback = document.createElement("canvas");
 			fallback.width = this.config.width;
@@ -1388,17 +1405,25 @@ export class FrameRenderer {
 		this.backgroundDecodedFrame = null;
 	}
 
+	/**
+	 * Replace an exhausted background decoder within the current renderer lifetime.
+	 * @returns Completion after active media preparation.
+	 * @throws {Error} When media preparation fails or the renderer is retired.
+	 */
 	private async restartBackgroundForwardFrameSource(): Promise<void> {
 		const sourceUrl = this.backgroundForwardFrameSourceUrl;
 		if (!sourceUrl) {
 			return;
 		}
 
-		const nextSource = new ForwardFrameSource();
-		const metadata = await nextSource.initialize(sourceUrl);
+		if (this.retired) throw new DOMException("Renderer retired", "AbortError");
 		const previousSource = this.backgroundForwardFrameSource;
-
+		const nextSource = new ForwardFrameSource();
 		this.backgroundForwardFrameSource = nextSource;
+		// Retire the exhausted source before preparing its replacement.
+		previousSource?.cancel();
+		void previousSource?.destroy();
+		const metadata = await nextSource.initialize(sourceUrl);
 		const effectiveDuration = getEffectiveVideoStreamDurationSeconds({
 			duration: metadata?.duration,
 			streamDuration: metadata?.streamDuration,
@@ -1407,8 +1432,6 @@ export class FrameRenderer {
 			Number.isFinite(effectiveDuration) && effectiveDuration > 0 ? effectiveDuration : null;
 		this.lastSyncedBackgroundLoopTimeSec = null;
 
-		previousSource?.cancel();
-		void previousSource?.destroy();
 	}
 
 	private calculateAnnotationScaleFactor(): number {
@@ -1417,12 +1440,16 @@ export class FrameRenderer {
 		return (this.config.width / previewWidth + this.config.height / previewHeight) / 2;
 	}
 
-	private hasActiveBlurAnnotations(timeMs: number): boolean {
+	/**
+	 * 检查是否需要按媒体时钟合成注释，保证键帽连接和全部注释动画逐帧更新。
+	 * @param timeMs 当前导出时间。
+	 * @returns 当前存在可见注释时返回 true。
+	 */
+	private hasActiveAnnotations(timeMs: number): boolean {
 		return (this.config.annotationRegions ?? []).some(
 			(annotation) =>
-				annotation.type === "blur" &&
 				timeMs >= annotation.startMs &&
-				timeMs <= annotation.endMs,
+				timeMs < annotation.endMs,
 		);
 	}
 
@@ -1475,7 +1502,12 @@ export class FrameRenderer {
 		context.restore();
 	}
 
-	private async composeBlurAnnotationFrame(timeMs: number): Promise<void> {
+	/**
+	 * 在已渲染视频上逐帧合成注释及字幕，保留遮罩采样和动画顺序。
+	 * @param timeMs 当前成片时间。
+	 * @returns 当前帧合成完成后的 Promise。
+	 */
+	private async composeAnnotationFrame(timeMs: number): Promise<void> {
 		if (!this.app) {
 			this.outputCanvasOverride = null;
 			return;
@@ -1511,6 +1543,10 @@ export class FrameRenderer {
 		this.outputCanvasOverride = canvas;
 	}
 
+	/**
+	 * 清理旧注释纹理；当前注释统一逐帧合成，避免同时保留一份不会使用的 GPU 副本。
+	 * @returns 清理完成后的 Promise；不为每个按键片段预生成静态纹理。
+	 */
 	private async setupAnnotationLayer(): Promise<void> {
 		if (!this.annotationContainer) {
 			return;
@@ -1523,51 +1559,18 @@ export class FrameRenderer {
 		this.annotationSprites = [];
 		this.annotationContainer.removeChildren();
 
-		const annotations = [...(this.config.annotationRegions ?? [])].sort(
-			(first, second) => first.zIndex - second.zIndex,
-		);
-
-		for (const annotation of annotations) {
-			const annotationRect = this.layoutCache?.maskRect ?? {
-				x: 0,
-				y: 0,
-				width: this.config.width,
-				height: this.config.height,
-			};
-			const x = annotationRect.x + (annotation.position.x / 100) * annotationRect.width;
-			const y = annotationRect.y + (annotation.position.y / 100) * annotationRect.height;
-			const width = (annotation.size.width / 100) * annotationRect.width;
-			const height = (annotation.size.height / 100) * annotationRect.height;
-
-			if (width <= 0 || height <= 0) {
-				continue;
-			}
-
-			const canvas = await renderAnnotationToCanvas(
-				annotation,
-				width,
-				height,
-				this.annotationScaleFactor,
-				this.annotationAssets ?? undefined,
-			);
-			if (!canvas) {
-				continue;
-			}
-
-			const texture = Texture.from(canvas);
-			const sprite = new Sprite(texture);
-			sprite.position.set(x, y);
-			sprite.visible = false;
-			this.annotationContainer.addChild(sprite);
-			this.annotationSprites.push({ annotation, sprite, texture });
-		}
 	}
 
+	/**
+	 * 更新静态纹理的可见区间，尾边界与动态合成共用左闭右开规则。
+	 * @param currentTimeMs 当前导出时间。
+	 * @returns 无返回值；更新本实例的纹理状态。
+	 */
 	private updateAnnotationLayer(currentTimeMs: number): void {
 		for (const entry of this.annotationSprites) {
 			entry.sprite.visible =
 				currentTimeMs >= entry.annotation.startMs &&
-				currentTimeMs <= entry.annotation.endMs;
+				currentTimeMs < entry.annotation.endMs;
 		}
 	}
 
@@ -2262,6 +2265,11 @@ export class FrameRenderer {
 		return false;
 	}
 
+	/**
+	 * Prepare the camera source without reviving media after retirement.
+	 * @returns Completion after active media preparation.
+	 * @throws {Error} When media preparation fails or the renderer is retired.
+	 */
 	private async setupWebcamSource(): Promise<void> {
 		const webcamUrl = this.config.webcamUrl;
 		this.webcamForwardFrameSource?.cancel();
@@ -2278,14 +2286,19 @@ export class FrameRenderer {
 		if (!this.config.webcam?.enabled || !webcamUrl) return;
 
 		try {
+			if (this.retired) throw new DOMException("Renderer retired", "AbortError");
 			const frameSource = new ForwardFrameSource();
-			await frameSource.initialize(webcamUrl);
+			// Publish ownership before asynchronous preparation so destroy can cancel it.
 			this.webcamForwardFrameSource = frameSource;
+			await frameSource.initialize(webcamUrl);
 			this.webcamVideoElement = null;
 			this.webcamSeekPromise = null;
 			this.lastSyncedWebcamTime = null;
 			return;
 		} catch (error) {
+			// Retirement must not revive a media-element fallback.
+			if (this.retired) throw error;
+			this.webcamForwardFrameSource = null;
 			console.warn(
 				"[FrameRenderer] Decoder-backed webcam source unavailable during export; falling back to media element sync:",
 				error,
@@ -2545,6 +2558,8 @@ export class FrameRenderer {
 				? this.webcamVideoElement?.duration
 				: null,
 			timeOffsetMs: this.config.webcam?.timeOffsetMs,
+			segments: this.config.webcam?.segments,
+			timelineTime: this.currentWebcamTimelineTime,
 		});
 	}
 
@@ -2721,9 +2736,14 @@ export class FrameRenderer {
 		}
 	}
 
+	/**
+	 * 按当前帧更新人像布局，保持手动宽高与预览一致。
+	 * @param referenceTimeSeconds 当前素材参考时间，单位秒。
+	 * @returns 无返回值；不可见或没有可用素材时隐藏所属叠加层。
+	 */
 	private updateWebcamOverlay(referenceTimeSeconds = this.currentVideoTime): void {
 		const webcam = this.config.webcam;
-		if (!webcam?.enabled || !isWebcamVisibleAtSourceTime(webcam, referenceTimeSeconds) || !this.webcamRootContainer || !this.webcamMaskGraphics) {
+		if (!webcam?.enabled || !isWebcamVisibleAtSourceTime(webcam, referenceTimeSeconds, this.currentWebcamTimelineTime) || !this.webcamRootContainer || !this.webcamMaskGraphics) {
 			if (this.webcamRootContainer) {
 				this.webcamRootContainer.visible = false;
 			}
@@ -2789,7 +2809,7 @@ export class FrameRenderer {
 			liveSourceDimensions.height > 0
 				? liveSourceDimensions.height
 				: renderableWebcamSource.height;
-		const heightPercent = getCropMatchedWebcamHeightPercent(
+		const heightPercent = webcam.dimensionsMode === "manual" ? (webcam.height ?? webcam.size ?? 40) : getCropMatchedWebcamHeightPercent(
 			widthPercent,
 			webcam.height ?? webcam.size ?? 50,
 			aspectSourceWidth,
@@ -2842,6 +2862,16 @@ export class FrameRenderer {
 		}
 	}
 
+	/**
+	 * 按媒体时间合成当前帧，屏幕取景及三维镜头共用预览参数。
+	 * @param videoFrame 当前视频帧或空白区间。
+	 * @param timestamp 剪辑时间，单位微秒。
+	 * @param cursorTimestamp 光标源时间，单位微秒。
+	 * @param _frameDurationUs 当前输出帧时长，单位微秒。
+	 * @param backgroundTimelineTimestamp 背景及人像时间，单位微秒。
+	 * @returns 当前帧合成完成的Promise。
+	 * @throws {Error} 渲染器未初始化时抛出错误。
+	 */
 	async renderFrame(
 		videoFrame: VideoFrame | null,
 		timestamp: number,
@@ -2854,6 +2884,7 @@ export class FrameRenderer {
 		}
 
 		this.currentVideoTime = timestamp / 1_000_000;
+		this.currentWebcamTimelineTime = backgroundTimelineTimestamp / 1_000_000;
 		this.cameraContainer.visible = videoFrame !== null;
 		if (!videoFrame) {
 			this.updateAnimationState(backgroundTimelineTimestamp / 1000, cursorTimestamp / 1000);
@@ -2950,13 +2981,19 @@ export class FrameRenderer {
 		});
 
 		this.updateAnnotationLayer(timeMs);
+		applyZoomCamera(this.cameraContainer, layoutCache.stageSize, this.config.zoomRegions ?? [], timeMs, this.config);
 		this.updateCaptionLayer(timestamp / 1000);
 		this.updateWebcamOverlay();
 		await this.renderOutput(timeMs);
 	}
 
+	/**
+	 * 按当前片段选择逐帧注释合成或直接输出，避免静态纹理遮住动态效果。
+	 * @param timeMs 当前成片时间。
+	 * @returns 本帧输出就绪后的 Promise。
+	 */
 	private async renderOutput(timeMs: number): Promise<void> {
-		if (this.hasActiveBlurAnnotations(timeMs)) {
+		if (this.hasActiveAnnotations(timeMs)) {
 			const annotationContainerVisible = this.annotationContainer?.visible ?? true;
 			const captionContainerVisible = this.captionContainer?.visible ?? true;
 
@@ -2976,7 +3013,7 @@ export class FrameRenderer {
 				this.captionContainer.visible = captionContainerVisible;
 			}
 
-			await this.composeBlurAnnotationFrame(timeMs);
+			await this.composeAnnotationFrame(timeMs);
 			return;
 		}
 
@@ -3085,7 +3122,12 @@ export class FrameRenderer {
 		}
 	}
 
-	/** Advance the export camera from the shared scene target at this media time. */
+	/**
+	 * 按当前时间及项目连接阈值推进现代导出镜头，与预览共用取景目标。
+	 * @param timeMs 编辑时间轴毫秒。
+	 * @param cursorTimeMs 对应源素材光标的时间毫秒。
+	 * @returns 当前变焦进度。
+	 */
 	private updateAnimationState(timeMs: number, cursorTimeMs = timeMs): number {
 		if (!this.cameraContainer || !this.layoutCache) {
 			return 0;
@@ -3096,6 +3138,7 @@ export class FrameRenderer {
 			timeMs,
 			cursorTimeMs,
 			connectZooms: this.config.connectZooms,
+			connectedZoomGapMs: this.config.connectedZoomGapMs,
 			zoomInDurationMs: this.config.zoomInDurationMs,
 			zoomOutDurationMs: this.config.zoomOutDurationMs,
 			zoomClassicMode: this.config.zoomClassicMode,
@@ -3178,20 +3221,34 @@ export class FrameRenderer {
 		this.webcamDecodedFrame = null;
 	}
 
+	private roundedOutputCanvas: HTMLCanvasElement | null = null;
+
+	/**
+	 * 返回与预览一致的最终圆角画面，按导出会话复用中间画布。
+	 * @returns 当前完整合成帧。
+	 * @throws {Error} 渲染器尚未初始化时拒绝读取。
+	 */
 	getCanvas(): HTMLCanvasElement {
 		if (!this.app) {
 			throw new Error("Renderer not initialized");
 		}
 
-		return this.outputCanvasOverride ?? (this.app.canvas as HTMLCanvasElement);
+		const source = this.outputCanvasOverride ?? (this.app.canvas as HTMLCanvasElement);
+		if ((this.config.backgroundBorderRadius ?? 0) <= 0) return source;
+		this.roundedOutputCanvas ??= document.createElement("canvas");
+		return roundOutputFrame(source, this.config.backgroundBorderRadius ?? 0, this.roundedOutputCanvas);
 	}
 
+	/**
+	 * 读取包含最终圆角遮罩的像素交给原生编码器。
+	 * @returns 当前帧像素，尚未初始化时返回空值。
+	 */
 	capturePixelsForNativeExport(): Uint8ClampedArray | null {
 		if (!this.app) {
 			return null;
 		}
 
-		const finalCanvas = this.outputCanvasOverride;
+		const finalCanvas = (this.config.backgroundBorderRadius ?? 0) > 0 ? this.getCanvas() : this.outputCanvasOverride;
 
 		if (finalCanvas) {
 			const context = finalCanvas.getContext("2d");
@@ -3210,7 +3267,14 @@ export class FrameRenderer {
 		return this.rendererBackend;
 	}
 
+	/**
+	 * 释放本次渲染器的媒体、纹理和圆角中间画布。
+	 * @returns 无返回值。
+	 */
 	destroy(): void {
+		// Block late decoder preparation from starting any fallback after release.
+		this.retired = true;
+		if (this.roundedOutputCanvas) { this.roundedOutputCanvas.width = 0; this.roundedOutputCanvas.height = 0; this.roundedOutputCanvas = null; }
 		const texturesToDestroy = new Set<Texture>();
 		for (const sprite of [
 			this.videoSprite,
@@ -3241,6 +3305,7 @@ export class FrameRenderer {
 		this.motionBlurFilter?.destroy();
 		this.backgroundBlurFilter?.destroy();
 
+		releaseZoomCamera(this.cameraContainer);
 		destroyPixiApplication(this.app, "Lightning export renderer");
 
 		for (const texture of texturesToDestroy) {

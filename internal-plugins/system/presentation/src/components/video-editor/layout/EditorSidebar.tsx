@@ -1,19 +1,18 @@
 import type { User } from '@supabase/supabase-js'
-import { Camera, ClosedCaptioning, Cursor, FrameCorners } from '@presentation/components/ui/icons'
 import {
-  ToggleButtonGroup,
-  ToggleButton,
-  Button,
-  Tooltip,
-  Card,
-  Switch,
-  Label
-} from '@heroui/react'
+  Camera,
+  ClosedCaptioning,
+  Cursor,
+  FrameCorners,
+  Keyboard
+} from '@presentation/components/ui/icons'
+import { ToggleButtonGroup, ToggleButton, Button, Tooltip, Card } from '@heroui/react'
 import type { ComponentProps, ReactNode } from 'react'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useRef } from 'react'
 import type { useI18n } from '@presentation/contexts/I18nContext'
 import { SettingsPanel } from '../SettingsPanel'
 import type { EditorEffectSection } from '../types'
+import { hasWebcamFootage } from '../mediaSegments'
 
 type Props = {
   accountUser?: User | null
@@ -40,10 +39,11 @@ export function EditorSidebar({
   onAccountClick
 }: Props) {
   const [advancedSections, setAdvancedSections] = useState<Record<string, boolean>>({})
+  const resetRef = useRef<(() => void) | null>(null)
   const advanced = advancedSections[activeSection] ?? false
-  const hasAdvanced =
+  const canResetSection =
     !settingsPanelProps.selectedAnnotationId &&
-    ['scene', 'frame', 'crop', 'cursor', 'webcam', 'captions', 'zoom'].includes(activeSection)
+    ['scene', 'frame', 'crop', 'cursor', 'webcam', 'captions'].includes(activeSection)
   const sections = useMemo(
     () => [
       {
@@ -52,6 +52,7 @@ export function EditorSidebar({
         icon: FrameCorners
       },
       { id: 'cursor' as const, label: t('settings.sections.cursor', 'Cursor'), icon: Cursor },
+      { id: 'keyboard' as const, label: '按键', icon: Keyboard },
       { id: 'webcam' as const, label: t('settings.sections.webcam', '摄像头'), icon: Camera },
       {
         id: 'captions' as const,
@@ -73,7 +74,7 @@ export function EditorSidebar({
           className="w-full items-center gap-2"
           selectionMode="single"
           disallowEmptySelection
-          selectedKeys={panelContent ? [] : [activeSection]}
+          selectedKeys={panelContent && activeSection !== 'keyboard' ? [] : [activeSection]}
           onSelectionChange={(keys) => {
             const key = Array.from(keys)[0]
             if (key) setActiveSection(key as EditorEffectSection)
@@ -83,7 +84,11 @@ export function EditorSidebar({
             <Tooltip key={section.id}>
               <ToggleButton id={section.id} variant="ghost" isIconOnly aria-label={section.label}>
                 <section.icon
-                  weight={!panelContent && activeSection === section.id ? 'fill' : 'regular'}
+                  weight={
+                    (!panelContent || activeSection === 'keyboard') && activeSection === section.id
+                      ? 'fill'
+                      : 'regular'
+                  }
                   className="size-5"
                 />
               </ToggleButton>
@@ -94,43 +99,42 @@ export function EditorSidebar({
       </nav>
       <aside
         aria-label={panelContent ? '片段' : undefined}
-        className="editor-inspector [--text-sm:0.8125rem] [--text-base:0.8125rem] flex w-[320px] min-h-0 flex-col"
+        className="editor-inspector flex w-[320px] min-h-0 flex-col"
       >
         <Card className="min-h-0 flex-1 gap-0 overflow-hidden p-0">
           {panelContent ?? (
             <>
               <header className="flex min-h-14 shrink-0 items-center justify-between gap-3 px-5 py-3">
-                <Card.Title className="text-[14px]">
+                <Card.Title className="inspector-panel-title">
                   {settingsPanelProps.selectedAnnotationId
-                    ? t('timeline.annotation.label', 'Annotation')
-                    : (sections.find((section) => section.id === activeSection)?.label ??
-                      t(
-                        `settings.sections.${activeSection}`,
-                        activeSection.charAt(0).toUpperCase() + activeSection.slice(1)
-                      ))}
+                    ? t('timeline.annotation.label', '注释')
+                    : activeSection === 'clip'
+                      ? '录屏片段'
+                      : (sections.find((section) => section.id === activeSection)?.label ??
+                        t(`settings.sections.${activeSection}`, '编辑'))}
                 </Card.Title>
-                {hasAdvanced && (
-                  <Switch
+                {(canResetSection || activeSection === 'zoom' || activeSection === 'audio') && (
+                  <Button
+                    variant="ghost"
                     size="sm"
-                    isSelected={advanced}
-                    onChange={(value) =>
-                      setAdvancedSections((current) => ({
-                        ...current,
-                        [activeSection]: value
-                      }))
+                    aria-label="重置当前设置"
+                    isDisabled={
+                      activeSection === 'webcam' && !hasWebcamFootage(settingsPanelProps.webcam)
                     }
-                    aria-label="高级设置"
+                    onPress={() => resetRef.current?.()}
                   >
-                    <Switch.Content>
-                      <Label className="text-xs">高级</Label>
-                      <Switch.Control>
-                        <Switch.Thumb />
-                      </Switch.Control>
-                    </Switch.Content>
-                  </Switch>
+                    重置
+                  </Button>
                 )}
               </header>
-              <SettingsPanel {...settingsPanelProps} advanced={advanced} />
+              <SettingsPanel
+                {...settingsPanelProps}
+                resetRef={resetRef}
+                advanced={advanced}
+                onAdvancedChange={(open) =>
+                  setAdvancedSections((current) => ({ ...current, [activeSection]: open }))
+                }
+              />
             </>
           )}
         </Card>

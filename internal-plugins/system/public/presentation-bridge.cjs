@@ -87,6 +87,23 @@ exports.install = function install(prefix, lifecycle, destination = window) {
     }
   })
   const api = destination.electronAPI
+  /**
+   * 嵌套页面无法使用浏览器全屏时，切换当前演示所属的原生窗口。
+   * @param {boolean} active 是否进入预览全屏。
+   * @returns {Promise<boolean>} 后端接受的全屏状态。
+   */
+  api.setPreviewFullscreen = (active) => ipc.invoke('set-preview-fullscreen', active)
+  /**
+   * 监听本会话原生全屏退出，随组件或所属桥接解除。
+   * @param {Function} callback 当前组件的状态回调。
+   * @returns {Function} 解除本次监听的函数。
+   */
+  api.onPreviewFullscreenChanged = (callback) => {
+    const channel = prefix + 'preview-fullscreen-changed'
+    const listener = (_event, active) => callback(active)
+    ipc.on(channel, listener)
+    return () => ipc.removeListener(channel, listener)
+  }
   api.getShortcuts = () => ipcRenderer.invoke(prefix + 'tabdo-shortcuts')
   api.saveShortcuts = () =>
     Promise.resolve({ success: false, error: '请在 TabDo 设置的快捷键页调整' })

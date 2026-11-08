@@ -156,7 +156,7 @@ export function ShortcutsConfigDialog() {
 											aria-label={
 												isCapturing
 													? `${SHORTCUT_LABELS[action]}: ${t("shortcutsConfig.pressAKey")}`
-													: `Change ${SHORTCUT_LABELS[action]} shortcut, currently ${formatBinding(draft[action], isMac)}`
+													: `更改${SHORTCUT_LABELS[action]} shortcut, currently ${formatBinding(draft[action], isMac)}`
 											}
 											onClick={() => {
 												setConflict(null);

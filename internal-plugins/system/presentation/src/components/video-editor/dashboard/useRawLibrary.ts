@@ -1,17 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
+import { localizePresentationMessage } from '@presentation/lib/presentationMessages';
 import type { ProjectLibraryEntry } from "../ProjectBrowserDialog";
 
-const HIDDEN_KEY = "recordly.raw-hidden.v1";
-function loadHidden(): string[] {
-	try {
-		const value = JSON.parse(localStorage.getItem(HIDDEN_KEY) || "[]");
-		return Array.isArray(value)
-			? value.filter((path): path is string => typeof path === "string")
-			: [];
-	} catch {
-		return [];
-	}
-}
 const NAMES_KEY = "recordly.raw-names.v1";
 function loadNames(): Record<string, string> {
 	try {
@@ -38,7 +28,6 @@ export function useRawLibrary(enabled: boolean) {
 			const names = loadNames();
 			setEntries(
 				result.value
-					.filter((entry) => !loadHidden().includes(entry.path))
 					.map((rawSource) => ({
 						path: rawSource.path,
 						name: names[rawSource.path] || rawSource.name,
@@ -52,7 +41,7 @@ export function useRawLibrary(enabled: boolean) {
 			);
 			setError(null);
 		} catch (error) {
-			setError(String(error));
+			setError(localizePresentationMessage(String(error)));
 		} finally {
 			setLoading(false);
 		}
@@ -67,10 +56,18 @@ export function useRawLibrary(enabled: boolean) {
 		);
 		return path;
 	};
-	const remove = async (paths: string[]) => {
-		localStorage.setItem(HIDDEN_KEY, JSON.stringify([...new Set([...loadHidden(), ...paths])]));
+	/**
+	 * 登记完整删除任务，系统确认回收或原件恢复后再更新素材列表。
+	 * @param paths Selected library source paths.
+	 * @returns Paths actually removed from disk.
+	 * @throws When the host cannot complete the removal.
+	 */
+	const remove = (paths: string[]) => window.electronAPI.runNecessaryTask(async () => {
+		const result = await window.electronAPI.trashRecordingFiles(paths);
+		if (!result.success) throw new Error(result.error || "无法删除原始录制");
+		// Publish the UI removal only after the host confirms the filesystem move.
 		setEntries((previous) => previous.filter((entry) => !paths.includes(entry.path)));
 		return paths;
-	};
+	});
 	return { entries, error, loading, refresh, rename, remove };
 }

@@ -9,6 +9,7 @@ import globalInputManager from './globalInputManager'
 import { placeRecorderControl } from '../../shared/recorderLayout'
 import { applyToolsWindowIdentity, getToolsWindowIcon } from './toolsWindowIdentity'
 import databaseAPI from '../api/shared/database'
+import { requestIdleMemoryReclaim } from './idleMemoryReclaimer'
 
 interface RecorderOptions {
   id: string
@@ -68,6 +69,14 @@ let region: {
   resolve: (rect: RegionChoice | null) => void
 } | null = null
 let registered = false
+
+/**
+ * 来源准备、录制与保存收尾均持有活动身份，不以控制条消失代替进程退出。
+ * @returns 是否仍有快速录屏资源。
+ */
+export function hasRecorderSession(): boolean {
+  return Boolean(session || pending || region)
+}
 
 /**
  * 按原插件自动保存到设置目录，不在每次录制前插入保存对话框。
@@ -428,8 +437,10 @@ function finish(current: Session): Promise<void> {
           .rm(current.folder, { recursive: true, force: true })
           .catch((error) => console.warn('[Recorder] 临时文件清理失败:', error))
       if (!current.control.isDestroyed()) current.control.destroy()
+      // 保存和进程退出完成后才撤销录制身份，避免提前进入闲置。
       if (session === current) session = null
       current.worker = undefined
+      requestIdleMemoryReclaim()
     }
   })
   return current.finishing
@@ -457,7 +468,9 @@ export async function startRecorder(owner: number, options: RecorderOptions): Pr
   operation.closed = new Promise<void>((resolve) => {
     completeStart = resolve
   })
+  // 来源准备同样持有活动身份，不能因页面隐藏而提前回收。
   pending = operation
+  requestIdleMemoryReclaim()
   let current: Session | null = null
   let preparedFolder = ''
   try {
@@ -744,6 +757,7 @@ export async function startRecorder(owner: number, options: RecorderOptions): Pr
     } finally {
       if (pending === operation) pending = null
       completeStart()
+      requestIdleMemoryReclaim()
     }
   }
 }

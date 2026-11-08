@@ -1,0 +1,31 @@
+{
+  "id": "presentation-settings",
+  "date": "2026-10-28",
+  "summary": "整理演示编辑器设置与高级选项，支持预览拖放摄像头",
+  "reason": "按用户要求移除动态效果分类和重复快捷键入口，将缩放选项归位，高级选项集中到底部，并用预览拖放调整人像位置。",
+  "changes": [
+    "主页设置移除动态效果分类和通用中的快捷键入口，自动为新录制应用缩放归入通用；连接缩放归入选中缩放片段后的设置，缺省继续开启。",
+    "缩放页的动画改为普通选项运动效果，以平滑/专注二选一替代经典动画开关，缺省平滑；只调整缩放时长，不覆盖独立光标参数。读取旧经典开关时转为现行运动效果，保留已保存时长。",
+    "场景、光标、字幕及摄像头高级选项集中在普通内容下方，移除没有高级内容的缩放页开关。",
+    "摄像头预览接入直接指针拖放，保留抓取偏移，暂停当前帧后定位，按预览缩放换算并限制边界；取消或丢失捕获回滚，卸载释放捕获。移除九宫格，精确坐标保留在高级；人像画面圆角缺省100%并归入高级。",
+    "项目归一化不再强制套用整套运动预设，仅补缺失参数，保留已有连接选择、独立光标和人像参数；自由位置沿现有项目与导出链保存。",
+    "同步组件说明、README、设置规范、工具清单、仓库与应用内教程和更新说明；增加Bug台账、TX-104与演示设置持久化单测，纳入presentation-recorder分组。"
+  ],
+  "checks": [
+    "通过context-mode核对维护流程、改动与Bug索引及工具、设置文档，检查Git状态并保留全部已有未提交修改。",
+    "最终pnpm test:e2e tests/e2e/presentation-import.spec.ts tests/e2e/presentation-recorder.spec.ts tests/e2e/local-tutorial.spec.ts三项通过，归档.artifacts/runs/2026-10-28T07-42-21-808Z-e2e；使用scripts/preview-main.cjs、源码工具/设置服务及两处隔离资料根，未为E2E打包。",
+    "源码交互验证通用选项及删除入口、默认连接/平滑与专注保存、摄像头真实预览指针拖放、越界钳制/取消回滚、项目重开坐标保留、100%高级圆角，以及光标/字幕/场景普通内容顺序稳定且高级统一在下部。真实录制、运动效果落盘、导出、文件重开与退出回收通过。",
+    "前几轮测试分别暴露HeroUI原生range使用value而非aria-valuenow、中文标签应为水平位置/垂直位置，以及页面离场动画尚未结束时读取了旧正文；修正测试为真实属性、精确标签和稳定正文后最终通过。失败证据保留于.artifacts/runs/2026-10-28T07-35-39-100Z-e2e、2026-10-28T07-37-21-330Z-e2e、2026-10-28T07-40-46-593Z-e2e。",
+    "查看直接捕获的插件WebContents可见区域截图，确认拖动后人像实际位置、普通摄像头设置与移除九宫格，未拼接宿主画面。",
+    "最终pnpm test --maxWorkers=2通过110文件755项，归档.artifacts/runs/2026-10-28T07-44-56-796Z-unit；新增四项覆盖缺省平滑/连接/100%圆角、专注与独立光标参数保留、旧经典开关退役，以及自由坐标/零圆角保存和导出参数及分辨率换算。",
+    "新增拖放Hook通过强制ESLint及独立严格TypeScript检查，修改测试、Vitest别名与教程源ESLint通过；初次类型检查因未配置上游路径别名失败，改用.artifacts/work中的专项配置后通过。presentation-recorder回归分组确认11个单测文件和4个源码E2E文件。",
+    "pnpm docs:check通过31份文档、207本地链接、39功能/14分类/30普通入口及15章65步；pnpm maintain与pnpm maintain:check通过。",
+    "pnpm build完整通过宿主Node/Web及设置类型检查、演示桥接、设置/工具/宿主生产编译，日志.artifacts/work/presentation-settings-build.log；保留已有pnpm配置迁移、PostCSS、动态/静态重复导入及大chunk提示。未运行electron-builder或build:unpack。",
+    "pnpm preview:sync成功同步固定免安装预览1.3.0，382个现有配置、资料和插件文件逐文件保留，103项程序文件核验；回退资源.artifacts/backups/preview-sync/update-1793173640773/previous-resources，日志.artifacts/work/presentation-settings-preview-sync.log。",
+    "pnpm test:preview:resources通过102项程序、345项内置及1687项媒体运行资源核验，日志.artifacts/work/presentation-settings-preview-verify.log。未启动真实预览写入测试资料，未重置数据，未push、云端构建或发布Release。"
+  ],
+  "pending": [
+    "其他DPI、多显示器、真实摄像头设备和触控输入仍需人工验收。"
+  ],
+  "preview": "已同步.local/portable-preview，通过PreviewPortable.cmd启动；382个原有配置、资料和插件文件保留，程序与资源核验通过；未重置数据、push、云端构建或发布Release。"
+}

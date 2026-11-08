@@ -88,7 +88,7 @@ function AudioWaveformComponent({
 			const midY = height / 2;
 			ctx.beginPath();
 
-			for (let px = 0; px < width; px++) {
+			for (let px = 0; px < width; px += 5 * dpr) {
 				const t = visibleStartMs + (px / width) * visibleDurationMs;
 
 				// If the timeline time is beyond the actual audio duration, we draw nothing (flat line)
@@ -110,8 +110,9 @@ function AudioWaveformComponent({
 				ctx.lineTo(px, midY + barHeight);
 			}
 
-			ctx.strokeStyle = theme === "dark" ? "rgba(255, 255, 255, 0.65)" : "rgba(0, 0, 0, 0.6)";
-			ctx.lineWidth = dpr;
+			ctx.strokeStyle = theme === "dark" ? "#6ee7b7" : "#16a66a";
+			ctx.lineWidth = 2.5 * dpr;
+			ctx.lineCap = "round";
 			ctx.stroke();
 		};
 		rafId = requestAnimationFrame(draw);

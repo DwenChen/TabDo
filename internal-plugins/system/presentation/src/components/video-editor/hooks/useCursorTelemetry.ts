@@ -17,6 +17,11 @@ type UseCursorTelemetryInput = {
 	autoSuggestedVideoPathRef: MutableRefObject<string | null>;
 };
 
+/**
+ * 装载完整录制遥测，并为画面渲染派生不含纯按键事件的鼠标轨迹。
+ * @param input 素材、时间范围与所属时间轴状态。
+ * @returns 归一化和可循环的鼠标轨迹，原始按键数据保留供按键编辑器使用。
+ */
 export function useCursorTelemetry({
 	videoPath,
 	videoSourcePath,
@@ -94,7 +99,7 @@ export function useCursorTelemetry({
 		if (timeline.cursorTelemetry.length === 0) return [] as CursorTelemetryPoint[];
 		const totalMs = Math.max(0, Math.round(duration * 1000));
 		return normalizeCursorTelemetry(
-			timeline.cursorTelemetry,
+			timeline.cursorTelemetry.filter((sample) => !sample.keyText || sample.interactionType),
 			totalMs > 0 ? totalMs : Number.MAX_SAFE_INTEGER,
 		);
 	}, [timeline.cursorTelemetry, duration]);

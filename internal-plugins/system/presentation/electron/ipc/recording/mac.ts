@@ -205,7 +205,7 @@ export function attachNativeCaptureLifecycle(process: ChildProcessWithoutNullStr
 		setNativeCaptureSystemAudioPath(null);
 		setNativeCaptureMicrophonePath(null);
 
-		const sourceName = selectedSource?.name ?? "Screen";
+		const sourceName = selectedSource?.name ?? "屏幕";
 		BrowserWindow.getAllWindows().forEach((window) => {
 			if (!window.isDestroyed()) {
 				window.webContents.send("recording-state-changed", {

@@ -20,7 +20,7 @@ export function RecordingPermissionsSettings({ onReview }: { onReview?: () => vo
 					window.electronAPI.getAccessibilityPermissionStatus(),
 				]);
 				if (!screen.success || !accessibility.success)
-					throw new Error("Could not check permissions. Please try again.");
+					throw new Error("无法检查权限，请重试。");
 				setStatus({
 					mac,
 					screen: screen.status === "granted",
@@ -45,20 +45,21 @@ export function RecordingPermissionsSettings({ onReview }: { onReview?: () => vo
 		<div className="space-y-6">
 			{!status && !error && (
 				<p role="status" className="text-xs text-muted">
-					Checking permissions…
+
+					正在检查权限…
 				</p>
 			)}
 			{status?.mac && (
 				<>
 					{[
 						{
-							title: "Screen Recording",
-							description: "Capture your screen, windows and selected areas.",
+							title: "屏幕录制",
+							description: "捕获屏幕、窗口或选定区域。",
 							granted: status.screen,
 						},
 						{
-							title: "Accessibility",
-							description: "Track your cursor and highlight clicks.",
+							title: "辅助功能",
+							description: "记录鼠标轨迹并突出显示点击。",
 							granted: status.accessibility,
 						},
 					].map(({ title, description, granted }) => (
@@ -66,7 +67,7 @@ export function RecordingPermissionsSettings({ onReview }: { onReview?: () => vo
 							<span
 								className={`text-xs font-medium ${granted ? "text-success" : "text-muted"}`}
 							>
-								{granted ? "Allowed" : "Required"}
+								{granted ? "已允许" : "必需"}
 							</span>
 						</SettingsRow>
 					))}
@@ -76,21 +77,23 @@ export function RecordingPermissionsSettings({ onReview }: { onReview?: () => vo
 						disabled={busy}
 						onClick={() => void refresh()}
 					>
-						Check again
+
+						重新检查
 					</Button>
 				</>
 			)}
 			{status && !status.mac && (
 				<p className="text-xs leading-relaxed text-muted">
-					Choose what to capture when you start a recording.
+
+					开始录制时选择需要捕获的内容。
 				</p>
 			)}
 			<SettingsRow
-				title="Microphone and camera"
+				title="麦克风与摄像头"
 				description="Access is requested when you enable a microphone or camera for recording."
 				stacked
 			>
-				<span className="text-xs text-muted">Requested when needed</span>
+				<span className="text-xs text-muted">使用时请求权限</span>
 			</SettingsRow>
 			{error && (
 				<div className="space-y-3">
@@ -103,18 +106,20 @@ export function RecordingPermissionsSettings({ onReview }: { onReview?: () => vo
 						disabled={busy}
 						onClick={() => void refresh()}
 					>
-						Try again
+
+						重试
 					</Button>
 				</div>
 			)}
 			{onReview && (
 				<SettingsRow
-					title="Permission setup"
+					title="权限设置"
 					description="Review access and open system permission settings."
 					stacked
 				>
 					<Button variant="secondary" size="sm" onClick={onReview}>
-						Review permissions
+
+						查看权限
 					</Button>
 				</SettingsRow>
 			)}

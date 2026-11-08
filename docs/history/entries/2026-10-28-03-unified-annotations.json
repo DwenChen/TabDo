@@ -1,0 +1,30 @@
+{
+  "id": "unified-annotations",
+  "date": "2026-10-28",
+  "summary": "统一图片标记与截图标记工具栏，新增序号圆圈和聚光灯",
+  "reason": "两套工具栏的图标、配色与标记能力不一致，需沿用截图的视觉语言并补全常用标记。",
+  "changes": [
+    "图片标记工具栏改为截图的白底、深灰细线图标、浅蓝选中态与32px按钮；九项标记的顺序和SVG共用annotation-tools.js，荧光笔和箭头图标重绘，图片橡皮擦、五档笔触和缩放保留。",
+    "截图补充独立颜色的半透明荧光笔，保留既有箭头；两个入口都加入单击递增的序号圆圈和多矩形聚光灯。序号属于撤销历史，撤销后分叉与清空正确续号；聚光灯按并集保留亮度，预览、复制和保存同源。",
+    "原生截图采用固定上游提交的可重现补丁，将新增类型接入输入、几何、命中、历史和PNG合成；聚光灯同时完整失效窗口显示区域，修复BeginPaint局部裁剪造成的预览残影，所有资源仍随单次工作进程释放。",
+    "同步README、更新说明、应用内与仓库教程、工具/悬浮开发规范及原生来源说明；新增annotations回归组和TX-100，更新Bug台账。"
+  ],
+  "checks": [
+    "使用context-mode核对维护流程、当前改动与Bug索引、工具及悬浮窗口规范，检查main分支和已有未提交改动并予以保留。未push、云端构建或发布Release。",
+    "原生模块使用GCC11.2、Electron42.1.0头文件及node-addon-api6.1.0完成独立编译，固定上游提交8b221e72c4b5462ba2c9b490370cc10df72108cc；最终日志.artifacts/logs/native-screenshot-build.log。未为E2E执行electron-builder或build:unpack。",
+    "pnpm test tests/main/screenCaptureResult.test.ts tests/scripts/documentation.test.ts：2文件9项通过，归档.artifacts/runs/2026-10-28T04-40-45-875Z-unit。",
+    "pnpm test:e2e tests/e2e/tools-polish.spec.ts tests/e2e/tools-screenshot.spec.ts tests/e2e/local-tutorial.spec.ts：最终3项全部通过，归档.artifacts/runs/2026-10-28T04-40-56-873Z-e2e。使用scripts/preview-main.cjs、源码服务及两个隔离资料根，不访问正式或免安装预览资料。",
+    "图片窗口验证9项标记、默认/340px窄窗口、颜色隔离、文字输入、序号递增/撤销/重做/分叉、反向聚光区域及重叠并集、空拖动、剪贴板与保存PNG逐像素一致、独立窗口关闭；教程由真实关于入口阅读，离线与升级配置插件保留通过。",
+    "原生截图通过真实系统鼠标操作荧光笔、两枚序号及反向和重叠聚光区域，同时检查实际屏幕预览与最终复制PNG：区域外RGB107/108/110、区域内与重叠区244/247/251、荧光笔246/237/191。长截图数万像素连续色带及工作进程回收继续通过。",
+    "早期两次原生测试因系统鼠标轮询先于移动处理而未可靠切换工具，失败归档04-31-58和04-33-27保留；加入鼠标到位等待后功能检查通过。随后直接查看截图发现局部预览残影，补全原生完整显示失效，并新增屏幕像素断言；最终源码专项通过。",
+    "直接查看独立图片窗口默认/窄窗口截图和原生截图预览、导出PNG，确认线图标、序号及聚光区域；未拼接宿主截图。修改脚本和测试ESLint、资源JS语法检查、pnpm docs:check及git diff --check通过。",
+    "pnpm build:setting通过设置页类型检查及生产构建，日志.artifacts/work/annotations-setting-build.log；共享静态画布资源和原生.node由同步器直接复制，本轮未修改宿主或内置工具的编译源码，沿用既有已编译产物。",
+    "pnpm maintain、pnpm maintain:check通过后执行pnpm preview:sync，用户已确认自行退出预览。1.3.0程序资源更新成功，345个现有配置、资料与插件文件逐项保留，103项程序文件核验；回退资源.artifacts/backups/preview-sync/update-1793162677243/previous-resources，日志.artifacts/work/annotations-preview-sync.log。",
+    "pnpm test:preview:resources通过：102项程序文件、345项内置文件及1687项媒体运行文件，包含物理展开的annotation-tools.js和更新的tabdo_screenshot.node；日志.artifacts/work/annotations-preview-verify.log。未启动真实免安装预览读写用户资料，未重置配置或插件。",
+    "补充清空已有序号后回到1且撤销按钮禁用的真实画布断言，pnpm test:e2e tests/e2e/tools-polish.spec.ts再次1/1通过，归档.artifacts/runs/2026-10-28T04-46-03-155Z-e2e；该次仅补测试，不改变已同步程序资源。最终修改范围ESLint与格式检查通过，pnpm maintain、pnpm maintain:check、pnpm docs:check及git diff --check全部通过。"
+  ],
+  "pending": [
+    "其他DPI、多显示器、触控笔与用户最终操作手感保留人工验收。"
+  ],
+  "preview": "已同步 .local/portable-preview/（1.3.0）；345个现有配置、资料与插件文件完整保留，程序与运行资源核验通过。使用 PreviewPortable.cmd 手动体验，无push、云端构建或Release。"
+}

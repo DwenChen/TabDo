@@ -8,12 +8,18 @@ interface UseSourceAudioFallbackParams {
 	summarizeErrorMessage: (message: string) => string;
 }
 
+/**
+ * Resolve companion audio before initializing independent tracks for the selected source.
+ * @param props Current source, finalized-resource version and diagnostic formatter.
+ * @returns Available paths, capture offsets and whether this source's lookup has completed.
+ */
 export function useSourceAudioFallback({
 	currentSourcePath,
 	refreshKey = 0,
 	summarizeErrorMessage,
 }: UseSourceAudioFallbackParams) {
 	const [sourceAudioFallbackPaths, setSourceAudioFallbackPaths] = useState<string[]>([]);
+	const [resolvedSourcePath, setResolvedSourcePath] = useState<string | null>(null);
 	const [sourceAudioFallbackStartDelayMsByPath, setSourceAudioFallbackStartDelayMsByPath] =
 		useState<Record<string, number>>({});
 	const previousSourcePathRef = useRef<string | null>(null);
@@ -59,6 +65,7 @@ export function useSourceAudioFallback({
 				toast.dismiss(SOURCE_AUDIO_FALLBACK_TOAST_ID);
 				setSourceAudioFallbackPaths(result.paths ?? []);
 				setSourceAudioFallbackStartDelayMsByPath(result.startDelayMsByPath ?? {});
+				setResolvedSourcePath(currentSourcePath);
 			} catch (error) {
 				if (!cancelled) {
 					if (sourceChanged) {
@@ -78,5 +85,6 @@ export function useSourceAudioFallback({
 		};
 	}, [currentSourcePath, refreshKey, summarizeErrorMessage]);
 
-	return { sourceAudioFallbackPaths, sourceAudioFallbackStartDelayMsByPath };
+	return { sourceAudioFallbackPaths, sourceAudioFallbackStartDelayMsByPath,
+		sourceAudioLookupReady: Boolean(currentSourcePath) && resolvedSourcePath === currentSourcePath };
 }

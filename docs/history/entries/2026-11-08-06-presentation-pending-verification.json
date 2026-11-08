@@ -1,0 +1,30 @@
+{
+  "id": "presentation-pending-verification",
+  "date": "2026-11-08",
+  "summary": "解决演示录屏声音参考误判与控制条启动待复核项",
+  "changes": [
+    "将非静音阈值参考升级为31ms相位编码短音。原生参考与伴随PCM使用同一差分、4ms分段正交投影和完整编码覆盖校验，容忍包间载波相位变化，拒绝背景音、同频普通音及半段短音。正式录制的采集和编码时间边界保持原实现。",
+    "诊断发射按设备缓冲区连续提交，包含50ms静默准备及500ms独立WASAPI观察，参考时间来自实际匹配采样的QPC，不使用排队或函数返回时间。",
+    "源码验收改为等待三个服务共同就绪，接口在Vite的HTML回退前注册；启动Electron前验证JSON就绪响应及三个来源，避免误用返回SPA页面的旧服务。首次设置页与控制条使用明确的30秒正文就绪期限。",
+    "从覆盖层页面创建起捕获脚本、网络和崩溃诊断，新增三次全新隔离数据冷启动、带持续背景声的实际双音轨同步及负向识别回归，更新TX-131与模块文档。"
+  ],
+  "checks": [
+    "开始时Git已有409项变化，保留全部既有未提交内容。读取上轮声音参考和启动失败证据，没有把历史通过当成本轮验收。",
+    "修改前新增冷启动诊断连续三次通过，归档.artifacts/runs/2026-11-08T08-16-12-249Z-e2e。首次集成时，就绪接口晚于Vite回退注册而返回HTML，短音参考也未可靠识别，归档.artifacts/runs/2026-11-08T08-22-42-892Z-e2e；修正为configureServer阶段注册，并补充设备分段发送和原始匹配诊断。",
+    "首轮联合验收中控制条、真实相机和三次冷启动通过，短音在背景下相关度0.692不足，归档.artifacts/runs/2026-11-08T08-27-34-773Z-e2e。原生及脚本增加相同差分后，独立参考可识别，伴随PCM仍因相位相消无法匹配，归档.artifacts/runs/2026-11-08T08-33-05-548Z-e2e。离线逐毫秒分析发现后段载波相位翻转，改为分段正交匹配。",
+    "分段匹配首轮单测因起点有一个采样差异导致两项严格相等失败，归档.artifacts/runs/2026-11-08T08-42-55-426Z-unit；将离线定位容差明确为两采样（48kHz约0.042ms），实际WASAPI对齐仍要求小于一帧，未放宽该验收标准。同频未编码声音和相位翻转负向/正向对照同步覆盖。",
+    "后续联合验收中三个相邻源码专项通过，但第二个声音点错误匹配到17ms后的半段短音，归档.artifacts/runs/2026-11-08T08-46-23-377Z-e2e。增加至少四分之三编码分段有效匹配的覆盖要求，同时保留0.75整体匹配门槛；半段短音负向用例在脚本与编译后的原生实现均覆盖。",
+    "最终原生源码以既有MSVC14.44.35207和SDK10.0.26100.0重新编译，成功后发布resources内程序，日志.artifacts/presentation-pending-native-build.log。pnpm test tests/main/presentationDiagnosticTone.test.ts tests/main/presentationCaptureClock.test.ts tests/main/presentationTimeline.test.ts通过3文件20项，归档.artifacts/runs/2026-11-08T08-54-07-657Z-unit。",
+    "最终匹配器复核原失败录音三处，误差分别0.1114、0.0835和-0.0549ms，均小于一帧，数值收据.artifacts/presentation-pending-pulse-audit.json；原始录音和失败日志继续保留。没有修改声音采集时间戳或用预期位置回填实际结果。",
+    "连续验收中一轮首次设置页等待沿用默认5秒而失败，另一轮完整同步通过，归档.artifacts/runs/2026-11-08T08-55-19-771Z-e2e；原始日志显示设置插件已创建但页面目标尚未就绪。两项冷启动测试统一显式30秒正文就绪期限，继续进行两轮真实采集复核。",
+    "最终pnpm test:e2e tests/e2e/presentation-synchronization.spec.ts --repeat-each=2连续两轮全部通过，归档.artifacts/runs/2026-11-08T08-57-15-116Z-e2e。八个真实声音测点均小于一帧，最大绝对误差约0.0183ms，匹配质量0.806至0.864，背景RMS约0.021至0.024证明并非静音环境；两轮各五处屏幕和相机实际时间码完全一致，暂停恢复、输入轨迹及真实播放EOF保留相机末帧均通过。",
+    "冷启动和相邻回归：.artifacts/runs/2026-11-08T08-46-23-377Z-e2e中的控制条、物理相机和三次冷启动均通过，真实相机两路时长均0.783317秒；随后两轮同步分别使用全新隔离资料再次完成启动。共同就绪接口、三个来源及正文均经过检查，上轮启动待复核项关闭，历史失败继续保留。",
+    "7个相关脚本、配置、检测器及测试ESLint无错误无警告；pnpm docs:check通过37文档253本地链接、15章66步；pnpm test:regressions presentation-pending-verification --list通过。原声音参考和源码启动待复核项均已完成当前验收，历史失败未删除或改写。",
+    "pnpm preview:sync同步1.3.0程序104项，312个原有配置、资料和插件文件保持一致；收据.artifacts/backups/preview-sync/update-1794128503496/preservation.json，日志.artifacts/presentation-pending-preview-sync.log。交付编译后的原生诊断程序，前端产物未发生本轮行为变化。pnpm test:preview:resources通过103个程序文件、346个内置文件与1687个媒体文件，日志.artifacts/presentation-pending-preview-resources.log。",
+    "按明确清单核对绝对路径、祖先及后代无链接、无Git跟踪后，回收本轮app、空new-resources、被替代previous-resources及六个已消费原生编译中间文件，共9处5532文件1062989880字节（约1014MiB）；清单与结果位于.artifacts/cleanup-2026-11-08-pending-verification/。保留当前预览、resources中已发布原生程序、update-1794128503496/previous-resources最近程序回退、工具链、全部收据和原始失败证据。",
+    "清理后pnpm test:preview:resources再次通过，日志.artifacts/presentation-pending-preview-resources-after-cleanup.log。空间复核.artifacts逻辑大小5909416496字节（约5.50GiB），原始测试证据约2.39GiB、既有工具链1.18GiB、最近回退与资料备份1.15GiB、历史下载0.56GiB、上游参考0.18GiB按原用途保留；本轮无新增下载或工具链，已消费程序暂存和本轮原生中间文件已清理。",
+    "pnpm maintain、pnpm maintain:check、pnpm docs:check及git diff --check通过。未重置配置、资料或插件，未push、云端构建或Release。"
+  ],
+  "pending": ["其他DPI、多屏及不同声卡、摄像头驱动继续按设备边界人工验收；前轮声音参考与源码启动待复核项已在本轮关闭。"],
+  "preview": "已同步.local/portable-preview，通过PreviewPortable.cmd手动测试；312个既有配置、资料和插件文件完整保留，程序、内置工具、媒体及原生运行资源复核通过。"
+}

@@ -79,7 +79,7 @@
     "uploadImage": "上传图片",
     "supportedFormats": "支持格式：JPG、PNG、GIF、WebP",
     "arrowDirection": "箭头方向",
-    "strokeWidth": "描边宽度：{{width}}px",
+    "strokeWidth": "描边宽度 {{width}}px",
     "arrowColor": "箭头颜色",
     "deleteAnnotation": "删除注释",
     "shortcutsAndTips": "快捷键与提示",
@@ -88,13 +88,13 @@
     "tipCycleBackward": "使用 Shift+Tab 反向循环切换。",
     "imageUploadSuccess": "图片上传成功！",
     "imageUploadError": "请上传 JPG、PNG、GIF 或 WebP 图片文件。",
-    "blurStrength": "模糊强度: {{strength}}",
+    "blurStrength": "模糊强度 {{strength}}",
     "solidColor": "纯色 (审查)",
     "borderRadius": "边框半径",
     "imageUploadErrorDescription": "无法读取所选图片，请检查文件后重试。",
     "imageUploadFailed": "导入图片失败",
     "imageUploadFailedDescription": "请使用有效的图片文件重试。",
-    "arrowDirectionOption": "箭头方向：{{direction}}",
+    "arrowDirectionOption": "箭头方向 {{direction}}",
     "customColor": "自定义颜色"
   },
   "fontStyles": {
@@ -177,7 +177,7 @@
     "renameTitle": "重命名项目"
   },
   "exportTips": {
-    "autoZooms": "提示：可在设置中关闭自动应用的缩放",
+    "autoZooms": "提示：可在设置中关闭自动应用的变焦",
     "experimentalBuilds": "提示：可在设置中开启实验版本访问权限",
     "cursorAppearance": "提示：你可以自定义光标外观"
   },

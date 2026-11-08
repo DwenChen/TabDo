@@ -13,3 +13,5 @@
 | 版本与发布支持 | `version-utils.mjs`、`update-metadata.mjs`、`updater.mjs`                                                   | 版本解析、云端制品更新元数据；仅有当前用户授权才能发布                                        |
 
 不要在根目录新增 `_fix*.cjs` 等一次性脚本。临时诊断进入 `.artifacts/`，可复用的工具进入本目录并补 JSDoc、对应测试与维护条目。不得将凭据写入脚本、日志或变更记录。
+
+产物保留与清理遵守[项目空间规范](../docs/workspace-storage.md)。`project-maintenance.cjs` 负责整理和索引维护，`sync-portable-preview.cjs` 生成程序暂存及回退，均不自动淘汰历史副本；执行者在预览资源核验成功后同轮清理已消费的暂存和旧程序回退，保留最近一次回退及审计收据。纯文档任务不构建、打包或同步预览。

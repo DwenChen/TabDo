@@ -123,7 +123,7 @@ test('剪贴板独立条目悬浮、多图悬浮、跨窗口拖放、临时常�
         }),
       setting
     )
-    const tutorial = settings.getByRole('button', { name: '阅读本地图文教程', exact: true })
+    const tutorial = settings.getByRole('button', { name: '阅读本地教程', exact: true })
     await expect(tutorial).toBeVisible()
     const buttons = await settings.locator('.about-panel .btn').evaluateAll((elements) =>
       elements.map((element) => {

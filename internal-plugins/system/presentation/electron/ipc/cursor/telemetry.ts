@@ -12,6 +12,7 @@ import {
 	cursorCapturePauseStartedAtMs,
 	cursorCaptureStartTimeMs,
 	isCursorCaptureActive,
+	mouseCaptureEnabled,
 	linuxCursorScreenPoint,
 	pendingCursorSamples,
 	selectedSource,
@@ -43,6 +44,7 @@ export function normalizeCursorTelemetrySamples(rawSamples: unknown): CursorTele
 		.map((sample: unknown) => {
 			const point = sample as Partial<CursorTelemetryPoint>;
 			return {
+				keyText: typeof point.keyText === "string" ? point.keyText.slice(0, 128) : undefined,
 				timeMs:
 					typeof point.timeMs === "number" && Number.isFinite(point.timeMs)
 						? Math.max(0, point.timeMs)
@@ -261,7 +263,12 @@ export function pushCursorSample(
 	}
 }
 
+/**
+ * 在鼠标录制开启时追加当前位置，键盘采集可以独立运行。
+ * @returns 无返回值；关闭鼠标时不产生位置样本。
+ */
 export function sampleCursorPoint() {
+	if (!mouseCaptureEnabled) return;
 	const point = getNormalizedCursorPoint();
 	pushCursorSample(point.cx, point.cy, getCursorCaptureElapsedMs(), "move");
 }

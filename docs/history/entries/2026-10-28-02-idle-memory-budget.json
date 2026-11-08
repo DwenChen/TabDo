@@ -1,0 +1,34 @@
+{
+  "id": "idle-memory-budget",
+  "date": "2026-10-28",
+  "summary": "继续排查演示录屏、设置及其他子组件退出后的内存，验证100MB闲时目标",
+  "reason": "用户反馈录屏关闭后仍超过200MB、设置关闭后超过100MB，要求安全结束任务进程并排查其他子组件。保留工作区上一轮内存与教程未提交改动。",
+  "changes": [
+    "Windows新增事件驱动的闲置回收：全部窗口、工具页与任务结束后等待10秒，一次性归还本应用冷工作集；活动恢复撤销等待和所属辅助进程，不做周期性压缩。",
+    "媒体处理、快速录屏、演示运行时、内置提供商及原生截图/取色登记活动与最终收尾；隐藏必要任务页和临时常驻会话同样阻止回收，不改变保存、导出或全局剪贴板采集。",
+    "辅助进程就绪后重新检查活动与当前Electron进程清单，使用进程句柄和创建时间防止PID复用；15秒超时，完成后解除进程与监听引用，失败不会伪报成功。",
+    "扩展idle-memory回归，分别记录全应用工作集和私有提交量，覆盖设置三次开关、真实录屏、编辑器三次开关、三个日常工具、必要任务保护、35/65秒闲置及设置重开读写。",
+    "同步生命周期、设置和性能文档、未发布说明、Bug台账与TX-98回归分组。"
+  ],
+  "checks": [
+    "修改前通过context-mode检查维护规范、历史、模块文档和Git状态，已有未提交改动全部保留。",
+    "本轮初始源码idle-memory通过，归档.artifacts/runs/2026-10-28T03-44-26-236Z-e2e；35秒闲置全部Electron进程工作集689.369MB，私有提交479.957MB，仅剩宿主一页。",
+    "首轮策略源码idle-memory通过，归档.artifacts/runs/2026-10-28T03-47-12-178Z-e2e；35秒全应用工作集43.266MB，私有提交480.412MB，说明收益来自冷工作集归还，不能宣称分配提交量已低于100MB。",
+    "扩展专项通过，归档.artifacts/runs/2026-10-28T03-49-43-969Z-e2e；设置三次开关后24.396MB，真实录屏和三个工具退出后35秒45.515MB；65秒及重开设置读写断言通过，必要任务未结束时没有回收。最终增加各宿主运行时活动门槛后正在复验。",
+    "首次单测因PS1资产被Vite作为JS解析而失败，归档.artifacts/runs/2026-10-28T03-46-38-634Z-unit；改为与打包策略一致的物理资源路径，避免运行时依赖测试专用资产转换。",
+    "全量109文件749项单测通过，归档.artifacts/runs/2026-10-28T03-53-18-986Z-unit。新增5项覆盖事件合并、重新活动、旧完成回调隔离、隐藏任务/原生进程阻止、就绪重检、PID参数和15秒超时。",
+    "修改范围ESLint、Node类型检查及git diff --check通过；pnpm docs:check通过30份文档、193个本地链接、39功能/14分类/30普通入口和15章65步。pnpm test:regressions idle-memory --list确认6个单测文件与4个E2E文件。",
+    "最终7项源码回归全部通过，归档.artifacts/runs/2026-10-28T03-53-54-368Z-e2e：idle-memory、native-shutdown、presentation-import、presentation-recorder、settings-window-stability、third-party-lifecycle、tools-lifecycle。包含真实录制/编辑/导出、第三方和Provider有限任务、旧页面回收与原生退出；E2E始终通过scripts/preview-main.cjs加载源码。",
+    "最终测量：设置三次开关后15秒工作集24.605MB，录屏及其他工具退出后35秒46.248MB、65秒59.908MB；两个闲置阶段均只剩宿主一页。对应私有提交量537.043/490.811/489.505MB，未达到100MB提交量。重开设置正文和隔离数据库读写通过，工作集可按活动需求恢复。",
+    "自审补充取消退出边界：before-quit可能被宿主阻止，改为will-quit才永久撤销策略；针对性5项单测及Node类型检查通过，归档.artifacts/runs/2026-10-28T03-58-07-065Z-unit。最终native-shutdown源码复验通过，归档.artifacts/runs/2026-10-28T04-01-00-064Z-e2e。",
+    "pnpm run build完整通过Node/Web/设置类型检查及设置、工具、宿主和preload生产编译；日志.artifacts/work/idle-memory-budget-build.log。保留既有pnpm配置迁移、PostCSS及大chunk提示；未执行electron-builder、build:unpack或任何云端构建。",
+    "pnpm maintain与pnpm maintain:check通过后，pnpm preview:sync完成固定免安装预览更新：329个现有配置、资料与插件文件逐文件保留，102项程序文件核验，版本仍为1.3.0；回退副本.artifacts/backups/preview-sync/update-1793160072719/previous-resources。",
+    "pnpm test:preview:resources通过101项程序、345项内置资源及1687项媒体运行文件布局与字节核验，包含物理展开的reclaim-idle-memory.ps1；未为E2E使用编译成品。收尾pnpm maintain、pnpm maintain:check、pnpm docs:check和git diff --check均通过。"
+  ],
+  "pending": [
+    "100MB目标只在本机源码闲置工作集口径下通过，私有提交量仍高于100MB；该策略归还冷页而不解除全部分配，不能宣称已解决所有提交内存占用。",
+    "其他显卡/驱动、DPI、多屏、真实音频摄像头、长时录制与长期闲置仍待设备验收；系统策略禁止PowerShell或进程访问时只记录失败，不强行停止进程。",
+    "未启动使用真实资料的免安装预览；实际设备手动体验通过PreviewPortable.cmd进行。"
+  ],
+  "preview": "已同步.local/portable-preview并通过程序资源布局核验；通过PreviewPortable.cmd手动测试，329个现有资料文件保留。未重置配置或插件，未push、云端构建或发布Release。"
+}

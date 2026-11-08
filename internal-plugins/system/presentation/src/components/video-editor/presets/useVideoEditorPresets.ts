@@ -13,12 +13,17 @@ type Input = {
 	setAspectRatio: Dispatch<SetStateAction<AspectRatio>>;
 };
 
+/**
+ * 保存和恢复完整外观预设，包含独立圆角和人像尺寸。
+ * @param props 当前状态与操作参数。
+ * @returns 规范化状态或所属编辑操作。
+ */
 export function useVideoEditorPresets({
 	t,
 	appearance,
 	timeline,
 	aspectRatio,
-	setAspectRatio,
+	setAspectRatio
 }: Input) {
 	const [editorPresets, setEditorPresets] = useState(() => loadEditorPresets());
 	const [activeEditorPresetId, setActiveEditorPresetId] = useState<string | null>(null);
@@ -62,17 +67,28 @@ export function useVideoEditorPresets({
 			cursorClickBounceDuration: appearance.cursorClickBounceDuration,
 			cursorSway: appearance.cursorSway,
 			borderRadius: appearance.borderRadius,
+			backgroundBorderRadius: appearance.backgroundBorderRadius,
 			borderRadiusUnit: "percent",
 			padding: { ...appearance.padding },
 			cropRegion: { ...appearance.cropRegion },
-			webcam: (({ sourcePath: _sourcePath, visibleRanges: _visibleRanges, ...settings }) =>
-				settings)(appearance.webcam),
+			webcam: (({
+				sourcePath: _sourcePath,
+				visibleRanges: _visibleRanges,
+				segments: _segments,
+				sourceDurationMs: _sourceDurationMs,
+				...settings
+			}) => settings)(appearance.webcam),
 			aspectRatio,
-			autoCaptionSettings: { ...timeline.autoCaptionSettings },
+			autoCaptionSettings: { ...timeline.autoCaptionSettings }
 		}),
-		[appearance, timeline.autoCaptionSettings, aspectRatio],
+		[appearance, timeline.autoCaptionSettings, aspectRatio]
 	);
 
+	/**
+	 * 应用外观预设并保留当前摄像头文件、真实时长和已编辑的片段。
+	 * @param snapshot 只承载外观的预设快照。
+	 * @returns 不返回值，更新当前编辑器外观状态。
+	 */
 	const applySnapshot = useCallback(
 		(snapshot: EditorPresetSnapshot) => {
 			appearance.setWallpaper(snapshot.wallpaper);
@@ -110,17 +126,20 @@ export function useVideoEditorPresets({
 			appearance.setCursorClickBounceDuration(snapshot.cursorClickBounceDuration);
 			appearance.setCursorSway(snapshot.cursorSway);
 			appearance.setBorderRadius(snapshot.borderRadius);
+			appearance.setBackgroundBorderRadius(snapshot.backgroundBorderRadius ?? 0);
 			appearance.setPadding({ ...snapshot.padding });
 			appearance.setCropRegion({ ...snapshot.cropRegion });
 			appearance.setWebcam((current) => ({
 				...snapshot.webcam,
 				sourcePath: current.sourcePath,
 				visibleRanges: current.visibleRanges,
+				segments: current.segments,
+				sourceDurationMs: current.sourceDurationMs
 			}));
 			setAspectRatio(snapshot.aspectRatio);
 			timeline.setAutoCaptionSettings({ ...snapshot.autoCaptionSettings });
 		},
-		[appearance, timeline, setAspectRatio],
+		[appearance, timeline, setAspectRatio]
 	);
 
 	const actions = useEditorPresets({
@@ -133,7 +152,7 @@ export function useVideoEditorPresets({
 		setActivePresetId: setActiveEditorPresetId,
 		presetPopoverOpen,
 		presetNameDraft,
-		setPresetNameDraft,
+		setPresetNameDraft
 	});
 	return {
 		editorPresets,
@@ -142,6 +161,6 @@ export function useVideoEditorPresets({
 		setPresetPopoverOpen,
 		presetNameDraft,
 		setPresetNameDraft,
-		...actions,
+		...actions
 	};
 }

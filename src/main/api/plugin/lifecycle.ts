@@ -81,7 +81,8 @@ export class PluginLifecycleAPI {
     })
     // 插件进入事件
     ipcMain.handle('onPluginEnter', () => {
-      console.log('[PluginLifecycle] 收到插件进入事件:', this.launchParam)
+      // 诊断只记录身份，避免日志再次分配或长期保存图片和大段文本。
+      console.log('[PluginLifecycle] 收到插件进入事件:', { code: this.launchParam?.code })
       return this.launchParam
     })
 

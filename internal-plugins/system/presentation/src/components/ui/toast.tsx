@@ -1,5 +1,6 @@
 import { Toast, toast as heroToast } from "@heroui/react";
 import { isValidElement, type ReactNode } from "react";
+import { localizePresentationMessage } from '@presentation/lib/presentationMessages';
 
 type Options = {
 	id?: string | number;
@@ -18,8 +19,17 @@ function plainText(value: ReactNode): string {
 	return "";
 }
 
-// Keep existing callers compatible while HeroUI owns the queue and presentation.
+/**
+ * 保持既有提示调用接口，并在实际展示边界规范化外部故障语言。
+ * @param title 提示正文。
+ * @param options 描述、操作及生命周期选项。
+ * @param variant 提示类型。
+ * @returns HeroUI 提示身份，供更新及撤下使用。
+ */
 function notify(title: ReactNode, options: Options = {}, variant: Variant = "default") {
+	// 第三方库和系统错误在展示边界统一转为中文，原文仍由诊断链保留。
+	if (typeof title === 'string') title = localizePresentationMessage(title);
+	if (typeof options.description === 'string') options = { ...options, description: localizePresentationMessage(options.description) };
 	const errorText = [plainText(title), plainText(options.description)]
 		.filter(Boolean)
 		.join("\n\n");
@@ -42,12 +52,12 @@ function notify(title: ReactNode, options: Options = {}, variant: Variant = "def
 				}
 			: variant === "danger" && errorText
 				? {
-						children: "Copy",
+						children: "复制错误信息",
 						onPress: () => {
 							void navigator.clipboard.writeText(errorText).then(
 								() => heroToast.success("错误已复制"),
 								() =>
-									heroToast.danger("Could not copy error", {
+									heroToast.danger("无法复制错误信息", {
 										description: errorText,
 									}),
 							);

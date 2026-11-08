@@ -1,4 +1,18 @@
-import type { ArrowDirection } from "./types";
+import type { ArrowDirection, FigureData } from "./types";
+import { getStickerArrowLayout } from './arrowGeometry';
+import { getArrowImageSource } from './arrowAppearance';
+
+/**
+ * 使用共享 SVG 材质显示箭头，缩略图、画布与导出使用相同图形。
+ * @param props 方向、颜色、线宽、外观与可选样式。
+ * @returns 可伸缩的箭头图形。
+ */
+export function ArrowPreview({ direction, color, strokeWidth, arrowStyle = 'cartoon', className, width = 180, height = 70 }: {
+  direction: ArrowDirection; color: string; strokeWidth: number; arrowStyle?: FigureData['arrowStyle']; className?: string; width?: number; height?: number
+}) {
+  const layout = getStickerArrowLayout(direction, width, height)
+  return <svg aria-hidden="true" viewBox={`0 0 ${width} ${height}`} className={className} style={{ width: '100%', height: '100%' }}><image href={getArrowImageSource({ arrowStyle, color, strokeWidth })} x={-layout.width / 2} y={-layout.height / 2} width={layout.width} height={layout.height} transform={`translate(${width / 2} ${height / 2}) rotate(${layout.angle * 180 / Math.PI})`} /></svg>
+}
 
 interface ArrowSvgProps {
 	color: string;

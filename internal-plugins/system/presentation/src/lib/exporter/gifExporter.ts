@@ -56,6 +56,7 @@ interface GifExporterConfig {
 	zoomOutEasing?: ZoomTransitionEasing;
 	connectedZoomEasing?: ZoomTransitionEasing;
 	borderRadius?: number;
+	backgroundBorderRadius?: number;
 	padding?: Padding | number;
 	videoPadding?: Padding | number;
 	cropRegion: CropRegion;
@@ -131,6 +132,12 @@ export function getGifRepeat(loop: boolean): 0 | 1 {
 	return loop ? 0 : 1;
 }
 
+/**
+ * 将编辑外观映射到GIF帧渲染，保留两种圆角和人像尺寸。
+ * @param config 用户选择的GIF及画面配置。
+ * @param videoInfo 素材原始宽高。
+ * @returns GIF与视频共用的帧渲染配置。
+ */
 export function buildGifFrameRendererConfig(
 	config: GifExporterConfig,
 	videoInfo: { width: number; height: number },
@@ -156,6 +163,7 @@ export function buildGifFrameRendererConfig(
 		zoomOutEasing: config.zoomOutEasing,
 		connectedZoomEasing: config.connectedZoomEasing,
 		borderRadius: config.borderRadius,
+		backgroundBorderRadius: config.backgroundBorderRadius,
 		padding: config.padding,
 		cropRegion: config.cropRegion,
 		webcam: config.webcam,

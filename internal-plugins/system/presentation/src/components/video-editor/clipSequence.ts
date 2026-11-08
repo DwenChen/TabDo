@@ -55,42 +55,14 @@ function mapWithinClip(time: number, before: ClipRegion, after: ClipRegion): num
 	);
 }
 
-/** Map an anchor directly: rounding a tiny synthetic span can erase valid anchors. */
-export function mapClipSequenceTime(
-	time: number,
-	before: ClipRegion[],
-	after: ClipRegion[],
-): number {
-	if (before.length === 0) return time;
-	const sorted = sortClipRegions(before);
-	const owner = sorted.find((clip) => time >= clip.startMs && time < clip.endMs);
-	const next = owner && after.find((clip) => clip.id === owner.id);
-	if (owner && next) return mapWithinClip(time, owner, next);
-
-	const beforeEnd = Math.max(...before.map((clip) => clip.endMs));
-	const afterEnd = Math.max(0, ...after.map((clip) => clip.endMs));
-	// Independently timed content beyond footage keeps its distance from the end.
-	if (time >= beforeEnd) return Math.round(afterEnd + time - beforeEnd);
-	const following = sorted.find(
-		(clip) => clip.startMs >= time && after.some((nextClip) => nextClip.id === clip.id),
-	);
-	return following ? after.find((clip) => clip.id === following.id)!.startMs : afterEnd;
-}
-
-/** Imported audio keeps its duration while its timeline anchor follows the edit. */
-export function rippleRegionAnchors<T extends { startMs: number; endMs: number }>(
-	regions: T[],
-	before: ClipRegion[],
-	after: ClipRegion[],
-): T[] {
-	return regions.map((region) => {
-		const startMs = mapClipSequenceTime(region.startMs, before, after);
-		return { ...region, startMs, endMs: startMs + region.endMs - region.startMs };
-	});
-}
-
-/** Map the retained footage covered by each connected effect through a sequence edit. */
-export function rippleRegions<T extends { startMs: number; endMs: number }>(
+/**
+ * 按保留画面映射关联效果，重排后只合并相邻区间，分离部分独立成段。
+ * @param regions 随录屏编辑的变焦或注释。
+ * @param before 编辑前的录屏序列。
+ * @param after 编辑后的录屏序列。
+ * @returns 保留参数和实际覆盖时长的效果；新增分段使用独立身份。
+ */
+export function rippleRegions<T extends { id: string; startMs: number; endMs: number }>(
 	regions: T[],
 	before: ClipRegion[],
 	after: ClipRegion[],
@@ -105,11 +77,17 @@ export function rippleRegions<T extends { startMs: number; endMs: number }>(
 			const endMs = mapWithinClip(end, clip, next);
 			return endMs > startMs ? [{ startMs, endMs }] : [];
 		});
-		if (retainedSpans.length === 0) return [];
-		// Reordering can reverse the original endpoints. Include every retained
-		// segment instead of deleting the effect because its endpoints inverted.
-		const startMs = Math.min(...retainedSpans.map((span) => span.startMs));
-		const endMs = Math.max(...retainedSpans.map((span) => span.endMs));
-		return [{ ...region, startMs, endMs }];
+		// 不能用最早起点和最晚终点包围分离区间，否则会覆盖无关画面和其他效果。
+		const spans: { startMs: number; endMs: number }[] = [];
+		for (const span of retainedSpans.sort((a, b) => a.startMs - b.startMs)) {
+			const previous = spans.at(-1);
+			if (previous && span.startMs <= previous.endMs) previous.endMs = Math.max(previous.endMs, span.endMs);
+			else spans.push({ ...span });
+		}
+		return spans.map((span, index) => ({
+			...region,
+			...span,
+			id: index === 0 ? region.id : `${region.id}-${crypto.randomUUID()}`,
+		}));
 	});
 }

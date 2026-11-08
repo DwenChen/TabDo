@@ -42,7 +42,7 @@ export function RecordingThumbnail({ entry }: { entry: RecordingLibraryEntry }) 
 			{src ? (
 				<img
 					src={src}
-					alt={`Preview of ${entry.name}`}
+					alt={`录制预览：${entry.name}`}
 					className="size-full object-cover"
 					draggable={false}
 					onError={() => {

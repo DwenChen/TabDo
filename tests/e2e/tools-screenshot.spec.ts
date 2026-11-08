@@ -145,6 +145,20 @@ test('native tools screenshot keeps editing and confirms silently without transl
     )
     // 松开选区仍停留在编辑态，确认前不能回传最终结果。
     expect(await app.evaluate(() => (globalThis as any).__captureResult)).toBeNull()
+    nativePointer(`
+      $factor=${factor}; $scale=[CaptureInput]::GetDpiForSystem()/96.0; $btn=[Math]::Round(32*$scale); $gap=[Math]::Round($scale); $pad=[Math]::Round(6*$scale); $border=[Math]::Round($scale);
+      $tw=19*($btn+$gap)-$gap+2*$pad+2*$border-2*($btn-[Math]::Floor($btn*3/8));
+      $left=${x}+(${endX - x}-$tw)/2; $by=[int](${endY}+[Math]::Round(6*$scale)+[Math]::Round(44*$scale)/2);
+      function ClickPoint([int]$px,[int]$py) { [CaptureInput]::SetCursorPos($px,$py); Start-Sleep -Milliseconds 100; [CaptureInput]::mouse_event(2,0,0,0,[UIntPtr]::Zero); [CaptureInput]::mouse_event(4,0,0,0,[UIntPtr]::Zero); Start-Sleep -Milliseconds 100 }
+      function Tool([int]$index) { ClickPoint ([int]($left+$pad+$border+($index+1)*($btn+$gap)+$btn/2)) $by }
+      function DragPoint([int]$x1,[int]$y1,[int]$x2,[int]$y2) { [CaptureInput]::SetCursorPos($x1,$y1); Start-Sleep -Milliseconds 100; [CaptureInput]::mouse_event(2,0,0,0,[UIntPtr]::Zero); Start-Sleep -Milliseconds 70; [CaptureInput]::SetCursorPos($x2,$y2); Start-Sleep -Milliseconds 70; [CaptureInput]::mouse_event(4,0,0,0,[UIntPtr]::Zero); Start-Sleep -Milliseconds 100 }
+      Tool 5; DragPoint (${x}+80*$factor) (${y}+160*$factor) (${x}+210*$factor) (${y}+160*$factor);
+      Tool 8; ClickPoint (${x}+80*$factor) (${y}+60*$factor); ClickPoint (${x}+180*$factor) (${y}+60*$factor);
+      [CaptureInput]::keybd_event(17,0,0,[UIntPtr]::Zero); [CaptureInput]::keybd_event(90,0,0,[UIntPtr]::Zero); [CaptureInput]::keybd_event(90,0,2,[UIntPtr]::Zero); [CaptureInput]::keybd_event(17,0,2,[UIntPtr]::Zero);
+      [CaptureInput]::keybd_event(17,0,0,[UIntPtr]::Zero); [CaptureInput]::keybd_event(89,0,0,[UIntPtr]::Zero); [CaptureInput]::keybd_event(89,0,2,[UIntPtr]::Zero); [CaptureInput]::keybd_event(17,0,2,[UIntPtr]::Zero);
+      Tool 9; DragPoint (${x}+500*$factor) (${y}+200*$factor) (${x}+40*$factor) (${y}+30*$factor);
+      DragPoint (${x}+400*$factor) (${y}+140*$factor) (${x}+620*$factor) (${y}+220*$factor);
+    `)
     const preview = await app.evaluate(async ({ desktopCapturer }) => {
       const sources = await desktopCapturer.getSources({
         types: ['screen'],
@@ -156,6 +170,29 @@ test('native tools screenshot keeps editing and confirms silently without transl
       testInfo.outputPath('native-screenshot-toolbar.png'),
       Buffer.from(preview, 'base64')
     )
+    const visiblePixels = await app.evaluate(
+      ({ nativeImage }, { png, x, y, factor }) => {
+        const picture = nativeImage.createFromBuffer(Buffer.from(png, 'base64'))
+        const { width } = picture.getSize(),
+          bits = picture.toBitmap()
+        const points = [
+          [640, 230],
+          [300, 10],
+          [300, 190],
+          [450, 180]
+        ]
+        return points.map(([dx, dy]) => {
+          const i = (Math.round(y + dy * factor) * width + Math.round(x + dx * factor)) * 4
+          return [bits[i + 2], bits[i + 1], bits[i]]
+        })
+      },
+      { png: preview, x, y, factor }
+    )
+    // 同时检查屏幕预览，避免最终导出正确却把局部脏区残影误认为验收通过。
+    expect(visiblePixels[0][0]).toBeLessThan(130)
+    expect(visiblePixels[1][0]).toBeLessThan(130)
+    expect(visiblePixels[2][0]).toBeGreaterThan(230)
+    expect(visiblePixels[3]).toEqual(visiblePixels[2])
     nativePointer(
       '[CaptureInput]::keybd_event(13,0,0,[UIntPtr]::Zero); [CaptureInput]::keybd_event(13,0,2,[UIntPtr]::Zero)'
     )
@@ -164,6 +201,42 @@ test('native tools screenshot keeps editing and confirms silently without transl
     const size = await app.evaluate(({ clipboard }) => clipboard.readImage().getSize())
     expect(size.width).toBeGreaterThan(500)
     expect(size.height).toBeGreaterThan(150)
+    const annotationPixels = await app.evaluate(({ clipboard }, factor) => {
+      const image = clipboard.readImage(),
+        { width } = image.getSize(),
+        bits = image.toBitmap()
+      /**
+       * Read a physical output pixel at fixture-relative DIP coordinates.
+       * @param x Horizontal fixture coordinate.
+       * @param y Vertical fixture coordinate.
+       * @returns RGB channels from the actual copied PNG.
+       */
+      function pixel(x: number, y: number): number[] {
+        const i = (Math.round(y * factor) * width + Math.round(x * factor)) * 4
+        return [bits[i + 2], bits[i + 1], bits[i]]
+      }
+      return {
+        outside: pixel(640, 230),
+        inside: pixel(300, 190),
+        overlap: pixel(450, 180),
+        highlighter: pixel(140, 160)
+      }
+    }, factor)
+    expect(annotationPixels.outside[0]).toBeLessThan(130)
+    expect(annotationPixels.inside).toEqual([244, 247, 251])
+    expect(annotationPixels.overlap).toEqual(annotationPixels.inside)
+    expect(annotationPixels.highlighter[2]).toBeLessThan(annotationPixels.inside[2] - 20)
+    await fs.writeFile(
+      testInfo.outputPath('native-annotations.png'),
+      Buffer.from(
+        await app.evaluate(({ clipboard }) => clipboard.readImage().toPNG().toString('base64')),
+        'base64'
+      )
+    )
+    await fs.writeFile(
+      testInfo.outputPath('native-annotation-pixels.json'),
+      JSON.stringify(annotationPixels, null, 2)
+    )
 
     // 默认回归覆盖数万像素的长图；身份色带验证中间内容连续，不能只检查高度。
     const longEndY = Math.round((dimensions.bounds.y + dimensions.bounds.height - 130) * factor)
@@ -210,7 +283,7 @@ test('native tools screenshot keeps editing and confirms silently without transl
       )
     )
     nativePointer(`
-      $scale = [CaptureInput]::GetDpiForSystem() / 96.0; $btn = [Math]::Round(32*$scale); $gap = [Math]::Round($scale); $pad=[Math]::Round(6*$scale); $border=[Math]::Round($scale); $tw=16*($btn+$gap)-$gap+2*$pad+2*$border-2*($btn-[Math]::Floor($btn*3/8)); $left=${x}+(${endX - x}-$tw)/2; $bx=[int]($left+$pad+$border+8*($btn+$gap)+$btn/2); $by=[int](${longEndY}+[Math]::Round(6*$scale)+[Math]::Round(44*$scale)/2); [CaptureInput]::SetCursorPos($bx,$by); [CaptureInput]::mouse_event(2,0,0,0,[UIntPtr]::Zero); [CaptureInput]::mouse_event(4,0,0,0,[UIntPtr]::Zero);
+      $scale = [CaptureInput]::GetDpiForSystem() / 96.0; $btn = [Math]::Round(32*$scale); $gap = [Math]::Round($scale); $pad=[Math]::Round(6*$scale); $border=[Math]::Round($scale); $tw=19*($btn+$gap)-$gap+2*$pad+2*$border-2*($btn-[Math]::Floor($btn*3/8)); $left=${x}+(${endX - x}-$tw)/2; $bx=[int]($left+$pad+$border+11*($btn+$gap)+$btn/2); $by=[int](${longEndY}+[Math]::Round(6*$scale)+[Math]::Round(44*$scale)/2); [CaptureInput]::SetCursorPos($bx,$by); [CaptureInput]::mouse_event(2,0,0,0,[UIntPtr]::Zero); [CaptureInput]::mouse_event(4,0,0,0,[UIntPtr]::Zero);
       $toolbar=[IntPtr]::Zero; for($i=0; $i -lt 50; $i++) { $toolbar=[CaptureInput]::FindWindow('ZToolsLongCaptureToolbar','LongCaptureToolbar'); if($toolbar -ne [IntPtr]::Zero) { break }; Start-Sleep -Milliseconds 50 }; if($toolbar -eq [IntPtr]::Zero) { throw ('Long capture toolbar not found: scale=' + $scale + ', click=' + $bx + ',' + $by) }`)
     for (let step = 1; step <= scrollSteps; step++) {
       await fixture.evaluate(async (distance) => {

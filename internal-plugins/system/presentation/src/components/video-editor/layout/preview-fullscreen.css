@@ -1,0 +1,25 @@
+/* 原生回退仍处于普通文档层；隐藏外部编辑器层，避免时间轴跨堆叠上下文盖住预览。 */
+body:has(.presentation-preview-fullscreen[data-fullscreen-preview="true"]) > * {
+  visibility: hidden;
+}
+.presentation-preview-fullscreen[data-fullscreen-preview="true"],
+.presentation-preview-fullscreen[data-fullscreen-preview="true"] * {
+  visibility: visible;
+}
+.presentation-preview-fullscreen[data-fullscreen-preview="true"] {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100vw;
+  height: 100vh;
+  padding-bottom: 110px;
+  background: #08090c;
+}
+.presentation-preview-fullscreen[data-fullscreen-preview="true"] > [data-preview-frame] {
+  flex: none;
+  width: min(100vw, calc((100vh - 110px) * var(--fullscreen-ratio))) !important;
+  max-height: calc(100vh - 110px);
+}

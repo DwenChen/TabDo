@@ -1,7 +1,11 @@
 import { OnboardingController } from "@presentation/components/auth/OnboardingController";
+import { localizePresentationMessage } from '@presentation/lib/presentationMessages';
 import { AccountProfileContext } from "@presentation/components/ui/account-avatar";
 import { DashboardSettingsContext } from "../dashboard/DashboardSettings";
-import { RecordlySignInDialog, type SignInReason } from "@presentation/components/auth/RecordlySignInDialog";
+import {
+	RecordlySignInDialog,
+	type SignInReason,
+} from "@presentation/components/auth/RecordlySignInDialog";
 import { useRecordlyAuth } from "@presentation/components/auth/useRecordlyAuth";
 import { useVideoSourceRecovery } from "../hooks/useVideoSourceRecovery";
 import { useRecordingLibrary } from "../library/useRecordingLibrary";
@@ -33,6 +37,15 @@ import { EditorHeader } from "./EditorHeader";
 import { EditorPreviewPanel } from "./EditorPreviewPanel";
 import { EditorSidebar } from "./EditorSidebar";
 import { EditorTimelinePanel } from "./EditorTimelinePanel";
+import { FilmstripActivityContext } from "../timeline/components/filmstrip/ClipFilmstrip";
+import { AudioClipInspector } from "./AudioClipInspector";
+import { KeyboardInspector } from "./KeyboardInspector";
+import { SliderControl } from "../SliderControl";
+import { Switch } from "@presentation/components/ui/switch";
+import type { AudioRegion } from "../types";
+import { materializeSourceAudio } from "../audio/independentSourceAudio";
+import { useTimelineItemCommands } from "./useTimelineItemCommands";
+import { TimelineItemMenuProvider } from "../timeline/TimelineItemMenu";
 
 type Props = {
 	t: ReturnType<typeof useI18n>["t"];
@@ -104,6 +117,8 @@ export function EditorShell(props: Props) {
 		previewAspectRatioValue,
 	} = props;
 	const library = useRecordingLibrary(project, timeline, ui, appearance);
+	const itemCommands = useTimelineItemCommands(timeline, appearance, editing, ui.activeEffectSection,
+		() => { library.setOpen(false); ui.setActiveEffectSection("webcam"); }, `${project.currentProjectPath}|${project.videoSourcePath}`);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: Changing the active inspector closes the Videos view.
 	useEffect(() => {
 		library.setOpen(false);
@@ -120,15 +135,8 @@ export function EditorShell(props: Props) {
 		setPreviewVersion((version) => version + 1);
 	}, [setIsPreviewReady, setPreviewVersion]);
 	const handlePreviewError = useVideoSourceRecovery(project, remountRecoveredVideo);
-	const {
-		snapshot,
-		history,
-		lifecycle,
-		autoCaption,
-		saveActions,
-		openActions,
-		hasUnsavedChanges,
-	} = projectController;
+	const { snapshot, history, lifecycle, autoCaption, saveActions, openActions, hasUnsavedChanges } =
+		projectController;
 	const {
 		cursor,
 		projection,
@@ -143,6 +151,120 @@ export function EditorShell(props: Props) {
 		handleAutoSuggestZoomsConsumed,
 	} = editing;
 	const { dialogActions, status: exportStatus, exportMessage } = exportController;
+	const [sourceAudioSelection, setSourceAudioSelection] = useState<string | null>(null);
+	useEffect(() => {
+		if (project.loading || !project.videoPath || !audio.sourceAudioLookupReady || !audio.sourceAudioTrackMeta.length) return;
+		const paths = [
+			...new Set([
+				...(!audio.shouldMutePreviewVideo &&
+				audio.sourceAudioTrackMeta.some((track) => track.id === "mixed" || track.id === "system")
+					? [project.videoSourcePath ?? project.videoPath]
+					: []),
+				...audio.previewSourceAudioFallbackPaths,
+			]),
+		];
+		// Source identities are persisted on the screen clip so deletion, undo and reopening are stable.
+		const next = materializeSourceAudio(
+			timeline.clipRegions,
+			timeline.audioRegions,
+			paths,
+			audio.sourceAudioFallbackStartDelayMsByPath,
+			audio.getSourceAudioTrackSettingsForClip,
+		);
+		if (next.clips.some((clip, index) => clip !== timeline.clipRegions[index])) {
+			timeline.setClipRegions(next.clips);
+			timeline.setAudioRegions(next.regions);
+		}
+	}, [
+		project.loading,
+		project.videoPath,
+		project.videoSourcePath,
+		audio.sourceAudioLookupReady,
+		audio.sourceAudioTrackMeta,
+		audio.shouldMutePreviewVideo,
+		audio.previewSourceAudioFallbackPaths,
+		audio.sourceAudioFallbackStartDelayMsByPath,
+		audio.getSourceAudioTrackSettingsForClip,
+		timeline.clipRegions,
+		timeline.audioRegions,
+		timeline.setClipRegions,
+		timeline.setAudioRegions,
+	]);
+	const selectedAudio = timeline.audioRegions.find(
+		(region) => region.id === timeline.selectedAudioId,
+	);
+	const selectedClip = timeline.clipRegions.find((region) => region.id === timeline.selectedClipId);
+	const { sourcePath: cameraSourcePath } = appearance.webcam;
+	const { setWebcam } = appearance;
+	useEffect(() => {
+		if (!cameraSourcePath) return;
+		let retired = false;
+		// Read source metadata once per camera source, ignoring late results after a project switch.
+		void window.electronAPI
+			.getVideoSourceDuration(cameraSourcePath)
+			.then((result) => {
+				if (retired || !result.success) return;
+				setWebcam((current) =>
+					current.sourcePath === cameraSourcePath
+						? { ...current, sourceDurationMs: result.durationMs }
+						: current,
+				);
+			})
+			.catch(() => undefined);
+		return () => {
+			retired = true;
+		};
+	}, [cameraSourcePath, setWebcam]);
+	useEffect(() => {
+		setSourceAudioSelection(null);
+	}, [project.videoSourcePath]);
+	/**
+	 * Update the currently selected independent audio clip.
+	 * @param patch Source offset, gain or fade values to merge.
+	 * @returns Nothing; updates the persisted project timeline.
+	 */
+	function updateAudio(patch: Partial<AudioRegion>): void {
+		timeline.setAudioRegions((current) =>
+			current.map((region) => (region.id === selectedAudio?.id ? { ...region, ...patch } : region)),
+		);
+	}
+	const audioInspector =
+		selectedAudio && ui.activeEffectSection === "audio" ? (
+			<AudioClipInspector
+				region={selectedAudio}
+				onChange={updateAudio}
+			/>
+		) : sourceAudioSelection && selectedClip && ui.activeEffectSection === "audio" ? (
+			<section aria-label="录制音频编辑" className="space-y-4 overflow-y-auto p-5">
+				<h3 className="text-sm font-medium">
+					{audio.sourceAudioTrackMeta.find((track) => track.id === sourceAudioSelection)?.label ||
+						"录制声音"}
+				</h3>
+				<SliderControl
+					label="音量"
+					min={0}
+					max={1}
+					step={0.01}
+					value={audio.selectedClipSourceAudioTrackSettings[sourceAudioSelection]?.volume ?? 1}
+					onChange={(value) =>
+						audio.onSelectedClipSourceAudioTrackVolumeChange(sourceAudioSelection, value)
+					}
+					formatValue={(value) => `${Math.round(value * 100)}%`}
+				/>
+				<label className="flex justify-between text-xs">
+					响度归一化
+					<Switch
+						aria-label="响度归一化"
+						checked={Boolean(
+							audio.selectedClipSourceAudioTrackSettings[sourceAudioSelection]?.normalize,
+						)}
+						onCheckedChange={(value) =>
+							audio.onSelectedClipSourceAudioTrackNormalizeChange(sourceAudioSelection, value)
+						}
+					/>
+				</label>
+			</section>
+		) : undefined;
 	const dashboardSettingsContent = useMemo(
 		() => (
 			<SettingsPanel
@@ -189,6 +311,8 @@ export function EditorShell(props: Props) {
 					projectError={project.error}
 					onDashboardSignIn={() => requestSignIn("account")}
 					onDeleteProjects={openActions.handleDeleteProjects}
+					onBeforeDeleteRecordings={openActions.handlePrepareRecordingRemoval}
+					onRefreshProjects={async () => { project.setError(null); await openActions.handleRefreshLibrary(); }}
 					onRenameProject={openActions.handleRenameLibraryProject}
 					onShareProject={async (path) => {
 						if (
@@ -233,7 +357,7 @@ export function EditorShell(props: Props) {
 			<div className="flex h-screen items-center justify-center bg-background">
 				<div className="flex flex-col items-center gap-3">
 					<div role="alert" className="max-w-xl break-words text-center text-destructive">
-						{project.error}
+						{localizePresentationMessage(project.error)}
 					</div>
 					<Button
 						variant="ghost"
@@ -262,7 +386,8 @@ export function EditorShell(props: Props) {
 
 	return (
 		<div className="flex h-screen flex-col overflow-hidden bg-editor-bg text-foreground selection:bg-accent/20">
-			<EditorHeader handleImportProject={openActions.handleImportMediaOrProject}
+			<EditorHeader
+				handleImportProject={openActions.handleImportMediaOrProject}
 				clipsOpen={library.open}
 				onToggleClips={() => library.setOpen((open) => !open)}
 				t={t}
@@ -305,8 +430,7 @@ export function EditorShell(props: Props) {
 			<div
 				className="relative flex min-h-0 flex-1 flex-col"
 				onPointerDownCapture={(event) => {
-					if ((event.target as HTMLElement).closest("[data-timeline-item]"))
-						library.setOpen(false);
+					if ((event.target as HTMLElement).closest("[data-timeline-item]")) library.setOpen(false);
 				}}
 				onDragOver={(event) => {
 					if (event.dataTransfer.types.includes(RECORDING_DRAG_TYPE)) {
@@ -319,9 +443,7 @@ export function EditorShell(props: Props) {
 					if (!path) return;
 					event.preventDefault();
 					event.stopPropagation();
-					const timelinePanel = (event.target as HTMLElement).closest(
-						"[data-timeline-panel]",
-					);
+					const timelinePanel = (event.target as HTMLElement).closest("[data-timeline-panel]");
 					let index: number | undefined;
 					if (timelinePanel) {
 						const clips = [
@@ -353,12 +475,25 @@ export function EditorShell(props: Props) {
 						accountUser={auth.user}
 						onAccountClick={() => requestSignIn("account")}
 						panelContent={
-							library.open ? <RecordingLibraryPanel library={library} /> : undefined
+							library.open ? (
+								<RecordingLibraryPanel library={library} />
+							) : ui.activeEffectSection === "keyboard" ? (
+								<KeyboardInspector
+									regions={timeline.annotationRegions}
+									selectedId={timeline.selectedAnnotationId}
+									enabled={timeline.keyboardDisplayEnabled !== false}
+									onEnabledChange={timeline.setKeyboardDisplayEnabled}
+									onChange={timeline.setAnnotationRegions}
+								/>
+							) : (
+								audioInspector
+							)
 						}
 						t={t}
 						activeSection={ui.activeEffectSection}
 						setActiveSection={(section) => {
 							library.setOpen(false);
+							itemCommands.selectCameraSegment(null);
 							timeline.setSelectedAnnotationId(null);
 							timeline.setSelectedZoomId(null);
 							timeline.setSelectedClipId(null);
@@ -373,6 +508,7 @@ export function EditorShell(props: Props) {
 						}}
 					/>
 					<EditorPreviewPanel
+						canSplitSelected={itemCommands.canSplitSelected}
 						t={t}
 						videoPath={project.videoPath}
 						previewVersion={ui.previewVersion}
@@ -407,7 +543,19 @@ export function EditorShell(props: Props) {
 						setError={handlePreviewError}
 					/>
 				</div>
+				{/* 项目主页覆盖编辑器时停止取帧，不能保留不可见的素材解码器。 */}
+				<FilmstripActivityContext.Provider value={!project.projectBrowserOpen && Boolean(project.videoPath)}>
+				<TimelineItemMenuProvider resolveActions={itemCommands.getActions}>
 				<EditorTimelinePanel
+					itemCommands={itemCommands}
+					webcam={appearance.webcam}
+					onInteract={() => library.setOpen(false)}
+					onSelectSourceAudio={(clipId, trackId) => {
+						library.setOpen(false);
+						clipCommands.handleSelectClip(clipId);
+						setSourceAudioSelection(trackId);
+						ui.setActiveEffectSection("audio");
+					}}
 					onImportVideo={openActions.handleImportMediaOrProject}
 					panelRef={timelinePanelRef}
 					timelineRef={ui.timelineRef}
@@ -430,6 +578,8 @@ export function EditorShell(props: Props) {
 					currentTime={ui.currentTime}
 					handleSelectAnnotation={handleSelectAnnotation}
 				/>
+				</TimelineItemMenuProvider>
+				</FilmstripActivityContext.Provider>
 			</div>
 			{library.importing && (
 				<div

@@ -2,10 +2,13 @@ import { persistRecentMetadata } from "../project/recentMetadata";
 import { renameLibraryProject } from "../project/renameLibraryProject";
 import { createUntitledProject } from "../project/createUntitledProject";
 import { trashLibraryProjects } from "../project/trashProjects";
+import { recycleProjectFiles } from '../project/recycleProjectFiles';
 import { getRecordingThumbnail } from "../recording/thumbnail";
-import { listRecordings, setRecordingsRemoved } from "../recording/library";
+import { belongsToRecording, clearRecordingTrashUndo, listRecordings, setRecordingsRemoved } from "../recording/library";
+import { probeVideoStreamDurationSeconds } from "../recording/diagnostics";
 import { importRecording, discardRecordingImport } from "../recording/importRecording";
 import { randomUUID } from "node:crypto";
+import { recordingPreferencesStore } from "../settings/recordingSettings";
 import { constants as fsConstants } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -188,33 +191,33 @@ async function ensureNamedProjectSaveDoesNotOverwriteDifferentProject(
 
 			return {
 				success: false,
-				message: "A different project already uses this name",
+				message: "已有其他项目使用该名称",
 			};
 		}
 
 		if (existingVideoPath && incomingVideoPath && existingVideoPath !== incomingVideoPath) {
 			return {
 				success: false,
-				message: "A different project already uses this name",
+				message: "已有其他项目使用该名称",
 			};
 		}
 
 		if (!existingProjectId && !incomingProjectId && existingVideoPath && incomingVideoPath) {
 			return {
 				success: false,
-				message: "Unable to verify project identity for the chosen name",
+				message: "无法确认同名项目身份，请使用其他名称",
 			};
 		}
 
 		return {
 			success: false,
-			message: "Unable to verify project identity for the chosen name",
+			message: "无法确认同名项目身份，请使用其他名称",
 		};
 	} catch (error) {
 		console.error("Failed to verify existing named project before overwrite:", error);
 		return {
 			success: false,
-			message: "Unable to verify project identity for the chosen name",
+			message: "无法确认同名项目身份，请使用其他名称",
 		};
 	}
 }
@@ -254,7 +257,7 @@ export function registerProjectHandlers() {
 	};
 	ipcMain.handle("finish-recording-import", async (event, keepPath: string, commit = false) => {
 		if (imports.has(event.sender.id))
-			return { success: false, error: "Import is still running" };
+			return { success: false, error: "导入仍在进行，请稍候" };
 		const outputs = pendingImports.get(event.sender.id);
 		// Commit only after the renderer confirms that its project is still active.
 		if (commit) outputs?.delete(keepPath);
@@ -303,6 +306,23 @@ export function registerProjectHandlers() {
 			return { success: false, error: String(error) };
 		}
 	});
+	ipcMain.handle("trash-recording-files", async (_, paths: string[]) => {
+		try {
+			// Validate and stage only selected library files, then finish their move to the OS recycle bin.
+			await setRecordingsRemoved(paths, true);
+			try {
+				await clearRecordingTrashUndo(paths);
+			} catch (error) {
+				// A rejected recycle-bin move must restore the selected source bundle before reporting failure.
+				await setRecordingsRemoved(paths, false);
+				throw error;
+			}
+			return { success: true };
+		} catch (error) {
+			console.warn("[Recordings] 删除失败，素材已保留或恢复:", error);
+			return { success: false, error: String(error) };
+		}
+	});
 	ipcMain.handle(
 		"import-recording",
 		async (
@@ -321,7 +341,7 @@ export function registerProjectHandlers() {
 				});
 			}
 			if (imports.has(owner))
-				return { success: false, error: "An import is already running" };
+				return { success: false, error: "已有导入任务正在进行" };
 			const controller = new AbortController();
 			imports.set(owner, controller);
 			try {
@@ -333,7 +353,7 @@ export function registerProjectHandlers() {
 				);
 				if (controller.signal.aborted || event.sender.isDestroyed()) {
 					await discardRecordingImport(value.path);
-					throw new Error("Import cancelled because its editor closed or reloaded");
+					throw new Error("编辑器已关闭或重新加载，导入已取消");
 				}
 				const outputs = pendingImports.get(owner) ?? new Set<string>();
 				outputs.add(value.path);
@@ -378,7 +398,7 @@ export function registerProjectHandlers() {
 				return {
 					success: false,
 					error: openPathResult,
-					message: "Failed to open recordings folder.",
+					message: "无法打开录制文件夹。",
 				};
 			}
 
@@ -388,7 +408,7 @@ export function registerProjectHandlers() {
 			return {
 				success: false,
 				error: String(error),
-				message: "Failed to open recordings folder.",
+				message: "无法打开录制文件夹。",
 			};
 		}
 	});
@@ -415,7 +435,7 @@ export function registerProjectHandlers() {
 		try {
 			const current = await getRecordingsDir();
 			const result = await dialog.showOpenDialog({
-				title: "Choose recordings folder",
+				title: "选择录制保存文件夹",
 				defaultPath: current,
 				properties: ["openDirectory", "createDirectory", "promptToCreate"],
 			});
@@ -438,7 +458,7 @@ export function registerProjectHandlers() {
 			return {
 				success: false,
 				error: String(error),
-				message: "Failed to set recordings folder",
+				message: "无法设置录制文件夹",
 			};
 		}
 	});
@@ -476,7 +496,7 @@ export function registerProjectHandlers() {
 						success: true,
 						path: trustedExistingProjectPath,
 						projectId: preparedProject.projectId,
-						message: "Project saved successfully",
+						message: "项目已保存",
 					};
 				}
 
@@ -484,7 +504,7 @@ export function registerProjectHandlers() {
 					return {
 						success: false,
 						message:
-							"Project path is no longer trusted. Use Save As to choose a project file.",
+							"项目原路径已失效，请使用另存为选择项目文件。",
 					};
 				}
 
@@ -492,10 +512,10 @@ export function registerProjectHandlers() {
 				const defaultName = `${safeName}.${PROJECT_FILE_EXTENSION}`;
 
 				const result = await dialog.showSaveDialog({
-					title: "Save Recordly Project",
+					title: "保存演示项目",
 					defaultPath: path.join(projectsDir, defaultName),
 					filters: [
-						{ name: "Recordly Project", extensions: [PROJECT_FILE_EXTENSION] },
+						{ name: "演示项目", extensions: [PROJECT_FILE_EXTENSION] },
 						{ name: "JSON", extensions: ["json"] },
 					],
 					properties: ["createDirectory", "showOverwriteConfirmation"],
@@ -505,7 +525,7 @@ export function registerProjectHandlers() {
 					return {
 						success: false,
 						canceled: true,
-						message: "Save project canceled",
+						message: "已取消保存项目",
 					};
 				}
 
@@ -521,13 +541,13 @@ export function registerProjectHandlers() {
 					success: true,
 					path: result.filePath,
 					projectId: preparedProject.projectId,
-					message: "Project saved successfully",
+					message: "项目已保存",
 				};
 			} catch (error) {
 				console.error("Failed to save project file:", error);
 				return {
 					success: false,
-					message: "Failed to save project file",
+					message: "无法保存项目文件",
 					error: String(error),
 				};
 			}
@@ -548,7 +568,7 @@ export function registerProjectHandlers() {
 				if (!normalizedProjectName) {
 					return {
 						success: false,
-						message: "Project name is required",
+						message: "请输入项目名称",
 					};
 				}
 
@@ -628,13 +648,13 @@ export function registerProjectHandlers() {
 					success: true,
 					path: targetProjectPath,
 					projectId: preparedProject.projectId,
-					message: "Project saved successfully",
+					message: "项目已保存",
 				};
 			} catch (error) {
 				console.error("Failed to save named project file:", error);
 				return {
 					success: false,
-					message: "Failed to save project file",
+					message: "无法保存项目文件",
 					error: String(error),
 				};
 			}
@@ -645,21 +665,21 @@ export function registerProjectHandlers() {
 		try {
 			const projectsDir = await getProjectsDir();
 			const result = await dialog.showOpenDialog({
-				title: "Open Recordly Project",
+				title: "打开演示项目",
 				defaultPath: projectsDir,
 				filters: [
 					{
-						name: "Recordly Project",
+						name: "演示项目",
 						extensions: [PROJECT_FILE_EXTENSION, ...LEGACY_PROJECT_FILE_EXTENSIONS],
 					},
 					{ name: "JSON", extensions: ["json"] },
-					{ name: "All Files", extensions: ["*"] },
+					{ name: "所有文件", extensions: ["*"] },
 				],
 				properties: ["openFile"],
 			});
 
 			if (result.canceled || result.filePaths.length === 0) {
-				return { success: false, canceled: true, message: "Open project canceled" };
+				return { success: false, canceled: true, message: "已取消打开项目" };
 			}
 
 			return await loadProjectFromPath(result.filePaths[0]);
@@ -667,7 +687,7 @@ export function registerProjectHandlers() {
 			console.error("Failed to load project file:", error);
 			return {
 				success: false,
-				message: "Failed to load project file",
+				message: "无法加载项目文件",
 				error: String(error),
 			};
 		}
@@ -676,7 +696,7 @@ export function registerProjectHandlers() {
 	ipcMain.handle("load-current-project-file", async () => {
 		try {
 			if (!currentProjectPath) {
-				return { success: false, message: "No active project" };
+				return { success: false, message: "当前没有打开的项目" };
 			}
 
 			return await loadProjectFromPath(currentProjectPath);
@@ -684,7 +704,7 @@ export function registerProjectHandlers() {
 			console.error("Failed to load current project file:", error);
 			return {
 				success: false,
-				message: "Failed to load current project file",
+				message: "无法加载当前项目文件",
 				error: String(error),
 			};
 		}
@@ -701,6 +721,29 @@ export function registerProjectHandlers() {
 				success: false,
 				error: String(error),
 			};
+		}
+	});
+	ipcMain.handle("choose-projects-directory", async (event) => {
+		try {
+			const current = await getProjectsDir();
+			const parent = BrowserWindow.fromWebContents(event.sender);
+			const options: Electron.OpenDialogOptions = {
+				title: "选择项目保存目录",
+				defaultPath: current,
+				properties: ["openDirectory", "createDirectory", "promptToCreate"],
+			};
+			const result = parent ? await dialog.showOpenDialog(parent, options) : await dialog.showOpenDialog(options);
+			if (result.canceled || !result.filePaths.length) return { success: false, canceled: true, path: current };
+			const selectedPath = path.resolve(result.filePaths[0]);
+			// 真实排他写入证明目标可写，失败前不发布偏好，也不搬动旧项目。
+			await fs.mkdir(selectedPath, { recursive: true });
+			const probe = path.join(selectedPath, `.tabdo-write-${randomUUID()}`);
+			await fs.writeFile(probe, "", { flag: "wx" });
+			await fs.unlink(probe);
+			await recordingPreferencesStore.update({ projectsDir: selectedPath });
+			return { success: true, path: selectedPath };
+		} catch (error) {
+			return { success: false, error: String(error) };
 		}
 	});
 
@@ -732,6 +775,7 @@ export function registerProjectHandlers() {
 				list: listProjectLibraryEntries,
 				trash: (filePath) => shell.trashItem(filePath),
 				thumbnailPath: getProjectThumbnailPath,
+				trashBundle: recycleProjectFiles,
 			});
 			if (currentProjectPath && result.deleted.includes(path.resolve(currentProjectPath)))
 				setCurrentProjectPath(null);
@@ -776,7 +820,7 @@ export function registerProjectHandlers() {
 			console.error("Failed to open project file at path:", error);
 			return {
 				success: false,
-				message: "Failed to open project file",
+				message: "无法打开项目文件",
 				error: String(error),
 			};
 		}
@@ -790,7 +834,7 @@ export function registerProjectHandlers() {
 				return {
 					success: false,
 					error: openPathResult,
-					message: "Failed to open projects folder.",
+					message: "无法打开项目文件夹。",
 				};
 			}
 
@@ -800,7 +844,7 @@ export function registerProjectHandlers() {
 			return {
 				success: false,
 				error: String(error),
-				message: "Failed to open projects folder.",
+				message: "无法打开项目文件夹。",
 			};
 		}
 	});
@@ -925,10 +969,13 @@ export function registerProjectHandlers() {
 			) {
 				return { success: false, error: "Only auto-generated recordings can be deleted" };
 			}
-			await fs.unlink(resolvedPath);
-			// Also delete the cursor telemetry sidecar if it exists
-			const telemetryPath = getTelemetryPathForVideo(resolvedPath);
-			await fs.unlink(telemetryPath).catch(() => undefined);
+			// 明确取消录制时只丢弃该次生成的完整素材包，包括原生音轨和诊断伴随文件。
+			const directory = path.dirname(resolvedPath);
+			for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
+				if (entry.isFile() && belongsToRecording(entry.name, path.basename(resolvedPath))) {
+					await fs.unlink(path.join(directory, entry.name));
+				}
+			}
 			const currentResolved = currentVideoPath
 				? await fs.realpath(currentVideoPath).catch(() => currentVideoPath)
 				: null;
@@ -942,6 +989,13 @@ export function registerProjectHandlers() {
 		}
 	});
 
+	ipcMain.handle("get-video-source-duration", async (_, filePath: string) => {
+		// Probe only media already approved by a file chooser or the current session.
+		const approved = await resolveApprovedLocalMediaPath(filePath);
+		if (!approved) return { success: false, durationMs: 0 };
+		const seconds = await probeVideoStreamDurationSeconds(approved);
+		return { success: seconds > 0, durationMs: Math.round(seconds * 1000) };
+	});
 	ipcMain.handle("get-local-media-url", async (_, filePath: string) => {
 		const baseUrl = getMediaServerBaseUrl();
 		if (!baseUrl || !filePath) {

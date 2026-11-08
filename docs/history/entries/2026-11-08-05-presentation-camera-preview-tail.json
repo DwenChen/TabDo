@@ -1,0 +1,29 @@
+{
+  "id": "presentation-camera-preview-tail",
+  "date": "2026-11-08",
+  "summary": "修复摄像头悬浮预览开启但不显示，并核查相机片段提前结束",
+  "changes": [
+    "宿主穿透能力响应补齐success，符合预加载契约，使渲染器实际创建悬浮预览；补充窗口可见、视频帧前进、关闭后移除及菜单关闭后仍显示的验证。",
+    "相机预览在全片最终端点使用末片内部取样，与主视频保留最后一帧一致；可见性与相机媒体同步使用同一取样，兼容独立片段、源偏移、倍速及旧项目。",
+    "保持内部切口左闭右开，较短相机片段、显式删空与时间轴间隙不补帧、不延长；不修改既有录制文件和项目片段。同步模块文档、Bug台账和回归TX-130。"
+  ],
+  "checks": [
+    "只读核对用户最近三次录制，两路实际视频帧数分别为194、208、347且每对完全一致，已保存项目的录屏与相机片段起止也一致；不读取或归档人像画面，不将资料文件名写入维护记录。定位到屏幕终点保留末片、相机却按独立半开边界隐藏的预览差异。",
+    "修改前pnpm test:e2e tests/e2e/presentation-native-camera.spec.ts通过真实设备基线，归档.artifacts/runs/2026-11-08T07-41-52-602Z-e2e，短录制两路容器时长均0.783317秒，准备取消无遗留素材。未改动或重编译原生采集程序。",
+    "首次增加编辑器终点断言时，仅等待录制会话发布就开始查询预览正文，5秒内未加载出相机视频，归档.artifacts/runs/2026-11-08T07-47-46-700Z-e2e；改为等待真实录屏片段正文和相机视频就绪，不以会话IPC返回代替页面就绪。",
+    "pnpm test tests/main/presentationTimeline.test.ts tests/main/presentationCaptureClock.test.ts tests/main/presentationRecordingPreferences.test.ts通过3文件15项，归档.artifacts/runs/2026-11-08T07-50-06-772Z-unit；覆盖终点、内部切口、短相机、空片段、非终点、源偏移及倍速和真实原生时钟边界。",
+    "pnpm test:e2e tests/e2e/presentation-controls.spec.ts tests/e2e/presentation-synchronization.spec.ts tests/e2e/presentation-native-camera.spec.ts三项全部通过，归档.artifacts/runs/2026-11-08T07-50-49-734Z-e2e；悬浮窗确实可见且视频时间前进，开关往返有效；真实相机两路时长均0.783317秒；实际屏幕与参考相机五处时间码完全相同，双声音脉冲与暂停恢复继续通过，编辑器全片终点保留相机末帧。人工查看悬浮窗与终点截图，另补充菜单退场完成和进度值确已到终点的最终断言。",
+    "最终控制条专项再次通过（.artifacts/runs/2026-11-08T07-55-30-359Z-e2e中的第一项），明确等待菜单完全关闭后再检查悬浮窗与视频。该轮第二项因新增断言错误读取原生range的aria-valuemax而失败；改用原生max/value后同步专项通过，归档.artifacts/runs/2026-11-08T07-58-03-007Z-e2e。进一步发现range的10ms步长不能对任意素材触及精确终点，最终改为真实播放至源视频ended、播放按钮恢复后检查相机仍可见。",
+    "追加真实播放结尾验证时，相机EOF断言及五处两路时间码一致均通过，但既有声音参考断言在.artifacts/runs/2026-11-08T07-59-34-639Z-e2e与2026-11-08T08-03-52-631Z-e2e失败：首次参考点的搜索窗口起点已有非静音信号，差值约150ms。调整顺序为先核对采集文件、再静音播放预览，仍保留该失败，不能记为最终全链专项通过。未改动产品声音采集、同步、编解码或原生二进制。",
+    "不穿插其他桌面操作的复测首次在进入测试前退出，原始退出码3221226505且output.log为空，归档.artifacts/runs/2026-11-08T08-06-05-687Z-e2e；后续重试归档.artifacts/runs/2026-11-08T08-07-05-973Z-e2e未在30秒内显示录制按钮，尚未进入采集验收。检查未发现残留Playwright、Vite或源码预览进程；保留所有原始失败，不以此前三项通过覆盖当前未稳定验收项。",
+    "pnpm docs:check通过37文档253本地链接、15章66步；pnpm test:regressions presentation-camera-preview-tail --list通过。新增取样函数、控制条和两项源码回归ESLint无错误无警告。宿主适配器和既有时间轴单测保留原有显式返回类型问题，不将其记为本轮Lint全部通过。pnpm build:tools通过，日志.artifacts/presentation-camera-preview-tail-build.log。",
+    "用户确认退出预览后，pnpm preview:sync更新1.3.0程序104项，312个既有配置、资料和插件文件保持一致，收据.artifacts/backups/preview-sync/update-1794124650210/preservation.json；资源校验通过103个程序文件、346个内置文件和1687个媒体文件。日志.artifacts/presentation-camera-preview-tail-preview-sync.log与presentation-camera-preview-tail-preview-resources.log。",
+    "预览核验后按绝对路径、无链接、无Git跟踪和程序载荷清单清理app、空new-resources及被替代previous-resources，共3处5526文件1055182069字节（约1006MiB），清单与结果位于.artifacts/cleanup-2026-11-08-camera-preview-tail/。仅保留update-1794124650210/previous-resources最近程序回退和全部收据；未清理资料、插件、独有测试证据或其他任务内容。清理后pnpm test:preview:resources再次通过，日志.artifacts/presentation-camera-preview-tail-preview-resources-after-cleanup.log。",
+    "空间复核.artifacts逻辑大小5682009928字节（约5.29GiB），原始测试证据约2.17GiB、既有工具链1.18GiB、最近回退及资料备份1.15GiB、历史下载0.56GiB、上游参考0.18GiB按原用途保留；本轮未新增下载和工具链，已消费程序暂存已清理。未重置资料、push、云端构建或Release。"
+  ],
+  "pending": [
+    "其他DPI、多屏和不同摄像头驱动待人工验收。",
+    "追加全链同步复测的声音参考断言及后续一次启动验收未稳定通过，原始失败均已归档；本轮不能宣称最终全链专项全部通过。相机实际悬浮预览、物理素材同帧及真实播放EOF保留末帧已有独立通过证据。"
+  ],
+  "preview": "已同步.local/portable-preview，通过PreviewPortable.cmd手动测试；312个既有配置、资料与插件文件完整保留，程序、内置工具和媒体资源复核通过。"
+}
