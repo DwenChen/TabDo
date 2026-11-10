@@ -11,7 +11,11 @@
     "发布候选完整单测通过，135 个文件共 902 项。归档 .artifacts/runs/2026-11-10T13-41-01-695Z-unit。",
     "pnpm typecheck:setting 和 pnpm build 通过，含主进程及宿主页面类型检查。构建日志位于 .artifacts/releases/1.5.3/。",
     "5 项受影响的源码 Electron 回归通过，覆盖呼叫AI、演示编辑器、设置页、临时常驻切换和便签任务栏。归档 .artifacts/runs/2026-11-10T13-41-38-504Z-e2e，清除 17 个相同副本，共 1398909 字节。",
-    "免安装预览已同步至 1.5.3，资料保留收据确认 166 个文件在同步前后内容一致。pnpm test:preview:resources 通过，核对 2138 个程序文件、352 个内置文件与 11881 个运行依赖文件。日志在 .artifacts/releases/1.5.3/，收据在 .artifacts/backups/preview-sync/update-1794318215535/。"
+    "免安装预览已同步至 1.5.3，资料保留收据确认 166 个文件在同步前后内容一致。pnpm test:preview:resources 通过，核对 2138 个程序文件、352 个内置文件与 11881 个运行依赖文件。日志在 .artifacts/releases/1.5.3/，收据在 .artifacts/backups/preview-sync/update-1794318215535/。",
+    "对照候选源码审校 README、开发与发布规范、两份教程、更新说明及维护记录。pnpm maintain、pnpm maintain:check、pnpm docs:check 与差异检查通过。提交 16744751122da97e4703c2a7e04a9acedf398b68 通过 hooks 原子推送 main 和 v1.5.3。",
+    "云端运行 https://github.com/DwenChen/TabDo/actions/runs/42828132559 的 build 和 publish 均成功，作业清单确认云端未运行单元回归。打包日志确认成品 npm、npx 与 pip 检查通过。正式版 https://github.com/DwenChen/TabDo/releases/tag/v1.5.3 为最新，标签指向候选提交。",
+    "四个正式附件均已下载并核对大小和 GitHub SHA-256。latest.yml 的版本、安装程序名、大小与 SHA-512 一致。ZIP 中核对应用 1.5.3、设置与工具入口、图标及随附运行时和许可。收据 .artifacts/releases/1.5.3/download-verification.json。",
+    "清理已消费的预览暂存及旧程序回退共 29990 文件、1389263690 字节，保留本轮 previous-resources 和全部收据。回收发行下载及核验解包副本共 5 文件、737402284 字节。收尾复核 .artifacts 约 6251 MiB，主要为测试原件 2696 MiB、备份与收据 1544 MiB、在用工具链 1213 MiB、既有下载 570 MiB 和上游参考 181 MiB。"
   ],
-  "pending": ["云端构建、正式发行成品核验与 Windows 桌面视觉手测。"]
+  "pending": ["Windows 任务栏实际视觉和免安装预览的用户手动验收。"]
 }
