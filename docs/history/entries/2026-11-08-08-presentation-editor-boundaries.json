@@ -1,7 +1,7 @@
 {
   "id": "presentation-editor-boundaries",
   "date": "2026-11-08",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "summary": "演示编辑器遮罩控件、片段选中强调、拖动光标及预览尾边界优化",
   "changes": [
     "开始时工作区干净，按维护流程审阅索引、Bug台账、侧栏、时间轴、视觉效果和空间规范。",

@@ -2,6 +2,18 @@
 
 > 自动生成；原始记录在 [entries](../history/entries/)。
 
+## 2026-11-10 · 修正干净检出的进程隔离测试并继续发布呼叫AI
+
+记录：[release-1.5.1](../../docs/history/entries/2026-11-10-08-release-1.5.1.json)；版本：1.5.1。
+
+- 云端 1.5.0 的两项 Job Object 单测在构建前访问尚未准备的内置 Node。改用测试运行器的 Node，并在子进程就绪后验证取消。
+- 保留未发布的 v1.5.0 标签与失败记录，正式发布候选顺延为 1.5.1。
+
+- 验证：1.5.0 构建 42797906870 完成依赖、文档和类型检查，云端 900 项单测通过，2 项进程隔离测试因程序路径不存在失败，发布跳过。原始日志 .artifacts/releases/1.5.0/cloud-build-attempt-1.log。
+- 验证：修正后呼叫AI运行时与默认固定专项 8 项单测通过，归档 .artifacts/runs/2026-11-10T10-22-49-747Z-unit。应用行为已由 1.5.0 同轮的 4 项源码 E2E 覆盖。
+- 验证：1.5.1 本地生产构建和预览同步通过。预览 data 与 legacy 已处于空目录状态，本次同步保留该状态。同步收据 .artifacts/backups/preview-sync/update-1794306240687/preservation.json。
+- 验证：合并调用到时中止后，独立执行 pnpm test:preview:resources 通过，核对 2138 个程序文件、352 个内置文件和 11881 个运行依赖文件。
+
 ## 2026-11-10 · 首次启动默认固定呼叫AI并交付 TabDo 1.5.0
 
 记录：[release-1.5.0](../../docs/history/entries/2026-11-10-07-release-1.5.0.json)；版本：1.5.0。
@@ -19,7 +31,7 @@
 
 ## 2026-11-10 · 在呼叫AI设置中查看 MCP 工具和 Skill 描述，精简运行时检查反馈
 
-记录：[call-ai-settings-details](../../docs/history/entries/2026-11-10-06-call-ai-settings-details.json)；版本：1.5.0。
+记录：[call-ai-settings-details](../../docs/history/entries/2026-11-10-06-call-ai-settings-details.json)；版本：1.5.1。
 
 - 已配置 MCP 可按需连接并分页读取工具名称及说明，结束后释放连接、所属进程与临时目录。
 - 展开已安装 Skill 时读取 SKILL.md 的 YAML 描述，兼容旧安装。
@@ -37,7 +49,7 @@
 
 ## 2026-11-10 · 精简呼叫AI权限与网页控件，记住权限选择并支持类似命令审批
 
-记录：[call-ai-permission-controls](../../docs/history/entries/2026-11-10-05-call-ai-permission-controls.json)；版本：1.5.0。
+记录：[call-ai-permission-controls](../../docs/history/entries/2026-11-10-05-call-ai-permission-controls.json)；版本：1.5.1。
 
 - 权限选择收起时以居中的盾牌图标显示，完全权限用红色提示，展开保留模式名称。网页搜索和产物定位改为带悬停说明的图标。
 - 首次打开使用请求批准，确认过的权限模式保存在本机。确认或保存期间暂停发起任务，新窗口加载上次选择。
@@ -57,7 +69,7 @@
 
 ## 2026-11-10 · 将呼叫AI模型和权限选择集中到聊天输入框
 
-记录：[call-ai-composer-settings](../../docs/history/entries/2026-11-10-04-call-ai-composer-settings.json)；版本：1.5.0。
+记录：[call-ai-composer-settings](../../docs/history/entries/2026-11-10-04-call-ai-composer-settings.json)；版本：1.5.1。
 
 - 移除聊天顶部的重复工具栏，将模型和权限下拉移入输入框。
 - 模型选择收起时显示模型名，展开后显示提供商、完整模型名和已有说明。窄窗口内工具按钮可换行。
@@ -72,7 +84,7 @@
 
 ## 2026-11-10 · 修复 DeepSeek 网页工具被代理虚拟 IP 误拦
 
-记录：[call-ai-deepseek-virtual-ip](../../docs/history/entries/2026-11-10-03-call-ai-deepseek-virtual-ip.json)；版本：1.5.0。
+记录：[call-ai-deepseek-virtual-ip](../../docs/history/entries/2026-11-10-03-call-ai-deepseek-virtual-ip.json)；版本：1.5.1。
 
 - 当前聊天已开启网页搜索，仍显示目标解析为内网或保留地址。本机系统解析返回 198.18.0.0/15 地址，通用网页防护在请求前拒绝了固定官方工具接口。
 - 将 DeepSeek Search、Fetch 和 Brave Search 纳入统一的固定端点登记。共用入口使用系统 DNS、验证 HTTPS 证书并拒绝重定向，只有登记的 API 请求可附带凭据。通用网页保留连接时和重定向的公网校验。
@@ -88,7 +100,7 @@
 
 ## 2026-11-10 · 合并呼叫AI连续思考，添加产物链接并接通图片匹配
 
-记录：[call-ai-results-and-image-match](../../docs/history/entries/2026-11-10-02-call-ai-results-and-image-match.json)；版本：1.5.0。
+记录：[call-ai-results-and-image-match](../../docs/history/entries/2026-11-10-02-call-ai-results-and-image-match.json)；版本：1.5.1。
 
 - 模型工具往返未产生新内容时复用同一思考条目，保留各轮间隔和展开状态。
 - 原生文件工具和成功生成已声明文件的脚本发布会话内产物链接。点击文件名用默认软件打开，也可在文件夹中选中文件。
@@ -105,7 +117,7 @@
 
 ## 2026-11-10 · 修复呼叫AI网页工具错误处理与授权，统一聊天交互
 
-记录：[call-ai-web-and-chat](../../docs/history/entries/2026-11-10-01-call-ai-web-and-chat.json)；版本：1.5.0。
+记录：[call-ai-web-and-chat](../../docs/history/entries/2026-11-10-01-call-ai-web-and-chat.json)；版本：1.5.1。
 
 - 核对 DeepSeek 官方 Search 和 Fetch 端点。搜索只请求摘要，读取正文走 Fetch，格式异常返回可归因的工具错误。模型生成非法工具参数时保持工具调用配对并拒绝执行，允许模型修正。
 - 开启网页搜索即授权本轮内置网页工具。关闭时在两种权限模式下都不注册检索与抓取，第三方 MCP 仍需显式引用并遵循当前审批模式。
@@ -124,7 +136,7 @@
 
 ## 2026-11-09 · 紧凑呼叫AI工具栏并按聊天开关接入 DeepSeek 网页搜索与抓取
 
-记录：[call-ai-web-controls](../../docs/history/entries/2026-11-09-03-call-ai-web-controls.json)；版本：1.5.0。
+记录：[call-ai-web-controls](../../docs/history/entries/2026-11-09-03-call-ai-web-controls.json)；版本：1.5.1。
 
 - 按截图移除键盘提示和独占底行的结果目录入口，将附件、引用、结果目录与发送放在同一行并使用带可访问名称的图标。
 - Skill 和 MCP 管理区都使用水平与垂直居中的“添加”，设置强调色改用通用设置的主题变量。根据截图反馈，补齐实际按钮与菜单按钮的垂直对齐。
@@ -141,7 +153,7 @@
 
 ## 2026-11-09 · 呼叫AI批量文件审批、附件拖放与公网网页工具
 
-记录：[call-ai-workflow](../../docs/history/entries/2026-11-09-02-call-ai-workflow.json)；版本：1.5.0。
+记录：[call-ai-workflow](../../docs/history/entries/2026-11-09-02-call-ai-workflow.json)；版本：1.5.1。
 
 - 通过 Electron 已知目录解析真实桌面。新建文本文件走主进程原生文件 API，批量预检并一次审批，展示绝对路径和实际 UTF-8 字节数。冲突保留原文件，批次失败回收本次已创建文件。
 - 对话支持选择和拖入附件。普通文件按路径读取，具备图片输入能力的模型接收受限图片内容；仅保留最近一轮图片字节。
@@ -159,7 +171,7 @@
 
 ## 2026-11-09 · 缩小呼叫AI首次窗口并独立管理 Skill 和 MCP
 
-记录：[call-ai-settings](../../docs/history/entries/2026-11-09-01-call-ai-settings.json)；版本：1.5.0。
+记录：[call-ai-settings](../../docs/history/entries/2026-11-09-01-call-ai-settings.json)；版本：1.5.1。
 
 - 根据用户截图缩小首次窗口，移除红框文本，保留模型、权限、引用和结果目录入口。呼叫AI使用独立的分离窗口尺寸记录。
 - 设置侧栏新增“呼叫AI”。规则和手填路径在编辑结束后逐项保存，列表开关和已确认的操作立即生效。全局规则和运行时默认折叠，产物清理入口精简为“一键清理”。
@@ -180,7 +192,7 @@
 
 ## 2026-11-08 · 新增一次性呼叫AI子组件，集成提供商、Node/Python、context-mode与手动Skill/MCP
 
-记录：[call-ai](../../docs/history/entries/2026-11-08-09-call-ai.json)；版本：1.5.0。
+记录：[call-ai](../../docs/history/entries/2026-11-08-09-call-ai.json)；版本：1.5.1。
 
 - 保留开始时演示编辑器等已有未提交改动，默认使用context-mode阅读维护流程与模块规范。
 - 采用pi agent core 1.5.0和宿主提供商协议适配器；聊天只在当前内存会话中存在，没有历史、记忆和进化。
@@ -229,7 +241,7 @@
 
 ## 2026-11-08 · 演示编辑器遮罩控件、片段选中强调、拖动光标及预览尾边界优化
 
-记录：[presentation-editor-boundaries](../../docs/history/entries/2026-11-08-08-presentation-editor-boundaries.json)；版本：1.5.0。
+记录：[presentation-editor-boundaries](../../docs/history/entries/2026-11-08-08-presentation-editor-boundaries.json)；版本：1.5.1。
 
 - 开始时工作区干净，按维护流程审阅索引、Bug台账、侧栏、时间轴、视觉效果和空间规范。
 - 圆角只在矩形遮罩与图片显示，使用共享滑条，切换圆形或手绘时保留原圆角；三类遮罩采用同一条件。

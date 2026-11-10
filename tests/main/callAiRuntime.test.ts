@@ -54,11 +54,11 @@ describe('call AI owned runtime', () => {
   })
 
   it('terminates descendants even when the root command already exited', async () => {
-    const owner = new CallAiProcesses()
-    const executable = path.resolve('resources/call-ai-runtime/win32-x64/node/node.exe')
     if (process.platform !== 'win32') return
+    const owner = new CallAiProcesses()
+    // 云端单测在打包前执行，使用当前 Node 验证真实 Job Object 的进程回收。
     const output = await owner.run(
-      executable,
+      process.execPath,
       [
         '-e',
         `const c=require('child_process').spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore'});console.log(c.pid);c.unref()`
@@ -76,21 +76,32 @@ describe('call AI owned runtime', () => {
     if (process.platform !== 'win32') return
     const owner = new CallAiProcesses(),
       controller = new AbortController()
-    const executable = path.resolve('resources/call-ai-runtime/win32-x64/node/node.exe')
+    const ready = path.join(fixture.data, 'abort-ready')
     const run = owner.run(
-      executable,
-      ['-e', 'setInterval(()=>{},1000)'],
+      process.execPath,
+      [
+        '-e',
+        'require("node:fs").writeFileSync(process.argv[1], "ready"); setInterval(()=>{},1000)',
+        ready
+      ],
       fixture.data,
       callAiEnvironment(fixture.data),
       controller.signal
     )
     const assertion = expect(run).rejects.toThrow('取消')
-    setTimeout(() => controller.abort(), 350)
-    await assertion
-    await owner.close()
+    try {
+      // 确认子进程实际启动后再取消，避免首次编译隔离器的耗时改变断言分支。
+      await vi.waitFor(async () => expect(await fs.readFile(ready, 'utf8')).toBe('ready'), {
+        timeout: 8_000
+      })
+      controller.abort()
+      await assertion
+    } finally {
+      await owner.close()
+    }
     expect(owner.children.size).toBe(0)
     await expect(
-      owner.run(executable, ['--version'], fixture.data, callAiEnvironment(fixture.data))
+      owner.run(process.execPath, ['--version'], fixture.data, callAiEnvironment(fixture.data))
     ).rejects.toThrow('停止')
   }, 20_000)
 })

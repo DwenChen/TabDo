@@ -1,7 +1,7 @@
 {
   "id": "call-ai-composer-settings",
   "date": "2026-11-10",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "summary": "将呼叫AI模型和权限选择集中到聊天输入框",
   "changes": [
     "移除聊天顶部的重复工具栏，将模型和权限下拉移入输入框。",

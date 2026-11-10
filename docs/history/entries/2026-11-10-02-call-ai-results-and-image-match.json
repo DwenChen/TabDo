@@ -1,7 +1,7 @@
 {
   "id": "call-ai-results-and-image-match",
   "date": "2026-11-10",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "summary": "合并呼叫AI连续思考，添加产物链接并接通图片匹配",
   "changes": [
     "模型工具往返未产生新内容时复用同一思考条目，保留各轮间隔和展开状态。",

@@ -1,7 +1,7 @@
 {
   "id": "call-ai-web-and-chat",
   "date": "2026-11-10",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "summary": "修复呼叫AI网页工具错误处理与授权，统一聊天交互",
   "changes": [
     "核对 DeepSeek 官方 Search 和 Fetch 端点。搜索只请求摘要，读取正文走 Fetch，格式异常返回可归因的工具错误。模型生成非法工具参数时保持工具调用配对并拒绝执行，允许模型修正。",

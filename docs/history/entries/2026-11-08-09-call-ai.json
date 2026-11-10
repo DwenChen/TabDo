@@ -1,7 +1,7 @@
 {
   "id": "call-ai",
   "date": "2026-11-08",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "summary": "新增一次性呼叫AI子组件，集成提供商、Node/Python、context-mode与手动Skill/MCP",
   "changes": [
     "保留开始时演示编辑器等已有未提交改动，默认使用context-mode阅读维护流程与模块规范。",

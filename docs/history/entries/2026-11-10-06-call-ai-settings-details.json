@@ -1,7 +1,7 @@
 {
   "id": "call-ai-settings-details",
   "date": "2026-11-10",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "summary": "在呼叫AI设置中查看 MCP 工具和 Skill 描述，精简运行时检查反馈",
   "changes": [
     "已配置 MCP 可按需连接并分页读取工具名称及说明，结束后释放连接、所属进程与临时目录。",
