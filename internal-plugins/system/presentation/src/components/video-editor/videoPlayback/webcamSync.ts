@@ -1,32 +1,7 @@
-import type { ClipRegion, MediaSegment } from '../types'
+import type { MediaSegment } from '../types'
 import { clampMediaTimeToDuration } from '@presentation/lib/mediaTiming'
 
 const HAVE_CURRENT_DATA_READY_STATE = 2
-/**
- * 在预览全片终点取末片内部的画面，与屏幕保留最后一帧的行为一致。
- * @param sourceTime 当前屏幕源时间，单位秒。
- * @param timelineTime 当前时间轴时间，单位秒。
- * @param clips 当前屏幕片段，内部切口仍保持左闭右开的规则。
- * @returns 相机可见性及媒体同步共用的源时间和时间轴取样点，不改变游标或素材长度。
- */
-export function resolveWebcamPreviewSample(
-  sourceTime: number,
-  timelineTime: number,
-  clips: ClipRegion[]
-): { sourceTime: number; timelineTime: number } {
-  let last: ClipRegion | undefined
-  for (const clip of clips) if (!last || clip.endMs > last.endMs) last = clip
-  if (!last || last.endMs <= last.startMs || Math.abs(timelineTime * 1000 - last.endMs) >= 1e-7) {
-    return { sourceTime, timelineTime }
-  }
-  // 仅将最终端点移入末帧，不能把内部切口、间隙或较短相机片段延长。
-  const insetMs = Math.min(0.001, (last.endMs - last.startMs) / 2)
-  const speed = Number.isFinite(last.speed) && last.speed > 0 ? last.speed : 1
-  return {
-    sourceTime: Math.max(0, sourceTime - (insetMs * speed) / 1000),
-    timelineTime: (last.endMs - insetMs) / 1000
-  }
-}
 
 /**
  * Maps the editor timeline time to the corresponding webcam media timestamp,

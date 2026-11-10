@@ -37,6 +37,34 @@ import {
   type CommandAliasStore
 } from '@shared/commandShared'
 import { normalizeSearchWallpaperConfig, type SearchWallpaperConfig } from '@shared/searchWallpaper'
+import path from 'node:path'
+import { getWindowsExplorerPath } from '../renderer/systemCommands'
+import {
+  openCallAi,
+  closeCallAi,
+  sendCallAi,
+  stopCallAi,
+  answerCallAi,
+  setCallAiMode,
+  callAiState,
+  checkCallAiRuntime,
+  saveCallAiSettings,
+  maintainCallAiRuntime,
+  installCallAiSkill,
+  readCallAiSkillDescription,
+  inspectCallAiMcpTools,
+  cancelCallAiMcpInspection,
+  installCallAiMcpPackage,
+  configureCallAiMcp,
+  removeCallAiSkill,
+  setCallAiSkillEnabled,
+  setCallAiWebKey,
+  chooseCallAiOutput,
+  cleanCallAiOutputs,
+  revealCallAiOutput,
+  accessCallAiArtifact
+} from '../../core/callAiService'
+import { enableTemporaryResident, setTemporaryResident } from '../../core/temporaryResidency'
 
 /**
  * 权限错误类
@@ -71,6 +99,20 @@ export function requireInternalPlugin(
 }
 
 /**
+ * 读取匹配窗口的所在目录，优先使用资源管理器当前目录。
+ * @param input 当前窗口载荷。
+ * @returns 目录路径或空字符串。
+ */
+async function resolveCallAiWindowPath(input: any): Promise<string> {
+  const payload = input || windowManager.getPreviousActiveWindow()
+  const explorer = getWindowsExplorerPath(payload || {})
+  const source = explorer || payload?.path || payload?.appPath || ''
+  if (!source) return ''
+  const stat = await fs.stat(source).catch(() => null)
+  return stat?.isFile() ? path.dirname(source) : source
+}
+
+/**
  * 内置插件专用 API 类
  * 提供与主渲染进程相同的 API，但仅限内置插件调用
  * 采用转发策略：将内置插件的 API 调用转发到已有的 renderer API
@@ -90,6 +132,112 @@ export class InternalPluginAPI {
   public init(mainWindow: Electron.BrowserWindow, pluginManager: PluginManager): void {
     this.mainWindow = mainWindow
     this.pluginManager = pluginManager
+    ipcMain.handle('internal:call-ai', async (event, operation: string, input: any) => {
+      // 错误只回给所属正文，避免Electron自动把对话输出写入主进程错误日志。
+      return await (async () => {
+        const info = pluginManager.getPluginInfoByWebContents(event.sender)
+        const tools = Boolean(info && isToolsPluginPath(info.path))
+        const settings = Boolean(info?.isBundledInternal && info.name === 'setting')
+        if (!tools && !settings) throw new Error('仅呼叫AI工具或内置设置可调用')
+        // 设置能力单独鉴权，不能从聊天正文更新全局规则或清理持久产物。
+        if (
+          [
+            'state',
+            'check',
+            'save',
+            'runtime',
+            'install-skill',
+            'skill-description',
+            'mcp-tools',
+            'cancel-mcp-tools',
+            'install-mcp',
+            'configure-mcp',
+            'remove-skill',
+            'toggle-skill',
+            'set-web-key',
+            'choose-output',
+            'clean-outputs'
+          ].includes(operation)
+        ) {
+          if (!settings) throw new Error('此操作仅限内置设置')
+          switch (operation) {
+            case 'state':
+              return callAiState()
+            case 'check':
+              return checkCallAiRuntime()
+            case 'save':
+              return saveCallAiSettings(input)
+            case 'runtime':
+              return maintainCallAiRuntime(input.action, input.kind)
+            case 'install-skill':
+              return installCallAiSkill()
+            case 'skill-description':
+              return readCallAiSkillDescription(input)
+            case 'mcp-tools':
+              return inspectCallAiMcpTools(event.sender, input)
+            case 'cancel-mcp-tools':
+              return cancelCallAiMcpInspection(event.sender.id)
+            case 'install-mcp':
+              return installCallAiMcpPackage(input)
+            case 'configure-mcp':
+              return configureCallAiMcp(input)
+            case 'remove-skill':
+              return removeCallAiSkill(input)
+            case 'toggle-skill':
+              return setCallAiSkillEnabled(input)
+            case 'set-web-key':
+              return setCallAiWebKey(input)
+            case 'choose-output':
+              return chooseCallAiOutput()
+            case 'clean-outputs':
+              return cleanCallAiOutputs()
+          }
+        }
+        if (!tools || !pluginManager.isFeatureSession(event.sender, 'call-ai'))
+          throw new Error('仅当前呼叫AI会话可调用')
+        switch (operation) {
+          case 'open': {
+            // 分离和首次常驻发布属于同一链，焦点切换不能提前退役正文。
+            return windowManager.withBlurHideSuppressed(async () => {
+              if (!detachedWindowManager.getWindowByPluginWebContents(event.sender.id)) {
+                const detached = await pluginManager.detachCurrentPlugin()
+                if (!detached.success) throw new Error(detached.error || '无法创建呼叫AI窗口')
+              }
+              // 用户明确要求呼叫AI打开即原生临时常驻，仅对本工具实施此例外。
+              enableTemporaryResident(event.sender, true)
+              setTemporaryResident(event.sender, true)
+              const owner = detachedWindowManager.getWindowByPluginWebContents(event.sender.id)
+              owner?.webContents.send('temporary-residency-changed')
+              const state = await openCallAi(event.sender)
+              if (input?.type === 'window') {
+                state.windowPath = await resolveCallAiWindowPath(input.payload)
+              }
+              return state
+            })
+          }
+          case 'send':
+            return sendCallAi(event.sender.id, input)
+          case 'answer':
+            return answerCallAi(event.sender.id, input.id, input.value)
+          case 'mode':
+            return setCallAiMode(event.sender.id, input)
+          case 'stop':
+            return stopCallAi(event.sender.id)
+          case 'close':
+            return closeCallAi(event.sender.id)
+          case 'output':
+            return revealCallAiOutput(event.sender.id)
+          case 'artifact':
+            return accessCallAiArtifact(event.sender.id, input?.id, input?.action)
+          case 'window-path':
+            return resolveCallAiWindowPath(input)
+          default:
+            throw new Error('未知呼叫AI操作')
+        }
+      })().catch((error: unknown) => ({
+        __callAiFailure: error instanceof Error ? error.message : String(error)
+      }))
+    })
     ipcMain.handle('internal:presentation-open', async (event, file?: string) => {
       const info = pluginManager.getPluginInfoByWebContents(event.sender)
       if (!info || !isToolsPluginPath(info.path)) throw new Error('仅工具会话可打开演示录屏')

@@ -119,6 +119,7 @@ import {
 import { updateOverlayIndicator } from "./videoPlayback/overlayUtils";
 import { supportsPreviewPlaybackRate } from "./videoPlayback/playbackRate";
 import { getFrameMotionSample } from "./videoPlayback/frameMotionSample";
+import { resolvePreviewFrameSample } from "./videoPlayback/previewSample";
 import { PreviewVideoSource } from "./videoPlayback/previewVideoSource";
 import { usePreviewVideoReady } from "./videoPlayback/usePreviewVideoReady";
 import { getSceneEffectMetrics } from "./videoPlayback/sceneEffects";
@@ -129,7 +130,6 @@ import {
 } from "./videoPlayback/sceneMotion";
 import {
 	getWebcamMediaTargetTimeSeconds,
-	resolveWebcamPreviewSample,
 	isWebcamVisibleAtSourceTime,
 	isWebcamMediaSynchronized,
 	shouldSeekWebcamMedia,
@@ -462,11 +462,19 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const captionEditSessionRef = useRef<CaptionEditSession | null>(null);
 		const [captionEditSession, setCaptionEditSession] = useState<CaptionEditSession | null>(null);
 		const [presentedTimelineTime, setPresentedTimelineTime] = useState<number | null>(null);
-		const overlayTimelineTime = isPlaying ? (presentedTimelineTime ?? timelineTime) : timelineTime;
+		const requestedOverlayTime = isPlaying ? (presentedTimelineTime ?? timelineTime) : timelineTime;
+		const rawCurrentTime = mapTimelineTimeToSourceTime(requestedOverlayTime * 1000, clipRegions) / 1000;
+		// 所有叠加层共用终点取样，保留末片内的效果，内部切口仍左闭右开。
+		const overlaySample = resolvePreviewFrameSample(
+			rawCurrentTime,
+			requestedOverlayTime,
+			clipRegions,
+		);
+		const overlayTimelineTime = overlaySample.timelineTime;
 		const frameTimeHandlerRef = useRef(onFrameTime);
 		frameTimeHandlerRef.current = onFrameTime;
-		const currentTime = mapTimelineTimeToSourceTime(overlayTimelineTime * 1000, clipRegions) / 1000;
-		const webcamPreviewSample = resolveWebcamPreviewSample(currentTime, overlayTimelineTime, clipRegions);
+		const currentTime = overlaySample.sourceTime;
+		const webcamPreviewSample = overlaySample;
 		const isGap = !findPreviewClipAtTimelineTime(timelineTime * 1000, clipRegions);
 		const clipRegionsRef = useRef(clipRegions);
 		const clipPlaybackRef = useRef<ReturnType<typeof createClipPlayback> | null>(null);
@@ -648,7 +656,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 
 			return buildActiveCaptionLayout({
 				cues: autoCaptions,
-				timeMs: Math.round(currentTime * 1000),
+				timeMs: currentTime * 1000,
 				settings: autoCaptionSettings,
 				maxWidthPx: maxTextWidthPx,
 				measureText: (text) => measurementContext.measureText(text).width,
@@ -868,7 +876,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		 */
 		const applyWebcamBubbleLayout = useCallback(
 			(zoomScale: number) => {
-				const sample = resolveWebcamPreviewSample(currentTimeRef.current / 1000, timelineTimeRef.current, clipRegionsRef.current);
+				const sample = resolvePreviewFrameSample(currentTimeRef.current / 1000, timelineTimeRef.current, clipRegionsRef.current);
 				const bubble = webcamBubbleRef.current;
 				const bubbleInner = webcamBubbleInnerRef.current;
 				const overlay = overlayRef.current;
@@ -1601,10 +1609,11 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		}, [cursorSway, requestPausedFrameRefresh]);
 
 		useEffect(() => {
-			const timeMs = currentTime * 1000;
+			// 传输时钟保留请求值，绘制时再统一取样，避免终点源时间被重复内移。
+			const timeMs = rawCurrentTime * 1000;
 			// 播放中的媒体时钟由 transport 持有，迟到的 React 提交不能将其倒退。
 			if (!clipPlaybackRef.current?.isPlaying) currentTimeRef.current = timeMs;
-		}, [currentTime]);
+		}, [rawCurrentTime]);
 
 		useEffect(() => {
 			if (!pixiReady || !videoReady) return;
@@ -1657,7 +1666,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			}
 
 			const webcamDuration = Number.isFinite(webcamVideo.duration) ? webcamVideo.duration : null;
-			const sample = resolveWebcamPreviewSample(
+			const sample = resolvePreviewFrameSample(
 				(presentedFrameRef.current?.sourceMs ?? currentTimeRef.current) / 1000,
 				(presentedFrameRef.current?.timelineMs ?? timelineTimeRef.current * 1000) / 1000,
 				clipRegionsRef.current
@@ -2097,6 +2106,10 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 
 				const state = animationStateRef.current;
 
+				// 镜头及模糊共用已提交帧的终点取样。
+				const cameraSample = resolvePreviewFrameSample(0,
+					(presentedFrameRef.current?.timelineMs ?? timelineTimeRef.current * 1000) / 1000,
+					clipRegionsRef.current);
 				const appliedTransform = applyZoomTransform({
 					cameraContainer,
 					zoomBlurFilter: zoomBlurFilterRef.current,
@@ -2112,14 +2125,13 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					motionBlurTuning: zoomMotionBlurTuningRef.current,
 					transformOverride: transform,
 					motionBlurState: motionBlurStateRef.current,
-					frameTimeMs: presentedFrameRef.current?.timelineMs ?? timelineTimeRef.current * 1000,
+					frameTimeMs: cameraSample.timelineTime * 1000,
 					motionSample,
 				});
 
 				state.x = appliedTransform.x;
-				// 镜头效果使用已提交帧的时间，与二维取景及导出保持一致。
 				applyZoomCamera(cameraContainer, stageSizeRef.current, zoomRegionsRef.current,
-					presentedFrameRef.current?.timelineMs ?? timelineTimeRef.current * 1000, {
+					cameraSample.timelineTime * 1000, {
 						connectZooms: connectZoomsRef.current,
 						connectedZoomGapMs: connectedZoomGapMsRef.current,
 						zoomInDurationMs: zoomInDurationMsRef.current,
@@ -2164,8 +2176,12 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					typeof videoRef.current?.requestVideoFrameCallback === "function"
 				)
 					return;
-				const contentTimeMs = frame?.timelineMs ?? timelineTimeRef.current * 1000;
-				const sourceTimeMs = frame?.sourceMs ?? currentTimeRef.current;
+				const sample = resolvePreviewFrameSample(
+					(frame?.sourceMs ?? currentTimeRef.current) / 1000,
+					(frame?.timelineMs ?? timelineTimeRef.current * 1000) / 1000,
+					clipRegionsRef.current);
+				const contentTimeMs = sample.timelineTime * 1000;
+				const sourceTimeMs = sample.sourceTime * 1000;
 				const previousContentTimeMs = lastRenderedContentTimeRef.current;
 				const deltaMs =
 					previousContentTimeMs !== null ? contentTimeMs - previousContentTimeMs : 1000 / 60;
@@ -2885,7 +2901,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 								}}
 							>
 								{(() => {
-									const timeMs = Math.round(overlayTimelineTime * 1000);
+									const timeMs = overlayTimelineTime * 1000;
 									const filtered = resolveDisplayAnnotations(annotationRegions || [], timeMs);
 
 									const sorted = [...filtered].sort((a, b) => a.zIndex - b.zIndex);

@@ -8,11 +8,46 @@
   "logo": "icons/tools.png",
   "features": [
     {
+      "code": "call-ai",
+      "platform": [
+        "win32"
+      ],
+      "explain": "呼叫AI",
+      "icon": "icons/call-ai.png",
+      "group": "呼叫AI",
+      "cmds": [
+        "呼叫AI",
+        {
+          "type": "img",
+          "label": "呼叫AI"
+        },
+        {
+          "type": "over",
+          "label": "呼叫AI",
+          "minLength": 1,
+          "maxLength": 100000
+        },
+        {
+          "type": "files",
+          "label": "呼叫AI",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        {
+          "type": "window",
+          "label": "呼叫AI",
+          "match": {}
+        }
+      ]
+    },
+    {
       "code": "clear",
       "explain": "停止所有插件",
       "icon": "icons/clear.png",
       "mainHide": true,
-      "cmds": ["停止所有插件"],
+      "cmds": [
+        "停止所有插件"
+      ],
       "group": "插件管理"
     },
     {
@@ -20,7 +55,9 @@
       "explain": "清除使用记录",
       "icon": "icons/clear-history.png",
       "mainHide": true,
-      "cmds": ["清除使用记录"],
+      "cmds": [
+        "清除使用记录"
+      ],
       "group": "插件管理"
     },
     {
@@ -28,7 +65,9 @@
       "explain": "重启",
       "icon": "icons/reboot.png",
       "mainHide": true,
-      "cmds": ["重启"],
+      "cmds": [
+        "重启"
+      ],
       "group": "电源"
     },
     {
@@ -36,7 +75,9 @@
       "explain": "关机",
       "icon": "icons/shutdown.png",
       "mainHide": true,
-      "cmds": ["关机"],
+      "cmds": [
+        "关机"
+      ],
       "group": "电源"
     },
     {
@@ -44,7 +85,9 @@
       "explain": "注销",
       "icon": "icons/logoff.png",
       "mainHide": true,
-      "cmds": ["注销"],
+      "cmds": [
+        "注销"
+      ],
       "group": "电源"
     },
     {
@@ -52,7 +95,9 @@
       "explain": "睡眠",
       "icon": "icons/sleep.png",
       "mainHide": true,
-      "cmds": ["睡眠"],
+      "cmds": [
+        "睡眠"
+      ],
       "group": "电源"
     },
     {
@@ -60,7 +105,9 @@
       "explain": "锁屏",
       "icon": "icons/lock-screen.png",
       "mainHide": true,
-      "cmds": ["锁屏"],
+      "cmds": [
+        "锁屏"
+      ],
       "group": "电源"
     },
     {
@@ -98,7 +145,9 @@
       "explain": "窗口信息",
       "icon": "icons/window-info.png",
       "mainHide": true,
-      "cmds": ["窗口信息"],
+      "cmds": [
+        "窗口信息"
+      ],
       "group": "窗口工具"
     },
     {
@@ -111,8 +160,14 @@
           "type": "window",
           "label": "复制路径",
           "match": {
-            "app": ["Finder.app", "explorer.exe"],
-            "className": ["", "CabinetWClass"]
+            "app": [
+              "Finder.app",
+              "explorer.exe"
+            ],
+            "className": [
+              "",
+              "CabinetWClass"
+            ]
           }
         },
         {
@@ -134,8 +189,14 @@
           "type": "window",
           "label": "复制名称",
           "match": {
-            "app": ["Finder.app", "explorer.exe"],
-            "className": ["", "CabinetWClass"]
+            "app": [
+              "Finder.app",
+              "explorer.exe"
+            ],
+            "className": [
+              "",
+              "CabinetWClass"
+            ]
           }
         },
         {
@@ -157,8 +218,14 @@
           "type": "window",
           "label": "打开终端",
           "match": {
-            "app": ["Finder.app", "explorer.exe"],
-            "className": ["", "CabinetWClass"]
+            "app": [
+              "Finder.app",
+              "explorer.exe"
+            ],
+            "className": [
+              "",
+              "CabinetWClass"
+            ]
           }
         },
         {
@@ -176,21 +243,27 @@
       "explain": "屏幕取色",
       "icon": "icons/color-picker.png",
       "mainHide": true,
-      "cmds": ["屏幕取色"],
+      "cmds": [
+        "屏幕取色"
+      ],
       "group": "屏幕工具"
     },
     {
       "code": "screenshot",
       "explain": "截图",
       "icon": "icons/screenshot.png",
-      "cmds": ["截图"],
+      "cmds": [
+        "截图"
+      ],
       "group": "屏幕工具"
     },
     {
       "code": "clipboard",
       "explain": "剪贴板",
       "icon": "icons/clipboard.png",
-      "cmds": ["剪贴板"],
+      "cmds": [
+        "剪贴板"
+      ],
       "group": "剪贴板"
     },
     {
@@ -235,7 +308,14 @@
         },
         {
           "type": "files",
-          "extensions": ["png", "jpg", "jpeg", "gif", "bmp", "webp"],
+          "extensions": [
+            "png",
+            "jpg",
+            "jpeg",
+            "gif",
+            "bmp",
+            "webp"
+          ],
           "minLength": 1,
           "maxLength": 1,
           "label": "扫码"
@@ -256,7 +336,14 @@
         },
         {
           "type": "files",
-          "extensions": ["png", "jpg", "jpeg", "gif", "bmp", "webp"],
+          "extensions": [
+            "png",
+            "jpg",
+            "jpeg",
+            "gif",
+            "bmp",
+            "webp"
+          ],
           "minLength": 1,
           "maxLength": 1,
           "label": "图片标记"
@@ -277,7 +364,14 @@
         },
         {
           "type": "files",
-          "extensions": ["png", "jpg", "jpeg", "gif", "bmp", "webp"],
+          "extensions": [
+            "png",
+            "jpg",
+            "jpeg",
+            "gif",
+            "bmp",
+            "webp"
+          ],
           "minLength": 1,
           "maxLength": 1,
           "label": "悬浮图片"
@@ -314,14 +408,18 @@
       "explain": "便签",
       "icon": "icons/sticky-note.png",
       "mainHide": true,
-      "cmds": ["便签"],
+      "cmds": [
+        "便签"
+      ],
       "group": "悬浮与便签"
     },
     {
       "code": "local-search",
       "explain": "文件搜索",
       "icon": "icons/local-search.png",
-      "platform": ["win32"],
+      "platform": [
+        "win32"
+      ],
       "cmds": [
         "文件搜索",
         {
@@ -336,26 +434,38 @@
       "code": "screen-recorder",
       "explain": "录屏",
       "icon": "icons/screen-recorder.png",
-      "platform": ["win32"],
-      "cmds": ["录屏"],
+      "platform": [
+        "win32"
+      ],
+      "cmds": [
+        "录屏"
+      ],
       "group": "录屏"
     },
     {
       "code": "screen-recorder-region",
       "explain": "区域录屏",
       "icon": "icons/screen-recorder-region.png",
-      "platform": ["win32"],
+      "platform": [
+        "win32"
+      ],
       "mainHide": true,
-      "cmds": ["区域录屏"],
+      "cmds": [
+        "区域录屏"
+      ],
       "group": "录屏"
     },
     {
       "code": "screen-recorder-stop",
       "explain": "停止录屏",
       "icon": "icons/screen-recorder-stop.png",
-      "platform": ["win32"],
+      "platform": [
+        "win32"
+      ],
       "mainHide": true,
-      "cmds": ["停止录屏"],
+      "cmds": [
+        "停止录屏"
+      ],
       "group": "录屏"
     },
     {
@@ -416,7 +526,15 @@
         {
           "type": "files",
           "fileType": "file",
-          "extensions": ["png", "jpg", "jpeg", "webp", "bmp", "avif", "tiff"],
+          "extensions": [
+            "png",
+            "jpg",
+            "jpeg",
+            "webp",
+            "bmp",
+            "avif",
+            "tiff"
+          ],
           "label": "裁剪图片"
         }
       ],
@@ -432,7 +550,15 @@
           "type": "files",
           "fileType": "file",
           "minLength": 2,
-          "extensions": ["png", "jpg", "jpeg", "webp", "bmp", "tiff", "avif"],
+          "extensions": [
+            "png",
+            "jpg",
+            "jpeg",
+            "webp",
+            "bmp",
+            "tiff",
+            "avif"
+          ],
           "label": "合并图片"
         }
       ],
@@ -469,7 +595,9 @@
       "code": "web-quick-open",
       "explain": "网页快开",
       "icon": "icons/web-quick-open.png",
-      "cmds": ["网页快开"],
+      "cmds": [
+        "网页快开"
+      ],
       "group": "网页快开"
     },
     {
@@ -500,7 +628,14 @@
         {
           "type": "files",
           "label": "以图搜图",
-          "extensions": ["png", "jpg", "jpeg", "gif", "bmp", "webp"],
+          "extensions": [
+            "png",
+            "jpg",
+            "jpeg",
+            "gif",
+            "bmp",
+            "webp"
+          ],
           "minLength": 1,
           "maxLength": 1
         }
@@ -519,7 +654,14 @@
         },
         {
           "type": "files",
-          "extensions": ["png", "jpg", "jpeg", "gif", "bmp", "webp"],
+          "extensions": [
+            "png",
+            "jpg",
+            "jpeg",
+            "gif",
+            "bmp",
+            "webp"
+          ],
           "maxLength": 1,
           "label": "文字识别"
         }
@@ -538,7 +680,14 @@
         },
         {
           "type": "files",
-          "extensions": ["png", "jpg", "jpeg", "gif", "bmp", "webp"],
+          "extensions": [
+            "png",
+            "jpg",
+            "jpeg",
+            "gif",
+            "bmp",
+            "webp"
+          ],
           "maxLength": 1,
           "label": "公式识别"
         }
@@ -550,22 +699,30 @@
       "mainHide": true,
       "explain": "演示录屏",
       "icon": "icons/presentation-recorder.png",
-      "platform": ["win32"],
+      "platform": [
+        "win32"
+      ],
       "group": "演示录屏",
-      "cmds": ["演示录屏"]
+      "cmds": [
+        "演示录屏"
+      ]
     },
     {
       "code": "presentation-editor",
       "explain": "演示编辑器",
       "icon": "icons/presentation-editor.png",
-      "platform": ["win32"],
+      "platform": [
+        "win32"
+      ],
       "group": "演示录屏",
       "cmds": [
         {
           "type": "files",
           "label": "演示编辑器",
           "fileType": "file",
-          "extensions": ["recordly"],
+          "extensions": [
+            "recordly"
+          ],
           "minLength": 1,
           "maxLength": 1
         }

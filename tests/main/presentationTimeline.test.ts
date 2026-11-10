@@ -1,3 +1,4 @@
+import { resolvePreviewFrameSample } from '../../internal-plugins/system/presentation/src/components/video-editor/videoPlayback/previewSample'
 import { describe, it, expect } from 'vitest'
 import {
   editMediaSegment,
@@ -11,7 +12,6 @@ import { selectWebcamRecordingMimeType } from '../../internal-plugins/system/pre
 import { buildKeyboardAnnotations } from '../../internal-plugins/system/presentation/src/components/video-editor/keyboardDisplay'
 import {
   getWebcamMediaTargetTimeSeconds,
-  resolveWebcamPreviewSample,
   isWebcamVisibleAtSourceTime
 } from '../../internal-plugins/system/presentation/src/components/video-editor/videoPlayback/webcamSync'
 import { normalizeProjectEditor } from '../../internal-plugins/system/presentation/src/components/video-editor/projectPersistence'
@@ -22,7 +22,7 @@ describe('independent presentation tracks', () => {
   it('预览终点保留相机末帧，内部切口与较短相机片段仍按原边界隐藏', () => {
     const clips = [{ id: 'screen', startMs: 0, endMs: 3233, speed: 1 }]
     const camera = { segments: [{ id: 'camera', startMs: 0, endMs: 3233, sourceStartMs: 0 }] }
-    const sample = resolveWebcamPreviewSample(3.233, 3.233, clips)
+    const sample = resolvePreviewFrameSample(3.233, 3.233, clips)
     expect(sample.timelineTime).toBeLessThan(3.233)
     expect(isWebcamVisibleAtSourceTime(camera, sample.sourceTime, sample.timelineTime)).toBe(true)
     expect(
@@ -32,7 +32,7 @@ describe('independent presentation tracks', () => {
         segments: camera.segments
       })
     ).toBeCloseTo(3.233 - 0.000001, 8)
-    const cut = resolveWebcamPreviewSample(1, 1, clips)
+    const cut = resolvePreviewFrameSample(1, 1, clips)
     expect(cut).toEqual({ sourceTime: 1, timelineTime: 1 })
     expect(
       isWebcamVisibleAtSourceTime(
@@ -51,11 +51,11 @@ describe('independent presentation tracks', () => {
     expect(
       isWebcamVisibleAtSourceTime({ segments: [] }, sample.sourceTime, sample.timelineTime)
     ).toBe(false)
-    expect(resolveWebcamPreviewSample(4, 4, clips)).toEqual({ sourceTime: 4, timelineTime: 4 })
+    expect(resolvePreviewFrameSample(4, 4, clips)).toEqual({ sourceTime: 4, timelineTime: 4 })
   })
   it('终点取样兼容源偏移、倍速和旧项目，且不移动非终点取样', () => {
     const clips = [{ id: 'screen', startMs: 0, endMs: 1000, sourceStartMs: 2000, speed: 2 }]
-    const sample = resolveWebcamPreviewSample(4, 1, clips)
+    const sample = resolvePreviewFrameSample(4, 1, clips)
     expect(sample.sourceTime).toBeCloseTo(4 - 0.000002, 8)
     expect(
       isWebcamVisibleAtSourceTime(
@@ -64,8 +64,8 @@ describe('independent presentation tracks', () => {
         sample.timelineTime
       )
     ).toBe(true)
-    expect(resolveWebcamPreviewSample(3, 0.5, clips)).toEqual({ sourceTime: 3, timelineTime: 0.5 })
-    expect(resolveWebcamPreviewSample(0, 0, [])).toEqual({ sourceTime: 0, timelineTime: 0 })
+    expect(resolvePreviewFrameSample(3, 0.5, clips)).toEqual({ sourceTime: 3, timelineTime: 0.5 })
+    expect(resolvePreviewFrameSample(0, 0, [])).toEqual({ sourceTime: 0, timelineTime: 0 })
   })
   it('显式摄像头片段优先于旧空可见范围，删空后粘贴可以恢复编辑', () => {
     const webcam = {

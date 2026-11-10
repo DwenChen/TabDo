@@ -77,6 +77,25 @@ afterEach(async () => {
 })
 
 describe('portable preview runtime resources', () => {
+  it('unpacks large built-in runtime and MCP trees without a per-file glob limit', async () => {
+    const source = path.join(temporary, '.artifacts', 'call-ai-app')
+    const destination = path.join(temporary, 'call-ai-resources', 'app.asar')
+    const entries = Array.from(
+      { length: 900 },
+      (_, index) =>
+        `${index % 2 ? 'resources/call-ai-runtime/win32-x64/node/node_modules/npm' : 'node_modules/@modelcontextprotocol/sdk/dist/esm'}/libraries/component-with-a-long-runtime-name-${String(index).padStart(4, '0')}.js`
+    )
+    await Promise.all(entries.map((relative) => write(source, relative, 'runtime fixture')))
+    await fs.mkdir(path.dirname(destination), { recursive: true })
+    await createPreviewArchive(source, destination, entries)
+    for (const relative of [entries[0], entries[1], entries[898], entries[899]]) {
+      expect(statFile(destination, path.normalize(relative)).unpacked).toBe(true)
+      expect(await fs.readFile(path.join(destination + '.unpacked', relative), 'utf8')).toBe(
+        'runtime fixture'
+      )
+    }
+    uncache(destination)
+  }, 30_000)
   it('requires runtime HTML, CSS and scripts at their physical sibling paths', async () => {
     const files = [
       'runtime-page.html',

@@ -2,6 +2,7 @@ import { useTimelinePresentation } from "../../core/TimelinePresentation";
 import { getPlayheadDisplayTime, getTimeAtClipSeam } from "../../core/clipPresentation";
 import { useTimelineContext } from "dnd-timeline";
 import React, { useEffect, useState } from "react";
+import { useTimelineDragCursor } from "../../hooks/useTimelineDragCursor";
 
 interface Keyframe {
 	id: string;
@@ -17,6 +18,11 @@ interface KeyframeMarkersProps {
 	timelineRef: React.RefObject<HTMLDivElement | null>;
 }
 
+/**
+ * 绘制并拖动时间轴关键帧，取消与卸载时释放当前手势。
+ * @param props 关键帧、选区、媒体时长与移动回调。
+ * @returns 当前可见范围内的关键帧标记。
+ */
 const KeyframeMarkers: React.FC<KeyframeMarkersProps> = ({
 	keyframes,
 	selectedKeyframeId,
@@ -28,6 +34,7 @@ const KeyframeMarkers: React.FC<KeyframeMarkersProps> = ({
 	const { sidebarWidth, range, valueToPixels, pixelsToValue } = useTimelineContext();
 	const { clips } = useTimelinePresentation();
 	const [draggingKeyframeId, setDraggingKeyframeId] = useState<string | null>(null);
+	useTimelineDragCursor(Boolean(draggingKeyframeId), () => setDraggingKeyframeId(null));
 
 	useEffect(() => {
 		if (!draggingKeyframeId) return;
@@ -46,17 +53,14 @@ const KeyframeMarkers: React.FC<KeyframeMarkersProps> = ({
 
 		const handleMouseUp = () => {
 			setDraggingKeyframeId(null);
-			document.body.style.cursor = "";
 		};
 
 		window.addEventListener("mousemove", handleMouseMove);
 		window.addEventListener("mouseup", handleMouseUp);
-		document.body.style.cursor = "ew-resize";
 
 		return () => {
 			window.removeEventListener("mousemove", handleMouseMove);
 			window.removeEventListener("mouseup", handleMouseUp);
-			document.body.style.cursor = "";
 		};
 	}, [
 		clips,

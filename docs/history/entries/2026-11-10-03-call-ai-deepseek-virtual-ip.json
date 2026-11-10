@@ -1,0 +1,21 @@
+{
+  "id": "call-ai-deepseek-virtual-ip",
+  "date": "2026-11-10",
+  "version": "1.5.0",
+  "summary": "修复 DeepSeek 网页工具被代理虚拟 IP 误拦",
+  "changes": [
+    "当前聊天已开启网页搜索，仍显示目标解析为内网或保留地址。本机系统解析返回 198.18.0.0/15 地址，通用网页防护在请求前拒绝了固定官方工具接口。",
+    "将 DeepSeek Search、Fetch 和 Brave Search 纳入统一的固定端点登记。共用入口使用系统 DNS、验证 HTTPS 证书并拒绝重定向，只有登记的 API 请求可附带凭据。通用网页保留连接时和重定向的公网校验。",
+    "记录新增搜索 API 的接入规则。TX-136 覆盖代理虚拟地址、固定端点的凭据边界以及同一会话关闭搜索后重新开启。"
+  ],
+  "checks": [
+    "用本机系统 DNS、启用证书校验且不带 API 密钥探测两个 DeepSeek 官方端点，均完成 TLS 并返回 HTTP 401。执行最终源码入口进行无密钥探测，两个 DeepSeek 端点返回鉴权错误，Brave 返回 HTTP 422。",
+    "四个呼叫AI单测文件共 24 项通过，最终归档 .artifacts/runs/2026-11-10T06-53-29-644Z-unit。",
+    "源码 Electron 验证同一会话关闭后重新开启搜索并使用两个 DeepSeek 端点，通过归档 .artifacts/runs/2026-11-10T06-52-45-734Z-e2e。",
+    "pnpm typecheck、pnpm test:regressions call-ai --list、pnpm maintain、pnpm maintain:check、pnpm docs:check 和 git diff --check 通过。",
+    "pnpm build 与共用入口调整后的 pnpm exec electron-vite build 通过。免安装预览 1.4.1 已同步，核对 2139 个程序文件，data 与 legacy 共 2256 个文件通过保留校验。收据 .artifacts/backups/preview-sync/update-1794293665446/preservation.json。",
+    "pnpm test:preview:resources 独立核验通过，覆盖 2138 个程序文件、352 个内置文件和 11881 个运行依赖文件。构建、同步及核验日志位于 .artifacts/call-ai-deepseek-virtual-ip/。",
+    "两次源码回归清理已归档的 Playwright 副本共 14 个文件、688626 字节。保留原始自动归档及清理收据。"
+  ],
+  "pending": ["携带真实账号密钥的 Search 和 Fetch 结果待在免安装预览手动验收。"]
+}

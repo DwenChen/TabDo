@@ -359,3 +359,27 @@
 	border-color: #fde047;
 	box-shadow: inset 0 0 0 1.5px #fde047;
 }
+
+/* 统一选区环覆盖缩略图和波形；不依赖片段底色或悬停才能辨认选区。 */
+.selected::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	border: 2px solid var(--timeline-selection-ring, #e0efff);
+	border-radius: inherit;
+	box-shadow: inset 0 0 0 1px var(--timeline-selection-edge, #173b70);
+	pointer-events: none;
+	z-index: 30;
+}
+
+:global(:root:not(.dark)) .selected {
+	--timeline-selection-ring: #153e75;
+	--timeline-selection-edge: #f0f7ff;
+}
+
+/* 选中后持续显示两端手柄，窄片段也保留清晰的编辑提示。 */
+.selected .zoomEndCap {
+	opacity: 1;
+	z-index: 31;
+	background: var(--timeline-selection-ring, #e0efff);
+}

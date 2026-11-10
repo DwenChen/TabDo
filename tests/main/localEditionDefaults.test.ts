@@ -28,7 +28,7 @@ describe('本地版初始选择', () => {
       })
     ).toMatchObject({ detach: true, esc: false, killPlugin: false, devTools: false })
   })
-  it('默认禁用设置来源的功能及匹配指令，固定包含演示录屏的六个工具且图标有实体文件', () => {
+  it('默认禁用设置来源的指令，固定包含呼叫AI的七个工具且图标有实体文件', () => {
     initializeLocalEditionDefaults(plugins)
     const disabled = state.get('disable-commands') as string[]
     expect(disabled).toHaveLength(
@@ -46,7 +46,8 @@ describe('本地版初始选择', () => {
       '便签',
       '文件搜索',
       '录屏',
-      '演示录屏'
+      '演示录屏',
+      '呼叫AI'
     ])
     expect(pinned.every((item: any) => item.type === 'plugin' && item.cmdType === 'text')).toBe(
       true

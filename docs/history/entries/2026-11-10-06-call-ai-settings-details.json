@@ -1,0 +1,23 @@
+{
+  "id": "call-ai-settings-details",
+  "date": "2026-11-10",
+  "version": "1.5.0",
+  "summary": "在呼叫AI设置中查看 MCP 工具和 Skill 描述，精简运行时检查反馈",
+  "changes": [
+    "已配置 MCP 可按需连接并分页读取工具名称及说明，结束后释放连接、所属进程与临时目录。",
+    "展开已安装 Skill 时读取 SKILL.md 的 YAML 描述，兼容旧安装。",
+    "运行时更新与清理额外库使用带悬停提示的图标，检查后在按钮旁显示绿勾，反馈文字靠行末。"
+  ],
+  "checks": [
+    "pnpm typecheck、pnpm typecheck:setting、pnpm build、pnpm docs:check 与回归分组入口检查通过。",
+    "呼叫AI四个单测文件共 25 项通过，归档 .artifacts/runs/2026-11-10T09-44-13-428Z-unit。",
+    "首次源码 E2E 因测试局部变量重名无法加载。修正后，设置断言通过，整套测试在依赖系统剪贴板的聊天粘贴断言处失败。复跑时模拟可粘贴状态，保留真实右键与菜单处理，完整回归通过。最终归档 .artifacts/runs/2026-11-10T09-44-35-315Z-e2e。",
+    "端到端检查覆盖停用 MCP 的显式连接、工具分页、查询进程回收、Skill 的多行描述与旧安装回退、运行时图标提示和检查行对齐。",
+    "已清理 8 个完成自动归档的 Playwright 重复文件，共 357603 字节，保留运行归档与清理收据。",
+    "首次同步发现免安装预览仍在运行，脚本在替换前停止。用户退出后，pnpm preview:sync 通过，更新本地免安装预览 1.4.1，核对 2139 个程序文件，data 与 legacy 共 2253 个文件逐一保持一致。保留收据 .artifacts/backups/preview-sync/update-1794304122474/preservation.json。",
+    "pnpm test:preview:resources 独立核验通过，覆盖 2138 个程序文件、352 个内置文件和 11881 个运行依赖文件。同步和核验日志位于 .artifacts/call-ai-settings-details/。",
+    "核验后回收本轮程序暂存与旧的纯程序回退，共 29990 个文件、1389252497 字节。保留本轮程序回退 722381362 字节和全部保留收据，清理收据 .artifacts/call-ai-settings-details/preview-cleanup.json。",
+    "收尾复核 .artifacts 约 6146 MiB，主要为测试归档 2716 MiB、备份与收据 1397 MiB、现用工具链 1228 MiB、既有下载 571 MiB 和上游参考 185 MiB。预览回退目录只保留本轮程序副本。"
+  ],
+  "pending": ["免安装预览的界面手动验收留给用户，源码界面已通过端到端回归。"]
+}

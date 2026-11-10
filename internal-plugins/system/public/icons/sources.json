@@ -288,6 +288,14 @@
       "source": "TabDo 原创 SVG，2026-10-27，MIT",
       "original": "presentation-editor.svg",
       "color": "#047857"
+    },
+    {
+      "code": "call-ai",
+      "name": "呼叫AI",
+      "group": "呼叫AI",
+      "icon": "call-ai.svg",
+      "color": "#6257db",
+      "original": true
     }
   ]
 }

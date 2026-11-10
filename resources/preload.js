@@ -1008,6 +1008,27 @@ window.tabdo = {
   // 内置插件专用 API（仅限内置插件调用）
   internal: {
     /**
+     * 调用宿主鉴权的呼叫AI能力；聊天内容不写入插件数据库。
+     * @param {string} operation 明确操作。
+     * @param {unknown} input 可序列化输入。
+     * @returns {Promise<unknown>} 宿主结果。
+     */
+    callAi: async (operation, input) => {
+      const result = await electron.ipcRenderer.invoke('internal:call-ai', operation, toIpcCloneable(input))
+      if (result?.__callAiFailure) throw new Error(result.__callAiFailure)
+      return result
+    },
+    /**
+     * 订阅当前正文的对话事件，退出时移除监听。
+     * @param {Function} callback 事件接收方。
+     * @returns {Function} 解除监听方法。
+     */
+    onCallAiEvent: (callback) => {
+      const listener = (_event, value) => callback(value)
+      electron.ipcRenderer.on('internal:call-ai-event', listener)
+      return () => electron.ipcRenderer.removeListener('internal:call-ai-event', listener)
+    },
+    /**
      * 管理使用引导，宿主只接受内置设置页发起的请求。
      * @param {string} action 用户选择的引导动作。
      * @param {string} [code] 可选练习功能码。

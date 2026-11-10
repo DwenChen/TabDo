@@ -2,6 +2,212 @@
 
 > 自动生成；原始记录在 [entries](../history/entries/)。
 
+## 2026-11-10 · 首次启动默认固定呼叫AI并交付 TabDo 1.5.0
+
+记录：[release-1.5.0](../../docs/history/entries/2026-11-10-07-release-1.5.0.json)；版本：1.5.0。
+
+- 在超级面板原有六个默认固定项后加入呼叫AI，数据库已有固定项时沿用用户选择。
+- 同步 README、设置规范、仓库和应用内教程及发行说明。1.5.0 收录呼叫AI和待发布的演示编辑器修正。
+- 预览同步与重置共用进程退出检查，明确拒绝查询失败。
+
+- 验证：本地全量单测 135 文件 902 项通过。首次运行仅大型 ASAR 夹具超出 5 秒，调整此用例时限后复跑通过，归档 .artifacts/runs/2026-11-10T10-06-13-433Z-unit。
+- 验证：默认固定、呼叫AI、演示编辑边界和工具目录四项源码 E2E 通过，归档 .artifacts/runs/2026-11-10T10-07-19-938Z-e2e。已清理 16 个重复输出，共 1461181 字节。
+- 验证：pnpm typecheck、pnpm typecheck:setting、pnpm build、pnpm maintain、pnpm maintain:check、pnpm docs:check 与差异检查通过。
+- 验证：CIM 查询报错时首轮同步仍继续，误启动的重试与首轮切换冲突并退出。首轮 1.5.0 同步成功，校验 2139 个程序文件，2277 个资料文件保留。独立验证通过 2138 个程序文件、352 个内置文件及 11881 个运行依赖文件。保留收据 .artifacts/backups/preview-sync/update-1794305282780/preservation.json。
+- 验证：按用户授权在同步和资源核验后重置预览资料。备份 .artifacts/backups/portable-profile/2026-11-10T10-13-39-601Z-e05ac45e 含 2277 个逐文件核验的原文件，预览 data 与 legacy 已清空供首次启动。
+- 验证：验证修正后受限 CIM 查询明确返回失败，正常查询确认预览已退出。预览资源、依赖与维护重置专项记录在 .artifacts/releases/1.5.0/。
+
+## 2026-11-10 · 在呼叫AI设置中查看 MCP 工具和 Skill 描述，精简运行时检查反馈
+
+记录：[call-ai-settings-details](../../docs/history/entries/2026-11-10-06-call-ai-settings-details.json)；版本：1.5.0。
+
+- 已配置 MCP 可按需连接并分页读取工具名称及说明，结束后释放连接、所属进程与临时目录。
+- 展开已安装 Skill 时读取 SKILL.md 的 YAML 描述，兼容旧安装。
+- 运行时更新与清理额外库使用带悬停提示的图标，检查后在按钮旁显示绿勾，反馈文字靠行末。
+
+- 验证：pnpm typecheck、pnpm typecheck:setting、pnpm build、pnpm docs:check 与回归分组入口检查通过。
+- 验证：呼叫AI四个单测文件共 25 项通过，归档 .artifacts/runs/2026-11-10T09-44-13-428Z-unit。
+- 验证：首次源码 E2E 因测试局部变量重名无法加载。修正后，设置断言通过，整套测试在依赖系统剪贴板的聊天粘贴断言处失败。复跑时模拟可粘贴状态，保留真实右键与菜单处理，完整回归通过。最终归档 .artifacts/runs/2026-11-10T09-44-35-315Z-e2e。
+- 验证：端到端检查覆盖停用 MCP 的显式连接、工具分页、查询进程回收、Skill 的多行描述与旧安装回退、运行时图标提示和检查行对齐。
+- 验证：已清理 8 个完成自动归档的 Playwright 重复文件，共 357603 字节，保留运行归档与清理收据。
+- 验证：首次同步发现免安装预览仍在运行，脚本在替换前停止。用户退出后，pnpm preview:sync 通过，更新本地免安装预览 1.4.1，核对 2139 个程序文件，data 与 legacy 共 2253 个文件逐一保持一致。保留收据 .artifacts/backups/preview-sync/update-1794304122474/preservation.json。
+- 验证：pnpm test:preview:resources 独立核验通过，覆盖 2138 个程序文件、352 个内置文件和 11881 个运行依赖文件。同步和核验日志位于 .artifacts/call-ai-settings-details/。
+- 验证：核验后回收本轮程序暂存与旧的纯程序回退，共 29990 个文件、1389252497 字节。保留本轮程序回退 722381362 字节和全部保留收据，清理收据 .artifacts/call-ai-settings-details/preview-cleanup.json。
+- 验证：收尾复核 .artifacts 约 6146 MiB，主要为测试归档 2716 MiB、备份与收据 1397 MiB、现用工具链 1228 MiB、既有下载 571 MiB 和上游参考 185 MiB。预览回退目录只保留本轮程序副本。
+
+## 2026-11-10 · 精简呼叫AI权限与网页控件，记住权限选择并支持类似命令审批
+
+记录：[call-ai-permission-controls](../../docs/history/entries/2026-11-10-05-call-ai-permission-controls.json)；版本：1.5.0。
+
+- 权限选择收起时以居中的盾牌图标显示，完全权限用红色提示，展开保留模式名称。网页搜索和产物定位改为带悬停说明的图标。
+- 首次打开使用请求批准，确认过的权限模式保存在本机。确认或保存期间暂停发起任务，新窗口加载上次选择。
+- 内置脚本和 context-mode 命令可允许类似命令，只在当前窗口内匹配相同执行工具与完整参数。关闭窗口立即清除批准。
+- 同步仓库教程、应用内教程、设置规范、更新说明和 TX-136 回归分组。
+
+- 验证：四个呼叫AI单测文件共 25 项通过，覆盖默认权限、取消完全权限和确认后跨窗口恢复。归档 .artifacts/runs/2026-11-10T07-23-36-421Z-unit。
+- 验证：源码 Electron 首轮功能回归通过，归档 .artifacts/runs/2026-11-10T07-23-43-027Z-e2e。去箭头后首轮居中检查测出盾牌竖向偏移，调整垂直对齐后通过。失败与最终归档分别为 .artifacts/runs/2026-11-10T07-27-15-986Z-e2e 与 .artifacts/runs/2026-11-10T07-28-13-769Z-e2e。
+- 验证：最终源码回归验证无箭头、盾牌横纵居中、展开模式文字、红色全权限、新窗口恢复、图标提示、同窗跨轮复用批准、参数变化重新审批及关闭撤销。窄窗口截图直接捕获插件正文。
+- 验证：pnpm typecheck、pnpm test:regressions call-ai --list、pnpm docs:check、pnpm maintain、pnpm maintain:check、pnpm build 与最后的 pnpm build:tools 通过。
+- 验证：首次 pnpm preview:sync 发现免安装预览仍在运行，替换前退出。运行保护日志 .artifacts/call-ai-permission-controls/preview-sync-running.log。
+- 验证：清理两份已自动归档的 Playwright 副本，共 16 个文件、715322 字节，保留成功与失败证据及清理收据。
+- 验证：预览退出后重新执行 pnpm preview:sync，通过并更新本地免安装预览 1.4.1。核对 2139 个程序文件，data 与 legacy 共 2254 个文件在同步前后一致。保留收据 .artifacts/backups/preview-sync/update-1794295957921/preservation.json。
+- 验证：pnpm test:preview:resources 独立核验通过，覆盖 2138 个程序文件、352 个内置文件和 11881 个运行依赖文件。同步与核验日志位于 .artifacts/call-ai-permission-controls/。
+- 验证：清理程序暂存和旧的纯程序回退，共 29990 个文件、1389247382 字节。保留本轮程序回退（722378373 字节）、全部保留收据和原始测试归档。清理收据 .artifacts/call-ai-permission-controls/preview-cleanup.json。
+- 验证：同步收尾后空间复核约 5.92 GiB，主要为测试归档 2.62 GiB、备份与收据 1.33 GiB、现用工具链 1.18 GiB、既有下载 0.56 GiB 和上游参考 0.18 GiB。
+
+## 2026-11-10 · 将呼叫AI模型和权限选择集中到聊天输入框
+
+记录：[call-ai-composer-settings](../../docs/history/entries/2026-11-10-04-call-ai-composer-settings.json)；版本：1.5.0。
+
+- 移除聊天顶部的重复工具栏，将模型和权限下拉移入输入框。
+- 模型选择收起时显示模型名，展开后显示提供商、完整模型名和已有说明。窄窗口内工具按钮可换行。
+- 同步仓库教程、应用内教程、更新说明和 TX-136 回归分组。
+
+- 验证：源码 Electron 在 520 与 650 像素宽度下验证模型和权限位于输入框内、顶部栏移除、工具按钮未溢出，并验证收起模型简名、展开说明、主题强调色、切换模型及权限。截图直接捕获插件正文，归档 .artifacts/runs/2026-11-10T06-57-47-223Z-e2e。
+- 验证：源码开发服务的 Vue 旧版 HTML 嵌套校验提示了原生可定制下拉的子元素。当前 Electron 中展开、键盘关闭及选中结果均通过回归。
+- 验证：pnpm build:setting 与 pnpm build:tools 通过。最终免安装预览 1.4.1 已包含网页 API 修复和输入框调整。同步核对 2139 个程序文件，data 与 legacy 共 2256 个文件通过保留校验。收据 .artifacts/backups/preview-sync/update-1794294057000/preservation.json。
+- 验证：pnpm test:preview:resources 独立核验通过，覆盖 2138 个程序文件、352 个内置文件和 11881 个运行依赖文件。构建、同步及核验日志位于 .artifacts/call-ai-composer-settings/。
+- 验证：清理两次同步的程序暂存、旧纯程序回退和已归档的布局截图副本，共 59988 个文件、2778862276 字节。保留最近一次程序回退（722377476 字节）、全部保留收据及原始测试归档。清理收据位于 .artifacts/call-ai-composer-settings/。
+- 验证：清理后 .artifacts 约 5.92 GiB，主要保留原始测试归档 2.62 GiB、备份和审计收据 1.33 GiB、现用工具链 1.18 GiB、既有下载 0.56 GiB 和上游参考 0.18 GiB。
+
+## 2026-11-10 · 修复 DeepSeek 网页工具被代理虚拟 IP 误拦
+
+记录：[call-ai-deepseek-virtual-ip](../../docs/history/entries/2026-11-10-03-call-ai-deepseek-virtual-ip.json)；版本：1.5.0。
+
+- 当前聊天已开启网页搜索，仍显示目标解析为内网或保留地址。本机系统解析返回 198.18.0.0/15 地址，通用网页防护在请求前拒绝了固定官方工具接口。
+- 将 DeepSeek Search、Fetch 和 Brave Search 纳入统一的固定端点登记。共用入口使用系统 DNS、验证 HTTPS 证书并拒绝重定向，只有登记的 API 请求可附带凭据。通用网页保留连接时和重定向的公网校验。
+- 记录新增搜索 API 的接入规则。TX-136 覆盖代理虚拟地址、固定端点的凭据边界以及同一会话关闭搜索后重新开启。
+
+- 验证：用本机系统 DNS、启用证书校验且不带 API 密钥探测两个 DeepSeek 官方端点，均完成 TLS 并返回 HTTP 401。执行最终源码入口进行无密钥探测，两个 DeepSeek 端点返回鉴权错误，Brave 返回 HTTP 422。
+- 验证：四个呼叫AI单测文件共 24 项通过，最终归档 .artifacts/runs/2026-11-10T06-53-29-644Z-unit。
+- 验证：源码 Electron 验证同一会话关闭后重新开启搜索并使用两个 DeepSeek 端点，通过归档 .artifacts/runs/2026-11-10T06-52-45-734Z-e2e。
+- 验证：pnpm typecheck、pnpm test:regressions call-ai --list、pnpm maintain、pnpm maintain:check、pnpm docs:check 和 git diff --check 通过。
+- 验证：pnpm build 与共用入口调整后的 pnpm exec electron-vite build 通过。免安装预览 1.4.1 已同步，核对 2139 个程序文件，data 与 legacy 共 2256 个文件通过保留校验。收据 .artifacts/backups/preview-sync/update-1794293665446/preservation.json。
+- 验证：pnpm test:preview:resources 独立核验通过，覆盖 2138 个程序文件、352 个内置文件和 11881 个运行依赖文件。构建、同步及核验日志位于 .artifacts/call-ai-deepseek-virtual-ip/。
+- 验证：两次源码回归清理已归档的 Playwright 副本共 14 个文件、688626 字节。保留原始自动归档及清理收据。
+
+## 2026-11-10 · 合并呼叫AI连续思考，添加产物链接并接通图片匹配
+
+记录：[call-ai-results-and-image-match](../../docs/history/entries/2026-11-10-02-call-ai-results-and-image-match.json)；版本：1.5.0。
+
+- 模型工具往返未产生新内容时复用同一思考条目，保留各轮间隔和展开状态。
+- 原生文件工具和成功生成已声明文件的脚本发布会话内产物链接。点击文件名用默认软件打开，也可在文件夹中选中文件。
+- 为呼叫AI登记 img 匹配并将选中图片带入附件区。用户点击发送后才提交，沿用视觉能力和大小限制。
+- 同步仓库教程、应用内教程、指令清单、更新说明、Bug 台账和 TX-136 回归分组。
+
+- 验证：四个呼叫AI单测文件共 24 项通过，覆盖图片能力、格式和大小校验。最终归档 .artifacts/runs/2026-11-10T06-28-22-178Z-unit。
+- 验证：源码 Electron 回归通过，验证连续思考合并与保留展开状态、产物名称与系统打开和定位路由、脚本生成文件、未登记路径拒绝、超级面板图片匹配及点击发送后的模型入参。最终归档 .artifacts/runs/2026-11-10T06-28-28-472Z-e2e。
+- 验证：pnpm typecheck、pnpm test:regressions call-ai --list、pnpm docs:check、pnpm maintain 和 pnpm maintain:check 通过。
+- 验证：pnpm build 通过。免安装预览 1.4.1 已同步，核对 2139 个程序文件，data 与 legacy 共 2254 个文件通过保留校验。保留收据 .artifacts/backups/preview-sync/update-1794292244203/preservation.json。
+- 验证：pnpm test:preview:resources 独立核验通过，覆盖 2138 个程序文件、352 个内置文件和 11881 个运行依赖文件。构建、同步及核验日志位于 .artifacts/call-ai-results-and-image-match/。
+- 验证：清理本轮程序暂存、上一次纯程序回退及已归档的 Playwright 副本，共 29997 个文件、1389579259 字节。保留本轮唯一程序回退（722372301 字节）、全部保留收据及原始测试归档。清理收据位于 .artifacts/call-ai-results-and-image-match/。
+- 验证：清理后 .artifacts 约 5.92 GiB，保留原始测试归档 2.62 GiB、备份和审计收据 1.33 GiB、现用工具链 1.18 GiB、既有下载 0.56 GiB 和上游参考 0.18 GiB。
+
+## 2026-11-10 · 修复呼叫AI网页工具错误处理与授权，统一聊天交互
+
+记录：[call-ai-web-and-chat](../../docs/history/entries/2026-11-10-01-call-ai-web-and-chat.json)；版本：1.5.0。
+
+- 核对 DeepSeek 官方 Search 和 Fetch 端点。搜索只请求摘要，读取正文走 Fetch，格式异常返回可归因的工具错误。模型生成非法工具参数时保持工具调用配对并拒绝执行，允许模型修正。
+- 开启网页搜索即授权本轮内置网页工具。关闭时在两种权限模式下都不注册检索与抓取，第三方 MCP 仍需显式引用并遵循当前审批模式。
+- 移除单次任务 40 次模型往返计数，保留停止、超时和会话清理。
+- 为模型和权限下拉使用圆角主题面板。审批按钮与代码块分区，用户消息右侧显示，选中文本可右键复制，输入框可右键粘贴。
+- 同步仓库和应用内教程、更新说明、Bug 台账和 TX-136 回归分组。
+
+- 验证：四个呼叫AI相关单测文件共 24 项通过，归档 .artifacts/runs/2026-11-09T16-34-40-581Z-unit。
+- 验证：源码 Electron 首轮未通过强调色断言，原因是夹具只发送广播，没有按设置页流程先保存颜色。修正夹具后通过，归档 .artifacts/runs/2026-11-09T16-34-48-311Z-e2e 和 .artifacts/runs/2026-11-09T16-36-49-223Z-e2e。
+- 验证：通过的源码回归使用模型和 HTTPS 响应替身，验证非法工具参数和非法搜索响应后的恢复、超过 40 次工具往返、完全权限下关闭开关时无请求，以及强调色、圆角菜单、气泡位置、审批间距和原生右键操作路由。
+- 验证：pnpm typecheck、pnpm test:regressions call-ai --list、pnpm maintain、pnpm maintain:check 和 pnpm docs:check 通过。
+- 验证：本地 pnpm build 通过，日志 .artifacts/call-ai-web-and-chat/build.log。免安装预览 1.4.1 已同步，核对 2139 个程序文件，data 与 legacy 共 2249 个文件一致。保留收据 .artifacts/backups/preview-sync/update-1794242339884/preservation.json。
+- 验证：独立资源核验通过 2138 个程序文件、352 个内置文件和 11881 个运行依赖文件。
+- 验证：清理已消费的程序暂存、上一次纯程序回退和已归档的 Playwright 副本，共 29996 个文件、1389582775 字节。保留本次唯一预览程序回退（722368954 字节）、全部保留收据及原始测试归档，清理收据见 .artifacts/call-ai-web-and-chat/。
+- 验证：空间复核中 .artifacts 子目录合计约 5.92 GiB，主要为测试归档 2.62 GiB、备份及审计收据 1.33 GiB、工具链 1.18 GiB、既有下载 0.56 GiB、上游参考 0.18 GiB。保留原始证据、持久资料、现用工具链和其他任务资料。
+
+## 2026-11-09 · 紧凑呼叫AI工具栏并按聊天开关接入 DeepSeek 网页搜索与抓取
+
+记录：[call-ai-web-controls](../../docs/history/entries/2026-11-09-03-call-ai-web-controls.json)；版本：1.5.0。
+
+- 按截图移除键盘提示和独占底行的结果目录入口，将附件、引用、结果目录与发送放在同一行并使用带可访问名称的图标。
+- Skill 和 MCP 管理区都使用水平与垂直居中的“添加”，设置强调色改用通用设置的主题变量。根据截图反馈，补齐实际按钮与菜单按钮的垂直对齐。
+- 网页搜索默认关闭，主进程只接受本轮显式布尔授权。关闭时同时禁用内置 URL 索引和第三方 MCP 引用，现有通用代码执行继续遵循所选权限模式。
+- 官方 DeepSeek 提供商复用当前密钥调用 Search 和 Fetch 的固定 POST 端点，兼容网关和其他提供商使用原有通用抓取及可选 Brave Search。
+- 同步仓库与应用内教程、开发规范、更新说明、Bug 台账和 TX-136 回归分组。
+
+- 验证：呼叫AI四个单测文件共 23 项通过，归档 .artifacts/runs/2026-11-09T15-16-10-937Z-unit。
+- 验证：首轮源码 Electron 回归通过，但当时只验证了水平居中。用户指出 Skill 标签偏上后统一对齐，重新以文字和按钮边界校验两轴中心，源码 Electron 回归通过。归档 .artifacts/runs/2026-11-09T15-16-20-098Z-e2e 与 .artifacts/runs/2026-11-09T15-23-42-148Z-e2e，后者包含修正后的设置正文截图。
+- 验证：本地 pnpm build 与居中修正后的 pnpm build:setting 通过。构建日志 .artifacts/call-ai-web-controls-build.log 和 .artifacts/call-ai-web-controls-setting-centering-build.log。
+- 验证：两次固定免安装预览同步各比对 2139 个程序文件，data 与 legacy 共 2247 个文件保持一致。首次收据 .artifacts/backups/preview-sync/update-1794237528185/preservation.json，最终居中修正收据 .artifacts/backups/preview-sync/update-1794237875564/preservation.json。
+- 验证：最终预览独立核验通过 2138 个程序资源、352 个内置文件和 11881 个运行依赖文件。
+- 验证：核对工作区边界、Git 跟踪和链接后，清理两轮已消费程序暂存、旧程序回退和已归档测试副本，共 59987 个文件、2778768782 字节。保留最新程序回退、审计收据和原始测试归档。清单与结果见 .artifacts/cleanup-2026-11-09-call-ai-web-controls/。
+
+## 2026-11-09 · 呼叫AI批量文件审批、附件拖放与公网网页工具
+
+记录：[call-ai-workflow](../../docs/history/entries/2026-11-09-02-call-ai-workflow.json)；版本：1.5.0。
+
+- 通过 Electron 已知目录解析真实桌面。新建文本文件走主进程原生文件 API，批量预检并一次审批，展示绝对路径和实际 UTF-8 字节数。冲突保留原文件，批次失败回收本次已创建文件。
+- 对话支持选择和拖入附件。普通文件按路径读取，具备图片输入能力的模型接收受限图片内容；仅保留最近一轮图片字节。
+- 新增 HTTPS 网页读取与可选 Brave Search。公网校验绑定连接时的 IPv4 DNS，限制重定向、总时长和响应大小。搜索密钥使用系统加密存储。
+- 修复分离标题栏图标、Markdown 列表缩进和设置操作对齐。移除重复标题及添加按钮下箭头，设置控件跟随 Windows 系统强调色。
+- 更新呼叫AI开发规范、教程、更新说明与 TX-136 回归分组。
+
+- 验证：相关 6 个单测文件共 29 项通过，归档 .artifacts/runs/2026-11-09T14-42-25-813Z-unit；pnpm docs:check 通过。
+- 验证：最终源码 Electron 回归验证一次批准创建五个中文空文件、附件选择与拖放、图片输入、Markdown 列表、专属标题栏图标、设置按钮对齐及系统强调色。截图与日志归档 .artifacts/runs/2026-11-09T14-45-27-152Z-e2e。
+- 验证：生产编译发现格式化后内联附件事件语法不兼容，提取为具名处理器后 pnpm build 通过。构建日志 .artifacts/call-ai-workflow-build-final.log。
+- 验证：退出固定免安装预览后同步本地资源，程序比对 2139 个文件，data 与 legacy 共 2240 个文件保留。收据 .artifacts/backups/preview-sync/update-1794235506433/preservation.json。长时会话中的 CIM 查询发出提示，另通过 context-mode 确认切换前固定预览无运行进程。
+- 验证：独立资源核验通过 2138 个程序资源、352 个内置文件和 11881 个运行依赖文件。
+- 验证：确认目标位于工作区且无重解析点或 Git 跟踪后，清理已消费暂存、旧程序回退和已归档的测试副本，共 29997 个文件、1389545689 字节。保留最新程序回退及全部审计和原始测试证据，清单与收据位于 .artifacts/cleanup-2026-11-09-call-ai-workflow/。
+- 验证：清理后资源核验、pnpm docs:check 与 git diff --check 通过。
+
+## 2026-11-09 · 缩小呼叫AI首次窗口并独立管理 Skill 和 MCP
+
+记录：[call-ai-settings](../../docs/history/entries/2026-11-09-01-call-ai-settings.json)；版本：1.5.0。
+
+- 根据用户截图缩小首次窗口，移除红框文本，保留模型、权限、引用和结果目录入口。呼叫AI使用独立的分离窗口尺寸记录。
+- 设置侧栏新增“呼叫AI”。规则和手填路径在编辑结束后逐项保存，列表开关和已确认的操作立即生效。全局规则和运行时默认折叠，产物清理入口精简为“一键清理”。
+- 默认产物父目录和新会话子目录使用 Call_AI，保留自定义路径和旧产物。清理兼容当前默认位置内已登记的旧格式子目录。
+- Skill 从 ZIP 安装，限制文件项数和解包体积，保留相对资源及已有 Skill。MCP 支持启停、编辑、移除配置、mcpServers JSON 和 npm 包安装。
+- 对话增加受当前权限模式控制的 Skill ZIP 安装、npm MCP 安装和 MCP 配置工具，更新已打开窗口的引用列表。系统提示仅提供目录及能力标识、名称和状态，外部 MCP 按轮加载和释放。
+- 同步 README、更新说明、开发规范、仓库与应用内教程，沿用 call-ai 回归分组。
+
+- 验证：呼叫AI、分离窗口升级、生命周期、临时常驻及命名空间单测共 6 个文件 37 项通过，归档 .artifacts/runs/2026-11-09T13-54-50-066Z-unit。
+- 验证：首次 Electron 回归发现正文的旧固定高度覆盖宿主初始尺寸，移除后回归通过，归档 .artifacts/runs/2026-11-09T13-45-10-883Z-e2e。
+- 验证：复核直接正文截图后调整 MCP 弹窗居中，尺寸断言和完整回归通过。窗口、设置列表、MCP 弹窗及对话截图见 .artifacts/runs/2026-11-09T13-49-44-830Z-e2e。
+- 验证：pnpm docs:check、pnpm build 和最终 pnpm build:setting 通过。构建日志见 .artifacts/call-ai-settings-build.log 和 .artifacts/call-ai-settings-final-build.log。
+- 验证：中间预览同步在程序切换后、收据写入前达到 MCP 调用时限，独立资源核验通过后改用长时会话同步最终程序。
+- 验证：固定免安装预览已同步，程序比对 2139 个文件，data 与 legacy 共 207 个文件保留。收据 .artifacts/backups/preview-sync/update-1794232458660/preservation.json。长时会话中的 CIM 查询发出提示，另通过 context-mode 在切换前确认固定预览无运行进程。
+- 验证：独立资源核验通过 2138 个程序资源、352 个内置文件与 11881 个运行依赖文件。
+- 验证：核对工作区边界、Git 跟踪和链接后，清理已消费暂存、旧程序回退及已归档的测试副本，共 47749 个文件、2610024316 字节。保留最新程序回退及全部审计和原始测试归档。清单和收据位于 .artifacts/cleanup-2026-11-09-call-ai/。
+- 验证：清理后 pnpm test:preview:resources、pnpm docs:check 与 git diff --check 通过。
+
+## 2026-11-08 · 新增一次性呼叫AI子组件，集成提供商、Node/Python、context-mode与手动Skill/MCP
+
+记录：[call-ai](../../docs/history/entries/2026-11-08-09-call-ai.json)；版本：1.5.0。
+
+- 保留开始时演示编辑器等已有未提交改动，默认使用context-mode阅读维护流程与模块规范。
+- 采用pi agent core 1.5.0和宿主提供商协议适配器；聊天只在当前内存会话中存在，没有历史、记忆和进化。
+- 按用户新增要求集成实际context-mode 2.1.6进程，仅暴露执行、批量、索引、搜索与统计，索引和HOME属于本次会话。
+- 新增请求批准/完全权限、Markdown受限渲染、审批与提问卡片、手动斜线引用；普通、选文、文件、窗口入口统一路由。
+- 内置官方便携Node/Python，新增包与预置程序分目录，设置提供状态、更新和额外库清理。
+- 设置集成全局规则、Skill安装与MCP配置、默认产物位置及原生二次确认清理，仅清理本工具登记的当前默认目录产物。
+- 用户明确要求打开即临时常驻，宿主对call-ai实施该例外；关闭或取消常驻撤销能力，Windows Job Object回收命令及后代，产物保留。
+
+- 验证：主进程类型检查通过。新增5项单测通过，归档.artifacts/runs/2026-11-08T14-41-40-911Z-unit。
+- 验证：首次命令取消单测发现非零退出码覆盖取消原因，修正后通过；两次失败归档保留。
+- 验证：初次源码专项发现首次复制预置工具造成状态等待和输出目录防护误把整盘判定保护目录，分别改为直接使用只读预置程序与精确根目录校验。
+- 验证：完整pnpm test --maxWorkers=2通过133个文件885项，归档.artifacts/runs/2026-11-08T15-01-05-834Z-unit。
+- 验证：源码Electron扩展专项最终通过，归档.artifacts/runs/2026-11-08T15-10-21-368Z-e2e：实际Node/Python版本检查、真实context-mode执行、审批、自由提问、手动Skill和stdio MCP、Python结果文件、长命令PID结束、完全权限、普通/文本/文件/窗口入口与重入、关闭临时目录清空、重开空聊天，以及二次确认取消/删除并保留其他文件。直接插件正文截图保存在该归档。
+- 验证：精简框架打包为74532字节，pi依赖仅供构建使用，保留所有实际打入依赖的原始许可；最终程序不加载pi提供商。早期ESM导出不兼容的失败记录保留；初次分离遇焦点切换已用宿主保护链修正，冷启动等待按完整正文就绪处理。
+- 验证：相邻tools-catalog在.artifacts/runs/2026-11-08T15-04-38-206Z-e2e中通过；同次呼叫AI失败已在后续独立专项修正并通过。
+- 验证：9项工具边界单测通过，归档.artifacts/runs/2026-11-08T14-56-53-547Z-unit，覆盖清理目录边界、链接拒绝、额外环境隔离、根进程结束后的后代清理、取消、默认目录、内置MCP身份、原生确认和活动会话互斥。
+- 验证：pnpm docs:check通过40功能码、15分类、31普通指令和16章教程；最终源码类型检查及本地构建完成后再同步固定预览。
+- 验证：最终pnpm build通过，日志.artifacts/call-ai-build-final.log；相关宿主生命周期4文件17项通过，归档.artifacts/runs/2026-11-08T15-12-24-317Z-unit。
+- 验证：首次preview:sync在替换前因逐文件glob过长失败，原预览与资料未动；登记BUG-PREVIEW-LARGE-RUNTIME-GLOB和TX-135，改为目录树展开，900条长路径实际归档及相邻14项单测通过，归档.artifacts/runs/2026-11-08T15-17-52-776Z-unit。
+- 验证：已校验失败暂存无回退载荷、无链接且未跟踪，删除本轮失败stage的17683文件1200838059字节；收据.artifacts/cleanup-2026-11-08-call-ai/failed-stage.json，失败日志及原始测试归档保留。
+- 验证：空间分类盘点.artifacts/cleanup-2026-11-08-call-ai/before.json：历史测试证据约2682MiB、工具链1213MiB、备份1200MiB、下载570MiB、上游181MiB属于既有资料或独有证据保留；本轮内置运行时约126MiB为实际程序资源，保留。
+- 验证：preview:sync最终成功，2139个程序文件通过同步核对，143个原有资料文件逐文件保留；收据.artifacts/backups/preview-sync/update-1794151121846/preservation.json。固定入口PreviewPortable.cmd，预览.local/portable-preview/，未重置配置或已安装插件。
+- 验证：pnpm test:preview:resources通过2138个程序资源、350个内置文件及11881个运行依赖文件，日志.artifacts/call-ai-preview-resources.log。
+- 验证：校验绝对路径、祖先后代无链接及无Git跟踪后，清理成功同步的app、空new-resources与被替代的旧previous-resources，共17755文件1220559640字节；计划和结果见.artifacts/cleanup-2026-11-08-call-ai/preview-plan.json与preview-result.json。合计本轮回收35438文件2421397699字节，最新previous-resources及全部资料、审计收据、原始失败证据保留。
+- 验证：清理后再次pnpm test:preview:resources通过，日志.artifacts/call-ai-preview-resources-final.log；pnpm docs:check、pnpm maintain、pnpm maintain:check与git diff --check全部通过。未执行push、云端构建或Release，保留任务开始时所有既有未提交内容。
+
 ## 2026-11-08 · 1.4.1发布验收与Windows素材库路径别名修正
 
 记录：[release-1.4.1-verification](../../docs/history/entries/2026-11-08-08-release-1.4.1-verification.json)；版本：1.4.1。
@@ -20,6 +226,32 @@
 - 验证：下载并逐项核对4份资产的大小及GitHub SHA-256：latest.yml 14990字节、安装包261962246字节、blockmap 271551字节、便携ZIP 335686341字节，总计597935128字节；安装包SHA-512与更新清单files及顶层字段一致。ZIP共634成员，12项关键资源及AGPL/OFL许可齐全，ASAR内3653成员、应用版本1.4.1、组合许可正确且无工作区资料；实际运行包内wgc-capture --test-clock通过暂停边界和音频包连续时钟向量。元数据、下载/包核验收据和完整云端日志保存在.artifacts/releases/1.4.1/。
 - 验证：产物核验后回收已替代的1.3.0三份二进制下载、验收解包副本及两份一次性脚本，共6目标8文件632493882字节；保留最新版原始发行资产、旧更新清单、全部失败证据和资料备份。空间收据.artifacts/cleanup-2026-11-08-release-1.4.1/；剩余.artifacts约6165539459字节，主要为独有测试证据2800001859、已安装工具链1271403533、资料及最新程序回退1258673567、新发行原件597961935、上游对照资料190214495，未按年龄清除其他任务材料。
 - 验证：最终推送前对照源码复核README、发行说明、开发/工具/演示/内存规范、应用内与仓库教程；路径修正未改变可见操作名称和教程流程，现有说明仍准确。维护和文档检查在发布前及最终验收记录提交前重新执行，保留所有hooks。
+
+## 2026-11-08 · 演示编辑器遮罩控件、片段选中强调、拖动光标及预览尾边界优化
+
+记录：[presentation-editor-boundaries](../../docs/history/entries/2026-11-08-08-presentation-editor-boundaries.json)；版本：1.5.0。
+
+- 开始时工作区干净，按维护流程审阅索引、Bug台账、侧栏、时间轴、视觉效果和空间规范。
+- 圆角只在矩形遮罩与图片显示，使用共享滑条，切换圆形或手绘时保留原圆角；三类遮罩采用同一条件。
+- 所有片段增加覆盖缩略图和波形的统一对比选区环，明暗主题使用对应色，选中后持续显示非缩略图片段的长度手柄。
+- 游标与关键帧共用按手势创建的系统指针样式，避免时间轴更新反复清除body光标；松开、Escape、失焦、系统取消和卸载释放所属样式及监听。
+- 将相机的终点规则提取为全部预览图层共用的取样，字幕和注释保留亚毫秒精度；相机、二维/三维镜头、模糊及录制光标共同使用末片内部时间，内部切口和短片段不延长。
+- 新增TX-134及四项Bug记录，同步README、仓库/内置教程、侧栏/时间轴/视觉规范与未发布更新说明。
+
+- 验证：完整pnpm test --maxWorkers=2通过131文件876项，归档.artifacts/runs/2026-11-08T12-44-01-675Z-unit；最终相邻单测5文件36项通过，归档.artifacts/runs/2026-11-08T12-53-49-215Z-unit。
+- 验证：首轮新增单测把比结尾早1ms的注释与60fps最后输出帧混为同一时刻，断言失败归档.artifacts/runs/2026-11-08T12-41-54-425Z-unit；改为真正早于末输出帧的短片段，仍单独检查精确终点不恢复较短注释。
+- 验证：新增源码专项发现共享SliderControl漏传formatValue导致选中遮罩时页面报错，已补齐必填回调；最初5秒冷启动等待和原生range的aria-valuenow断言也已按实际页面修正，失败归档完整保留。
+- 验证：独立演示tsconfig路径不存在，初次命令未完成检查；随后通过TypeScript API按Vite别名检查七个修改文件及依赖，0错误，收据.artifacts/presentation-boundaries-source-typecheck-final.json。主进程/宿主类型检查完成，日志.artifacts/presentation-boundaries-host-typecheck.log；修改文件ESLint无错误。
+- 验证：pnpm test:regressions presentation-editor-boundaries --list确认3单测文件与3源码专项登记；另执行统一侧栏相邻专项。
+- 验证：空间分类盘点收据.artifacts/cleanup-2026-11-08-editor-boundaries/before.json：历史测试证据约2671MiB、实际工具链约1213MiB、备份约1200MiB、发行下载约570MiB、上游来源约181MiB。资料和独有证据保留，预览核验后清理本轮暂存及被替代的旧程序回退。
+- 验证：新增源码Electron专项最终通过，归档.artifacts/runs/2026-11-08T13-04-44-237Z-e2e；三类遮罩、撤销重做、明暗选区、字幕/注释/按键终点、内部切口、两次重开后的原生指针稳定性、松开/失焦/Escape清理及保存恢复全部验证。
+- 验证：标准/现代两套合成器分别在WebGL/WebGPU中，最后输出帧与预览终点取样均有11556个红色标记像素，精确结束边界为0；收据见本次terminal-export-pixels.json，明暗及终点截图仅捕获插件正文。
+- 验证：相邻presentation-inspector、presentation-timeline-effects、presentation-visual-effects全部通过，归档.artifacts/runs/2026-11-08T12-54-38-017Z-e2e；该次新增专项因非整数DPI的边框计算断言失败，单独修正后已通过。主题测试同步所属父页面，避免实际主题跟随刷新覆盖；像素对照改用独立纯红图片，避免把文字紧凑背景面积误作整个显示框。
+- 验证：pnpm build成功，日志.artifacts/presentation-boundaries-build.log；仅用于本地预览交付，未执行push、云端构建或Release，也未重置资料。
+- 验证：pnpm preview:sync成功，104个程序文件通过同步核对；原data与legacy均为空，前后快照完全相同，未创建、删除或重置已有配置/插件。收据.artifacts/backups/preview-sync/update-1794143310571/preservation.json，当前预览.local/portable-preview/，根PreviewPortable.cmd仍为固定入口。
+- 验证：pnpm test:preview:resources通过103个程序文件、346个内置文件及1687个媒体资源，日志.artifacts/presentation-boundaries-preview-resources.log。
+- 验证：按明确清单校验绝对路径、祖先/后代无链接、无Git跟踪，且4份重复测试证据与自动归档逐文件内容一致后，清理本轮app、空new-resources、被替代旧previous-resources及当前重复测试输出，回收5530文件1055933722字节（约1007.02MiB）；最新程序回退update-1794143310571/previous-resources和所有保留收据不动。清单与结果见.artifacts/cleanup-2026-11-08-editor-boundaries/。
+- 验证：清理后再次pnpm test:preview:resources通过，日志.artifacts/presentation-boundaries-preview-resources-final.log；最终pnpm docs:check、pnpm maintain、pnpm maintain:check及git diff --check全部通过，未触及其他未提交内容。
 
 ## 2026-11-08 · 演示录屏最终资源优化与TabDo1.4.0发布候选验收
 

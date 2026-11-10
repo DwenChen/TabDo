@@ -4,7 +4,7 @@ import databaseAPI from '../api'
 import { getCommandId } from '../../shared/commandShared'
 
 /**
- * 为新资料空间登记禁用设置指令与六个默认面板固定项，已有用户选择保持原样。
+ * 为新资料空间登记禁用设置指令与默认面板固定项，已有用户选择保持原样。
  * @param plugins 当前内置插件清单及物理路径。
  * @returns 无返回值。
  */
@@ -34,7 +34,8 @@ export function initializeLocalEditionDefaults(plugins: any[]): void {
       'sticky-note',
       'local-search',
       'screen-recorder',
-      'presentation-recorder'
+      'presentation-recorder',
+      'call-ai'
     ]
     databaseAPI.dbPut(
       'super-panel-pinned',

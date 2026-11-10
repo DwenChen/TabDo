@@ -16,14 +16,13 @@ function assertStopped(executable) {
   const query =
     "$target = '" +
     executable.replace(/'/g, "''") +
-    "'; @(Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq $target }).Count"
-  const count = Number(
-    execFileSync('powershell.exe', ['-NoProfile', '-Command', query], {
-      encoding: 'utf8',
-      windowsHide: true
-    }).trim()
-  )
-  if (!Number.isFinite(count) || count !== 0)
+    "'; try { $processes = Get-CimInstance Win32_Process -ErrorAction Stop; @($processes | Where-Object { $_.ExecutablePath -eq $target }).Count } catch { [Console]::Error.WriteLine($_.Exception.Message); exit 1 }"
+  // 仅接受明确的零进程结果，查询失败时不移动资料。
+  const count = execFileSync('powershell.exe', ['-NoProfile', '-Command', query], {
+    encoding: 'utf8',
+    windowsHide: true
+  }).trim()
+  if (count !== '0')
     throw new Error('请先退出本地免安装预览，再重置配置和插件。')
 }
 

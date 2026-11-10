@@ -706,8 +706,8 @@ export class AppsAPI {
         this.updateUsageStats({ path: appPath, type, featureCode, name })
 
         // 判断命令类型并决定是否添加历史记录
-        if (cmdType === 'window') {
-          // window 类型：不记录历史，不保存状态（仅用于窗口匹配）
+        if (cmdType === 'window' || featureCode === 'call-ai') {
+          // 一次性AI输入与窗口载荷不写入“上次匹配”或指令历史。
           console.log('[Commands] window 类型命令，跳过历史记录')
         } else if (['img', 'over', 'files', 'regex'].includes(cmdType || '')) {
           // 匹配指令：保存状态并添加"上次匹配"到历史记录
@@ -791,6 +791,7 @@ export class AppsAPI {
         if (
           pluginConfig?.name === 'system' &&
           ![
+            'call-ai',
             'clipboard',
             'recognize',
             'latex-recognize',

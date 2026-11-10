@@ -2,7 +2,7 @@ const fs = require('node:fs')
 const fsp = fs.promises
 const path = require('node:path')
 const crypto = require('node:crypto')
-const { execFileSync } = require('node:child_process')
+const { assertStopped } = require('./reset-portable-preview.cjs')
 const assert = require('node:assert/strict')
 const { mediaRuntimeFiles } = require('./media-runtime-dependencies.cjs')
 const root = path.resolve(__dirname, '..')
@@ -56,13 +56,14 @@ async function createPreviewArchive(source, destination, unpackedEntries) {
   const asar = await import('@electron/asar')
   // ASAR 使用绝对文件名匹配；显式包含 .artifacts，避免 ** 跳过隐藏目录。
   const prefix = path.resolve(source).replaceAll('\\', '/')
-  const mediaDirectories = /^(node_modules\/(sharp|pdfkit|ffmpeg-static|ffprobe-static))\//
+  const mediaDirectories =
+    /^(?:resources\/|node_modules\/(?:sharp|pdfkit|ffmpeg-static|ffprobe-static|@modelcontextprotocol\/sdk|context-mode)\/)/
   const hasMedia = unpackedEntries.some((entry) => mediaDirectories.test(entry))
-  // 按四个完整版本树展开，避免数千个文件组合成超长 glob；同时兼容两种路径分隔符。
+  // 运行资源与依赖按完整目录树展开，避免文件增多形成超长glob，兼容两种分隔符。
   const entries = [...new Set(unpackedEntries)].filter((entry) => !mediaDirectories.test(entry))
   await asar.createPackageWithOptions(source, destination, {
     unpackDir: hasMedia
-      ? '{node_modules/{sharp,pdfkit,ffmpeg-static,ffprobe-static},node_modules?{sharp,pdfkit,ffmpeg-static,ffprobe-static}}'
+      ? '{resources,node_modules/{sharp,pdfkit,ffmpeg-static,ffprobe-static,@modelcontextprotocol/sdk,context-mode},node_modules?{sharp,pdfkit,ffmpeg-static,ffprobe-static,@modelcontextprotocol?sdk,context-mode}}'
       : undefined,
     unpack:
       entries.length === 0
@@ -95,18 +96,8 @@ function resolvePreviewUnpackedEntries(source, entries) {
 async function main() {
   workspacePath(preview)
   workspacePath(stage)
-  const executable = path.join(preview, 'TabDo.exe')
-  const query =
-    "$target = '" +
-    executable.replace(/'/g, "''") +
-    "'; @(Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq $target }).Count"
-  const running = Number(
-    execFileSync('powershell.exe', ['-NoProfile', '-Command', query], {
-      encoding: 'utf8',
-      windowsHide: true
-    }).trim()
-  )
-  if (running) throw new Error('Close the portable preview before replacing its program resources')
+  // 与资料重置共用退出校验，查询失败时不生成或替换程序资源。
+  assertStopped(path.join(preview, 'TabDo.exe'))
   assert(fs.existsSync(path.join(root, 'out/main/index.js')), 'Compiled program is missing')
   assert(
     fs.existsSync(path.join(root, 'internal-plugins/setting/dist/index.html')),

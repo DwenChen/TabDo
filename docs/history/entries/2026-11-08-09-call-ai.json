@@ -1,0 +1,37 @@
+{
+  "id": "call-ai",
+  "date": "2026-11-08",
+  "version": "1.5.0",
+  "summary": "新增一次性呼叫AI子组件，集成提供商、Node/Python、context-mode与手动Skill/MCP",
+  "changes": [
+    "保留开始时演示编辑器等已有未提交改动，默认使用context-mode阅读维护流程与模块规范。",
+    "采用pi agent core 1.5.0和宿主提供商协议适配器；聊天只在当前内存会话中存在，没有历史、记忆和进化。",
+    "按用户新增要求集成实际context-mode 2.1.6进程，仅暴露执行、批量、索引、搜索与统计，索引和HOME属于本次会话。",
+    "新增请求批准/完全权限、Markdown受限渲染、审批与提问卡片、手动斜线引用；普通、选文、文件、窗口入口统一路由。",
+    "内置官方便携Node/Python，新增包与预置程序分目录，设置提供状态、更新和额外库清理。",
+    "设置集成全局规则、Skill安装与MCP配置、默认产物位置及原生二次确认清理，仅清理本工具登记的当前默认目录产物。",
+    "用户明确要求打开即临时常驻，宿主对call-ai实施该例外；关闭或取消常驻撤销能力，Windows Job Object回收命令及后代，产物保留。"
+  ],
+  "checks": [
+    "主进程类型检查通过。新增5项单测通过，归档.artifacts/runs/2026-11-08T14-41-40-911Z-unit。",
+    "首次命令取消单测发现非零退出码覆盖取消原因，修正后通过；两次失败归档保留。",
+    "初次源码专项发现首次复制预置工具造成状态等待和输出目录防护误把整盘判定保护目录，分别改为直接使用只读预置程序与精确根目录校验。",
+    "完整pnpm test --maxWorkers=2通过133个文件885项，归档.artifacts/runs/2026-11-08T15-01-05-834Z-unit。",
+    "源码Electron扩展专项最终通过，归档.artifacts/runs/2026-11-08T15-10-21-368Z-e2e：实际Node/Python版本检查、真实context-mode执行、审批、自由提问、手动Skill和stdio MCP、Python结果文件、长命令PID结束、完全权限、普通/文本/文件/窗口入口与重入、关闭临时目录清空、重开空聊天，以及二次确认取消/删除并保留其他文件。直接插件正文截图保存在该归档。",
+    "精简框架打包为74532字节，pi依赖仅供构建使用，保留所有实际打入依赖的原始许可；最终程序不加载pi提供商。早期ESM导出不兼容的失败记录保留；初次分离遇焦点切换已用宿主保护链修正，冷启动等待按完整正文就绪处理。",
+    "相邻tools-catalog在.artifacts/runs/2026-11-08T15-04-38-206Z-e2e中通过；同次呼叫AI失败已在后续独立专项修正并通过。",
+    "9项工具边界单测通过，归档.artifacts/runs/2026-11-08T14-56-53-547Z-unit，覆盖清理目录边界、链接拒绝、额外环境隔离、根进程结束后的后代清理、取消、默认目录、内置MCP身份、原生确认和活动会话互斥。",
+    "pnpm docs:check通过40功能码、15分类、31普通指令和16章教程；最终源码类型检查及本地构建完成后再同步固定预览。",
+    "最终pnpm build通过，日志.artifacts/call-ai-build-final.log；相关宿主生命周期4文件17项通过，归档.artifacts/runs/2026-11-08T15-12-24-317Z-unit。",
+    "首次preview:sync在替换前因逐文件glob过长失败，原预览与资料未动；登记BUG-PREVIEW-LARGE-RUNTIME-GLOB和TX-135，改为目录树展开，900条长路径实际归档及相邻14项单测通过，归档.artifacts/runs/2026-11-08T15-17-52-776Z-unit。",
+    "已校验失败暂存无回退载荷、无链接且未跟踪，删除本轮失败stage的17683文件1200838059字节；收据.artifacts/cleanup-2026-11-08-call-ai/failed-stage.json，失败日志及原始测试归档保留。",
+    "空间分类盘点.artifacts/cleanup-2026-11-08-call-ai/before.json：历史测试证据约2682MiB、工具链1213MiB、备份1200MiB、下载570MiB、上游181MiB属于既有资料或独有证据保留；本轮内置运行时约126MiB为实际程序资源，保留。",
+    "preview:sync最终成功，2139个程序文件通过同步核对，143个原有资料文件逐文件保留；收据.artifacts/backups/preview-sync/update-1794151121846/preservation.json。固定入口PreviewPortable.cmd，预览.local/portable-preview/，未重置配置或已安装插件。",
+    "pnpm test:preview:resources通过2138个程序资源、350个内置文件及11881个运行依赖文件，日志.artifacts/call-ai-preview-resources.log。",
+    "校验绝对路径、祖先后代无链接及无Git跟踪后，清理成功同步的app、空new-resources与被替代的旧previous-resources，共17755文件1220559640字节；计划和结果见.artifacts/cleanup-2026-11-08-call-ai/preview-plan.json与preview-result.json。合计本轮回收35438文件2421397699字节，最新previous-resources及全部资料、审计收据、原始失败证据保留。",
+    "清理后再次pnpm test:preview:resources通过，日志.artifacts/call-ai-preview-resources-final.log；pnpm docs:check、pnpm maintain、pnpm maintain:check与git diff --check全部通过。未执行push、云端构建或Release，保留任务开始时所有既有未提交内容。"
+  ],
+  "pending": [
+    "真实外部提供商联网和第三方npm MCP的网络安装兼容性待用户环境验收；自动化使用提供商协议替身及真实本机stdio MCP，不发送真实用户内容。"
+  ]
+}

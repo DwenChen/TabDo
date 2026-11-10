@@ -6,7 +6,7 @@ import hideWindowHtml from '../../../resources/hideWindow.html?asset'
 
 import mainPreload from '../../../resources/preload.js?asset'
 import api from '../api'
-import { WINDOW_WIDTH } from '../common/constants'
+import { CALL_AI_VIEW_HEIGHT, CALL_AI_WINDOW_WIDTH, WINDOW_WIDTH } from '../common/constants'
 import { DEFAULT_PLUGIN_HEIGHT } from '../../shared/mainWindowLayout'
 import detachedWindowManager, {
   DETACHED_TITLEBAR_HEIGHT,
@@ -274,6 +274,7 @@ export class PluginManager {
     return (
       {
         'qrcode-scan': 620,
+        'call-ai': CALL_AI_VIEW_HEIGHT,
         'folder-break': 180,
         'file-renamer': 580,
         'screen-recorder': 440,
@@ -512,6 +513,18 @@ export class PluginManager {
       lastState.cmdType === 'text' &&
       currentCmdType === 'text' &&
       lastState.featureCode === featureCode
+    )
+  }
+  /**
+   * 校验内置能力的正文功能归属，隔离同一system插件中的其他子组件。
+   * @param contents 发起操作的正文。
+   * @param featureCode 所需功能码。
+   * @returns 当前或已登记正文是否属于该功能。
+   */
+  public isFeatureSession(contents: WebContents, featureCode: string): boolean {
+    return (
+      this.viewLastEnterState.get(contents)?.featureCode === featureCode ||
+      (this.pluginView?.webContents === contents && api.getLaunchParam()?.code === featureCode)
     )
   }
 
@@ -2167,12 +2180,18 @@ export class PluginManager {
   }
 
   /**
-   * 读取分离窗口的上次尺寸（按插件名记录）
+   * 读取分离窗口的上次尺寸。
+   * @param pluginName 插件有效名称。
+   * @param toolFeatureCode 内置工具功能码。
+   * @returns 可用的历史尺寸，缺失时返回 null。
    */
-  private getStoredDetachedSize(pluginName: string): { width: number; height: number } | null {
+  private getStoredDetachedSize(
+    pluginName: string,
+    toolFeatureCode?: string
+  ): { width: number; height: number } | null {
     try {
       const sizes = api.dbGet('detached-window-sizes')
-      const sizeKey = getDetachedWindowSizeKey(pluginName)
+      const sizeKey = getDetachedWindowSizeKey(pluginName, toolFeatureCode)
       if (sizes && typeof sizes === 'object' && !Array.isArray(sizes) && sizes[sizeKey]) {
         const rawSize = sizes[sizeKey]
         const width = Number(rawSize?.width)
@@ -2242,9 +2261,12 @@ export class PluginManager {
         })
       })
 
-      const storedSize = this.getStoredDetachedSize(effectiveName)
-      const windowWidth = storedSize?.width ?? 800
-      const viewHeight = storedSize?.height ?? this.pluginDefaultHeight
+      // 呼叫AI首次使用专用尺寸，其他工具的历史尺寸不影响它。
+      const toolFeatureCode = isToolsPluginPath(pluginPath) ? featureCode : undefined
+      const isCallAi = toolFeatureCode === 'call-ai'
+      const storedSize = this.getStoredDetachedSize(effectiveName, toolFeatureCode)
+      const windowWidth = storedSize?.width ?? (isCallAi ? CALL_AI_WINDOW_WIDTH : WINDOW_WIDTH)
+      const viewHeight = storedSize?.height ?? (isCallAi ? CALL_AI_VIEW_HEIGHT : this.pluginDefaultHeight)
       const logoUrl = this.buildPluginLogoUrl(pluginPath, pluginConfig.logo)
 
       const detachedWindow = detachedWindowManager.createDetachedWindow(
@@ -2257,7 +2279,7 @@ export class PluginManager {
           title: isToolsPluginPath(pluginPath)
             ? getToolsWindowTitle(featureCode)
             : pluginConfig.title || pluginConfig.name,
-          toolFeatureCode: isToolsPluginPath(pluginPath) ? featureCode : undefined,
+          toolFeatureCode,
           logo: logoUrl,
           searchQuery: '',
           searchPlaceholder: '搜索...',
@@ -2328,13 +2350,20 @@ export class PluginManager {
       const pluginJsonPath = path.join(this.currentPluginPath, 'plugin.json')
       const pluginConfig = JSON.parse(fsSync.readFileSync(pluginJsonPath, 'utf-8'))
 
-      const storedSize = this.getStoredDetachedSize(cached.name)
+      const toolFeatureCode = isToolsPluginPath(this.currentPluginPath)
+        ? this.pluginLastEnterState.get(this.currentPluginPath)?.featureCode
+        : undefined
+      const isCallAi = toolFeatureCode === 'call-ai'
+      const storedSize = this.getStoredDetachedSize(cached.name, toolFeatureCode)
       const defaultViewHeight = this.pluginDefaultHeight
 
       // 若存在历史尺寸则优先使用
-      const windowWidth = storedSize?.width ?? 800
+      const windowWidth = storedSize?.width ?? (isCallAi ? CALL_AI_WINDOW_WIDTH : WINDOW_WIDTH)
       // 载入和隐藏过程中的零高度只是临时状态，不能成为分离窗口的正文尺寸。
-      const viewHeight = Math.max(200, storedSize?.height ?? cached.height ?? defaultViewHeight)
+      const viewHeight = Math.max(
+        200,
+        storedSize?.height ?? (isCallAi ? CALL_AI_VIEW_HEIGHT : cached.height ?? defaultViewHeight)
+      )
 
       // 发送插件分离事件（在分离之前通知插件）
       if (!cached.view.webContents.isDestroyed()) {
@@ -2373,13 +2402,9 @@ export class PluginManager {
           height: viewHeight,
           show: options.show,
           title: isToolsPluginPath(this.currentPluginPath)
-            ? getToolsWindowTitle(
-                this.pluginLastEnterState.get(this.currentPluginPath)?.featureCode || ''
-              )
+            ? getToolsWindowTitle(toolFeatureCode || '')
             : pluginConfig.title || pluginConfig.name,
-          toolFeatureCode: isToolsPluginPath(this.currentPluginPath)
-            ? this.pluginLastEnterState.get(this.currentPluginPath)?.featureCode
-            : undefined,
+          toolFeatureCode,
           logo: cached.logo,
           searchQuery: cached.subInputValue || '',
           searchPlaceholder: cached.subInputPlaceholder || '搜索...',

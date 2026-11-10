@@ -1,0 +1,25 @@
+{
+  "id": "call-ai-web-controls",
+  "date": "2026-11-09",
+  "version": "1.5.0",
+  "summary": "紧凑呼叫AI工具栏并按聊天开关接入 DeepSeek 网页搜索与抓取",
+  "changes": [
+    "按截图移除键盘提示和独占底行的结果目录入口，将附件、引用、结果目录与发送放在同一行并使用带可访问名称的图标。",
+    "Skill 和 MCP 管理区都使用水平与垂直居中的“添加”，设置强调色改用通用设置的主题变量。根据截图反馈，补齐实际按钮与菜单按钮的垂直对齐。",
+    "网页搜索默认关闭，主进程只接受本轮显式布尔授权。关闭时同时禁用内置 URL 索引和第三方 MCP 引用，现有通用代码执行继续遵循所选权限模式。",
+    "官方 DeepSeek 提供商复用当前密钥调用 Search 和 Fetch 的固定 POST 端点，兼容网关和其他提供商使用原有通用抓取及可选 Brave Search。",
+    "同步仓库与应用内教程、开发规范、更新说明、Bug 台账和 TX-136 回归分组。"
+  ],
+  "checks": [
+    "呼叫AI四个单测文件共 23 项通过，归档 .artifacts/runs/2026-11-09T15-16-10-937Z-unit。",
+    "首轮源码 Electron 回归通过，但当时只验证了水平居中。用户指出 Skill 标签偏上后统一对齐，重新以文字和按钮边界校验两轴中心，源码 Electron 回归通过。归档 .artifacts/runs/2026-11-09T15-16-20-098Z-e2e 与 .artifacts/runs/2026-11-09T15-23-42-148Z-e2e，后者包含修正后的设置正文截图。",
+    "本地 pnpm build 与居中修正后的 pnpm build:setting 通过。构建日志 .artifacts/call-ai-web-controls-build.log 和 .artifacts/call-ai-web-controls-setting-centering-build.log。",
+    "两次固定免安装预览同步各比对 2139 个程序文件，data 与 legacy 共 2247 个文件保持一致。首次收据 .artifacts/backups/preview-sync/update-1794237528185/preservation.json，最终居中修正收据 .artifacts/backups/preview-sync/update-1794237875564/preservation.json。",
+    "最终预览独立核验通过 2138 个程序资源、352 个内置文件和 11881 个运行依赖文件。",
+    "核对工作区边界、Git 跟踪和链接后，清理两轮已消费程序暂存、旧程序回退和已归档测试副本，共 59987 个文件、2778768782 字节。保留最新程序回退、审计收据和原始测试归档。清单与结果见 .artifacts/cleanup-2026-11-09-call-ai-web-controls/。"
+  ],
+  "pending": [
+    "DeepSeek 与 Brave Search 的真实账号联调待实机验收，自动化使用提供商及 HTTP 响应替身。",
+    "不同 Windows 材质及 DPI 组合待人工验收。"
+  ]
+}

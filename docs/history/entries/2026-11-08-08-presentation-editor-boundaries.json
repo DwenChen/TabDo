@@ -1,0 +1,33 @@
+{
+  "id": "presentation-editor-boundaries",
+  "date": "2026-11-08",
+  "version": "1.5.0",
+  "summary": "演示编辑器遮罩控件、片段选中强调、拖动光标及预览尾边界优化",
+  "changes": [
+    "开始时工作区干净，按维护流程审阅索引、Bug台账、侧栏、时间轴、视觉效果和空间规范。",
+    "圆角只在矩形遮罩与图片显示，使用共享滑条，切换圆形或手绘时保留原圆角；三类遮罩采用同一条件。",
+    "所有片段增加覆盖缩略图和波形的统一对比选区环，明暗主题使用对应色，选中后持续显示非缩略图片段的长度手柄。",
+    "游标与关键帧共用按手势创建的系统指针样式，避免时间轴更新反复清除body光标；松开、Escape、失焦、系统取消和卸载释放所属样式及监听。",
+    "将相机的终点规则提取为全部预览图层共用的取样，字幕和注释保留亚毫秒精度；相机、二维/三维镜头、模糊及录制光标共同使用末片内部时间，内部切口和短片段不延长。",
+    "新增TX-134及四项Bug记录，同步README、仓库/内置教程、侧栏/时间轴/视觉规范与未发布更新说明。"
+  ],
+  "checks": [
+    "完整pnpm test --maxWorkers=2通过131文件876项，归档.artifacts/runs/2026-11-08T12-44-01-675Z-unit；最终相邻单测5文件36项通过，归档.artifacts/runs/2026-11-08T12-53-49-215Z-unit。",
+    "首轮新增单测把比结尾早1ms的注释与60fps最后输出帧混为同一时刻，断言失败归档.artifacts/runs/2026-11-08T12-41-54-425Z-unit；改为真正早于末输出帧的短片段，仍单独检查精确终点不恢复较短注释。",
+    "新增源码专项发现共享SliderControl漏传formatValue导致选中遮罩时页面报错，已补齐必填回调；最初5秒冷启动等待和原生range的aria-valuenow断言也已按实际页面修正，失败归档完整保留。",
+    "独立演示tsconfig路径不存在，初次命令未完成检查；随后通过TypeScript API按Vite别名检查七个修改文件及依赖，0错误，收据.artifacts/presentation-boundaries-source-typecheck-final.json。主进程/宿主类型检查完成，日志.artifacts/presentation-boundaries-host-typecheck.log；修改文件ESLint无错误。",
+    "pnpm test:regressions presentation-editor-boundaries --list确认3单测文件与3源码专项登记；另执行统一侧栏相邻专项。",
+    "空间分类盘点收据.artifacts/cleanup-2026-11-08-editor-boundaries/before.json：历史测试证据约2671MiB、实际工具链约1213MiB、备份约1200MiB、发行下载约570MiB、上游来源约181MiB。资料和独有证据保留，预览核验后清理本轮暂存及被替代的旧程序回退。",
+    "新增源码Electron专项最终通过，归档.artifacts/runs/2026-11-08T13-04-44-237Z-e2e；三类遮罩、撤销重做、明暗选区、字幕/注释/按键终点、内部切口、两次重开后的原生指针稳定性、松开/失焦/Escape清理及保存恢复全部验证。",
+    "标准/现代两套合成器分别在WebGL/WebGPU中，最后输出帧与预览终点取样均有11556个红色标记像素，精确结束边界为0；收据见本次terminal-export-pixels.json，明暗及终点截图仅捕获插件正文。",
+    "相邻presentation-inspector、presentation-timeline-effects、presentation-visual-effects全部通过，归档.artifacts/runs/2026-11-08T12-54-38-017Z-e2e；该次新增专项因非整数DPI的边框计算断言失败，单独修正后已通过。主题测试同步所属父页面，避免实际主题跟随刷新覆盖；像素对照改用独立纯红图片，避免把文字紧凑背景面积误作整个显示框。",
+    "pnpm build成功，日志.artifacts/presentation-boundaries-build.log；仅用于本地预览交付，未执行push、云端构建或Release，也未重置资料。",
+    "pnpm preview:sync成功，104个程序文件通过同步核对；原data与legacy均为空，前后快照完全相同，未创建、删除或重置已有配置/插件。收据.artifacts/backups/preview-sync/update-1794143310571/preservation.json，当前预览.local/portable-preview/，根PreviewPortable.cmd仍为固定入口。",
+    "pnpm test:preview:resources通过103个程序文件、346个内置文件及1687个媒体资源，日志.artifacts/presentation-boundaries-preview-resources.log。",
+    "按明确清单校验绝对路径、祖先/后代无链接、无Git跟踪，且4份重复测试证据与自动归档逐文件内容一致后，清理本轮app、空new-resources、被替代旧previous-resources及当前重复测试输出，回收5530文件1055933722字节（约1007.02MiB）；最新程序回退update-1794143310571/previous-resources和所有保留收据不动。清单与结果见.artifacts/cleanup-2026-11-08-editor-boundaries/。",
+    "清理后再次pnpm test:preview:resources通过，日志.artifacts/presentation-boundaries-preview-resources-final.log；最终pnpm docs:check、pnpm maintain、pnpm maintain:check及git diff --check全部通过，未触及其他未提交内容。"
+  ],
+  "pending": [
+    "其他DPI、多屏及系统自定义鼠标的主观闪烁、操作手感待本机人工复测；本轮真实源码专项已验证当前环境下的样式稳定性及释放。"
+  ]
+}

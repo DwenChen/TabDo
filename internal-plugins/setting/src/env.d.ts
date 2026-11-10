@@ -34,6 +34,7 @@ declare global {
       hideMainWindow: (isRestorePreWindow?: boolean) => boolean | Promise<boolean>
 
       internal: {
+        callAi: (operation: string, input?: unknown) => Promise<any>
         onLocalShortcutsChanged: (callback: () => void) => () => void
         onAppsChanged: (callback: () => void) => () => void
         onCommandAliasesChanged: (callback: () => void) => () => void

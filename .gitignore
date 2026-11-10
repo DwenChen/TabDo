@@ -28,3 +28,6 @@ _*
 # 从已保留的演示组件源码构建的会话服务；构建与源码测试前生成
 /internal-plugins/system/public/presentation-backend.cjs
 /internal-plugins/system/public/presentation-preload.cjs
+resources/call-ai-runtime/
+resources/call-ai-agent.cjs
+resources/call-ai-agent.LICENSE.txt

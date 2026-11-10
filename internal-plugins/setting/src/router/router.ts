@@ -85,6 +85,17 @@ const homeRoutes: MenuRouterItemType[] = [
     }
   },
   {
+    path: '/callAi',
+    name: 'CallAi',
+    component: () => import('@/views/CallAiSetting/CallAiSetting.vue'),
+    meta: {
+      menu: {
+        label: '呼叫AI',
+        icon: 'i-z-message'
+      }
+    }
+  },
+  {
     path: '/data',
     name: 'Data',
     component: () => import('@/views/DataSetting/DataSetting.vue'),

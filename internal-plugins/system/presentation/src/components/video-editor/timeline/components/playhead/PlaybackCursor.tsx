@@ -1,6 +1,7 @@
 import { useTimelineContext } from "dnd-timeline";
 import { useEffect, useState, type RefObject } from "react";
 import { formatPlayheadTime } from "../../core/time";
+import { useTimelineDragCursor } from "../../hooks/useTimelineDragCursor";
 
 import {
 	getPlayheadDisplayTime,
@@ -35,6 +36,7 @@ export default function PlaybackCursor({
 	const { sidebarWidth, direction, range, valueToPixels, pixelsToValue } = useTimelineContext();
 	const sideProperty = direction === "rtl" ? "right" : "left";
 	const [isDragging, setIsDragging] = useState(false);
+	useTimelineDragCursor(isDragging, () => setIsDragging(false));
 
 	useEffect(() => {
 		if (!isDragging) return;
@@ -66,17 +68,14 @@ export default function PlaybackCursor({
 
 		const handleMouseUp = () => {
 			setIsDragging(false);
-			document.body.style.cursor = "";
 		};
 
 		window.addEventListener("mousemove", handleMouseMove);
 		window.addEventListener("mouseup", handleMouseUp);
-		document.body.style.cursor = "ew-resize";
 
 		return () => {
 			window.removeEventListener("mousemove", handleMouseMove);
 			window.removeEventListener("mouseup", handleMouseUp);
-			document.body.style.cursor = "";
 		};
 	}, [
 		isDragging,

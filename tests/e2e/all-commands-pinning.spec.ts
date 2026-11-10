@@ -39,6 +39,13 @@ test('所有指令搜索自动切换来源后可固定与取消固定，保留�
       .context()
       .pages()
       .find((page) => page.url().startsWith('http://127.0.0.1:15177'))!
+    const defaults = await settings.evaluate(() => window.tabdo.internal.getSuperPanelPinned())
+    expect(defaults.at(-1)).toMatchObject({
+      name: '呼叫AI',
+      featureCode: 'call-ai',
+      pluginName: 'system',
+      cmdType: 'text'
+    })
     // 新资料默认已固定演示录屏；仅在本用例隔离资料中移除它，保留其他默认项和顺序。
     await settings.evaluate(async () => {
       const pinned = await window.tabdo.internal.getSuperPanelPinned()

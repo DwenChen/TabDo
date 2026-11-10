@@ -4,6 +4,7 @@ import { defineAsyncComponent, onMounted, onUnmounted, ref } from 'vue'
 // 先接收进入事件，再按指令加载正文；不创建未使用工具的实例，也不缓存已退出的视图。
 const ClipboardApp = defineAsyncComponent(() => import('./ClipboardApp.vue'))
 const ProviderTools = defineAsyncComponent(() => import('./components/ProviderTools.vue'))
+const CallAi = defineAsyncComponent(() => import('./components/CallAi.vue'))
 const FileRenamer = defineAsyncComponent(() => import('./components/FileRenamer.vue'))
 const BreakFolder = defineAsyncComponent(() => import('./components/BreakFolder.vue'))
 const QrScanner = defineAsyncComponent(() => import('./components/QrScanner.vue'))
@@ -33,6 +34,7 @@ onUnmounted(() => window.tabdo.onPluginEnter(null))
 </script>
 <template>
   <ClipboardApp v-if="action?.code === 'clipboard'" :key="revision" />
+  <CallAi v-else-if="action?.code === 'call-ai'" :action="action" />
   <ProviderTools
     v-else-if="['recognize', 'latex-recognize'].includes(action?.code)"
     :key="revision"

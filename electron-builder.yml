@@ -31,6 +31,7 @@ files:
   - '!**/node_modules/lmdb/{dependencies,src}/**'
   - '!**/node_modules/uiohook-napi/{libuiohook,src}/**'
 asarUnpack:
+  - '**/node_modules/context-mode/**'
   - resources/**
   - '**/node_modules/sharp/**/*'
   - '**/node_modules/@img/**/*'

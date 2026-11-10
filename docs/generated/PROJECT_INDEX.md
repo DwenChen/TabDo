@@ -16,9 +16,9 @@
 
 ## 自动化测试文件
 
-共 184 个文件；文件数不等于用例数，通过状态以每轮变更记录为准。
+共 191 个文件；文件数不等于用例数，通过状态以每轮变更记录为准。
 
-### tests/main（120）
+### tests/main（125）
 
 - [tests/main/aiChatEventBatcher.test.ts](../../tests/main/aiChatEventBatcher.test.ts)
 - [tests/main/aiChatTransport.test.ts](../../tests/main/aiChatTransport.test.ts)
@@ -31,6 +31,10 @@
 - [tests/main/asyncPool.test.ts](../../tests/main/asyncPool.test.ts)
 - [tests/main/backupArchive.test.ts](../../tests/main/backupArchive.test.ts)
 - [tests/main/builtinProviderService.test.ts](../../tests/main/builtinProviderService.test.ts)
+- [tests/main/callAiFiles.test.ts](../../tests/main/callAiFiles.test.ts)
+- [tests/main/callAiRuntime.test.ts](../../tests/main/callAiRuntime.test.ts)
+- [tests/main/callAiService.test.ts](../../tests/main/callAiService.test.ts)
+- [tests/main/callAiWeb.test.ts](../../tests/main/callAiWeb.test.ts)
 - [tests/main/clipboardCategory.test.ts](../../tests/main/clipboardCategory.test.ts)
 - [tests/main/clipboardSelectionState.test.ts](../../tests/main/clipboardSelectionState.test.ts)
 - [tests/main/clipboardShutdown.test.ts](../../tests/main/clipboardShutdown.test.ts)
@@ -93,6 +97,7 @@
 - [tests/main/presentationForwardFrames.test.ts](../../tests/main/presentationForwardFrames.test.ts)
 - [tests/main/presentationFragments.test.ts](../../tests/main/presentationFragments.test.ts)
 - [tests/main/presentationKeyboardCapture.test.ts](../../tests/main/presentationKeyboardCapture.test.ts)
+- [tests/main/presentationPreviewBoundaries.test.ts](../../tests/main/presentationPreviewBoundaries.test.ts)
 - [tests/main/presentationRecordingLibrary.test.ts](../../tests/main/presentationRecordingLibrary.test.ts)
 - [tests/main/presentationRecordingPreferences.test.ts](../../tests/main/presentationRecordingPreferences.test.ts)
 - [tests/main/presentationRecycle.test.ts](../../tests/main/presentationRecycle.test.ts)
@@ -157,11 +162,12 @@
 - [tests/scripts/projectMaintenance.test.ts](../../tests/scripts/projectMaintenance.test.ts)
 - [tests/scripts/updateMetadata.test.ts](../../tests/scripts/updateMetadata.test.ts)
 
-### tests/e2e（54）
+### tests/e2e（56）
 
 - [tests/e2e/all-commands-pinning.spec.ts](../../tests/e2e/all-commands-pinning.spec.ts)
 - [tests/e2e/builtin-models.spec.ts](../../tests/e2e/builtin-models.spec.ts)
 - [tests/e2e/builtin-providers.spec.ts](../../tests/e2e/builtin-providers.spec.ts)
+- [tests/e2e/call-ai.spec.ts](../../tests/e2e/call-ai.spec.ts)
 - [tests/e2e/clipboard-interactions.spec.ts](../../tests/e2e/clipboard-interactions.spec.ts)
 - [tests/e2e/console-pipe.spec.ts](../../tests/e2e/console-pipe.spec.ts)
 - [tests/e2e/floating-pointer.spec.ts](../../tests/e2e/floating-pointer.spec.ts)
@@ -181,6 +187,7 @@
 - [tests/e2e/presentation-controls.spec.ts](../../tests/e2e/presentation-controls.spec.ts)
 - [tests/e2e/presentation-cursor-capture.spec.ts](../../tests/e2e/presentation-cursor-capture.spec.ts)
 - [tests/e2e/presentation-defaults.spec.ts](../../tests/e2e/presentation-defaults.spec.ts)
+- [tests/e2e/presentation-editor-boundaries.spec.ts](../../tests/e2e/presentation-editor-boundaries.spec.ts)
 - [tests/e2e/presentation-editor-followup.spec.ts](../../tests/e2e/presentation-editor-followup.spec.ts)
 - [tests/e2e/presentation-fragments.spec.ts](../../tests/e2e/presentation-fragments.spec.ts)
 - [tests/e2e/presentation-import.spec.ts](../../tests/e2e/presentation-import.spec.ts)
@@ -267,3 +274,6 @@
 - `presentation-editing`：15 个单测文件、14 个源码 E2E 文件。
 - `presentation-final-review`：7 个单测文件、5 个源码 E2E 文件。
 - `presentation-library-paths`：2 个单测文件、1 个源码 E2E 文件。
+- `call-ai`：4 个单测文件、1 个源码 E2E 文件。
+- `portable-preview-runtime-trees`：3 个单测文件、0 个源码 E2E 文件。
+- `presentation-editor-boundaries`：3 个单测文件、3 个源码 E2E 文件。

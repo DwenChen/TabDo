@@ -72,7 +72,7 @@ test('工具分类保留各指令操作，所有可见子组件提供任务栏�
       .click()
     const recorder = settings.locator('[data-command-group="录屏"]')
     await expect(recorder.locator('.command-tag')).toHaveText(['录屏', '区域录屏', '停止录屏'])
-    await expect(settings.locator('.command-list .command-tag')).toHaveCount(30)
+    await expect(settings.locator('.command-list .command-tag')).toHaveCount(31)
     await expect(settings.locator('[data-command-group="演示录屏"] .command-tag')).toHaveText([
       '演示录屏'
     ])

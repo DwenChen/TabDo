@@ -1,0 +1,20 @@
+{
+  "id": "release-1.5.0",
+  "date": "2026-11-10",
+  "version": "1.5.0",
+  "summary": "首次启动默认固定呼叫AI并交付 TabDo 1.5.0",
+  "changes": [
+    "在超级面板原有六个默认固定项后加入呼叫AI，数据库已有固定项时沿用用户选择。",
+    "同步 README、设置规范、仓库和应用内教程及发行说明。1.5.0 收录呼叫AI和待发布的演示编辑器修正。",
+    "预览同步与重置共用进程退出检查，明确拒绝查询失败。"
+  ],
+  "checks": [
+    "本地全量单测 135 文件 902 项通过。首次运行仅大型 ASAR 夹具超出 5 秒，调整此用例时限后复跑通过，归档 .artifacts/runs/2026-11-10T10-06-13-433Z-unit。",
+    "默认固定、呼叫AI、演示编辑边界和工具目录四项源码 E2E 通过，归档 .artifacts/runs/2026-11-10T10-07-19-938Z-e2e。已清理 16 个重复输出，共 1461181 字节。",
+    "pnpm typecheck、pnpm typecheck:setting、pnpm build、pnpm maintain、pnpm maintain:check、pnpm docs:check 与差异检查通过。",
+    "CIM 查询报错时首轮同步仍继续，误启动的重试与首轮切换冲突并退出。首轮 1.5.0 同步成功，校验 2139 个程序文件，2277 个资料文件保留。独立验证通过 2138 个程序文件、352 个内置文件及 11881 个运行依赖文件。保留收据 .artifacts/backups/preview-sync/update-1794305282780/preservation.json。",
+    "按用户授权在同步和资源核验后重置预览资料。备份 .artifacts/backups/portable-profile/2026-11-10T10-13-39-601Z-e05ac45e 含 2277 个逐文件核验的原文件，预览 data 与 legacy 已清空供首次启动。",
+    "验证修正后受限 CIM 查询明确返回失败，正常查询确认预览已退出。预览资源、依赖与维护重置专项记录在 .artifacts/releases/1.5.0/。"
+  ],
+  "pending": ["云端构建、正式发布与发行产物核验待执行。"]
+}

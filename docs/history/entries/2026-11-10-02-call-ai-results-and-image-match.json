@@ -1,0 +1,24 @@
+{
+  "id": "call-ai-results-and-image-match",
+  "date": "2026-11-10",
+  "version": "1.5.0",
+  "summary": "合并呼叫AI连续思考，添加产物链接并接通图片匹配",
+  "changes": [
+    "模型工具往返未产生新内容时复用同一思考条目，保留各轮间隔和展开状态。",
+    "原生文件工具和成功生成已声明文件的脚本发布会话内产物链接。点击文件名用默认软件打开，也可在文件夹中选中文件。",
+    "为呼叫AI登记 img 匹配并将选中图片带入附件区。用户点击发送后才提交，沿用视觉能力和大小限制。",
+    "同步仓库教程、应用内教程、指令清单、更新说明、Bug 台账和 TX-136 回归分组。"
+  ],
+  "checks": [
+    "四个呼叫AI单测文件共 24 项通过，覆盖图片能力、格式和大小校验。最终归档 .artifacts/runs/2026-11-10T06-28-22-178Z-unit。",
+    "源码 Electron 回归通过，验证连续思考合并与保留展开状态、产物名称与系统打开和定位路由、脚本生成文件、未登记路径拒绝、超级面板图片匹配及点击发送后的模型入参。最终归档 .artifacts/runs/2026-11-10T06-28-28-472Z-e2e。",
+    "pnpm typecheck、pnpm test:regressions call-ai --list、pnpm docs:check、pnpm maintain 和 pnpm maintain:check 通过。",
+    "pnpm build 通过。免安装预览 1.4.1 已同步，核对 2139 个程序文件，data 与 legacy 共 2254 个文件通过保留校验。保留收据 .artifacts/backups/preview-sync/update-1794292244203/preservation.json。",
+    "pnpm test:preview:resources 独立核验通过，覆盖 2138 个程序文件、352 个内置文件和 11881 个运行依赖文件。构建、同步及核验日志位于 .artifacts/call-ai-results-and-image-match/。",
+    "清理本轮程序暂存、上一次纯程序回退及已归档的 Playwright 副本，共 29997 个文件、1389579259 字节。保留本轮唯一程序回退（722372301 字节）、全部保留收据及原始测试归档。清理收据位于 .artifacts/call-ai-results-and-image-match/。",
+    "清理后 .artifacts 约 5.92 GiB，保留原始测试归档 2.62 GiB、备份和审计收据 1.33 GiB、现用工具链 1.18 GiB、既有下载 0.56 GiB 和上游参考 0.18 GiB。"
+  ],
+  "pending": [
+    "真实提供商识图及 Windows 实际关联软件打开和定位待免安装预览手动验收。源码回归使用提供商和系统打开接口替身。"
+  ]
+}

@@ -23,6 +23,7 @@ import {
 
 export const DETACHED_TITLEBAR_HEIGHT = STANDARD_DETACHED_WINDOW_TITLEBAR_HEIGHT
 const MIN_WINDOW_WIDTH = 400
+const CALL_AI_MIN_WINDOW_WIDTH = 520
 const MIN_WINDOW_HEIGHT = 300
 const MIN_VIEW_HEIGHT = MIN_WINDOW_HEIGHT - DETACHED_TITLEBAR_HEIGHT
 const MAC_TRAFFIC_LIGHT_X = 15
@@ -112,7 +113,10 @@ class DetachedWindowManager {
       if (process.platform === 'darwin') {
         info.window.setWindowButtonPosition(this.resolveTrafficLightPosition(titlebarHeight))
       }
-      info.window.setMinimumSize(WINDOW_WIDTH, titlebarHeight)
+      info.window.setMinimumSize(
+        info.toolFeatureCode === 'call-ai' ? CALL_AI_MIN_WINDOW_WIDTH : WINDOW_WIDTH,
+        titlebarHeight
+      )
       info.window.setContentSize(windowBounds.width, viewBounds.height + titlebarHeight)
       info.view.setBounds({
         x: 0,
@@ -144,14 +148,16 @@ class DetachedWindowManager {
   }
 
   /**
-   * 将分离窗口尺寸持久化到数据库（按插件名归档）
+   * 按分离窗口设置键持久化正文尺寸。
+   * @param sizeKey 插件或内置工具专用尺寸键。
+   * @param width 窗口宽度。
+   * @param viewHeight 正文高度。
+   * @returns 无返回值。
    */
-  private persistWindowSize(pluginName: string, width: number, viewHeight: number): void {
+  private persistWindowSize(sizeKey: string, width: number, viewHeight: number): void {
     try {
       const normalizedWidth = Math.max(MIN_WINDOW_WIDTH, Math.round(width))
       const normalizedHeight = Math.max(MIN_VIEW_HEIGHT, Math.round(viewHeight))
-      const sizeKey = getDetachedWindowSizeKey(pluginName)
-
       const lastSaved = this.lastSavedSizeByPlugin.get(sizeKey)
       if (
         lastSaved &&
@@ -181,11 +187,16 @@ class DetachedWindowManager {
   }
 
   /**
-   * 防抖保存尺寸，避免频繁写入
+   * 防抖保存尺寸，避免频繁写入。
+   * @param windowId 分离窗口标识。
+   * @param sizeKey 插件或工具的尺寸设置键。
+   * @param width 窗口宽度。
+   * @param viewHeight 正文高度。
+   * @returns 无返回值。
    */
   private schedulePersistWindowSize(
     windowId: string,
-    pluginName: string,
+    sizeKey: string,
     width: number,
     viewHeight: number
   ): void {
@@ -195,7 +206,7 @@ class DetachedWindowManager {
     }
 
     const timer = setTimeout(() => {
-      this.persistWindowSize(pluginName, width, viewHeight)
+      this.persistWindowSize(sizeKey, width, viewHeight)
       this.resizeSaveTimers.delete(windowId)
     }, 300)
 
@@ -243,14 +254,19 @@ class DetachedWindowManager {
       // 创建窗口（macOS 和 Windows 都使用无边框，macOS 保留交通灯）
       const isMac = process.platform === 'darwin'
       const isWindows = process.platform === 'win32'
+      const toolIcon = isToolsPluginPath(pluginPath) ? getToolsWindowIcon(options.toolFeatureCode) : undefined
+      // 呼叫AI 的可见标题栏和原生任务栏使用同一专属图标。
+      const pluginLogo = options.toolFeatureCode === 'call-ai' && toolIcon && !toolIcon.isEmpty()
+        ? toolIcon.toDataURL()
+        : options.logo
 
       const windowConfig: Electron.BrowserWindowConstructorOptions = {
         width: options.width,
         height: options.height + titlebarHeight,
         show: options.show,
         title: options.title,
-        ...(isToolsPluginPath(pluginPath) && {
-          icon: getToolsWindowIcon(options.toolFeatureCode),
+        ...(toolIcon && {
+          icon: toolIcon,
           skipTaskbar: false
         }),
         frame: false, // 两个平台都无边框
@@ -259,7 +275,7 @@ class DetachedWindowManager {
           trafficLightPosition: this.resolveTrafficLightPosition(titlebarHeight)
         }),
         resizable: true,
-        minWidth: WINDOW_WIDTH,
+        minWidth: options.toolFeatureCode === 'call-ai' ? CALL_AI_MIN_WINDOW_WIDTH : WINDOW_WIDTH,
         minHeight: titlebarHeight,
         hasShadow: true, // 启用窗口阴影（可调整为 false 来移除阴影）
         webPreferences: {
@@ -338,7 +354,7 @@ class DetachedWindowManager {
         win.webContents.send('init-titlebar', {
           pluginName,
           pluginPath,
-          pluginLogo: options.logo,
+          pluginLogo,
           platform: process.platform,
           title: options.title, // 窗口标题
           searchQuery: options.searchQuery || '', // 搜索框初始值
@@ -393,7 +409,7 @@ class DetachedWindowManager {
           if (!previewFullscreen && !win.isFullScreen() && !this.suppressedSizePersistenceWindows.has(windowId)) {
             this.schedulePersistWindowSize(
               windowId,
-              pluginName,
+              getDetachedWindowSizeKey(pluginName, options.toolFeatureCode),
               newBounds.width,
               newBounds.height - currentTitlebarHeight
             )
@@ -407,7 +423,7 @@ class DetachedWindowManager {
         view: pluginView,
         pluginPath,
         pluginName,
-        pluginLogo: options.logo,
+        pluginLogo,
         toolFeatureCode: options.toolFeatureCode,
         toggleDevTools: options.toggleDevTools,
         isAlwaysOnTop: false,

@@ -1,0 +1,25 @@
+{
+  "id": "call-ai-permission-controls",
+  "date": "2026-11-10",
+  "version": "1.5.0",
+  "summary": "精简呼叫AI权限与网页控件，记住权限选择并支持类似命令审批",
+  "changes": [
+    "权限选择收起时以居中的盾牌图标显示，完全权限用红色提示，展开保留模式名称。网页搜索和产物定位改为带悬停说明的图标。",
+    "首次打开使用请求批准，确认过的权限模式保存在本机。确认或保存期间暂停发起任务，新窗口加载上次选择。",
+    "内置脚本和 context-mode 命令可允许类似命令，只在当前窗口内匹配相同执行工具与完整参数。关闭窗口立即清除批准。",
+    "同步仓库教程、应用内教程、设置规范、更新说明和 TX-136 回归分组。"
+  ],
+  "checks": [
+    "四个呼叫AI单测文件共 25 项通过，覆盖默认权限、取消完全权限和确认后跨窗口恢复。归档 .artifacts/runs/2026-11-10T07-23-36-421Z-unit。",
+    "源码 Electron 首轮功能回归通过，归档 .artifacts/runs/2026-11-10T07-23-43-027Z-e2e。去箭头后首轮居中检查测出盾牌竖向偏移，调整垂直对齐后通过。失败与最终归档分别为 .artifacts/runs/2026-11-10T07-27-15-986Z-e2e 与 .artifacts/runs/2026-11-10T07-28-13-769Z-e2e。",
+    "最终源码回归验证无箭头、盾牌横纵居中、展开模式文字、红色全权限、新窗口恢复、图标提示、同窗跨轮复用批准、参数变化重新审批及关闭撤销。窄窗口截图直接捕获插件正文。",
+    "pnpm typecheck、pnpm test:regressions call-ai --list、pnpm docs:check、pnpm maintain、pnpm maintain:check、pnpm build 与最后的 pnpm build:tools 通过。",
+    "首次 pnpm preview:sync 发现免安装预览仍在运行，替换前退出。运行保护日志 .artifacts/call-ai-permission-controls/preview-sync-running.log。",
+    "清理两份已自动归档的 Playwright 副本，共 16 个文件、715322 字节，保留成功与失败证据及清理收据。",
+    "预览退出后重新执行 pnpm preview:sync，通过并更新本地免安装预览 1.4.1。核对 2139 个程序文件，data 与 legacy 共 2254 个文件在同步前后一致。保留收据 .artifacts/backups/preview-sync/update-1794295957921/preservation.json。",
+    "pnpm test:preview:resources 独立核验通过，覆盖 2138 个程序文件、352 个内置文件和 11881 个运行依赖文件。同步与核验日志位于 .artifacts/call-ai-permission-controls/。",
+    "清理程序暂存和旧的纯程序回退，共 29990 个文件、1389247382 字节。保留本轮程序回退（722378373 字节）、全部保留收据和原始测试归档。清理收据 .artifacts/call-ai-permission-controls/preview-cleanup.json。",
+    "同步收尾后空间复核约 5.92 GiB，主要为测试归档 2.62 GiB、备份与收据 1.33 GiB、现用工具链 1.18 GiB、既有下载 0.56 GiB 和上游参考 0.18 GiB。"
+  ],
+  "pending": []
+}

@@ -64,9 +64,9 @@ export const FONT_FAMILY_VALUES = [
 export const FONT_SIZES = [12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48, 56, 64, 72, 80, 96, 128];
 
 /**
- * Render the current editor values with synchronized timeline interactions.
- * @param props - Current state and editing callbacks.
- * @returns The interactive editor component.
+ * 显示当前注释的内容、外观和动画，按实际类型与遮罩形状呈现有效控件。
+ * @param props 当前注释及内容、几何、外观修改回调。
+ * @returns 遵循共享侧栏规范的注释检查器。
  */
 export function AnnotationSettingsPanel({
 	annotation,
@@ -550,7 +550,10 @@ export function AnnotationSettingsPanel({
 						)}
 					</div>
 
-					{["focus", "blur", "image", "mosaic"].includes(annotation.type) && <div className="space-y-3 mt-4"><label className="text-sm font-medium">圆角 {annotation.style.borderRadius ?? 0}</label><Slider aria-label="注释圆角" value={[annotation.style.borderRadius ?? 0]} min={0} max={200} step={1} onValueChange={([value]) => onStyleChange({ borderRadius: value })} /></div>}
+          {/* 圆角仅作用于矩形遮罩与图片；切换形状保留已有圆角值。 */}
+          {(annotation.type === 'image' || (["focus", "blur", "mosaic"].includes(annotation.type) && (annotation.style.maskShape ?? 'rectangle') === 'rectangle')) && (
+            <SliderControl label="圆角" value={annotation.style.borderRadius ?? 0} min={0} max={200} step={1} onChange={borderRadius => onStyleChange({ borderRadius })} formatValue={value => `${value}`} />
+          )}
           <div className="mt-5"><AnnotationAnimationControls style={annotation.style} onChange={onStyleChange} /></div>
 				</div>
 			</div>
