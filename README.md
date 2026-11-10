@@ -6,7 +6,7 @@
 
 TabDo 是面向 Windows 的桌面工具箱。选中文字、图片、文件或窗口，呼出超级面板，即可选择适合当前内容的操作；在空白处呼出，则可打开固定的常用工具。
 
-项目由 DwenChen 独立维护，源自 ZTools，保留原项目与插件作者的署名和许可。当前功能说明以 **1.5.1** 为基准，逐版变化见 [更新说明](changelog.md)。
+项目由 DwenChen 独立维护，源自 ZTools，保留原项目与插件作者的署名和许可。当前功能说明以 **1.5.2** 为基准，逐版变化见 [更新说明](changelog.md)。
 
 [下载](https://github.com/DwenChen/TabDo/releases/latest) · [快速开始](#快速开始) · [内置工具](#其他内置工具) · [插件市场](https://github.com/DwenChen/TabDo-plugins) · [文档](docs/README.md) · [问题反馈](https://github.com/DwenChen/TabDo/issues)
 

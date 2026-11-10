@@ -22,6 +22,8 @@
 
 工作流由 GitHub 托管 Windows runner 安装根项目及设置插件依赖，先执行维护与文档校验，再运行类型检查、单元测试和 `pnpm build:win`。测试结果归档为 `verification`，Windows 制品归档为 `win-x64`。发布作业再次检查同一提交的文档，通过后创建版本标签并发布正式 Release。
 
+Windows 打包在成品资源目录内验证呼叫AI随附的 npm、npx 和 pip 版本命令。下载核验时也检查 ZIP 内的相应入口和许可。
+
 发布流程使用仓库的 `GITHUB_TOKEN`，无需上游发布服务器或同步密钥。当前不配置 Windows 代码签名，也不发布 macOS 或 Linux 产物；这些平台的脚本存在不代表完成正式验收。
 
 ## 产物与验收

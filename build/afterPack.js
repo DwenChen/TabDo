@@ -1,5 +1,8 @@
 const fs = require('fs/promises')
 const path = require('path')
+const { execFile } = require('child_process')
+const { promisify } = require('util')
+const run = promisify(execFile)
 
 async function pathExists(p) {
   try {
@@ -281,6 +284,25 @@ module.exports = async function (context) {
       resourcesPath = path.join(appPath, 'Contents', 'Resources')
     } else {
       resourcesPath = path.join(context.appOutDir, 'resources')
+    }
+
+    if (context.electronPlatformName === 'win32') {
+      const runtime = path.join('resources', 'call-ai-runtime', 'win32-x64')
+      const bundled = path.join(resourcesPath, 'app.asar.unpacked', runtime)
+      const npm = path.join('node', 'node_modules', 'npm')
+      // Electron Builder 的依赖收集会跳过内置解释器下的 node_modules，显式发布 npm 树。
+      await fs.cp(path.join(__dirname, '..', runtime, npm), path.join(bundled, npm), {
+        recursive: true
+      })
+      // 从成品目录执行版本命令，发布前验证入口及其运行依赖均可加载。
+      const node = path.join(bundled, 'node', 'node.exe')
+      const python = path.join(bundled, 'python', 'python.exe')
+      const options = { cwd: bundled, windowsHide: true, timeout: 30_000 }
+      for (const entry of ['npm-cli.js', 'npx-cli.js']) {
+        await run(node, [path.join(bundled, npm, 'bin', entry), '--version'], options)
+      }
+      await run(python, [path.join(bundled, 'python', 'pip.pyz'), '--version'], options)
+      console.log('呼叫AI内置 npm、npx 和 pip 成品验证通过。')
     }
 
     const destInternalPluginsDir = path.join(resourcesPath, 'app.asar.unpacked', 'internal-plugins')

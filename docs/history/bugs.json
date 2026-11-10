@@ -1902,5 +1902,14 @@
     "fix": "用测试运行器 Node 启动真实子进程，收到启动标记后再触发取消。",
     "cases": ["TX-138"],
     "coverage": "callAiRuntime 验证子树回收、取消与关闭，内置 Node 和 Python 仍由源码 E2E 和发布包验证。"
+  },
+  {
+    "id": "BUG-CALL-AI-PACKAGED-NPM",
+    "title": "Windows 发行包缺少内置 Node 的 npm 与 npx 运行文件",
+    "status": "已修复",
+    "cause": "Electron Builder 的应用依赖收集忽略内置 Node 目录下的嵌套 node_modules，导致 npm.cmd 存在而实际入口及模块缺失。",
+    "fix": "Windows afterPack 复制官方 Node 的完整 npm 树，并从成品目录验证 npm、npx 和 pip 的版本命令。",
+    "cases": ["TX-139"],
+    "coverage": "用 1.5.1 发布 ZIP 的运行时复现缺失，再运行 afterPack 验证 CLI。核对修正后发行 ZIP 的 npm 和 npx 路径及运行。"
   }
 ]

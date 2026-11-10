@@ -1,0 +1,16 @@
+{
+  "id": "release-1.5.2",
+  "date": "2026-11-10",
+  "version": "1.5.2",
+  "summary": "补齐 Windows 发布包的呼叫AI内置 npm 和 npx",
+  "changes": [
+    "Windows afterPack 显式发布官方 Node 的 npm 目录，从最终程序资源运行 npm、npx 和 pip 版本命令。",
+    "修正 1.5.1 成品验证发现的缺项并继续发布 1.5.2。"
+  ],
+  "checks": [
+    "从 1.5.1 正式 ZIP 提取 51 个运行时文件，确认 npm 缺失，运行修正的 afterPack 后实际执行 npm、npx 与 pip 通过。日志 .artifacts/releases/1.5.2/afterpack.log。",
+    "pnpm build、pnpm preview:sync、pnpm test:preview:resources 通过。程序已更新到 1.5.2，核对 2138 个程序文件、352 个内置文件及 11881 个运行依赖文件。",
+    "已确认本地预览 data 与 legacy 保持首次启动的空目录状态。资料备份仍为 .artifacts/backups/portable-profile/2026-11-10T10-13-39-601Z-e05ac45e。"
+  ],
+  "pending": ["云端构建、正式发布及下载核验待完成。"]
+}

@@ -2,6 +2,17 @@
 
 > 自动生成；原始记录在 [entries](../history/entries/)。
 
+## 2026-11-10 · 补齐 Windows 发布包的呼叫AI内置 npm 和 npx
+
+记录：[release-1.5.2](../../docs/history/entries/2026-11-10-09-release-1.5.2.json)；版本：1.5.2。
+
+- Windows afterPack 显式发布官方 Node 的 npm 目录，从最终程序资源运行 npm、npx 和 pip 版本命令。
+- 修正 1.5.1 成品验证发现的缺项并继续发布 1.5.2。
+
+- 验证：从 1.5.1 正式 ZIP 提取 51 个运行时文件，确认 npm 缺失，运行修正的 afterPack 后实际执行 npm、npx 与 pip 通过。日志 .artifacts/releases/1.5.2/afterpack.log。
+- 验证：pnpm build、pnpm preview:sync、pnpm test:preview:resources 通过。程序已更新到 1.5.2，核对 2138 个程序文件、352 个内置文件及 11881 个运行依赖文件。
+- 验证：已确认本地预览 data 与 legacy 保持首次启动的空目录状态。资料备份仍为 .artifacts/backups/portable-profile/2026-11-10T10-13-39-601Z-e05ac45e。
+
 ## 2026-11-10 · 修正干净检出的进程隔离测试并继续发布呼叫AI
 
 记录：[release-1.5.1](../../docs/history/entries/2026-11-10-08-release-1.5.1.json)；版本：1.5.1。
@@ -13,6 +24,8 @@
 - 验证：修正后呼叫AI运行时与默认固定专项 8 项单测通过，归档 .artifacts/runs/2026-11-10T10-22-49-747Z-unit。应用行为已由 1.5.0 同轮的 4 项源码 E2E 覆盖。
 - 验证：1.5.1 本地生产构建和预览同步通过。预览 data 与 legacy 已处于空目录状态，本次同步保留该状态。同步收据 .artifacts/backups/preview-sync/update-1794306240687/preservation.json。
 - 验证：合并调用到时中止后，独立执行 pnpm test:preview:resources 通过，核对 2138 个程序文件、352 个内置文件和 11881 个运行依赖文件。
+- 验证：云端 42799565340 的构建与发布成功，135 文件 902 项单测通过。标签和 Release 对应 3692005eda2639127aa5b527ed56ef8a84933a8b。四个产物 SHA-256 和更新清单的安装包 SHA-512 一致。
+- 验证：深入检查正式 ZIP 发现内置 Node 缺少 npm 和 npx 的入口及依赖。保留正式版和验证收据，使用 1.5.2 补齐打包规则。
 
 ## 2026-11-10 · 首次启动默认固定呼叫AI并交付 TabDo 1.5.0
 
