@@ -770,13 +770,14 @@ export async function openFloating(input: FloatingContent): Promise<number> {
           y: Math.max(workArea.y, Math.min(anchor.y + 28, workArea.y + workArea.height - 280))
         }
       : {}
+  const isNote = content.type === 'text'
+  const featureCode = isNote ? 'sticky-note' : content.edit ? 'image-annotate' : 'float-content'
+  // 便签只呈现桌面纸张，首次显示前即应用任务栏隐藏策略。
   const window = new BrowserWindow({
     ...position,
     title: content.type === 'text' ? content.label : content.edit ? '图片标记' : '图片悬浮',
-    icon: getToolsWindowIcon(
-      content.type === 'text' ? 'sticky-note' : content.edit ? 'image-annotate' : 'float-content'
-    ),
-    skipTaskbar: false,
+    icon: getToolsWindowIcon(featureCode),
+    skipTaskbar: isNote,
     width:
       content.type === 'text'
         ? 300
@@ -808,11 +809,8 @@ export async function openFloating(input: FloatingContent): Promise<number> {
       nodeIntegration: false
     }
   })
-  // 图标与任务栏属于此独立窗口，不再依赖已经退出的剪贴板页面。
-  applyToolsWindowIdentity(
-    window,
-    content.type === 'text' ? 'sticky-note' : content.edit ? 'image-annotate' : 'float-content'
-  )
+  // 按当前浮窗内容应用专属图标和任务栏策略。
+  applyToolsWindowIdentity(window, featureCode, isNote)
   const entry: FloatingEntry = {
     window,
     content,

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
+const emit = defineEmits<{ 'update:enabled': [enabled: boolean] }>()
 const supported = ref(false),
   enabled = ref(false),
   busy = ref(false),
@@ -24,6 +25,7 @@ async function refresh(toggle = false): Promise<void> {
     if (disposed) return
     supported.value = state.supported
     enabled.value = state.enabled
+    emit('update:enabled', state.enabled)
     error.value = ''
   } catch (cause) {
     if (!disposed) error.value = (cause as Error).message

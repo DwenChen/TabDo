@@ -19,10 +19,8 @@ function releaseEditor() {
  * @returns 初始化结束后的 Promise。
  */
 async function initialize() {
-  let stage = '启用临时常驻能力'
+  let stage = '加载演示服务'
   try {
-    await window.tabdo.enableTemporaryResident(true)
-    stage = '加载演示服务'
     const files = props.action.type === 'files' ? props.action.payload : []
     const file = Array.isArray(files)
       ? files.find((entry) => /\.recordly$/i.test(entry.path || ''))?.path
@@ -38,6 +36,7 @@ async function initialize() {
     if (file) ready.value = true
     else {
       // 控制条失败时向用户展示错误，普通启动不装载任何编辑器正文。
+      stage = '打开录制控制条'
       await window.electronAPI.showRecordingHud()
     }
   } catch (error) {

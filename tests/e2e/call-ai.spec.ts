@@ -521,6 +521,7 @@ test('呼叫AI使用提供商、内置context-mode、审批和提问，关闭后
       await api.updatePrimaryColor('custom', '#3867d6')
     })
     const modelPicker = page.getByLabel('AI模型')
+    await expect(modelPicker.locator('option[value=""]')).toHaveCount(0)
     const composerActions = page.locator('.composer-actions')
     await expect(page.locator('.call-ai > header')).toHaveCount(0)
     await expect(composerActions.getByLabel('AI模型')).toHaveCount(1)
@@ -560,24 +561,40 @@ test('呼叫AI使用提供商、内置context-mode、审批和提问，关闭后
       '测试提供商 - call-ai-test 可识图的测试模型'
     )
     await modelPicker.press('Escape')
+    let chatTitlebar: typeof page | undefined
     await expect
       .poll(async () => {
         const titlebars = app
           .context()
           .pages()
           .filter((entry) => entry.url().includes('detached-titlebar.html'))
-        const icons = await Promise.all(
-          titlebars.map((entry) =>
-            entry.evaluate(() =>
-              document.body.innerText.includes('呼叫AI')
-                ? document.querySelector('.plugin-logo')?.getAttribute('src')
-                : ''
-            )
+        for (const entry of titlebars) {
+          const icon = await entry.evaluate(() =>
+            document.body.innerText.includes('呼叫AI')
+              ? document.querySelector('.plugin-logo')?.getAttribute('src')
+              : ''
           )
-        )
-        return icons.some((src) => src?.startsWith('data:image/png;base64,'))
+          if (icon?.startsWith('data:image/png;base64,')) {
+            chatTitlebar = entry
+            return true
+          }
+        }
+        return false
       })
       .toBe(true)
+    await expect(chatTitlebar!.getByRole('button', { name: '临时常驻', exact: true })).toHaveCount(0)
+    await expect(chatTitlebar!.getByTitle('开发者工具', { exact: true })).toHaveCount(0)
+    await page.getByLabel('任务输入').fill('最小化时保留的草稿')
+    await app.evaluate(({ app }) => {
+      const detached = process.mainModule!.require(
+        app.getAppPath() + '/src/main/core/detachedWindowManager.ts'
+      ).default
+      const chat = detached.getAllWindows().find((entry: any) => entry.toolFeatureCode === 'call-ai')
+      chat.window.minimize()
+      chat.window.restore()
+    })
+    await expect(page.getByLabel('任务输入')).toHaveValue('最小化时保留的草稿')
+    await page.getByLabel('任务输入').clear()
     const webSearch = page.getByRole('switch', { name: '网页搜索' })
     await expect(webSearch).toHaveAttribute('aria-checked', 'false')
     await expect(webSearch).toHaveAttribute('title', '开启网页搜索')
@@ -666,7 +683,7 @@ test('呼叫AI使用提供商、内置context-mode、审批和提问，关闭后
         owner: owner.id
       }
     })
-    expect(evidence.resident).toBe(true)
+    expect(evidence.resident).toBe(false)
     expect(evidence.tools).toEqual(
       expect.arrayContaining([
         'ctx_execute',

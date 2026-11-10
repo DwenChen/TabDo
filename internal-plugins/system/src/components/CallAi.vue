@@ -589,13 +589,16 @@ onUnmounted(() => {
               v-model="model"
               class="model-select"
               aria-label="AI模型"
-              :title="selectedModel?.label"
-              :disabled="busy"
+              :title="selectedModel?.label || (ready ? '请在提供商配置模型' : undefined)"
+              :disabled="busy || !models.length"
             >
               <button type="button" class="model-label">
-                {{ selectedModel?.modelId || selectedModel?.label || '选择模型' }}
+                {{
+                  selectedModel?.modelId ||
+                  selectedModel?.label ||
+                  (ready ? '请在提供商配置模型' : '选择模型')
+                }}
               </button>
-              <option value="">请在提供商配置模型</option>
               <option
                 v-for="entry in models"
                 :key="entry.value || entry.id"
@@ -618,9 +621,9 @@ onUnmounted(() => {
             >
               <button type="button" class="permission-icon">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M12 22s7-3.5 7-10V6l-7-3-7 3v6c0 6.5 7 10 7 10Z" />
-                  <path v-if="mode === 'full'" d="M12 8v4m0 4h.01" />
-                  <path v-else d="m9 12 2 2 4-4" />
+                  <path d="M11 4.5a3 3 0 0 1 2 0l5.6 1.9A2 2 0 0 1 20 8.3v3.4c0 4.3-3.1 7-7 8.6a2.6 2.6 0 0 1-2 0c-3.9-1.6-7-4.3-7-8.6V8.3a2 2 0 0 1 1.4-1.9Z" />
+                  <path v-if="mode === 'full'" d="M12 8.5v4m0 3h.01" />
+                  <path v-else d="m8.5 11.5 2.4 2.4 4.6-4.6" />
                 </svg>
               </button>
               <option value="approve">请求批准</option>

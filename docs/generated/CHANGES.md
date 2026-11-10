@@ -2,6 +2,34 @@
 
 > 自动生成；原始记录在 [entries](../history/entries/)。
 
+## 2026-11-10 · 发布 TabDo 1.5.3 并将单元回归移至推送前
+
+记录：[release-1.5.3](../../docs/history/entries/2026-11-10-11-release-1.5.3.json)；版本：1.5.3。
+
+- 交付独立窗口、便签任务栏和呼叫AI控件优化，同步 README、开发与发布规范、两份教程及更新说明。
+- 发布工作流保留维护与文档校验、类型检查和成品打包。完整单元回归在推送前于本地执行并归档。
+
+- 验证：发布候选完整单测通过，135 个文件共 902 项。归档 .artifacts/runs/2026-11-10T13-41-01-695Z-unit。
+- 验证：pnpm typecheck:setting 和 pnpm build 通过，含主进程及宿主页面类型检查。构建日志位于 .artifacts/releases/1.5.3/。
+- 验证：5 项受影响的源码 Electron 回归通过，覆盖呼叫AI、演示编辑器、设置页、临时常驻切换和便签任务栏。归档 .artifacts/runs/2026-11-10T13-41-38-504Z-e2e，清除 17 个相同副本，共 1398909 字节。
+- 验证：免安装预览已同步至 1.5.3，资料保留收据确认 166 个文件在同步前后内容一致。pnpm test:preview:resources 通过，核对 2138 个程序文件、352 个内置文件与 11881 个运行依赖文件。日志在 .artifacts/releases/1.5.3/，收据在 .artifacts/backups/preview-sync/update-1794318215535/。
+
+## 2026-11-10 · 调整独立窗口保留策略、便签任务栏与呼叫AI控件
+
+记录：[privileged-windows-and-call-ai-controls](../../docs/history/entries/2026-11-10-10-privileged-windows.json)；版本：1.5.3。
+
+- TabDo 设置始终从独立窗口打开，演示编辑器与呼叫AI聊天也按独立窗口策略保留会话，关闭时沿原生命周期回收。
+- 移除特权页面的临时常驻与开发者工具入口，其他分离窗口启用临时常驻时隐藏开发者工具按钮。
+- 便签首次显示前隐藏任务栏入口并保留专属原生图标。
+- 呼叫AI的模型菜单仅列已配置模型，无模型时显示不可选的配置提示。权限盾牌改为更宽、更圆的轮廓。
+
+- 验证：pnpm test 通过，135 个文件共 902 项。归档 .artifacts/runs/2026-11-10T13-07-52-860Z-unit。
+- 验证：9 项不同的源码 Electron 用例最终通过。设置、普通临时常驻、控制条冷启动与任务栏见 .artifacts/runs/2026-11-10T13-07-49-581Z-e2e。更新沿用旧窗口策略的断言后，呼叫AI、托盘、演示编辑器及导入见 .artifacts/runs/2026-11-10T13-12-53-001Z-e2e。
+- 验证：本地版测试最初在设置切为独立窗口后未就绪时注入匹配夹具。先恢复主窗口，写入测试插件后重载渲染器以初始化索引，最终通过，归档 .artifacts/runs/2026-11-10T13-19-46-399Z-e2e。
+- 验证：pnpm build、设置教程的 pnpm build:setting、pnpm docs:check、pnpm maintain 和 pnpm maintain:check 通过。
+- 验证：pnpm preview:sync 已同步本地免安装预览，保留收据确认 data 与 legacy 前后均为空。pnpm test:preview:resources 通过，核对 2138 个程序文件、352 个内置插件文件与 11881 个运行依赖文件。收据与日志位于 .artifacts/backups/preview-sync/update-1794316304208/。
+- 验证：分类复核 .artifacts 中的测试归档、备份、下载、工具链与上游资料。回收本轮已消费暂存和更早的纯程序回退共 29990 个文件、1389263690 字节，保留本轮 previous-resources、全部收据、既有资料备份及测试原件。最后一轮 E2E 的两个重复输出已回收，共 130904 字节。
+
 ## 2026-11-10 · 补齐 Windows 发布包的呼叫AI内置 npm 和 npx
 
 记录：[release-1.5.2](../../docs/history/entries/2026-11-10-09-release-1.5.2.json)；版本：1.5.2。

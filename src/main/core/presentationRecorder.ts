@@ -222,8 +222,8 @@ export async function openPresentation(
      */
     showEditor(): void {
       if (disposed || owner.isDestroyed()) return
-      const window = detachedWindowManager.getWindowByPluginWebContents(owner.id)
-      if (!window || window.isDestroyed()) return
+      const window = detachedWindowManager.retainPresentationEditor(owner.id)
+      if (!window) return
       /**
        * 同步原生任务栏与自定义标题栏的编辑器身份，晚加载标题栏也能收到更新。
        * @returns 无返回值。

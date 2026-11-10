@@ -64,7 +64,6 @@ import {
   revealCallAiOutput,
   accessCallAiArtifact
 } from '../../core/callAiService'
-import { enableTemporaryResident, setTemporaryResident } from '../../core/temporaryResidency'
 
 /**
  * 权限错误类
@@ -197,17 +196,12 @@ export class InternalPluginAPI {
           throw new Error('仅当前呼叫AI会话可调用')
         switch (operation) {
           case 'open': {
-            // 分离和首次常驻发布属于同一链，焦点切换不能提前退役正文。
+            // 分离期间抑制宿主失焦，确保聊天正文完整交给独立窗口。
             return windowManager.withBlurHideSuppressed(async () => {
               if (!detachedWindowManager.getWindowByPluginWebContents(event.sender.id)) {
                 const detached = await pluginManager.detachCurrentPlugin()
                 if (!detached.success) throw new Error(detached.error || '无法创建呼叫AI窗口')
               }
-              // 用户明确要求呼叫AI打开即原生临时常驻，仅对本工具实施此例外。
-              enableTemporaryResident(event.sender, true)
-              setTemporaryResident(event.sender, true)
-              const owner = detachedWindowManager.getWindowByPluginWebContents(event.sender.id)
-              owner?.webContents.send('temporary-residency-changed')
               const state = await openCallAi(event.sender)
               if (input?.type === 'window') {
                 state.windowPath = await resolveCallAiWindowPath(input.payload)

@@ -108,7 +108,7 @@
       </button>
 
       <!-- 置顶按钮 -->
-      <TemporaryResidencyButton />
+      <TemporaryResidencyButton @update:enabled="isTemporaryResident = $event" />
       <button :class="['toolbar-btn', { active: isPinned }]" title="置顶窗口" @click="togglePin">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
           <!-- 未激活：线性图标 -->
@@ -129,7 +129,12 @@
       </button>
 
       <!-- 开发者工具按钮 -->
-      <button class="toolbar-btn" title="开发者工具" @click="openDevTools">
+      <button
+        v-if="showDevTools && !isTemporaryResident"
+        class="toolbar-btn"
+        title="开发者工具"
+        @click="openDevTools"
+      >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
           <!-- 代码图标 </> -->
           <path
@@ -195,6 +200,8 @@ const searchQuery = ref('')
 const searchPlaceholder = ref('搜索...')
 const subInputVisible = ref(true) // 子输入框是否可见
 const isPinned = ref(false)
+const showDevTools = ref(false)
+const isTemporaryResident = ref(false)
 const searchInputRef = ref<HTMLInputElement | null>(null)
 const acrylicLightOpacity = ref(78) // 亚克力明亮模式透明度（默认 78%）
 const acrylicDarkOpacity = ref(50) // 亚克力暗黑模式透明度（默认 50%）
@@ -553,6 +560,7 @@ onMounted(() => {
     pluginId.value = data.pluginName // 保存实际的插件 name，用于数据库读写
     pluginPath.value = data.pluginPath || ''
     pluginLogo.value = data.pluginLogo
+    showDevTools.value = data.showDevTools === true
     aiRequestStatus.value = data.aiRequestStatus || 'idle'
     compactWindowHeader.value = data.compactWindowHeader === true
 

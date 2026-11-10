@@ -23,14 +23,19 @@ export function getToolsWindowIcon(featureCode = 'tools'): NativeImage {
  * 为当前可见的工具窗口设置原生图标与任务栏身份。
  * @param window 承载工具正文或独立内容的窗口。
  * @param featureCode 当前工具功能码。
+ * @param skipTaskbar 是否保留窗口图标但隐藏任务栏入口。
  * @returns 无返回值。
  */
-export function applyToolsWindowIdentity(window: BrowserWindow, featureCode: string): void {
+export function applyToolsWindowIdentity(
+  window: BrowserWindow,
+  featureCode: string,
+  skipTaskbar = false
+): void {
   if (window.isDestroyed()) return
   const icon = getToolsWindowIcon(featureCode)
   if (!icon.isEmpty()) window.setIcon(icon)
-  // 显式撤回宿主搜索面板的任务栏隐藏状态，独立窗口也使用同一规则。
-  window.setSkipTaskbar(false)
+  // 统一应用当前工具的任务栏策略，避免沿用宿主搜索面板的状态。
+  window.setSkipTaskbar(skipTaskbar)
   if (process.platform === 'win32') window.setAppDetails({ appId: `TabDo.Tool.${featureCode}` })
 }
 

@@ -122,6 +122,7 @@ test('临时常驻工具在其他子组件打开、退出与再次进入后保�
       'aria-pressed',
       'true'
     )
+    await expect(titlebar!.getByTitle('开发者工具', { exact: true })).toHaveCount(0)
     await titlebar!.locator('input').fill('常驻未保存筛选')
 
     /**

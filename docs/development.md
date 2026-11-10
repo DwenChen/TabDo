@@ -97,7 +97,7 @@ pnpm maintain:check
 git diff --check
 ```
 
-`pnpm test` 和 `pnpm test:e2e` 自动归档命令、输出、时间与真实退出状态。发行候选执行完整单测和受影响的源码 E2E。纯文档审校主要核对内容、链接和格式；修改随应用分发的教程时，还需验证实际教程页面及构建资源。
+`pnpm test` 和 `pnpm test:e2e` 自动归档命令、输出、时间与真实退出状态。发行候选在推送前完成完整单测和受影响的源码 E2E，单元回归证据归档在本地。云端执行维护与文档校验、类型检查及打包。纯文档审校主要核对内容、链接和格式；修改随应用分发的教程时，还需验证实际教程页面及构建资源。
 
 Electron E2E 自动启动源码服务和临时实例，并显式隔离数据与旧数据目录。不执行 `electron-builder`、`pnpm build:unpack`，也不使用 `dist/*.app` 作为 E2E 入口；Electron 自带 Chromium，无需另行安装 Playwright 浏览器。专项测试同样传入源码项目，并设置 `TABDO_SETTING_DEV_SERVER_URL=http://127.0.0.1:15177`。
 

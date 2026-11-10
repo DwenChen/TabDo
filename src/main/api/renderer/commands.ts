@@ -556,9 +556,9 @@ export class AppsAPI {
     const { path: appPath, featureCode, name, launchSource } = options
     const plugin = this.getPluginsFromDB().find((p: any) => p.path === appPath)
     const effectiveName = plugin?.name
-    // 检查是否配置为自动分离
-    let shouldAutoDetach = false
-    if (pluginConfig && effectiveName) {
+    // 内置设置始终使用独立窗口；通用自动分离配置仍由用户管理。
+    let shouldAutoDetach = effectiveName === 'setting'
+    if (!shouldAutoDetach && pluginConfig && effectiveName) {
       try {
         const autoDetachPlugins: string[] = databaseAPI.dbGet('auto-detach-plugin') || []
         if (Array.isArray(autoDetachPlugins) && autoDetachPlugins.includes(effectiveName)) {

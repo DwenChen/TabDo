@@ -11,7 +11,7 @@
 **文档检查和必要更新必须在 push、云端构建、Release 前完成。** 对照当前源码审校受影响的 README、开发规范、两份本地教程、更新说明及当轮记录。即使无需改文档，也要确认仍然准确；通过 `pnpm docs:check` 与 `pnpm maintain:check` 后才能继续。推送 hook、构建作业和发布作业分别设有文档校验，不能跳过，也不能以一次历史通过覆盖后续改动。
 
 1. 更新 `package.json`、`changelog.md` 及结构化维护记录，确认版本与标签一致。
-2. 执行 `pnpm typecheck`（主进程与宿主页面）、`pnpm typecheck:setting`、完整单测、受影响的源码 Electron E2E 和相关静态检查。
+2. 推送前在本地执行 `pnpm typecheck`（主进程与宿主页面）、`pnpm typecheck:setting`、`pnpm test` 完整单测、受影响的源码 Electron E2E 和相关静态检查。将测试归档路径和结果写入当轮维护记录。
 3. 同步并核验本地免安装预览，逐文件确认配置、数据和已安装插件保留。
 4. 执行 `pnpm maintain`、`pnpm maintain:check`、`pnpm docs:check` 与差异检查；确认暂存清单不包含本机资料、备份、日志、截图、安装包或凭据。
 5. 通过 hooks 提交，检查远端 `main` 指向预期提交。
@@ -20,7 +20,7 @@
 
 推荐推送候选提交后，在 GitHub Actions 手动运行 `Release TabDo` 工作流，选择 `main`。也可在明确授权下推送与应用版本一致的全新标签来触发；一次发布只采用一个入口，避免重复运行。
 
-工作流由 GitHub 托管 Windows runner 安装根项目及设置插件依赖，先执行维护与文档校验，再运行类型检查、单元测试和 `pnpm build:win`。测试结果归档为 `verification`，Windows 制品归档为 `win-x64`。发布作业再次检查同一提交的文档，通过后创建版本标签并发布正式 Release。
+工作流由 GitHub 托管 Windows runner 安装根项目及设置插件依赖，执行维护与文档校验、类型检查及 `pnpm build:win`。单元回归在本地推送前完成并归档。Windows 制品归档为 `win-x64`。发布作业再次检查同一提交的文档，通过后创建版本标签并发布正式 Release。
 
 Windows 打包在成品资源目录内验证呼叫AI随附的 npm、npx 和 pip 版本命令。下载核验时也检查 ZIP 内的相应入口和许可。
 

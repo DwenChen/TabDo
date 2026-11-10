@@ -102,6 +102,22 @@ test('遮罩控件、片段选区、重开拖动光标与预览导出尾边界',
       if (message.type() === 'error') console.log('PRESENTATION_CONSOLE_ERROR', message.text())
     })
     await expect(frame.getByText('演示编辑器', { exact: true })).toBeVisible({ timeout: 60000 })
+    const titlebar = app
+      .context()
+      .pages()
+      .find((page) => page.url().includes('detached-titlebar.html'))!
+    await expect(titlebar.getByRole('button', { name: '临时常驻', exact: true })).toHaveCount(0)
+    await app.evaluate(({ app }) => {
+      const detached = process.mainModule!.require(
+        app.getAppPath() + '/src/main/core/detachedWindowManager.ts'
+      ).default
+      const editor = detached.getAllWindows().find(
+        (entry: any) => entry.toolFeatureCode === 'presentation-recorder'
+      )
+      editor.window.minimize()
+      editor.window.restore()
+    })
+    await expect(frame.getByRole('dialog', { name: '演示项目', exact: true })).toBeVisible()
     await frame.getByRole('dialog', { name: '演示项目', exact: true }).press('Escape')
     await app.evaluate(({ dialog }, sample) => {
       dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [sample] })

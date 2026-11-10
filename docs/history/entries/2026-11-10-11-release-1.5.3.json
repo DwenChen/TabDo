@@ -1,0 +1,17 @@
+{
+  "id": "release-1.5.3",
+  "date": "2026-11-10",
+  "version": "1.5.3",
+  "summary": "发布 TabDo 1.5.3 并将单元回归移至推送前",
+  "changes": [
+    "交付独立窗口、便签任务栏和呼叫AI控件优化，同步 README、开发与发布规范、两份教程及更新说明。",
+    "发布工作流保留维护与文档校验、类型检查和成品打包。完整单元回归在推送前于本地执行并归档。"
+  ],
+  "checks": [
+    "发布候选完整单测通过，135 个文件共 902 项。归档 .artifacts/runs/2026-11-10T13-41-01-695Z-unit。",
+    "pnpm typecheck:setting 和 pnpm build 通过，含主进程及宿主页面类型检查。构建日志位于 .artifacts/releases/1.5.3/。",
+    "5 项受影响的源码 Electron 回归通过，覆盖呼叫AI、演示编辑器、设置页、临时常驻切换和便签任务栏。归档 .artifacts/runs/2026-11-10T13-41-38-504Z-e2e，清除 17 个相同副本，共 1398909 字节。",
+    "免安装预览已同步至 1.5.3，资料保留收据确认 166 个文件在同步前后内容一致。pnpm test:preview:resources 通过，核对 2138 个程序文件、352 个内置文件与 11881 个运行依赖文件。日志在 .artifacts/releases/1.5.3/，收据在 .artifacts/backups/preview-sync/update-1794318215535/。"
+  ],
+  "pending": ["云端构建、正式发行成品核验与 Windows 桌面视觉手测。"]
+}

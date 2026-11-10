@@ -138,7 +138,7 @@ test('tray always restores settings and uninstall removes a running ASAR and its
         }),
       fixture.path
     )
-    await expect.poll(() => settings.isClosed()).toBe(true)
+    expect(settings.isClosed()).toBe(false)
     await expect
       .poll(() =>
         app!.evaluate(({ webContents }) =>
@@ -176,25 +176,34 @@ test('tray always restores settings and uninstall removes a running ASAR and its
           app.getAppPath() + '/src/main/managers/windowManager.ts'
         ).default
         if (hide) manager.getMainWindow().hide()
+        const detached = process.mainModule!.require(
+          app.getAppPath() + '/src/main/core/detachedWindowManager.ts'
+        ).default
+        const settingsWindow = detached
+          .getAllWindows()
+          .find((entry: any) => entry.pluginName === 'setting')
+        settingsWindow.window.minimize()
         manager.tray.emit('click')
       }, hidden)
       await expect
         .poll(() =>
           app!.evaluate(({ app }) => {
-            const manager = process.mainModule!.require(
-              app.getAppPath() + '/src/main/managers/windowManager.ts'
+            const detached = process.mainModule!.require(
+              app.getAppPath() + '/src/main/core/detachedWindowManager.ts'
             ).default
-            const plugin = process.mainModule!.require(
-              app.getAppPath() + '/src/main/managers/pluginManager.ts'
-            ).default
+            const settingsWindow = detached
+              .getAllWindows()
+              .find((entry: any) => entry.pluginName === 'setting')
             return {
-              visible: manager.getMainWindow().isVisible(),
-              path: plugin.getCurrentPluginPath()
+              visible: settingsWindow?.window.isVisible(),
+              minimized: settingsWindow?.window.isMinimized(),
+              path: settingsWindow?.pluginPath
             }
           })
         )
         .toMatchObject({
           visible: true,
+          minimized: false,
           path: expect.stringMatching(/[\\/]setting(?:[\\/]public)?$/)
         })
     }

@@ -146,6 +146,26 @@ test('local edition settings, backup bridge, providers and complete panel matchi
     await expect(setting.getByText('TabDo 官方模型')).toHaveCount(0)
     await expect(main.locator('.search-input')).toHaveCount(0)
 
+    // 设置使用独立窗口；回到主搜索窗口后再验证超级面板的匹配链。
+    await app.evaluate(({ app, BrowserWindow }) => {
+      const settingsWindow = BrowserWindow.getAllWindows().find((window) =>
+        window.webContents.getURL().includes('detached-titlebar.html')
+      )
+      settingsWindow!.close()
+      process
+        .mainModule!.require(app.getAppPath() + '/src/main/managers/windowManager.ts')
+        .default.showWindow()
+    })
+    await expect
+      .poll(() =>
+        app!.evaluate(({ app }) =>
+          process
+            .mainModule!.require(app.getAppPath() + '/src/main/managers/windowManager.ts')
+            .default.getMainWindow().isVisible()
+        )
+      )
+      .toBe(true)
+
     // Inject a real development plugin so every panel payload modality is exercised.
     const pluginPath = path.join(temporary, 'fixture-plugin')
     await fs.mkdir(pluginPath)
@@ -174,15 +194,11 @@ test('local edition settings, backup bridge, providers and complete panel matchi
     )
 
     await app.evaluate(
-      ({ app, webContents }, plugin) => {
+      ({ app }, plugin) => {
         const database = process.mainModule!.require(
           app.getAppPath() + '/src/main/api/shared/database.ts'
         ).default
         database.dbPut('plugins', [...database.dbGet('plugins'), plugin])
-        webContents
-          .getAllWebContents()
-          .find((c) => c.getURL().startsWith('http://127.0.0.1:5174/'))!
-          .send('plugins-changed')
       },
       {
         name: 'local-panel-fixture',
@@ -192,6 +208,9 @@ test('local edition settings, backup bridge, providers and complete panel matchi
         isDevelopment: true
       }
     )
+    // 夹具直接写入数据库，重新加载渲染器以便启动索引读取同一份插件清单。
+    await main.reload()
+    await expect(main.locator('.plugin-host')).toBeAttached()
     await expect
       .poll(() =>
         main.evaluate(async () =>

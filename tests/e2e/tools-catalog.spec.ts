@@ -301,7 +301,7 @@ test('工具分类保留各指令操作，所有可见子组件提供任务栏�
         content.type === 'text' ? 'sticky-note' : content.edit ? 'image-annotate' : 'float-content'
       const identity = await readWindowIdentity(app, id, expectedIcon)
       expect(identity.iconMatchesFeature).toBe(true)
-      expect(identity.skipTaskbar).toBe(false)
+      expect(identity.skipTaskbar).toBe(content.type === 'text')
       if (process.platform === 'win32')
         expect(identity.nativeIcons.some((icon) => icon.present)).toBe(true)
       identities.push({

@@ -46,6 +46,7 @@ interface DetachedWindowInfo {
   lastFocusTarget: 'titlebar' | 'plugin' // 记录最后一次焦点位置，用于窗口恢复
   savedFocusTarget: 'titlebar' | 'plugin' // 窗口失焦时快照的焦点状态
   foregroundWindow?: BrowserWindow
+  keepsHiddenSession: boolean
   releaseHiddenTools?: (force?: boolean) => void
   previewFullscreen?: boolean
 }
@@ -245,6 +246,10 @@ class DetachedWindowManager {
   ): BrowserWindow | null {
     try {
       const windowId = uuidv4()
+      const keepsHiddenSession =
+        pluginName === 'setting' ||
+        options.toolFeatureCode === 'call-ai' ||
+        options.toolFeatureCode === 'presentation-editor'
 
       // 新窗口直接使用持久化密度，避免标题栏首次显示后再跳变。
       const settings = databaseAPI.dbGet('settings-general')
@@ -355,6 +360,7 @@ class DetachedWindowManager {
           pluginName,
           pluginPath,
           pluginLogo,
+          showDevTools: !keepsHiddenSession && options.toolFeatureCode !== 'presentation-recorder',
           platform: process.platform,
           title: options.title, // 窗口标题
           searchQuery: options.searchQuery || '', // 搜索框初始值
@@ -425,6 +431,7 @@ class DetachedWindowManager {
         pluginName,
         pluginLogo,
         toolFeatureCode: options.toolFeatureCode,
+        keepsHiddenSession,
         toggleDevTools: options.toggleDevTools,
         isAlwaysOnTop: false,
         lastFocusTarget: options.autoFocusSubInput ? 'titlebar' : 'plugin',
@@ -433,12 +440,13 @@ class DetachedWindowManager {
       this.detachedWindowMap.set(windowId, windowInfo)
 
       /**
-       * 所属窗口全部退出前台时退役；用户临时常驻期间允许保留独立会话。
-       * @param force 明确关闭时忽略辅助前台与临时常驻。
+       * 所属窗口全部退出前台时退役；特权窗口和用户临时常驻的会话可以保留。
+       * @param force 明确关闭时忽略辅助前台及会话保留策略。
        * @returns 无返回值。
        */
       const releaseHiddenTools = (force = false): void => {
-        if (!force && isTemporaryResident(pluginView.webContents)) return
+        if (!force && (windowInfo.keepsHiddenSession || isTemporaryResident(pluginView.webContents)))
+          return
         // 所属辅助窗口仍在前台时，隐藏编辑窗口只是同一会话的界面交接。
         const foreground = windowInfo.foregroundWindow
         if (
@@ -557,7 +565,7 @@ class DetachedWindowManager {
   }
 
   /**
-   * 将内置工具前台交给其可见辅助窗口；全部界面隐藏后仍按普通会话规则回收。
+   * 将演示前台交给录屏控制条；编辑器卸载后按普通会话规则回收。
    * @param webContentsId 所属独立工具视图身份。
    * @param foreground 本次会话已经显示的辅助窗口。
    * @returns 是否成功交接；不支持的视图不会隐藏。
@@ -575,10 +583,12 @@ class DetachedWindowManager {
       foreground.isMinimized()
     )
       return false
+    // 先撤销编辑器的独立保留策略，再隐藏正文并交给可见控制条。
+    info.keepsHiddenSession = false
     if (info.foregroundWindow !== foreground) {
       info.foregroundWindow = foreground
       /**
-       * 辅助窗口退出前台后，只有仍可见的编辑窗口或用户临时常驻可以保留会话。
+       * 辅助窗口退出前台后，按当前正文的窗口策略决定是否保留会话。
        * @returns 无返回值。
        */
       const release = (): void => {
@@ -597,6 +607,25 @@ class DetachedWindowManager {
     // 只在辅助窗口可见后隐藏正文，避免加载失败留下不可访问的会话。
     info.window.hide()
     return true
+  }
+
+  /**
+   * 在恢复演示编辑器前启用其独立窗口的保留策略。
+   * @param webContentsId 演示工具正文的身份。
+   * @returns 编辑器所属窗口；会话已结束时返回空值。
+   */
+  public retainPresentationEditor(webContentsId: number): BrowserWindow | undefined {
+    const info = [...this.detachedWindowMap.values()].find(
+      (entry) =>
+        (entry.toolFeatureCode === 'presentation-recorder' ||
+          entry.toolFeatureCode === 'presentation-editor') &&
+        entry.view.webContents.id === webContentsId &&
+        !entry.window.isDestroyed()
+    )
+    if (!info) return undefined
+    // 控制条随后隐藏时仍保留编辑会话，包括编辑器最小化的情况。
+    info.keepsHiddenSession = true
+    return info.window
   }
 
   /**

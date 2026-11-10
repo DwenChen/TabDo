@@ -1,5 +1,14 @@
 [
   {
+    "id": "BUG-CALL-AI-MODEL-PLACEHOLDER-OPTION",
+    "title": "呼叫AI模型列表允许选择配置提示",
+    "status": "已修复，源码回归与免安装预览资源核验通过",
+    "cause": "配置提示以空值 option 与提供商模型一同渲染，用户可在有模型时选中空值。",
+    "fix": "选项仅使用提供商模型，空列表时禁用选择控件并在控件上显示配置提示。",
+    "cases": ["TX-136"],
+    "coverage": "呼叫AI源码 Electron 回归检查已配置模型可选以及空值选项缺失，归入 call-ai 分组。"
+  },
+  {
     "id": "BUG-CALL-AI-DEEPSEEK-VIRTUAL-IP",
     "title": "代理为 DeepSeek 官方域名返回虚拟 IP 时网页搜索与抓取失败",
     "status": "已修复，源码回归、无密钥连通探测与免安装预览资源核验通过，真实账号待验收",
