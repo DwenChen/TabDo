@@ -12,6 +12,10 @@
 - 验证：从 1.5.1 正式 ZIP 提取 51 个运行时文件，确认 npm 缺失，运行修正的 afterPack 后实际执行 npm、npx 与 pip 通过。日志 .artifacts/releases/1.5.2/afterpack.log。
 - 验证：pnpm build、pnpm preview:sync、pnpm test:preview:resources 通过。程序已更新到 1.5.2，核对 2138 个程序文件、352 个内置文件及 11881 个运行依赖文件。
 - 验证：已确认本地预览 data 与 legacy 保持首次启动的空目录状态。资料备份仍为 .artifacts/backups/portable-profile/2026-11-10T10-13-39-601Z-e05ac45e。
+- 验证：源码提交 5e92736562ea15c63f706bbea1e50750fc65c0fa 通过 hooks 原子推送 main 和 v1.5.2。云端运行 https://github.com/DwenChen/TabDo/actions/runs/42802512094 完成，135 文件 902 项单测通过，构建时 npm、npx 和 pip 实测通过。正式版 https://github.com/DwenChen/TabDo/releases/tag/v1.5.2 已核对为最新正式版，标签及目标提交相符。
+- 验证：四个发布文件逐项核对大小与 GitHub SHA-256。更新清单版本、文件名、大小及安装包 SHA-512 一致。ZIP 解包核对内置运行时、许可、设置页面和工具图标，实际运行 npm 11.19.1、npx 11.19.1 和 pip 26.3。ZIP 下载超时后续传完成，收据 .artifacts/releases/1.5.2/download-verification.json。
+- 验证：核验后回收本轮预览暂存及已替换的纯程序回退 29990 文件、1389262506 字节，保留 update-1794307535565/previous-resources 与全部收据。已回收 1.5.1 的下载副本和复现夹具、1.5.2 下载及临时验证脚本，日志和清理收据保留于 .artifacts/releases/1.5.2/。
+- 验证：收尾复核 .artifacts 约 6331 MiB，主要为测试归档 2718 MiB、备份与收据 1579 MiB、现用工具链 1228 MiB、既有下载 571 MiB 和上游参考 185 MiB。预览回退只留本轮程序副本，重置前的 2277 个资料文件独立保留。
 
 ## 2026-11-10 · 修正干净检出的进程隔离测试并继续发布呼叫AI
 
