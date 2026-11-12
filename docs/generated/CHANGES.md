@@ -2,7 +2,7 @@
 
 > 自动生成；原始记录在 [entries](../history/entries/)。
 
-## 2026-11-12 · 准备并发布 TabDo 1.5.4
+## 2026-11-12 · 发布并核验 TabDo 1.5.4
 
 记录：[release-1.5.4](../../docs/history/entries/2026-11-12-04-release-1.5.4.json)；版本：1.5.4。
 
@@ -16,7 +16,10 @@
 - 验证：查看该归档中的呼叫AI图示、公式、代码与窄窗口底部截图，正文尾段可见。文件搜索深浅主题菜单底色不透明，悬停与键盘焦点可区分。摄像头关闭态保留深浅主题底色。演示编辑器深色窄窗口和浅色窗口中的两条倍速滑块均显示 0.25×，录制光标在 1× 与 5× 截图中清楚可见。
 - 验证：pnpm build、pnpm preview:sync 与 pnpm test:preview:resources 通过。免安装预览已更新到 1.5.4，核对 2138 个程序文件、353 个内置文件与 11842 个运行依赖文件。同步前后 255 个资料文件一致，包含配置和已安装插件。资料保留收据位于 .artifacts/backups/preview-sync/update-1794456233494/preservation.json。
 - 验证：回收已消费的预览暂存和旧程序回退，共 29913 个文件、1376606402 字节。保留最新程序回退和全部资料保留收据。另回收已归档且内容相同的 29 个测试副本、1776022 字节。清理收据位于 .artifacts/releases/1.5.4/。
-- 验证：发布前通过 pnpm maintain、pnpm maintain:check、pnpm docs:check 和 Git 差异检查。
+- 验证：发布前通过 pnpm maintain、pnpm maintain:check、pnpm docs:check 和 Git 差异检查。保留 hooks，原子推送 main 与 v1.5.4，远端标签解析为 bbca4a795c8fdbf7e519facbf48fbf5e6d55d877。
+- 验证：云端 https://github.com/DwenChen/TabDo/actions/runs/43152955934 的 build 与 publish 均通过，作业步骤确认没有单元回归。Windows 打包的 npm、npx 和 pip 版本命令为成功条件。https://github.com/DwenChen/TabDo/releases/tag/v1.5.4 已发布为最新正式版。
+- 验证：下载并核对四个正式附件的大小和 GitHub SHA-256。latest.yml 中版本、安装程序名称、大小及 SHA-512 与附件一致。ZIP 内核对应用 1.5.4、设置及内置工具入口、图标、呼叫AI运行时与许可。收据为 .artifacts/releases/1.5.4/download-verification.json。
+- 验证：回收 5 个发行下载与解包副本，共 735162106 字节，保留验证与清理收据。剩余 .artifacts 主要为测试原件约 2720 MiB、备份与收据约 1539 MiB、在用工具链约 1213 MiB、既有下载约 570 MiB 和上游参考约 181 MiB。
 
 ## 2026-11-12 · 文件搜索支持拖出文件，右键菜单项恢复强调色
 
