@@ -578,6 +578,10 @@
     ],
     "e2e": ["tests/e2e/presentation-controls.spec.ts"]
   },
+  "file-search-actions": {
+    "unit": [],
+    "e2e": ["tests/e2e/file-search-actions.spec.ts"]
+  },
   "call-ai": {
     "unit": [
       "tests/main/callAiRuntime.test.ts",
@@ -594,6 +598,14 @@
       "tests/scripts/projectMaintenance.test.ts"
     ],
     "e2e": []
+  },
+  "presentation-zoom-rates": {
+    "unit": ["tests/main/presentationTimeline.test.ts"],
+    "e2e": ["tests/e2e/presentation-zoom-rates.spec.ts"]
+  },
+  "presentation-preview-polish": {
+    "unit": [],
+    "e2e": ["tests/e2e/presentation-controls.spec.ts", "tests/e2e/presentation-cursor-zoom.spec.ts"]
   },
   "presentation-editor-boundaries": {
     "unit": [

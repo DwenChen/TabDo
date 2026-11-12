@@ -1,0 +1,19 @@
+{
+  "id": "call-ai-context-markdown-fix",
+  "date": "2026-11-10",
+  "summary": "修复呼叫AI的 context-mode 执行和中文粗体",
+  "changes": [
+    "为内置 context-mode 2.1.6 指定项目适配器，并将 Windows 自带 PowerShell 目录加入其隔离 PATH。",
+    "资料目录位于 Git 工作树时，MCP 使用专属系统临时工作目录，断开连接后回收。索引与 HOME 仍归会话。",
+    "呼叫AI正文允许紧接汉字、内容以书名号等开头标点起始的粗体。继续由 Marked 处理代码片段与普通 Markdown。",
+    "加强既有源码 Electron 回归，检查 MCP 真正的返回值和渲染后的 DOM。"
+  ],
+  "checks": [
+    "最终 pnpm test 通过，135 个文件共 902 项。归档 .artifacts/runs/2026-11-10T14-49-20-897Z-unit。",
+    "pnpm test:e2e tests/e2e/call-ai.spec.ts 通过。检查 PowerShell 真正返回的 MCP 结果、普通与 Git 工作树下的执行目录、临时目录回收、粗体 DOM 及行内代码原文。归档 .artifacts/runs/2026-11-10T14-48-30-915Z-e2e。pnpm test:regressions call-ai --list 确认归组。",
+    "pnpm build 通过，最终构建日志 .artifacts/diagnostics/2026-11-10-call-ai-context-markdown-fix/build-final.log。",
+    "pnpm preview:sync 同步完成，保留收据确认同步前后 166 个资料文件一致。pnpm test:preview:resources 通过，核验 2138 个程序文件、352 个内置文件和 11881 个运行依赖文件。保留收据 .artifacts/backups/preview-sync/update-1794322252703/preservation.json。",
+    "回收已消费的程序暂存和上一轮纯程序回退，共 29990 个文件、1389266767 字节，保留本轮 previous-resources 与所有收据。删除两轮验证中的 16 个相同测试副本，共 711628 字节。分类复核 .artifacts 约 6252 MiB，保留既有测试原件 2697 MiB、备份与收据 1544 MiB、在用工具链 1213 MiB、既有下载 570 MiB 和上游参考 181 MiB。"
+  ],
+  "pending": ["实际 Windows 安装包和真实提供商交互留待手动验收。"]
+}

@@ -85,7 +85,7 @@ export function WebcamPopover({
           {canToggleFloatingPreview ? (
             <ToggleButton
               variant="ghost"
-              className="relative w-full justify-center text-center font-medium"
+              className={`${styles.floatingPreviewToggle} relative w-full justify-center text-center font-medium`}
               isSelected={showFloatingWebcamPreview}
               onClick={onToggleFloatingPreview}
             >

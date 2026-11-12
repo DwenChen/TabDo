@@ -205,7 +205,7 @@ export class VideoExporter {
 			const shouldUseFfmpegAudioFallback =
 				!useNativeEncoder &&
 				audioPlan.audioMode !== "none" &&
-				(requiresClipTimelineRendering(this.config.clipRegions) ||
+				(requiresClipTimelineRendering(this.config.clipRegions, this.config.zoomPlayback) ||
 					shouldUsePitchPreservingFfmpegAudio ||
 					!(await isAacAudioEncodingSupported()));
 
@@ -282,6 +282,7 @@ export class VideoExporter {
 				this.config.trimRegions,
 				this.config.speedRegions,
 				this.config.clipRegions,
+				this.config.zoomPlayback,
 			);
 			this.effectiveDurationSec = effectiveDuration;
 			const totalFrames = Math.ceil(effectiveDuration * this.config.frameRate);
@@ -315,7 +316,9 @@ export class VideoExporter {
 						sourceTimestampUs,
 						cursorTimestampUs,
 						frameDuration,
-						timestamp,
+						this.config.zoomPlayback
+							? this.config.zoomPlayback.toEditMs((timestamp) / 1000) * 1000
+							: timestamp,
 					);
 
 					if (useNativeEncoder) {
@@ -328,6 +331,7 @@ export class VideoExporter {
 					this.reportProgress(frameIndex, totalFrames);
 				},
 				this.config.clipRegions,
+				this.config.zoomPlayback,
 			);
 
 			if (this.cancelled) {
@@ -396,7 +400,7 @@ export class VideoExporter {
 			if (hasAudio && !shouldUseFfmpegAudioFallback && !this.cancelled) {
 				const demuxer = this.streamingDecoder.getDemuxer();
 				if (demuxer || hasAudioRegions || hasSourceAudioFallback) {
-					this.audioProcessor = new AudioProcessor();
+					this.audioProcessor = new AudioProcessor(this.config.zoomPlayback);
 					this.audioProcessor.setOnProgress((progress) => {
 						this.reportFinalizingProgress(totalFrames, 99, progress);
 					});
@@ -574,7 +578,7 @@ export class VideoExporter {
 		}
 
 		if (
-			requiresClipTimelineRendering(this.config.clipRegions) ||
+			requiresClipTimelineRendering(this.config.clipRegions, this.config.zoomPlayback) ||
 			speedRegions.length > 0 ||
 			audioRegions.length > 0 ||
 			sourceAudioFallbackPaths.length > 1 ||
@@ -593,7 +597,7 @@ export class VideoExporter {
 			);
 			const trimRegions = this.config.trimRegions ?? [];
 			const canUsePrimaryAudioFiltergraph =
-				!requiresClipTimelineRendering(this.config.clipRegions) &&
+				!requiresClipTimelineRendering(this.config.clipRegions, this.config.zoomPlayback) &&
 				Boolean(primaryAudioSourcePath) &&
 				!hasTimedSourceAudioFallback &&
 				(usesEmbeddedPrimaryAudio ||
@@ -866,7 +870,7 @@ export class VideoExporter {
 			audioPlan.audioMode === "edited-track" &&
 			audioPlan.strategy === "offline-render-fallback"
 		) {
-			this.audioProcessor = new AudioProcessor();
+			this.audioProcessor = new AudioProcessor(this.config.zoomPlayback);
 			this.audioProcessor.setOnProgress((progress) => {
 				this.reportFinalizingProgress(totalFrames, 99, progress);
 			});
@@ -964,7 +968,7 @@ export class VideoExporter {
 			audioPlan.audioMode === "edited-track" &&
 			audioPlan.strategy === "offline-render-fallback"
 		) {
-			this.audioProcessor = new AudioProcessor();
+			this.audioProcessor = new AudioProcessor(this.config.zoomPlayback);
 			this.audioProcessor.setOnProgress((progress) => {
 				this.reportFinalizingProgress(totalFrames, 99, progress);
 			});

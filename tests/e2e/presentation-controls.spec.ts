@@ -173,7 +173,20 @@ test('演示录制前输入开关、项目目录选择及原始素材回收边�
     await expect(previewOff).toBeVisible()
     await expect(previewOff).toHaveAttribute('aria-pressed', 'false')
     await expect(floatingPreview).toHaveCount(0)
-    await hud.screenshot({ path: testInfo.outputPath('floating-preview-disabled.png') })
+    // Move the pointer within the menu so the closed state is captured without hover styling.
+    await hud.getByRole('button', { name: '关闭摄像头', exact: true }).hover()
+    const restingPreviewMenu = previewOff.locator('xpath=ancestor::*[@data-hud-interactive][1]')
+    await expect.poll(() => previewOff.evaluate((button) =>
+      !button.matches(':hover') && getComputedStyle(button).backgroundColor !== 'rgba(0, 0, 0, 0)'
+    )).toBe(true)
+    await restingPreviewMenu.screenshot({ path: testInfo.outputPath('floating-preview-disabled.png') })
+    const wasDark = await hud.evaluate(() => document.documentElement.classList.contains('dark'))
+    await hud.evaluate(() => document.documentElement.classList.add('dark'))
+    await expect.poll(() => previewOff.evaluate((button) =>
+      !button.matches(':hover') && getComputedStyle(button).backgroundColor !== 'rgba(0, 0, 0, 0)'
+    )).toBe(true)
+    await restingPreviewMenu.screenshot({ path: testInfo.outputPath('floating-preview-disabled-dark.png') })
+    await hud.evaluate((dark) => document.documentElement.classList.toggle('dark', dark), wasDark)
     await previewOff.click()
     await expect(previewOn).toBeVisible()
     await hud.keyboard.press('Escape')

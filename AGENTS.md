@@ -54,4 +54,5 @@
 - 测试入口自动启动源码服务器、设置插件开发服务（`127.0.0.1:15177`）和隔离 Electron 实例，不生成 `out/dist`。专项测试同样传入源码项目，并通过 `TABDO_SETTING_DEV_SERVER_URL=http://127.0.0.1:15177` 加载设置页。
 - 显式隔离数据与旧数据目录，不读写真实 `~/.tabdo`。Electron 自带 Chromium，无需执行 `playwright install chromium`。
 - 排查插件界面直接截取插件 WebContentsView，禁止与宿主截图拼接。默认只截当前可见区域，测试明确要求时才增加全页面或滚动截图。
+- 界面元素改动和涉及界面的功能改动都必须主动视觉检查。打开实际窗口或直接捕获的截图，核对受影响状态并把观察结果记入当轮维护记录。详见[开发指南](docs/development.md#验证与证据)。
 - 截图前等待正文稳定特征，不能只等待侧栏或标题。截图和 trace 输出到 `test-results/playwright/`，该目录不提交。

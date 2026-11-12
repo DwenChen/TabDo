@@ -8,6 +8,7 @@ vi.mock('node:https', () => ({ request: fake.request }))
 import {
   fetchCallAiPage,
   fetchDeepSeekPage,
+  searchBochaWeb,
   searchCallAiWeb,
   searchDeepSeekWeb
 } from '../../src/main/core/callAiWeb'
@@ -106,6 +107,55 @@ describe('Call AI public web tools', () => {
     expect(fake.lookup).not.toHaveBeenCalled()
   })
 
+  it('posts Bocha searches to the official host with isolated credentials and rejects redirects', async () => {
+    const capture = vi.fn()
+    fake.lookup.mockResolvedValue([{ address: '198.18.0.42', family: 4 }])
+    fake.request.mockImplementationOnce(
+      response(
+        200,
+        {},
+        JSON.stringify({
+          code: 200,
+          data: {
+            webPages: {
+              value: [
+                {
+                  name: '<b>页面</b>',
+                  url: 'https://public.example',
+                  summary: '长摘要',
+                  snippet: '短摘要'
+                },
+                { name: '危险链接', url: 'file:///C:/private.txt' }
+              ]
+            }
+          }
+        }),
+        capture
+      )
+    )
+    await expect(searchBochaWeb(' 测试 ', 'bocha-token', signal)).resolves.toEqual([
+      { title: '页面', url: 'https://public.example', snippet: '长摘要' }
+    ])
+    const [url, options] = fake.request.mock.calls[0]
+    expect(url.href).toBe('https://api.bocha.cn/v1/web-search')
+    expect(options).toMatchObject({
+      method: 'POST',
+      headers: { authorization: 'Bearer bocha-token', 'content-type': 'application/json' },
+      rejectUnauthorized: true
+    })
+    expect(options.lookup).toBeUndefined()
+    expect(JSON.parse(capture.mock.calls[0][0])).toEqual({
+      query: '测试',
+      count: 8,
+      summary: true,
+      freshness: 'noLimit'
+    })
+    fake.request.mockImplementationOnce(response(302, { location: 'https://public.example' }, ''))
+    await expect(searchBochaWeb('跳转', 'bocha-token', signal)).rejects.toThrow('HTTP 302')
+    expect(fake.request).toHaveBeenCalledTimes(2)
+    expect(fake.lookup).not.toHaveBeenCalled()
+  })
+
   it('posts searches and Markdown fetches to the fixed DeepSeek tools endpoints', async () => {
     const requestBody = vi.fn()
     // A proxy can resolve even the official hostname to a benchmark-range virtual IP.
@@ -154,9 +204,9 @@ describe('Call AI public web tools', () => {
     }
     expect(fake.lookup).not.toHaveBeenCalled()
     fake.request.mockImplementationOnce(response(200, { 'content-type': 'text/plain' }, 'blocked'))
-    await expect(fetchCallAiPage('https://api.deepseek.com/v1/tools/fetch', signal)).rejects.toThrow(
-      '目标解析为内网或保留地址'
-    )
+    await expect(
+      fetchCallAiPage('https://api.deepseek.com/v1/tools/fetch', signal)
+    ).rejects.toThrow('目标解析为内网或保留地址')
   })
 
   it('reports a malformed DeepSeek response without exposing the raw response body', async () => {

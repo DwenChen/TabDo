@@ -16,7 +16,7 @@
 
 ## 自动化测试文件
 
-共 191 个文件；文件数不等于用例数，通过状态以每轮变更记录为准。
+共 194 个文件；文件数不等于用例数，通过状态以每轮变更记录为准。
 
 ### tests/main（125）
 
@@ -162,7 +162,7 @@
 - [tests/scripts/projectMaintenance.test.ts](../../tests/scripts/projectMaintenance.test.ts)
 - [tests/scripts/updateMetadata.test.ts](../../tests/scripts/updateMetadata.test.ts)
 
-### tests/e2e（56）
+### tests/e2e（59）
 
 - [tests/e2e/all-commands-pinning.spec.ts](../../tests/e2e/all-commands-pinning.spec.ts)
 - [tests/e2e/builtin-models.spec.ts](../../tests/e2e/builtin-models.spec.ts)
@@ -170,6 +170,7 @@
 - [tests/e2e/call-ai.spec.ts](../../tests/e2e/call-ai.spec.ts)
 - [tests/e2e/clipboard-interactions.spec.ts](../../tests/e2e/clipboard-interactions.spec.ts)
 - [tests/e2e/console-pipe.spec.ts](../../tests/e2e/console-pipe.spec.ts)
+- [tests/e2e/file-search-actions.spec.ts](../../tests/e2e/file-search-actions.spec.ts)
 - [tests/e2e/floating-pointer.spec.ts](../../tests/e2e/floating-pointer.spec.ts)
 - [tests/e2e/floating-relay.spec.ts](../../tests/e2e/floating-relay.spec.ts)
 - [tests/e2e/idle-input-state.spec.ts](../../tests/e2e/idle-input-state.spec.ts)
@@ -186,6 +187,7 @@
 - [tests/e2e/plugin-host-regressions.spec.ts](../../tests/e2e/plugin-host-regressions.spec.ts)
 - [tests/e2e/presentation-controls.spec.ts](../../tests/e2e/presentation-controls.spec.ts)
 - [tests/e2e/presentation-cursor-capture.spec.ts](../../tests/e2e/presentation-cursor-capture.spec.ts)
+- [tests/e2e/presentation-cursor-zoom.spec.ts](../../tests/e2e/presentation-cursor-zoom.spec.ts)
 - [tests/e2e/presentation-defaults.spec.ts](../../tests/e2e/presentation-defaults.spec.ts)
 - [tests/e2e/presentation-editor-boundaries.spec.ts](../../tests/e2e/presentation-editor-boundaries.spec.ts)
 - [tests/e2e/presentation-editor-followup.spec.ts](../../tests/e2e/presentation-editor-followup.spec.ts)
@@ -202,6 +204,7 @@
 - [tests/e2e/presentation-tracks.spec.ts](../../tests/e2e/presentation-tracks.spec.ts)
 - [tests/e2e/presentation-visual-effects.spec.ts](../../tests/e2e/presentation-visual-effects.spec.ts)
 - [tests/e2e/presentation-zoom-camera.spec.ts](../../tests/e2e/presentation-zoom-camera.spec.ts)
+- [tests/e2e/presentation-zoom-rates.spec.ts](../../tests/e2e/presentation-zoom-rates.spec.ts)
 - [tests/e2e/recorder-overlay.spec.ts](../../tests/e2e/recorder-overlay.spec.ts)
 - [tests/e2e/rename-interactions.spec.ts](../../tests/e2e/rename-interactions.spec.ts)
 - [tests/e2e/selection-translation.spec.ts](../../tests/e2e/selection-translation.spec.ts)
@@ -274,6 +277,9 @@
 - `presentation-editing`：15 个单测文件、14 个源码 E2E 文件。
 - `presentation-final-review`：7 个单测文件、5 个源码 E2E 文件。
 - `presentation-library-paths`：2 个单测文件、1 个源码 E2E 文件。
+- `file-search-actions`：0 个单测文件、1 个源码 E2E 文件。
 - `call-ai`：4 个单测文件、1 个源码 E2E 文件。
 - `portable-preview-runtime-trees`：3 个单测文件、0 个源码 E2E 文件。
+- `presentation-zoom-rates`：1 个单测文件、1 个源码 E2E 文件。
+- `presentation-preview-polish`：0 个单测文件、2 个源码 E2E 文件。
 - `presentation-editor-boundaries`：3 个单测文件、3 个源码 E2E 文件。

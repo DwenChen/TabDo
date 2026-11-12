@@ -16,6 +16,8 @@ export interface ZoomRegion {
 	mode?: ZoomMode;
 	/** Continuous magnification; missing values retain the legacy depth mapping. */
 	scale?: number;
+	playbackRate?: number;
+	animationRate?: number;
 	camera?: ZoomCameraSettings;
 }
 

@@ -1,0 +1,24 @@
+{
+  "id": "release-1.5.4",
+  "date": "2026-11-12",
+  "version": "1.5.4",
+  "summary": "准备并发布 TabDo 1.5.4",
+  "changes": [
+    "交付呼叫AI正文排版与设置、文件搜索右键与拖放、演示变焦倍速和光标等优化。",
+    "对照候选源码审校 README、开发与发布规范、仓库教程、应用内教程及更新说明。两份教程同步注明两个倍速滑块的范围与默认值。",
+    "沿用 1.5.3 的版本标签触发流程。完整单元回归在本地运行，云端保留文档、维护和类型检查以及 Windows 打包。"
+  ],
+  "checks": [
+    "pnpm test --maxWorkers=2 通过，135 个文件共 906 项。归档 .artifacts/runs/2026-11-12T03-57-43-997Z-unit。",
+    "pnpm typecheck 与 pnpm typecheck:setting 通过，日志位于 .artifacts/releases/1.5.4/。",
+    "5 项源码 Electron E2E 通过，覆盖呼叫AI、文件搜索、录制前控制条、演示光标、变焦片段倍速与 MP4 导出。归档 .artifacts/runs/2026-11-12T03-59-04-910Z-e2e。",
+    "查看该归档中的呼叫AI图示、公式、代码与窄窗口底部截图，正文尾段可见。文件搜索深浅主题菜单底色不透明，悬停与键盘焦点可区分。摄像头关闭态保留深浅主题底色。演示编辑器深色窄窗口和浅色窗口中的两条倍速滑块均显示 0.25×，录制光标在 1× 与 5× 截图中清楚可见。",
+    "pnpm build、pnpm preview:sync 与 pnpm test:preview:resources 通过。免安装预览已更新到 1.5.4，核对 2138 个程序文件、353 个内置文件与 11842 个运行依赖文件。同步前后 255 个资料文件一致，包含配置和已安装插件。资料保留收据位于 .artifacts/backups/preview-sync/update-1794456233494/preservation.json。",
+    "回收已消费的预览暂存和旧程序回退，共 29913 个文件、1376606402 字节。保留最新程序回退和全部资料保留收据。另回收已归档且内容相同的 29 个测试副本、1776022 字节。清理收据位于 .artifacts/releases/1.5.4/。",
+    "发布前通过 pnpm maintain、pnpm maintain:check、pnpm docs:check 和 Git 差异检查。"
+  ],
+  "pending": [
+    "云端构建、正式发行及附件核验待完成。",
+    "真实 AI 提供商、资源管理器实际接收拖放、GIF 导出和其他 DPI 待手动验收。"
+  ]
+}

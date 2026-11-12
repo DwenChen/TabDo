@@ -1,0 +1,25 @@
+{
+  "id": "presentation-speed-curve",
+  "date": "2026-11-11",
+  "summary": "演示编辑器新增顶层调速曲线并补偿高倍率录制光标尺寸",
+  "changes": [
+    "播放工具栏在自动添加变焦和分割之间加入调速。顶层轨道从 1× 开始，支持纵向调整控制点、横向选择区间并设置 0.5–4× 固定倍速，选区两端自动平滑衔接。",
+    "调速曲线保存到项目并纳入撤销和重做。预览媒体按瞬时倍速播放。导出使用统一时间映射采样视频、画面效果和音频，保留片段的编辑位置。",
+    "按实际镜头倍率补偿录制光标和点击效果的图形尺寸，保留画面中的热点位置。"
+  ],
+  "checks": [
+    "pnpm typecheck、pnpm docs:check、回归分组清单和差异检查通过。",
+    "pnpm test 通过，135 个文件、906 项。归档 .artifacts/runs/2026-11-11T14-53-37-737Z-unit。",
+    "源码 Electron 专项通过。验证调速轨置顶、点拖动、区间 2×、单次撤销和重做、项目自动保存、媒体实际以 2× 播放及 MP4 音视频时长。归档 .artifacts/runs/2026-11-11T14-53-33-613Z-e2e。",
+    "打开实际插件可见区截图 cursor-1x.png、cursor-5x.png、speed-curve-selection.png 和 speed-curve.png。5× 时色块明显放大，文字光标热点仍在同一位置且高度接近 1×；调速位于录屏轨上方，区间表单和高亮可辨认，应用后平台两侧平滑衔接。早期专项修正了自动保存等待、媒体定位断言和截图目标。",
+    "pnpm build 与 pnpm preview:sync 通过。已有配置、资料与插件共 232 个文件前后一致。收据 .artifacts/backups/preview-sync/update-1794408998593/preservation.json。",
+    "pnpm test:preview:resources 通过，核验 2138 个程序文件、353 个内置插件文件和 11842 个运行依赖文件。",
+    "清理本轮已消费的程序暂存和上一次纯程序回退，共 29913 个文件、1376598703 字节。保留本轮程序回退和历史资料保留收据。审计 .artifacts/cleanup-2026-11-11/presentation-speed-curve-preview-program-cleanup.json。",
+    "源码专项复跑通过，追加窄窗向下拖至低于 0.6×。打开 speed-curve-narrow.png 和 speed-curve-narrow-dark.png，确认较窄窗口中曲线、控制点、高亮及倍速输入均可见，深色主题的调速区域未被裁切。归档 .artifacts/runs/2026-11-11T15-02-42-128Z-e2e。",
+    "交付收尾执行 pnpm maintain、pnpm maintain:check、pnpm docs:check 与 git diff --check。"
+  ],
+  "pending": [
+    "其他 DPI、GIF 与长素材变速导出未在本轮专项中实测。",
+    "调速曲线导出音频按同一时间映射重采样，变速时音高会随之改变。"
+  ]
+}

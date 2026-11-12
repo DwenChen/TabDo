@@ -1,9 +1,15 @@
 <script setup>
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { marked } from 'marked'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import {
+  callAiReplyMarkup as vReplyMarkup,
+  prepareCallAiReply,
+  maxRichReplyLength
+} from '../utils/callAiMarkdown'
+import 'katex/dist/katex.min.css'
 
 const props = defineProps({ action: { type: Object, required: true } })
 const api = window.tabdo.internal
+const openExternal = window.tabdo.shellOpenExternal
 const text = ref(''),
   model = ref(''),
   models = ref([]),
@@ -23,11 +29,25 @@ const body = ref(null),
   composer = ref(null),
   filePicker = ref(null),
   draggingFiles = ref(false),
-  referencesOpen = ref(false)
+  referencesOpen = ref(false),
+  linkHint = ref(null)
 let disposed = false,
   removeEvents,
-  reasoningRoundStart = false
+  reasoningRoundStart = false,
+  followReply = true,
+  scrollFrame = 0,
+  replyTask,
+  replyTimer
+const repliesToRender = new Map()
 const markdownCache = new WeakMap()
+const knownPaths = new Map()
+const draftLinks = computed(() => [
+  ...new Set(
+    linkParts(text.value)
+      .filter((part) => part.url)
+      .map((part) => part.url)
+  )
+])
 const selectedModel = computed(() =>
   models.value.find((entry) => (entry.value || entry.id) === model.value)
 )
@@ -47,83 +67,306 @@ const choices = computed(() => {
 })
 
 /**
- * 渲染 Markdown 后只保留文字、表格和代码标签，移除远程图片与可执行属性。
+ * 渲染 Markdown 并限定链接为网页或本会话已知的附件与产物。
  * @param message 当前内存消息。
  * @returns 可安全显示的 HTML。
  */
 function markdown(message) {
-  const source = message.text
+  const source = message.rendered.html
   const cached = markdownCache.get(message)
-  if (cached?.source === source) return cached.html
-  const document = new DOMParser().parseFromString(
-    marked.parse(source || '', { async: false, breaks: true }),
-    'text/html'
-  )
-  const allowed = new Set([
-    'P',
-    'BR',
-    'STRONG',
-    'EM',
-    'DEL',
-    'CODE',
-    'PRE',
-    'BLOCKQUOTE',
-    'UL',
-    'OL',
-    'LI',
-    'H1',
-    'H2',
-    'H3',
-    'H4',
-    'H5',
-    'H6',
-    'HR',
-    'TABLE',
-    'THEAD',
-    'TBODY',
-    'TR',
-    'TH',
-    'TD',
-    'A'
-  ])
-  for (const element of [...document.body.querySelectorAll('*')]) {
-    if (!allowed.has(element.tagName)) {
-      if (
-        ['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'EMBED', 'IMG', 'SVG', 'MATH'].includes(
-          element.tagName
-        )
-      ) {
-        element.remove()
-        continue
-      }
-      element.replaceWith(document.createTextNode(element.textContent || ''))
-      continue
-    }
-    const href = element.tagName === 'A' ? element.getAttribute('href') : ''
-    for (const attribute of [...element.attributes]) element.removeAttribute(attribute.name)
-    if (href && /^https?:\/\//i.test(href)) {
-      element.setAttribute('href', href)
-      element.setAttribute('rel', 'noreferrer')
-      element.setAttribute('target', '_blank')
-    }
-  }
-  const html = document.body.innerHTML
-  markdownCache.set(message, { source, html })
+  if (cached?.source === source && cached.pathCount === knownPaths.size) return cached.html
+  // 保留已重建的前缀，避免每批增量重复解析 SVG、HTML 和链接。
+  const html =
+    cached?.pathCount === knownPaths.size && source.startsWith(cached.source)
+      ? cached.html + prepareCallAiReply(source.slice(cached.source.length), findKnownPath)
+      : prepareCallAiReply(source, findKnownPath)
+  markdownCache.set(message, { source, html, pathCount: knownPaths.size })
   return html
 }
 
 /**
- * 仅在用户接近底部时跟随增量文字，保留手动向上阅读的位置。
- * @param force 是否强制滚动。
+ * 拆分纯文本中的 HTTP 链接，保留用户输入的其余字符和换行。
+ * @param content 待显示的原始提示词。
+ * @returns 普通文字或链接片段。
+ */
+function linkParts(content) {
+  return content
+    .split(/(https?:\/\/[^\s<>"“”。，；、！？]+)/gi)
+    .filter(Boolean)
+    .flatMap((part) => {
+      if (!/^https?:\/\//i.test(part)) return [{ text: part }]
+      const url = part.replace(/[.,;!]+$/, '')
+      return [{ text: url, url }, { text: part.slice(url.length) }]
+    })
+}
+
+/**
+ * 将 Markdown 中的文件地址匹配到会话已登记的真实路径。
+ * @param href 已解析的 Markdown 链接目标。
+ * @returns 对应的附件或产物，或 undefined。
+ */
+function findKnownPath(href) {
+  try {
+    const local = href
+      .replace(/^file:\/\/\/(?=[a-z]:)/i, '')
+      .replaceAll('/', '\\')
+      .toLowerCase()
+    return knownPaths.get(local) || knownPaths.get(decodeURIComponent(local).toLowerCase())
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * 展示当前链接的完整路径，使用聊天主题渲染悬浮层。
+ * @param event 鼠标进入或键盘聚焦事件。
+ * @returns 无返回值。
+ */
+function showLinkHint(event) {
+  const link = event.target.closest?.('[data-link-target]')
+  if (!link) return
+  const box = link.getBoundingClientRect()
+  linkHint.value = {
+    text: link.dataset.linkTarget,
+    left: Math.max(12, Math.min(box.left, window.innerWidth - 412)),
+    top: box.top < 84 ? box.bottom + 6 : box.top - 6,
+    above: box.top >= 84
+  }
+}
+
+/**
+ * 处理回复中的链接、代码复制和图示导出操作。
+ * @param event 正文点击事件。
+ * @returns 无返回值。
+ */
+function openReplyLink(event) {
+  const exportButton = event.target.closest?.('button[data-export-diagram]')
+  if (exportButton) {
+    void exportReplyDiagram(exportButton)
+    return
+  }
+  const copy = event.target.closest?.('.copy-reply-code')
+  if (copy) {
+    const code = copy.closest('.reply-code')?.querySelector('pre > code')
+    if (code) copy.textContent = window.tabdo.copyText(code.textContent) ? '已复制' : '复制失败'
+    return
+  }
+  const link = event.target.closest?.('a[data-link-target]')
+  if (!link) return
+  event.preventDefault()
+  const target = link.dataset.linkTarget
+  if (link.dataset.localLink) {
+    const local = findKnownPath(target)
+    if (local?.id) void accessArtifact(local.id, 'open')
+    else if (local) openAttachment(local)
+  } else openExternal(target)
+}
+
+/**
+ * 将当前回复里的已清洗 SVG 交给原生保存对话框。
+ * @param {HTMLButtonElement} button 图示旁的导出按钮。
+ * @returns {Promise<void>} 保存或取消后完成。
+ */
+async function exportReplyDiagram(button) {
+  const svg = button.closest('figure')?.querySelector('svg')
+  if (!svg || button.disabled) return
+  button.disabled = true
+  try {
+    // 只导出正文里重建的图形，保留文字、形状和本地箭头。
+    const data = new XMLSerializer().serializeToString(svg)
+    const saved = await api.callAi('export-reply-svg', {
+      title: svg.getAttribute('aria-label'),
+      svg: data
+    })
+    if (saved) button.textContent = '已导出 SVG'
+  } catch (failure) {
+    button.textContent = '重试导出 SVG'
+    button.title = failure.message
+  } finally {
+    button.disabled = false
+  }
+}
+
+/**
+ * 打开用户主动带入会话的文件或目录。
+ * @param entry 用户选择的路径附件。
+ * @returns 无返回值。
+ */
+function openAttachment(entry) {
+  const result = window.tabdo.shellOpenPath(entry.value)
+  if (result?.success === false) error.value = '无法打开附件，请确认原位置仍可访问。'
+}
+
+/**
+ * 将本轮失败标记到助手条目，并关联对应的用户消息。
+ * @param index 本轮发起消息在对话中的位置。
+ * @param description 已整理的错误文本。
+ * @returns 无返回值。
+ */
+function failTurn(index, description) {
+  const user = messages.value[index]
+  user.failed = true
+  const last = messages.value.at(-1)
+  if (last?.role === 'assistant') last.error = description
+  else messages.value.push({ role: 'assistant', text: '', reasoning: '', error: description })
+  scroll(true)
+}
+
+/**
+ * 将原提示词恢复到编辑框，等用户手动发送。
+ * @param message 发起失败任务的用户消息。
+ * @returns 无返回值。
+ */
+function retry(message) {
+  if (busy.value) return
+  text.value = message.text
+  // 可用的原附件按需带回，已有附件和引用不被覆盖。
+  if (!attachments.value.length) attachments.value = [...message.attachments]
+  composer.value?.focus()
+}
+
+/**
+ * 合并流式增量，后台忙时只保留每条回复的最新待排版请求。
+ * @param message 当前助手消息。
+ * @param final 这一段回复是否已经结束。
+ * @returns 无返回值。
+ */
+function queueReply(message, final = false) {
+  if (message.text.length > maxRichReplyLength) {
+    repliesToRender.delete(message)
+    if (replyTask?.message === message) releaseReplyWorker()
+    scheduleReply()
+    return
+  }
+  if (message.renderFailed && !final) return
+  repliesToRender.set(message, final || repliesToRender.get(message) === true)
+  if (final) {
+    clearTimeout(replyTimer)
+    replyTimer = undefined
+  }
+  scheduleReply()
+}
+
+/**
+ * 为未结束的输出节流，结束时立即补排最后一段。
+ * @returns 无返回值。
+ */
+function scheduleReply() {
+  if (disposed || replyTimer !== undefined || replyTask?.inFlight || !repliesToRender.size) return
+  const final = repliesToRender.values().next().value
+  replyTimer = setTimeout(renderNextReply, final ? 0 : 120)
+}
+
+/**
+ * 在同一段回复内复用 Worker 和已排版前缀，一次只发送一份快照。
+ * @returns 无返回值。
+ */
+function renderNextReply() {
+  replyTimer = undefined
+  if (disposed || replyTask?.inFlight || !repliesToRender.size) return
+  const [message, final] = repliesToRender.entries().next().value
+  repliesToRender.delete(message)
+  try {
+    if (replyTask?.message !== message) {
+      releaseReplyWorker()
+      const worker = new Worker(new URL('../workers/callAiMarkdown.js', import.meta.url), {
+        type: 'module'
+      })
+      const task = { worker, message }
+      replyTask = task
+      worker.onmessage = (event) => finishReplyRender(task, event.data)
+      worker.onerror = (event) => {
+        event.preventDefault()
+        finishReplyRender(task, null)
+      }
+      worker.onmessageerror = () => finishReplyRender(task, null)
+    }
+    const task = replyTask
+    task.source = message.text
+    task.final = final
+    task.inFlight = true
+    task.deadline = setTimeout(() => finishReplyRender(task, null), 10000)
+    task.worker.postMessage({ source: task.source, final })
+  } catch {
+    releaseReplyWorker()
+    message.renderFailed = true
+    scheduleReply()
+  }
+}
+
+/**
+ * 应用已完成的正文，保留请求之后继续到达的原始文字。
+ * @param task 当前 Worker 任务。
+ * @param result Worker 生成的正文、公式和末块，失败时为空。
+ * @returns 无返回值。
+ */
+function finishReplyRender(task, result) {
+  if (disposed || task !== replyTask) return
+  clearTimeout(task.deadline)
+  task.inFlight = false
+  if (result) {
+    task.message.rendered = { ...result, sourceLength: task.source.length }
+    scroll()
+  } else {
+    task.message.renderFailed = true
+    if (repliesToRender.get(task.message) === false) repliesToRender.delete(task.message)
+  }
+  if (task.final || !result) releaseReplyWorker()
+  scheduleReply()
+}
+
+/**
+ * 结束当前排版 Worker 和超时计时器。
+ * @returns 无返回值。
+ */
+function releaseReplyWorker() {
+  if (!replyTask) return
+  clearTimeout(replyTask.deadline)
+  replyTask.worker.terminate()
+  replyTask = undefined
+}
+
+/**
+ * 组合尚未定型的 Markdown 末块和排版期间新到达的文字。
+ * @param message 当前助手消息。
+ * @returns {string} 仍以纯文本显示的部分。
+ */
+function replyTail(message) {
+  const rendered = message.rendered
+  return (rendered.tail + message.text.slice(rendered.sourceLength)).trimEnd()
+}
+
+/**
+ * 每帧最多跟随一次输出，只有停在底部时才自动移动。
+ * @param force 是否在主动发送或操作时回到底部。
  * @returns 无返回值。
  */
 function scroll(force = false) {
-  const element = body.value
-  if (!element || (!force && element.scrollHeight - element.scrollTop - element.clientHeight > 100))
-    return
-  void nextTick(() => {
-    if (!disposed && body.value) body.value.scrollTop = body.value.scrollHeight
+  if (force) followReply = true
+  if (!body.value || !followReply || scrollFrame) return
+  scrollFrame = requestAnimationFrame(() => {
+    scrollFrame = 0
+    if (!disposed && followReply && body.value) body.value.scrollTop = body.value.scrollHeight
   })
+}
+
+/**
+ * 用户主动往上滚时立即暂停跟随，防止已排队的排版覆盖滚动操作。
+ * @param event 对话区的滚轮事件。
+ * @returns 无返回值。
+ */
+function onConversationWheel(event) {
+  if (event.deltaY < 0) followReply = false
+}
+
+/**
+ * 记录当前阅读位置，回到底部后恢复跟随。
+ * @returns 无返回值。
+ */
+function onConversationScroll() {
+  linkHint.value = null
+  const element = body.value
+  if (element) followReply = element.scrollHeight - element.scrollTop - element.clientHeight <= 100
 }
 
 /**
@@ -135,7 +378,10 @@ function receive(event) {
   if (disposed) return
   const last = messages.value.at(-1)
   if (event.type === 'assistant-end') {
-    if (last?.role === 'assistant' && !last.text.trim() && !last.reasoning) messages.value.pop()
+    if (last?.role === 'assistant') {
+      if (last.text.trim()) queueReply(last, true)
+      else if (!last.reasoning && !last.error) messages.value.pop()
+    }
   } else if (event.type === 'assistant-start') {
     // 工具往返没有可见输出时复用上一条思考，保留已展开的状态。
     if (last?.role !== 'assistant' || last.text.trim()) {
@@ -146,6 +392,7 @@ function receive(event) {
     reasoningRoundStart = true
   } else if (event.type === 'text' && last?.role === 'assistant') {
     last.text += event.delta
+    queueReply(last)
   } else if (event.type === 'reasoning' && last?.role === 'assistant') {
     if (reasoningRoundStart && last.reasoning) last.reasoning += '\n\n'
     last.reasoning += event.delta
@@ -153,8 +400,11 @@ function receive(event) {
   } else if (['question', 'approval'].includes(event.type)) pending.value.push(event)
   else if (event.type === 'resolved')
     pending.value = pending.value.filter((item) => item.id !== event.id)
-  else if (event.type === 'error') error.value = event.message
   else if (event.type === 'artifact') {
+    knownPaths.set(event.path.replaceAll('/', '\\').toLowerCase(), {
+      id: event.id,
+      value: event.path
+    })
     messages.value.push({ role: 'artifact', id: event.id, name: event.name, path: event.path })
   } else if (event.type === 'catalog' && state.value) {
     // 立即更新已打开对话的引用菜单，并移除已停用的待发送引用。
@@ -162,7 +412,7 @@ function receive(event) {
     references.value = references.value.filter((key) =>
       catalog.value.some((entry) => entry.key === key)
     )
-  } else if (event.type === 'idle') busy.value = false
+  }
   scroll()
 }
 
@@ -211,18 +461,26 @@ async function attachAction() {
     attachments.value = [{ label: '选中文本', value: action.payload }]
   else if (action.type === 'img' && typeof action.payload === 'string' && action.payload)
     attachments.value = [{ label: '选中图片', value: action.payload, kind: 'image' }]
-  else if (action.type === 'files' && Array.isArray(action.payload))
-    attachments.value = action.payload.map((file) => ({
-      label: file.name || file.path,
-      value: file.path
-    }))
-  else if (action.type === 'window') {
+  else if (action.type === 'files' && Array.isArray(action.payload)) {
+    // 匹配文件和拖入文件共用上传链，图片由主进程识别并内联。
+    const paths = new Set()
+    attachments.value = action.payload
+      .flatMap((file) => {
+        if (!file?.path || typeof file.path !== 'string' || paths.has(file.path)) return []
+        paths.add(file.path)
+        return [
+          { kind: 'upload', label: file.name || file.path.split(/[\\/]/).at(-1), value: file.path }
+        ]
+      })
+      .slice(0, 12)
+    if (paths.size > 12) error.value = '每轮最多添加 12 个附件，已带入前 12 个。'
+  } else if (action.type === 'window') {
     const payload = action.payload
     const location = await api
       .callAi('window-path', payload)
       .catch(() => state.value?.windowPath || '')
     if (disposed || props.action !== action) return
-    if (location) attachments.value = [{ label: '窗口所在路径', value: location }]
+    if (location) attachments.value = [{ kind: 'upload', label: '窗口所在路径', value: location }]
   }
 }
 
@@ -247,7 +505,7 @@ function attachFiles(files) {
     selected.add(location)
     paths.push({ kind: 'upload', label: file.name, value: location })
   }
-  const existing = attachments.value.filter((entry) => entry.kind === 'upload').length
+  const existing = attachments.value.filter((entry) => entry.kind).length
   if (paths.length + existing > 12) error.value = '每轮最多添加 12 个文件附件。'
   attachments.value.push(...paths.slice(0, 12 - existing))
   composer.value?.focus()
@@ -310,7 +568,7 @@ async function send() {
     (!text.value.trim() && !attachments.value.length)
   )
     return
-  const content = text.value.trim()
+  const content = text.value
   const submitted = [...attachments.value]
   const files = submitted.filter((entry) => entry.kind === 'upload')
   const image = submitted.find((entry) => entry.kind === 'image')
@@ -324,13 +582,10 @@ async function send() {
   references.value = []
   referencesOpen.value = false
   attachments.value = []
+  // 保存原始提示词和附件，用于用户气泡展示以及手动重试。
+  for (const entry of files) knownPaths.set(entry.value.replaceAll('/', '\\').toLowerCase(), entry)
   const submittedIndex = messages.value.length
-  messages.value.push({
-    role: 'user',
-    text: [content, ...files.map((entry) => `附件：${entry.label}`), image?.label, attached]
-      .filter(Boolean)
-      .join('\n')
-  })
+  messages.value.push({ role: 'user', text: content, attachments: submitted })
   busy.value = true
   error.value = ''
   scroll(true)
@@ -345,13 +600,7 @@ async function send() {
       image: image?.value
     })
   } catch (failure) {
-    if (!disposed) {
-      error.value = failure.message
-      if (messages.value.length === submittedIndex + 1) messages.value.pop()
-      if (!text.value) text.value = content
-      if (!attachments.value.length) attachments.value = submitted
-      if (!references.value.length) references.value = selected
-    }
+    if (!disposed) failTurn(submittedIndex, failure.message)
   } finally {
     if (!disposed) busy.value = false
   }
@@ -397,7 +646,10 @@ async function initialize() {
   removeEvents = api.onCallAiEvent(receive)
   try {
     // 只有窗口匹配需要宿主解析，图片在用户点击发送时才提交。
-    const result = await api.callAi('open', props.action.type === 'window' ? props.action : undefined)
+    const result = await api.callAi(
+      'open',
+      props.action.type === 'window' ? props.action : undefined
+    )
     if (disposed) return
     state.value = result
     mode.value = result.mode
@@ -421,7 +673,13 @@ async function dispose() {
   if (disposed) return
   disposed = true
   removeEvents?.()
+  // 退出时取消排版、待处理正文和已排队的滚动。
+  clearTimeout(replyTimer)
+  releaseReplyWorker()
+  repliesToRender.clear()
+  cancelAnimationFrame(scrollFrame)
   messages.value = []
+  knownPaths.clear()
   pending.value = []
   attachments.value = []
   text.value = ''
@@ -444,12 +702,23 @@ onUnmounted(() => {
     @dragover="dragOver"
     @dragleave="leaveFiles"
     @drop="dropFiles"
+    @mouseover="showLinkHint"
+    @mouseout="linkHint = null"
+    @focusin="showLinkHint"
+    @focusout="linkHint = null"
   >
-    <div ref="body" class="conversation" aria-live="polite" aria-relevant="additions text">
+    <div
+      ref="body"
+      class="conversation"
+      aria-live="polite"
+      aria-relevant="additions text"
+      tabindex="0"
+      @wheel.passive="onConversationWheel"
+      @scroll.passive="onConversationScroll"
+    >
       <section v-if="!messages.length" class="welcome">
         <div class="welcome-icon">✦</div>
         <h1>这次需要完成什么？</h1>
-        <p>可以处理文件、编写代码，或借助 Node.js、Python 完成任务。</p>
       </section>
       <article v-for="(message, index) in messages" :key="index" :class="['message', message.role]">
         <span class="role-label">{{
@@ -459,11 +728,26 @@ onUnmounted(() => {
           <summary>思考过程</summary>
           <pre>{{ message.reasoning }}</pre>
         </details>
-        <div v-if="message.role === 'assistant'" class="markdown" v-html="markdown(message)" />
+        <template v-if="message.role === 'assistant' && message.rendered !== undefined">
+          <div
+            class="markdown"
+            @click="openReplyLink"
+            v-reply-markup="{
+              html: markdown(message),
+              formulas: message.rendered.formulas,
+              onLayout: scroll
+            }"
+          />
+          <div v-if="replyTail(message)" class="markdown reply-plain">{{ replyTail(message) }}</div>
+        </template>
+        <div v-else-if="message.role === 'assistant' && message.text" class="markdown reply-plain">
+          {{ message.text.trimEnd() }}
+        </div>
         <div v-else-if="message.role === 'artifact'" class="artifact-actions">
           <a
             :href="`#artifact-${message.id}`"
-            :title="message.path"
+            class="accent-link"
+            :data-link-target="message.path"
             @click.prevent="accessArtifact(message.id, 'open')"
             >{{ message.name }}</a
           >
@@ -481,9 +765,58 @@ onUnmounted(() => {
             </svg>
           </button>
         </div>
-        <div v-else class="plain">{{ message.text }}</div>
+        <div v-else-if="message.role === 'user'" class="plain">
+          <template v-for="(part, partIndex) in linkParts(message.text)" :key="partIndex">
+            <a
+              v-if="part.url"
+              class="accent-link"
+              :href="part.url"
+              :data-link-target="part.url"
+              @click.prevent="openExternal(part.url)"
+              >{{ part.text }}</a
+            >
+            <template v-else>{{ part.text }}</template>
+          </template>
+          <div v-if="message.attachments.length" class="attachments">
+            <template v-for="(entry, entryIndex) in message.attachments" :key="entryIndex">
+              <a
+                v-if="entry.kind === 'upload'"
+                class="accent-link"
+                href="#attachment"
+                :data-link-target="entry.value"
+                @click.prevent="openAttachment(entry)"
+                >{{ entry.label }}</a
+              >
+              <span v-else class="attachment-label">{{ entry.label }}</span>
+            </template>
+          </div>
+          <div v-if="message.failed" class="retry-row">
+            <button
+              type="button"
+              class="retry-button"
+              :disabled="busy"
+              title="将原提示词带回输入框"
+              aria-label="重试此消息"
+              @click="retry(message)"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 11a8 8 0 1 1 2 6M4 5v6h6" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div v-if="message.error" class="turn-error" role="alert">
+          <strong>本轮未完成</strong>
+          <span>{{ message.error }}</span>
+        </div>
         <span
-          v-if="busy && index === messages.length - 1 && message.role === 'assistant' && !message.text.trim()"
+          v-if="
+            busy &&
+            index === messages.length - 1 &&
+            message.role === 'assistant' &&
+            !message.error &&
+            !message.text.trim()
+          "
           class="muted"
           >正在处理…</span
         >
@@ -497,7 +830,9 @@ onUnmounted(() => {
         <strong>{{ item.type === 'approval' ? `请求批准 · ${item.name}` : item.question }}</strong>
         <template v-if="item.type === 'approval'">
           <p class="muted">{{ item.warning }}</p>
-          <p v-if="item.allowSimilar" class="muted">类似命令须使用相同的工具和完整参数，仅在当前窗口有效。</p>
+          <p v-if="item.allowSimilar" class="muted">
+            类似命令须使用相同的工具和完整参数，仅在当前窗口有效。
+          </p>
           <pre>{{ item.detail }}</pre>
           <div class="actions">
             <button @click="reply(item, 'deny')">拒绝</button>
@@ -527,18 +862,43 @@ onUnmounted(() => {
           </form></template
         >
       </section>
+      <div v-if="error" class="turn-error" role="alert">
+        <span>{{ error }}</span>
+        <button type="button" aria-label="关闭提示" @click="error = ''">×</button>
+      </div>
     </div>
     <footer class="composer-wrap">
-      <p v-if="error" role="alert" class="error">{{ error }}</p>
-      <div v-if="attachments.length || references.length" class="attachments">
-        <button
-          v-for="(entry, index) in attachments"
-          :key="index"
-          :title="entry.kind === 'image' ? entry.label : entry.value"
-          @click="attachments.splice(index, 1)"
+      <div
+        v-if="attachments.length || references.length || draftLinks.length"
+        class="attachments draft-attachments"
+      >
+        <span v-for="(entry, index) in attachments" :key="index" class="draft-attachment">
+          <a
+            v-if="entry.kind === 'upload'"
+            class="accent-link"
+            href="#attachment"
+            :data-link-target="entry.value"
+            @click.prevent="openAttachment(entry)"
+            >{{ entry.label }}</a
+          >
+          <span v-else class="attachment-label">{{ entry.label }}</span>
+          <button
+            type="button"
+            :aria-label="`移除${entry.label}`"
+            @click="attachments.splice(index, 1)"
+          >
+            ×
+          </button>
+        </span>
+        <a
+          v-for="link in draftLinks"
+          :key="link"
+          class="accent-link"
+          :href="link"
+          :data-link-target="link"
+          @click.prevent="openExternal(link)"
+          >{{ link }}</a
         >
-          {{ entry.label }} ×
-        </button>
         <button
           v-for="key in references"
           :key="key"
@@ -621,7 +981,9 @@ onUnmounted(() => {
             >
               <button type="button" class="permission-icon">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M11 4.5a3 3 0 0 1 2 0l5.6 1.9A2 2 0 0 1 20 8.3v3.4c0 4.3-3.1 7-7 8.6a2.6 2.6 0 0 1-2 0c-3.9-1.6-7-4.3-7-8.6V8.3a2 2 0 0 1 1.4-1.9Z" />
+                  <path
+                    d="M11 4.5a3 3 0 0 1 2 0l5.6 1.9A2 2 0 0 1 20 8.3v3.4c0 4.3-3.1 7-7 8.6a2.6 2.6 0 0 1-2 0c-3.9-1.6-7-4.3-7-8.6V8.3a2 2 0 0 1 1.4-1.9Z"
+                  />
                   <path v-if="mode === 'full'" d="M12 8.5v4m0 3h.01" />
                   <path v-else d="m8.5 11.5 2.4 2.4 4.6-4.6" />
                 </svg>
@@ -705,14 +1067,23 @@ onUnmounted(() => {
         </div>
       </form>
     </footer>
+    <div
+      v-if="linkHint"
+      class="link-hint"
+      :class="{ above: linkHint.above }"
+      :style="{ left: linkHint.left + 'px', top: linkHint.top + 'px' }"
+      aria-hidden="true"
+    >
+      {{ linkHint.text }}
+    </div>
   </main>
 </template>
 
 <style scoped>
 .call-ai {
   height: 100vh;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
   background: var(--bg-elevated);
   color: var(--text-primary);
   font-size: 14px;
@@ -820,11 +1191,16 @@ option:is(:hover, :focus-visible, :checked) {
   background: color-mix(in srgb, currentColor 9%, transparent);
 }
 .conversation {
-  flex: 1;
-  overflow: auto;
+  min-width: 0;
+  overflow: hidden auto;
+  overscroll-behavior: contain;
   padding: 12px max(20px, calc((100% - 800px) / 2));
   scrollbar-width: thin;
   min-height: 0;
+}
+.reply-plain {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .welcome {
   display: flex;
@@ -843,9 +1219,6 @@ option:is(:hover, :focus-visible, :checked) {
 .welcome h1 {
   font-size: 19px;
   font-weight: 600;
-}
-.welcome p {
-  line-height: 1.9;
 }
 .muted {
   font-size: 12px;
@@ -889,10 +1262,6 @@ option:is(:hover, :focus-visible, :checked) {
   flex-wrap: wrap;
   align-items: center;
   gap: 4px 6px;
-}
-.artifact-actions a {
-  color: var(--primary-color);
-  text-decoration: underline;
 }
 .artifact-actions .artifact-reveal {
   display: inline-flex;
@@ -946,6 +1315,91 @@ option:is(:hover, :focus-visible, :checked) {
 .markdown :deep(code) {
   font-family: Consolas, monospace;
 }
+.markdown :deep(.reply-code) {
+  margin: 0.7em 0;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+.markdown :deep(.reply-code-bar) {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 10px;
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  font-size: 12px;
+}
+.markdown :deep(.copy-reply-code) {
+  color: inherit;
+  cursor: pointer;
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  background: transparent;
+  padding: 2px 7px;
+}
+.markdown :deep(.reply-code pre) {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+}
+.markdown :deep(.reply-diagram) {
+  min-width: 0;
+  margin: 0.7em 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.markdown :deep(.reply-diagram svg) {
+  display: block;
+  width: 100%;
+  max-height: 420px;
+  margin-block-end: 8px;
+  overflow: hidden;
+}
+.markdown :deep(.reply-diagram button) {
+  padding: 3px 9px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  color: inherit;
+  background: var(--bg-elevated);
+  cursor: pointer;
+}
+.markdown :deep(.reply-html) {
+  margin: 0.7em 0;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.markdown.reply-dense > :deep(p),
+.markdown.reply-dense > :deep(.math-display) {
+  content-visibility: auto;
+  contain-intrinsic-block-size: auto 2.4em;
+}
+.markdown :deep(.math-display) {
+  display: block;
+  max-width: 100%;
+  overflow: auto;
+}
+.markdown :deep(.hljs-keyword),
+.markdown :deep(.hljs-selector-tag) {
+  color: light-dark(#7444a7, #d5a8ff);
+}
+.markdown :deep(.hljs-string),
+.markdown :deep(.hljs-attr) {
+  color: light-dark(#186737, #9ad49f);
+}
+.markdown :deep(.hljs-number),
+.markdown :deep(.hljs-literal) {
+  color: light-dark(#96400a, #ffba7b);
+}
+.markdown :deep(.hljs-title),
+.markdown :deep(.hljs-built_in) {
+  color: light-dark(#155d9e, #9bc9ff);
+}
+.markdown :deep(.hljs-comment) {
+  color: var(--text-secondary);
+}
 .markdown :deep(table) {
   border-collapse: collapse;
   width: 100%;
@@ -955,8 +1409,57 @@ option:is(:hover, :focus-visible, :checked) {
   border: 1px solid #8883;
   padding: 6px 10px;
 }
-.markdown :deep(a) {
+.accent-link,
+.markdown :deep(.accent-link),
+.attachment-label {
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: bottom;
+  border-radius: 5px;
+  padding-inline: 5px;
+  background: color-mix(in srgb, var(--primary-color) 10%, transparent);
   color: var(--primary-color);
+  font-weight: 550;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.accent-link::before,
+.markdown :deep(.accent-link)::before {
+  content: '';
+  display: inline-block;
+  width: 0.9em;
+  height: 0.9em;
+  vertical-align: -0.1em;
+  margin-inline-end: 4px;
+  background: currentColor;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 4H3v9h9v-3M8 3h5v5m0-5L7 9'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+.accent-link[href^='#']::before,
+.markdown :deep(.accent-link[data-local-link])::before {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.5' stroke-linejoin='round'%3E%3Cpath d='M4 2h5l3 3v9H4zM9 2v4h3'/%3E%3C/svg%3E");
+}
+.accent-link:hover,
+.markdown :deep(.accent-link):hover {
+  background: color-mix(in srgb, var(--primary-color) 18%, transparent);
+}
+.link-hint {
+  position: fixed;
+  z-index: 5;
+  max-width: min(400px, calc(100vw - 24px));
+  box-sizing: border-box;
+  padding: 5px 9px;
+  border-radius: 7px;
+  border: 1px solid color-mix(in srgb, var(--primary-color) 28%, transparent);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  box-shadow: 0 4px 14px #0002;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}
+.link-hint.above {
+  transform: translateY(-100%);
 }
 .reasoning {
   font-size: 12px;
@@ -1011,7 +1514,8 @@ textarea {
   flex: none;
 }
 .composer-actions svg,
-.artifact-reveal svg {
+.artifact-reveal svg,
+.retry-button svg {
   width: 17px;
   height: 17px;
   fill: none;
@@ -1094,21 +1598,63 @@ button.primary {
   background: transparent;
   padding: 8px;
 }
-.error {
-  color: #d65353;
+.turn-error {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 3px 8px;
+  border-inline-start: 2px solid light-dark(#ac6829, #e0a96b);
+  border-radius: 6px;
+  background: light-dark(#ad651610, #e6ad6416);
+  color: var(--text-primary);
+  padding: 7px 10px;
+  margin-block: 6px;
+  overflow-wrap: anywhere;
   font-size: 12px;
-  white-space: pre-wrap;
+}
+.turn-error strong {
+  color: light-dark(#885222, #f1be84);
+}
+.turn-error button {
+  margin-inline-start: auto;
+}
+.retry-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+.retry-row .retry-button {
+  display: inline-grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  padding: 0;
+  color: var(--primary-color);
 }
 .attachments {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
+  font-size: 12px;
+}
+.user .attachments {
+  margin-top: 5px;
+}
+.draft-attachments {
   padding-bottom: 8px;
   max-height: 80px;
   overflow: auto;
 }
-.attachments button {
-  font-size: 11px;
+.draft-attachment {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+}
+.draft-attachment button {
+  padding: 0 5px;
+  border-color: transparent;
+}
+.draft-attachments a {
   max-width: 220px;
   overflow: hidden;
   text-overflow: ellipsis;

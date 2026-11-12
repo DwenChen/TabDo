@@ -1,0 +1,24 @@
+{
+  "id": "presentation-preview-polish",
+  "date": "2026-11-11",
+  "summary": "微调高倍率光标，撤销调速轨道，补齐摄像头悬浮预览关闭态底色",
+  "changes": [
+    "录制光标随镜头小幅增大，实际倍率每增加 1×，屏幕尺寸增加基准尺寸的 6%，5× 时约比完全补偿时大 24%。",
+    "撤销上一轮调速按钮、轨道、预览和导出时间映射以及项目字段，恢复原有分割与片段倍速行为，移除调速轨教程。",
+    "摄像头菜单的悬浮预览关闭态在指针移开后继续使用浅灰主题底色，深色主题使用对应底色。"
+  ],
+  "checks": [
+    "23 项演示时间轴和视觉效果单测通过。归档 .artifacts/runs/2026-11-11T15-22-17-882Z-unit。",
+    "源码 presentation-controls 专项通过。打开 floating-preview-disabled.png 和 floating-preview-disabled-dark.png，确认指针离开时浅色菜单有浅灰底，深色菜单有可辨认的深灰底，状态文字保持居中。归档 .artifacts/runs/2026-11-11T15-23-18-939Z-e2e。",
+    "源码 presentation-cursor-zoom 专项通过。使用 1×、5× 实际预览的灰底像素确认光标略微增大，检查变焦撤销重做及原有工具栏。打开 cursor-1x.png 和 cursor-5x.png，光标热点都位于灰色区域中央。归档 .artifacts/runs/2026-11-11T15-25-27-517Z-e2e。",
+    "首轮源码专项分别遇到悬停提示等待和预览画布初始化超时。后续修正测试的画布等待及文字光标测量阈值，两个专项分别复跑通过。",
+    "教程校验、回归分组清单和差异检查通过。",
+    "pnpm build 通过。等免安装预览退出后执行 pnpm preview:sync，248 个原有资料、配置与插件文件前后一致。收据 .artifacts/backups/preview-sync/update-1794410887580/preservation.json。",
+    "pnpm test:preview:resources 通过，核验 2138 个程序文件、353 个内置插件文件和 11842 个运行依赖文件。",
+    "清理本轮已消费的程序暂存和被替代的程序回退，共 29913 个文件、1376601961 字节。保留最新程序回退和历次资料保留收据。审计 .artifacts/cleanup-2026-11-11/presentation-preview-polish-program-cleanup.json。",
+    "收尾执行 pnpm maintain、pnpm maintain:check、pnpm docs:check 与 git diff --check。"
+  ],
+  "pending": [
+    "本轮核验了源码预览的光标尺寸与明暗主题控制条。其他 DPI 和实验性原生导出观感留待人工验收。"
+  ]
+}

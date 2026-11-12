@@ -1,4 +1,5 @@
 /* biome-ignore-all lint/correctness/useExhaustiveDependencies: mutable timeline bootstrap refs intentionally do not trigger effects. */
+import { createZoomPlaybackClock } from "../zoomPlayback";
 import { type MutableRefObject, useCallback, useEffect, useMemo } from "react";
 import { closeClipGaps, rippleRegions } from "../clipSequence";
 import { projectCaptionCues } from "../captionTimeline";
@@ -105,6 +106,10 @@ export function useTimelineProjection({
 		[clipRegions],
 	);
 	const effectiveZoomRegions: ZoomRegion[] = zoomRegions;
+	const zoomPlayback = useMemo(
+		() => createZoomPlaybackClock(zoomRegions, clipRegions),
+		[zoomRegions, clipRegions],
+	);
 	const effectiveCaptionRegions = useMemo(
 		() => projectCaptionCues(autoCaptions, clipRegions),
 		[autoCaptions, clipRegions],
@@ -141,6 +146,7 @@ export function useTimelineProjection({
 		mapTimelineTimeToSourceTime: toSourceTime,
 		mapSourceTimeToTimelineTime: toTimelineTime,
 		effectiveZoomRegions,
+		zoomPlayback,
 		effectiveCaptionRegions,
 		timelinePlayheadTime,
 		timelineDuration,

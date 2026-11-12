@@ -13,12 +13,14 @@ interface Capability {
 }
 
 interface Settings {
-  rules: string
+  rules: string[]
+  searchProvider: SearchProvider
   outputDirectory: string
   skills: Capability[]
   mcps: Capability[]
 }
 
+type SearchProvider = 'brave' | 'bocha'
 type Kind = 'node' | 'python'
 type EditorMode = 'add' | 'edit' | 'npm'
 type McpTool = { name: string; description?: string }
@@ -26,18 +28,19 @@ type EntryDetail<T> = { loading: true } | { value: T } | { error: string }
 interface State {
   settings: Settings
   runtime: Record<Kind, { installed: boolean; version?: string; healthy?: boolean }>
-  webSearchConfigured?: boolean
+  webSearchConfigured: Record<SearchProvider, boolean>
 }
 
 const api = window.tabdo.internal.callAi
 const state = ref<State>()
-const rules = ref('')
+const ruleIndex = ref<number>()
+const ruleText = ref('')
+const ruleError = ref('')
 const outputDirectory = ref('')
 const busy = ref(false)
 const runtimeChecked = ref(false)
 const mcpTools = ref(new Map<string, EntryDetail<McpTool[]>>())
 const skillDescriptions = ref(new Map<string, EntryDetail<string>>())
-const message = ref('')
 const error = ref('')
 const editor = ref<HTMLDialogElement>()
 const addMenu = ref<HTMLDetailsElement[]>([])
@@ -47,13 +50,15 @@ const config = ref('')
 const packageName = ref('')
 const editorError = ref('')
 const webKey = ref('')
+const webError = ref('')
+const searchNames = { brave: 'Brave Search', bocha: '博查搜索' }
 const example = JSON.stringify(
   { mcpServers: { example: { command: 'npx', args: ['-y', 'mcp-server-example'] } } },
   null,
   2
 )
 const kinds = ['node', 'python'] as const
-const pendingSaves = { rules: Promise.resolve(), outputDirectory: Promise.resolve() }
+let pendingOutputSave = Promise.resolve()
 const managers = computed(() => [
   {
     key: 'mcps' as const,
@@ -82,25 +87,21 @@ const managers = computed(() => [
 async function initialize(): Promise<void> {
   const data: State = await api('state')
   state.value = data
-  rules.value = data.settings.rules
   outputDirectory.value = data.settings.outputDirectory
 }
 
 /**
  * 串行执行按钮操作，并将反馈放在当前页面或配置弹窗。
  * @param operation 本次设置操作。
- * @param success 成功提示。
  * @returns 操作完成的 Promise。
  */
-async function run(operation: () => Promise<void>, success = ''): Promise<void> {
+async function run(operation: () => Promise<void>): Promise<void> {
   if (busy.value) return
   busy.value = true
   error.value = ''
-  message.value = ''
   editorError.value = ''
   try {
     await operation()
-    if (success) message.value = success
   } catch (failure) {
     const description = failure instanceof Error ? failure.message : String(failure)
     if (editor.value?.open) editorError.value = description
@@ -111,28 +112,69 @@ async function run(operation: () => Promise<void>, success = ''): Promise<void> 
 }
 
 /**
- * 独立保存已编辑的规则或产物路径，避免用一个表单覆盖其他设置。
- * @param field 本次编辑的字段。
- * @param value 新值。
- * @returns 保存完成的 Promise。
+ * 保序写入结果目录，避免先前的输入覆盖较新的选择。
+ * @param value 用户编辑或选中的路径。
+ * @returns 本次路径保存完成的 Promise。
  */
-async function saveField(field: 'rules' | 'outputDirectory', value: string): Promise<void> {
-  // 同一字段保序，不阻塞另一字段或能力列表操作。
-  pendingSaves[field] = pendingSaves[field].then(async () => {
-    if (!state.value || state.value.settings[field] === value) return
+async function saveOutput(value: string): Promise<void> {
+  // 只更新目录字段，其他设置由各自操作负责。
+  pendingOutputSave = pendingOutputSave.then(async () => {
+    if (!state.value || state.value.settings.outputDirectory === value) return
     error.value = ''
-    message.value = ''
     try {
-      const saved: Settings = await api('save', { [field]: value })
-      state.value.settings[field] = saved[field]
-      if (field === 'outputDirectory' && outputDirectory.value === value)
-        outputDirectory.value = saved.outputDirectory
-      message.value = field === 'rules' ? '全局规则已更新' : '产物位置已更新'
+      const saved: Settings = await api('save', { outputDirectory: value })
+      state.value.settings.outputDirectory = saved.outputDirectory
+      if (outputDirectory.value === value) outputDirectory.value = saved.outputDirectory
     } catch (failure) {
-      error.value = failure instanceof Error ? failure.message : String(failure)
+      error.value = (failure as Error).message
     }
   })
-  await pendingSaves[field]
+  await pendingOutputSave
+}
+
+/**
+ * 展开规则编辑区，新增时使用列表末尾的位置。
+ * @param index 编辑位置或新增位置。
+ * @returns 无返回值。
+ */
+function editRule(index: number): void {
+  ruleError.value = ''
+  ruleIndex.value = index
+  ruleText.value = state.value?.settings.rules[index] ?? ''
+}
+
+/**
+ * 关闭规则编辑区并清除本次保存的提示。
+ * @returns 无返回值。
+ */
+function cancelRule(): void {
+  ruleIndex.value = undefined
+  ruleError.value = ''
+}
+
+/**
+ * 新增、更新或删除单条规则，写入成功后再更新显示。
+ * @param index 本次操作的位置。
+ * @param value 新文本，省略时删除该条。
+ * @returns 本次规则保存完成的 Promise。
+ */
+async function saveRule(index: number, value?: string): Promise<void> {
+  const data = state.value
+  if (!data) return
+  await run(async () => {
+    ruleError.value = ''
+    try {
+      const rules = [...data.settings.rules]
+      // 失败时保留已保存列表和当前草稿。
+      if (value === undefined) rules.splice(index, 1)
+      else rules.splice(index, 1, value.trim())
+      const saved: Settings = await api('save', { rules })
+      data.settings.rules = saved.rules
+      ruleIndex.value = undefined
+    } catch (failure) {
+      ruleError.value = (failure as Error).message
+    }
+  })
 }
 
 /**
@@ -143,7 +185,7 @@ async function chooseOutput(): Promise<void> {
   const directory = await api('choose-output')
   if (directory) {
     outputDirectory.value = directory
-    await saveField('outputDirectory', directory)
+    await saveOutput(directory)
   }
 }
 
@@ -211,21 +253,46 @@ async function showMcpTools(id: string): Promise<void> {
 }
 
 /**
- * 在编辑完成时保存搜索密钥，表单仅显示配置状态。
- * @param clear 是否移除已存的密钥。
- * @returns 设置写入完成的 Promise。
+ * 切换通用搜索服务，分别保留各服务的密钥。
+ * @param event 原生下拉选择事件。
+ * @returns 服务切换完成的 Promise。
+ */
+async function changeSearchProvider(event: Event): Promise<void> {
+  const select = event.target as HTMLSelectElement
+  const data = state.value
+  if (!data) return
+  await run(async () => {
+    webError.value = ''
+    try {
+      const saved: Settings = await api('save', { searchProvider: select.value })
+      data.settings.searchProvider = saved.searchProvider
+      webKey.value = ''
+    } catch (failure) {
+      webError.value = (failure as Error).message
+    }
+  })
+  select.value = data.settings.searchProvider
+}
+
+/**
+ * 保存当前服务的密钥，界面只显示配置状态。
+ * @param clear 是否移除当前服务的密钥。
+ * @returns 密钥写入完成的 Promise。
  */
 async function updateWebKey(clear = false): Promise<void> {
-  const value = clear ? '' : webKey.value.trim()
-  if (!clear && !value) return
-  await run(
-    async () => {
-      const configured = await api('set-web-key', value)
-      if (state.value) state.value.webSearchConfigured = configured
+  const data = state.value
+  const key = clear ? '' : webKey.value.trim()
+  if (!data || (!clear && !key)) return
+  const provider = data.settings.searchProvider
+  await run(async () => {
+    webError.value = ''
+    try {
+      data.webSearchConfigured[provider] = await api('set-web-key', { provider, key })
       webKey.value = ''
-    },
-    clear ? 'Brave Search 密钥已移除' : 'Brave Search 密钥已保存'
-  )
+    } catch (failure) {
+      webError.value = (failure as Error).message
+    }
+  })
 }
 
 /**
@@ -333,7 +400,7 @@ onBeforeUnmount(() => {
           <input
             id="call-ai-output"
             v-model="outputDirectory"
-            @change="saveField('outputDirectory', outputDirectory)"
+            @change="saveOutput(outputDirectory)"
             @keydown.enter.prevent="($event.target as HTMLInputElement).blur()"
           />
           <button type="button" :disabled="busy" @click="run(chooseOutput)">选择位置</button>
@@ -343,7 +410,7 @@ onBeforeUnmount(() => {
             :disabled="busy"
             @click="
               run(async () => {
-                message = `已清理 ${await api('clean-outputs')} 个产物目录`
+                await api('clean-outputs')
               })
             "
           >
@@ -386,13 +453,8 @@ onBeforeUnmount(() => {
             </button>
           </div>
         </header>
-        <div v-if="manager.key === 'mcps'" class="builtin entry-main">
-          <span class="badge mcp-badge" aria-hidden="true">C</span>
-          <span>context-mode</span>
-          <small>内置</small>
-        </div>
-        <p v-else-if="!manager.entries.length" class="empty">
-          暂无 Skill，可安装含 SKILL.md 的 ZIP。
+        <p v-if="!manager.entries.length" class="empty">
+          {{ manager.key === 'mcps' ? '暂无 MCP' : '暂无 Skill，可安装含 SKILL.md 的 ZIP。' }}
         </p>
         <div v-for="{ entry, detail } in manager.entries" :key="entry.id" class="entry">
           <details @toggle="manager.key === 'skills' && showSkillDescription($event, entry.id)">
@@ -484,23 +546,38 @@ onBeforeUnmount(() => {
 
       <details class="panel collapsible">
         <summary>网页搜索</summary>
-        <div class="runtime-content">
-          <label for="call-ai-web-key">Brave Search API 密钥</label>
+        <div class="runtime-content search-settings">
+          <label for="call-ai-search-provider">搜索服务</label>
+          <select
+            id="call-ai-search-provider"
+            :value="state.settings.searchProvider"
+            :disabled="busy"
+            @change="changeSearchProvider"
+          >
+            <option value="brave">Brave Search</option>
+            <option value="bocha">博查搜索</option>
+          </select>
+          <label for="call-ai-web-key"
+            >{{ searchNames[state.settings.searchProvider] }} API 密钥</label
+          >
           <div class="path-row">
             <input
+              :key="state.settings.searchProvider"
               id="call-ai-web-key"
               v-model="webKey"
               type="password"
               autocomplete="off"
               :placeholder="
-                state.webSearchConfigured ? '已配置，输入可替换' : '输入 Brave Search 密钥'
+                state.webSearchConfigured[state.settings.searchProvider]
+                  ? '已配置，输入可替换'
+                  : '输入 API 密钥'
               "
               :disabled="busy"
               @change="updateWebKey()"
               @keydown.enter.prevent="($event.target as HTMLInputElement).blur()"
             />
             <button
-              v-if="state.webSearchConfigured"
+              v-if="state.webSearchConfigured[state.settings.searchProvider]"
               type="button"
               :disabled="busy"
               @click="updateWebKey(true)"
@@ -509,19 +586,79 @@ onBeforeUnmount(() => {
             </button>
           </div>
           <small>在聊天窗开启网页搜索后才可调用。直连 DeepSeek 时使用提供商密钥。</small>
+          <p v-if="webError" class="danger" role="alert">{{ webError }}</p>
         </div>
       </details>
 
       <details class="panel collapsible">
         <summary>全局规则</summary>
-        <textarea
-          id="call-ai-rules"
-          v-model="rules"
-          aria-label="呼叫AI全局规则"
-          rows="4"
-          placeholder="输入每轮对话应遵循的规则"
-          @change="saveField('rules', rules)"
-        />
+        <div class="runtime-content">
+          <div class="row">
+            <small>规则会按列表顺序应用到每轮对话。</small>
+            <button
+              type="button"
+              class="primary"
+              :disabled="busy || ruleIndex !== undefined"
+              @click="editRule(state.settings.rules.length)"
+            >
+              添加规则
+            </button>
+          </div>
+          <p v-if="!state.settings.rules.length && ruleIndex === undefined" class="empty">
+            暂无全局规则
+          </p>
+          <ol v-if="state.settings.rules.length" class="rule-list">
+            <li v-for="(rule, index) in state.settings.rules" :key="index">
+              <span>{{ rule }}</span>
+              <div class="buttons">
+                <button
+                  type="button"
+                  class="icon-button"
+                  :aria-label="`编辑规则 ${index + 1}`"
+                  title="编辑规则"
+                  :disabled="busy || ruleIndex !== undefined"
+                  @click="editRule(index)"
+                >
+                  <span class="i-z-edit" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  class="icon-button"
+                  :aria-label="`删除规则 ${index + 1}`"
+                  title="删除规则"
+                  :disabled="busy || ruleIndex !== undefined"
+                  @click="saveRule(index)"
+                >
+                  <span class="i-z-trash" aria-hidden="true" />
+                </button>
+              </div>
+            </li>
+          </ol>
+          <form
+            v-if="ruleIndex !== undefined"
+            class="rule-editor"
+            @submit.prevent="saveRule(ruleIndex, ruleText)"
+          >
+            <label for="call-ai-rule">{{
+              ruleIndex === state.settings.rules.length ? '添加规则' : `编辑规则 ${ruleIndex + 1}`
+            }}</label>
+            <textarea
+              id="call-ai-rule"
+              v-model="ruleText"
+              rows="3"
+              maxlength="100000"
+              placeholder="输入一条规则"
+              :disabled="busy"
+            />
+            <div class="buttons">
+              <button type="button" :disabled="busy" @click="cancelRule">取消</button>
+              <button type="submit" class="primary" :disabled="busy || !ruleText.trim()">
+                保存规则
+              </button>
+            </div>
+          </form>
+          <p v-if="ruleError" class="danger" role="alert">{{ ruleError }}</p>
+        </div>
       </details>
 
       <details class="panel collapsible">
@@ -548,7 +685,7 @@ onBeforeUnmount(() => {
                 :aria-label="state.runtime[kind].installed ? '更新' : '安装'"
                 :title="state.runtime[kind].installed ? '更新' : '安装'"
                 :disabled="busy"
-                @click="run(() => maintain(kind, 'update'), '内置工具已就绪')"
+                @click="run(() => maintain(kind, 'update'))"
               >
                 <span
                   :class="state.runtime[kind].installed ? 'i-z-refresh' : 'i-z-download'"
@@ -583,8 +720,10 @@ onBeforeUnmount(() => {
         </div>
       </details>
     </template>
-    <p v-if="error" role="alert" class="notice danger">{{ error }}</p>
-    <p v-else-if="message" role="status" class="notice">{{ message }}</p>
+    <div v-if="error" class="row notice danger" role="alert">
+      <span>{{ error }}</span>
+      <button type="button" @click="error = ''">关闭提示</button>
+    </div>
 
     <dialog
       ref="editor"
@@ -719,18 +858,11 @@ small,
   border-top: 1px solid var(--divider-color);
 }
 .entry,
-.builtin {
-  position: relative;
-  border-top: 1px solid var(--divider-color);
-}
 .entry-main {
   padding: 7px 68px 7px 11px;
   min-height: 48px;
   box-sizing: border-box;
   gap: 10px;
-}
-.builtin {
-  padding-left: 33px;
 }
 .entry-name,
 .entry-details code {
@@ -869,10 +1001,6 @@ summary {
 .collapsible > summary {
   padding: 10px 12px;
 }
-.collapsible > textarea {
-  width: calc(100% - 24px);
-  margin: 0 12px 10px;
-}
 .runtime-content {
   padding: 0 12px 10px;
 }
@@ -886,16 +1014,43 @@ summary {
 .runtime-check-mark {
   color: light-dark(#187841, #59d48c);
 }
-.notice {
-  position: sticky;
-  bottom: 0;
-  width: fit-content;
-  max-width: 100%;
-  margin: 0 0 0 auto;
-  padding: 7px 12px;
+.search-settings,
+.rule-editor {
+  display: grid;
+  gap: 8px;
+}
+.search-settings select {
+  justify-self: start;
+  color: inherit;
+  background: var(--dialog-bg);
   border: 1px solid var(--control-border);
   border-radius: 7px;
-  background: var(--dialog-bg);
+  padding: 5px 8px;
+}
+.rule-list {
+  margin-block: 8px;
+  padding-inline-start: 1.6rem;
+}
+.rule-list li {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--control-border);
+}
+.rule-list li > span {
+  display: inline-block;
+  width: calc(100% - 80px);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.rule-list .buttons {
+  display: inline-flex;
+  vertical-align: top;
+}
+.rule-editor .buttons {
+  justify-self: end;
+}
+.notice {
+  gap: 8px;
+  padding: 7px 12px;
   overflow-wrap: anywhere;
   font-size: 12px;
 }

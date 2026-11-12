@@ -1,0 +1,23 @@
+{
+  "id": "presentation-zoom-rates",
+  "date": "2026-11-12",
+  "summary": "演示变焦片段可独立设置视频倍速和镜头动画倍速",
+  "changes": [
+    "变焦侧栏复用共享滑块，两个倍速均为 0.5–4×，步进 0.25×，默认及重置为 1×。",
+    "视频倍速作用于变焦覆盖区间，与录屏片段倍速相乘。预览进度、视频、声音、字幕和导出共享成片时间映射，保留剪辑时间轴坐标。",
+    "镜头动画倍速调整二维与三维变焦的进入和退出，沿用相邻镜头连接。项目保存、片段复制和撤销重做沿现有编辑模型运行。"
+  ],
+  "checks": [
+    "25 项演示时间轴和视觉效果单测通过，归档 .artifacts/runs/2026-11-12T02-26-59-717Z-unit。",
+    "源码 Electron 专项通过，验证两项默认值、分别保存、连续撤销重做、单个录屏片段内实际 2× 播放、成片进度时长和 MP4 音视频时长。调整测试的导入入口、自动保存等待、滑块值读取和原始视频选择器后复跑通过。归档 .artifacts/runs/2026-11-12T02-34-56-686Z-e2e。",
+    "实际检查插件可见区截图 zoom-rates-light.png 和 zoom-rates-dark-narrow.png。两个滑块的标题、数值、轨道和手柄都可见，使用侧栏原有滚动布局。",
+    "pnpm docs:check、回归分组清单及差异检查通过。",
+    "全量单测首轮 904 项通过，图片格式及大型预览归档两项在并行运行时超时。相关两个文件降低并发复跑全部 30 项通过。归档 .artifacts/runs/2026-11-12T02-31-32-607Z-unit 和 .artifacts/runs/2026-11-12T02-38-30-900Z-unit。",
+    "pnpm build、pnpm preview:sync 和 pnpm test:preview:resources 通过。254 个原有资料、配置与插件文件前后一致，核验 2138 个程序文件、353 个内置插件文件和 11842 个运行依赖文件。收据 .artifacts/backups/preview-sync/update-1794451228613/preservation.json。",
+    "清理本轮已消费的程序暂存和被替代的程序回退，共 29913 个文件、1376612660 字节。保留最新程序回退与历次资料保留收据。审计 .artifacts/cleanup-2026-11-12/presentation-zoom-rates-program-cleanup.json。",
+    "同步收尾执行 pnpm maintain、pnpm maintain:check、pnpm docs:check 和 git diff --check。"
+  ],
+  "pending": [
+    "本轮实测 MP4。GIF、较长素材、其他 DPI 和实验性原生导出观感未在专项中实测。"
+  ]
+}

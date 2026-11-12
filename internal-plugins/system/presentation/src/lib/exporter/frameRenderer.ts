@@ -1485,6 +1485,11 @@ export class FrameRenderer {
 			? backgroundTimelineTimestamp / 1000
 			: timestamp / 1000;
 		const cursorTimeMs = cursorTimestamp / 1000;
+		const TICKS_PER_FRAME = 1;
+
+		for (let i = 0; i < TICKS_PER_FRAME; i++) {
+			this.updateAnimationState(timeMs, cursorTimeMs);
+		}
 
 		if (this.cursorOverlay) {
 			this.cursorOverlay.update(
@@ -1493,15 +1498,10 @@ export class FrameRenderer {
 				layoutCache.maskRect,
 				this.config.showCursor ?? true,
 				false,
+				undefined,
+				this.animationState.appliedScale,
 			);
 		}
-
-		const TICKS_PER_FRAME = 1;
-
-		for (let i = 0; i < TICKS_PER_FRAME; i++) {
-			this.updateAnimationState(timeMs, cursorTimeMs);
-		}
-
 		applyZoomTransform({
 			cameraContainer: this.cameraContainer,
 			zoomBlurFilter: this.zoomBlurFilter,

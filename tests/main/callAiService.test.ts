@@ -66,19 +66,34 @@ describe('call AI settings and output ownership', () => {
       path.join(fixture.root, 'documents', 'TabDo', 'Call_AI')
     )
     const outputDirectory = path.join(fixture.root, 'outputs')
-    const saved = await saveCallAiSettings({ rules: '中文规则', outputDirectory, mcps: [] })
+    const saved = await saveCallAiSettings({ rules: ['中文规则'], outputDirectory, mcps: [] })
     expect(saved.outputDirectory).toBe(outputDirectory)
-    expect(getCallAiSettings().rules).toBe('中文规则')
+    expect(getCallAiSettings().rules).toEqual(['中文规则'])
     await expect(
-      saveCallAiSettings({ rules: '', outputDirectory: path.parse(outputDirectory).root, mcps: [] })
+      saveCallAiSettings({ rules: [], outputDirectory: path.parse(outputDirectory).root, mcps: [] })
     ).rejects.toThrow('独立')
     await expect(
       saveCallAiSettings({
-        rules: '',
+        rules: [],
         outputDirectory: path.join(fixture.root, 'userData', 'call-ai'),
         mcps: []
       })
     ).rejects.toThrow('独立')
+  })
+
+  it('preserves multiline legacy rules until a rule list is explicitly saved', async () => {
+    const previous = getCallAiSettings()
+    const legacy = '旧版规则\n第二行'
+    fixture.db.set('call-ai-settings', { ...previous, rules: legacy })
+    expect(getCallAiSettings().rules).toEqual([legacy])
+    await saveCallAiSettings({ searchProvider: 'bocha' })
+    expect(fixture.db.get('call-ai-settings')).toMatchObject({
+      rules: legacy,
+      searchProvider: 'bocha'
+    })
+    await saveCallAiSettings({ rules: [legacy, '新增规则'] })
+    expect(getCallAiSettings().rules).toEqual([legacy, '新增规则'])
+    await saveCallAiSettings({ rules: previous.rules, searchProvider: previous.searchProvider })
   })
 
   it('updates the former built-in default and keeps later explicit choices of that path', async () => {
@@ -98,7 +113,7 @@ describe('call AI settings and output ownership', () => {
       action: 'add',
       json: '{"mcpServers":{"manual":{"command":"npx","args":["-y","example"]},"local":{"url":"http://127.0.0.1/mcp"}}}'
     })
-    await saveCallAiSettings({ rules: '只更新规则' })
+    await saveCallAiSettings({ rules: ['只更新规则'] })
     configureCallAiMcp({ action: 'toggle', id: 'manual', enabled: false })
     configureCallAiMcp({
       action: 'edit',
@@ -112,7 +127,7 @@ describe('call AI settings and output ownership', () => {
       })
     ).toThrow('标识')
     expect(getCallAiSettings()).toMatchObject({
-      rules: '只更新规则',
+      rules: ['只更新规则'],
       outputDirectory: customOutput,
       mcps: [
         { id: 'manual', enabled: false, command: 'node', args: ['updated.js'] },
@@ -204,14 +219,8 @@ describe('call AI settings and output ownership', () => {
     }
   })
 
-  it('rejects spoofed built-in context-mode IDs and interpreter injection', async () => {
+  it('rejects interpreter injection', async () => {
     const settings = getCallAiSettings()
-    await expect(
-      saveCallAiSettings({
-        ...settings,
-        mcps: [{ id: 'tabdo_context_mode_builtin', name: 'spoof', url: 'https://example.com/mcp' }]
-      })
-    ).rejects.toThrow('标识')
     await expect(
       saveCallAiSettings({
         ...settings,

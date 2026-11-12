@@ -1,3 +1,4 @@
+import type { ZoomPlaybackClock } from "../zoomPlayback";
 import {
   useEffect,
   useImperativeHandle,
@@ -44,6 +45,7 @@ type Props = {
   timeline: ReturnType<typeof useTimelineState>
   audio: ReturnType<typeof useVideoEditorAudio>
   effectiveZoomRegions: ZoomRegion[]
+  zoomPlayback?: ZoomPlaybackClock
   effectiveCursorTelemetry: CursorTelemetryPoint[]
   effectiveShowCursor: boolean
   setDuration: Dispatch<SetStateAction<number>>
@@ -74,6 +76,7 @@ export function EditorVideoPreview({
   timeline,
   audio,
   effectiveZoomRegions,
+  zoomPlayback,
   effectiveCursorTelemetry,
   effectiveShowCursor,
   setDuration,
@@ -200,6 +203,7 @@ export function EditorVideoPreview({
     >
       <VideoPlayback
         clipRegions={timeline.clipRegions}
+        zoomPlayback={zoomPlayback}
         key={`${videoPath || 'no-video'}:${previewVersion}:inline`}
         aspectRatio={aspectRatio}
         ref={playbackRef}

@@ -1,6 +1,7 @@
 import type { Span } from 'dnd-timeline'
 import { normalizeZoomCamera } from '../zoomCamera'
-import type { ZoomCameraSettings } from '../types'
+import { normalizeZoomRate } from '../zoomPlayback'
+import type { ZoomCameraPatch } from '../ZoomCameraControls'
 import { type Dispatch, type MutableRefObject, type SetStateAction, useCallback } from 'react'
 import {
   clampFocusToDepth,
@@ -199,12 +200,12 @@ export function useZoomRegionCommands({
     [selectedZoomId, setZoomRegions]
   )
   /**
-   * 一次发布当前变焦片段的连续倍率和镜头设置，沿既有历史与保存链生效。
-   * @param patch 用户本次修改的倍率或镜头字段。
+   * 一次发布当前变焦片段的参数，沿既有历史与保存链生效。
+   * @param patch 用户本次修改的倍率、倍速或镜头字段。
    * @returns 无返回值；没有选中片段时保持原状。
    */
   const handleZoomCameraChange = useCallback(
-    (patch: { scale?: number; camera?: Partial<ZoomCameraSettings> }) => {
+    (patch: ZoomCameraPatch) => {
       if (!selectedZoomId) return
       setZoomRegions((current) =>
         current.map((region) =>
@@ -213,6 +214,12 @@ export function useZoomRegionCommands({
                 ...region,
                 ...(patch.scale !== undefined
                   ? { scale: Math.min(5, Math.max(1, patch.scale)) }
+                  : {}),
+                ...(patch.playbackRate !== undefined
+                  ? { playbackRate: normalizeZoomRate(patch.playbackRate) }
+                  : {}),
+                ...(patch.animationRate !== undefined
+                  ? { animationRate: normalizeZoomRate(patch.animationRate) }
                   : {}),
                 ...(patch.camera
                   ? {

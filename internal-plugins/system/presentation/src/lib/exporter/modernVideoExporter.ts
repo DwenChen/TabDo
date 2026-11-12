@@ -548,13 +548,14 @@ export class ModernVideoExporter {
 					!useNativeEncoder &&
 					nativeAudioPlan.audioMode !== "none" &&
 					// The PCM/FFmpeg path preserves AAC priming; WebCodecs AAC can shift clip cuts.
-					(requiresClipTimelineRendering(this.config.clipRegions) ||
+					(requiresClipTimelineRendering(this.config.clipRegions, this.config.zoomPlayback) ||
 						shouldUsePitchPreservingFfmpegAudio ||
 						!(await isAacAudioEncodingSupported()));
 				const effectiveDuration = this.streamingDecoder.getEffectiveDuration(
 					this.config.trimRegions,
 					this.config.speedRegions,
 					this.config.clipRegions,
+					this.config.zoomPlayback,
 				);
 				this.effectiveDurationSec = effectiveDuration;
 				const totalFrames = Math.ceil(effectiveDuration * this.config.frameRate);
@@ -715,7 +716,9 @@ export class ModernVideoExporter {
 							sourceTimestampUs,
 							cursorTimestampUs,
 							frameDuration,
-							timestamp,
+							this.config.zoomPlayback
+								? this.config.zoomPlayback.toEditMs((timestamp) / 1000) * 1000
+								: timestamp,
 						);
 						this.renderFrameTimeMs += this.getNowMs() - renderStartedAt;
 
@@ -740,6 +743,7 @@ export class ModernVideoExporter {
 						this.reportProgress(frameIndex, totalFrames, "extracting");
 					},
 					this.config.clipRegions,
+					this.config.zoomPlayback,
 				);
 				this.decodeLoopTimeMs = this.getNowMs() - decodeLoopStartedAt;
 
@@ -824,7 +828,7 @@ export class ModernVideoExporter {
 						(this.config.audioRegions ?? []).length > 0 ||
 						(this.config.sourceAudioFallbackPaths ?? []).length > 0
 					) {
-						this.audioProcessor = new AudioProcessor();
+						this.audioProcessor = new AudioProcessor(this.config.zoomPlayback);
 						this.audioProcessor.setOnProgress((progress) => {
 							this.reportFinalizingProgress(totalFrames, 99, progress);
 						});
@@ -1490,7 +1494,7 @@ export class ModernVideoExporter {
 		}
 
 		if (
-			requiresClipTimelineRendering(this.config.clipRegions) ||
+			requiresClipTimelineRendering(this.config.clipRegions, this.config.zoomPlayback) ||
 			speedRegions.length > 0 ||
 			audioRegions.length > 0 ||
 			sourceAudioFallbackPaths.length > 1 ||
@@ -1517,7 +1521,7 @@ export class ModernVideoExporter {
 				Number.isFinite(primaryAudioSourceSampleRate) &&
 				primaryAudioSourceSampleRate > 0;
 			const requiresRenderedEditedTrack =
-				requiresClipTimelineRendering(this.config.clipRegions) ||
+				requiresClipTimelineRendering(this.config.clipRegions, this.config.zoomPlayback) ||
 				hasNonDefaultSourceTrackSettings(this.config.sourceAudioTrackSettings) ||
 				(this.config.clipRegions ?? []).some((clip) => Boolean(clip.muted));
 			const strategy =
@@ -1706,7 +1710,7 @@ export class ModernVideoExporter {
 	): string[] {
 		const reasons: string[] = [];
 		if ((this.config.backgroundBorderRadius ?? 0) > 0) reasons.push("rounded-background-requires-frame-rendering");
-		if (requiresClipTimelineRendering(this.config.clipRegions))
+		if (requiresClipTimelineRendering(this.config.clipRegions, this.config.zoomPlayback))
 			reasons.push("explicit-clip-timeline");
 		if (
 			typeof window === "undefined" ||
@@ -2148,7 +2152,7 @@ export class ModernVideoExporter {
 		onProgress: (progress: number) => void,
 		sourceAudioFallbackPaths = this.config.sourceAudioFallbackPaths,
 	) {
-		this.audioProcessor = new AudioProcessor();
+		this.audioProcessor = new AudioProcessor(this.config.zoomPlayback);
 		this.audioProcessor.setOnProgress(onProgress);
 		const audioBlob = await this.measureFinalizationStage("editedAudioRenderMs", async () =>
 			this.awaitWithFinalizationTimeout(

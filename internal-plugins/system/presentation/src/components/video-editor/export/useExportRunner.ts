@@ -1,3 +1,4 @@
+import { createZoomPlaybackClock } from "../zoomPlayback"
 import { useCallback, useRef } from 'react'
 import { toast } from '@presentation/components/ui/toast'
 import { getMp4ExportBitrate } from '@presentation/lib/exporter/exportBitrate'
@@ -58,6 +59,7 @@ export function useExportRunner(input: ExportRunnerInput) {
         } = inputRef.current
         const { shadowIntensity, padding } = appearance
         const { audioRegions, clipRegions, selectedClipId } = timeline
+        const zoomPlayback = createZoomPlaybackClock(effectiveZoomRegions, clipRegions)
         const {
           exportQuality,
           exportEncodingMode,
@@ -149,6 +151,7 @@ export function useExportRunner(input: ExportRunnerInput) {
                 timeline,
                 effectiveSpeedRegions,
                 effectiveZoomRegions,
+                zoomPlayback,
                 effectiveCursorTelemetry,
                 effectiveShowCursor,
                 previewWidth,
@@ -306,6 +309,7 @@ export function useExportRunner(input: ExportRunnerInput) {
                 timeline,
                 effectiveSpeedRegions,
                 effectiveZoomRegions,
+                zoomPlayback,
                 effectiveCursorTelemetry,
                 effectiveShowCursor,
                 previewWidth,
@@ -356,7 +360,16 @@ export function useExportRunner(input: ExportRunnerInput) {
               }
               const sidecarForThisExport =
                 settings.includeCaptionSidecar && captionSidecarPayload
-                  ? captionSidecarPayload
+                  ? {
+                      ...captionSidecarPayload,
+                      cues: zoomPlayback
+                        ? captionSidecarPayload.cues.map((cue) => ({
+                            ...cue,
+                            startMs: zoomPlayback.toOutputMs(cue.startMs),
+                            endMs: zoomPlayback.toOutputMs(cue.endMs)
+                          }))
+                        : captionSidecarPayload.cues
+                    }
                   : undefined
               markExportAsSaving()
 

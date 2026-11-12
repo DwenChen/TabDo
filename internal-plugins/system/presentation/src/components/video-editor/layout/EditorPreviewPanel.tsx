@@ -114,13 +114,20 @@ export function EditorPreviewPanel(props: Props) {
   } = props
 
   const previewControl = useRef<PreviewFullscreenHandle | null>(null)
+  const { zoomPlayback } = projection
   const transport: PreviewTransportState = {
-    currentTime: projection.timelinePlayheadTime,
-    duration: projection.timelineDuration,
+    currentTime: zoomPlayback
+      ? zoomPlayback.toOutputMs(projection.timelinePlayheadTime * 1000) / 1000
+      : projection.timelinePlayheadTime,
+    duration: zoomPlayback
+      ? zoomPlayback.toOutputMs(projection.timelineDuration * 1000) / 1000
+      : projection.timelineDuration,
     isPlaying,
     volume: previewVolume,
     disabled: !videoPath || !isPreviewReady,
-    onSeek: playback.handleTimelineSeek,
+    onSeek: zoomPlayback
+      ? (seconds) => playback.handleTimelineSeek(zoomPlayback.toEditMs(seconds * 1000) / 1000)
+      : playback.handleTimelineSeek,
     onTogglePlayback: playback.togglePlayPause,
     onSkipBack: playback.handlePreviewSkipBack,
     onSkipForward: playback.handlePreviewSkipForward,
@@ -203,6 +210,7 @@ export function EditorPreviewPanel(props: Props) {
                   timeline={timeline}
                   audio={audio}
                   effectiveZoomRegions={projection.effectiveZoomRegions}
+                  zoomPlayback={zoomPlayback}
                   effectiveCursorTelemetry={effectiveCursorTelemetry}
                   effectiveShowCursor={effectiveShowCursor}
                   setDuration={setDuration}

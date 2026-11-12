@@ -29,9 +29,6 @@ importers:
       chokidar:
         specifier: ^4.0.3
         version: 4.0.3
-      context-mode:
-        specifier: 2.1.6
-        version: 2.1.6
       electron-log:
         specifier: ^5.4.3
         version: 5.4.3
@@ -2535,11 +2532,6 @@ packages:
   content-type@2.1.0:
     resolution: {integrity: sha512-mj7UPXE0jaqaOsukNZRUEfEi2AcL7C/vwmwcHV0O97eO1E1pxBZuyjlZrx5seTaNBg1U6+o35wpa35Qfcc+7ag==}
     engines: {node: '>=18'}
-
-  context-mode@2.1.6:
-    resolution: {integrity: sha512-hOZmEKHUZfPlyT1hRWaKB0VP1RqQajD8Q5yuc3GF/FVLpJmtjdJBDi0j4RCzP/RcONS0xoqbhpFzqoOI5Et5Kw==}
-    engines: {node: '>=24.15.0'}
-    hasBin: true
 
   convert-source-map@2.0.0:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
@@ -7340,8 +7332,6 @@ snapshots:
   content-type@1.0.5: {}
 
   content-type@2.1.0: {}
-
-  context-mode@2.1.6: {}
 
   convert-source-map@2.0.0: {}
 

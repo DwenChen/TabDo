@@ -22,7 +22,7 @@ function imageMime(data: Buffer): string | undefined {
 
 /**
  * 为用户本轮明确提交的本地文件和匹配图片生成路径引用与受限图片内容。
- * @param files 用户选择或拖入的本地文件路径。
+ * @param files 用户匹配、选择或拖入的本地文件和文件夹路径。
  * @param supportsImages 当前提供商模型是否声明图片输入能力。
  * @param signal 本轮会话取消信号。
  * @param matchedImage 图片匹配入口提供的数据 URL。
@@ -66,8 +66,13 @@ export async function prepareCallAiAttachments(
       throw new Error('请选择有效的本地文件')
     const target = path.resolve(selected)
     await assertCallAiNoLinks(target)
-    const info = await fs.stat(target)
-    if (!info.isFile()) throw new Error(`附件必须是文件：${path.basename(target)}`)
+    // 文件夹仅传递路径，不枚举内容。读取内容仍由本轮工具处理。
+    const info = await fs.lstat(target).catch(() => undefined)
+    if (info?.isDirectory()) {
+      descriptions.push(JSON.stringify({ path: target, format: '文件夹路径' }))
+      continue
+    }
+    if (!info?.isFile()) throw new Error(`无法访问附件“${path.basename(target)}”，请重新选择。`)
     let format = '路径引用'
     if (imageExtensions.test(target)) {
       format = supportsImages

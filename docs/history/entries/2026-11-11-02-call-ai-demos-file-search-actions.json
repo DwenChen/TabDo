@@ -1,0 +1,27 @@
+{
+  "id": "call-ai-demos-file-search-actions",
+  "date": "2026-11-11",
+  "summary": "呼叫AI渲染公式与交互演示，文件搜索支持右键和批量复制",
+  "changes": [
+    "使用 KaTeX 解析聊天行内及块级公式，保留美元价格和代码内容；围栏代码按语言高亮并可直接复制。",
+    "新增 show_demo。折线图和柱状图支持图例、数值查看及 PNG 导出，SVG 可绘制框架、流程和原理图。演示控件通过隔离 Worker 更新文本或图表。",
+    "文件搜索结果菜单可打开、定位、复制文件或复制路径；底部可多选并一次复制到系统文件剪贴板。同步仓库教程和应用内教程。"
+  ],
+  "checks": [
+    "pnpm test：135 个测试文件，904 项通过，归档 .artifacts/runs/2026-11-11T07-54-04-112Z-unit。",
+    "pnpm typecheck 通过。",
+    "呼叫AI源码 Electron 回归通过（.artifacts/runs/2026-11-11T08-00-45-513Z-e2e）。验证 TeX、代码复制、可调折线、SVG 原理图和实际写入 PNG。",
+    "首次回归发现二进制类型被通用 IPC 克隆器转换为普通对象；改为经 IPC 传递有界 PNG 字符串后复验导出。",
+    "文件搜索回归初次在查询防抖结束前操作了旧结果；已调整用例等待新查询。在和构建并行的一次冷启动中，宿主在初始等待内未列出内置插件，另行复验。",
+    "pnpm build、pnpm build:tools、pnpm docs:check 和回归清单检查通过。",
+    "文件搜索独立源码 Electron 回归通过（.artifacts/runs/2026-11-11T08-09-26-652Z-e2e）。验证菜单、实际文本和文件剪贴板、两项批量复制；打开和定位使用系统调用替身。",
+    "文件搜索独立用例复用宿主聚焦并等待首次源码加载；已有工具综合用例在独立文件搜索覆盖后未再重跑。",
+    "pnpm preview:sync 已更新 .local/portable-preview（1.5.3）；200 个原有资料文件逐项一致，保留配置与插件。收据 .artifacts/backups/preview-sync/update-1794384589041/preservation.json。",
+    "pnpm test:preview:resources 通过：2138 个程序文件、354 个内置插件资源、11842 个运行依赖文件。",
+    "清理本轮已消费的暂存和被替代的旧程序回退，共 29951 个文件、1382734413 字节；保留最新 previous-resources、保留收据及独有测试证据。既有工具链、下载和参考资料不属于本轮暂存。审计 .artifacts/cleanup-2026-11-11/ai-demo-finder-preview-program-cleanup.json。",
+    "pnpm maintain、pnpm maintain:check、pnpm docs:check 和 git diff --check 通过。"
+  ],
+  "pending": [
+    "真实模型生成的复杂图示和交互讲解、实际默认应用打开和资源管理器粘贴保留手动验收。"
+  ]
+}

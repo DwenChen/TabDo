@@ -1,0 +1,20 @@
+{
+  "id": "file-search-drag-hover",
+  "date": "2026-11-12",
+  "summary": "文件搜索支持拖出文件，右键菜单项恢复强调色",
+  "changes": [
+    "文件搜索结果复用宿主原生文件拖放入口。拖动普通行传递该项，拖动已勾选行传递全部勾选项。",
+    "右键菜单的鼠标悬停与键盘焦点使用主题浅强调底色，保留不透明弹层。"
+  ],
+  "checks": [
+    "源码 Electron 文件搜索专项通过，使用真实指针手势核对单项、多选和未勾选行经宿主拖放接口传递的文件路径，并回归右键、键盘及实际文件剪贴板。归档 .artifacts/runs/2026-11-12T03-28-08-239Z-e2e。",
+    "打开 file-search-menu-light.png 和 file-search-menu-dark.png，确认悬停项有主题色背景，文字清晰且弹层不透出正文；方向键焦点也有强调底色。核对 file-search-results.png 中结果行和批量复制反馈。",
+    "pnpm docs:check、回归分组清单和差异检查通过。",
+    "pnpm build、pnpm preview:sync 与 pnpm test:preview:resources 通过。255 个既有资料、配置和插件文件前后一致，核验 2138 个程序文件、353 个内置插件文件和 11842 个运行依赖文件。收据 .artifacts/backups/preview-sync/update-1794454252409/preservation.json。",
+    "清理已消费的程序暂存和被替代的程序回退，共 29913 个文件、1376606401 字节。保留最新程序回退与历次保留收据。审计 .artifacts/cleanup-2026-11-12/file-search-drag-hover-program-cleanup.json。",
+    "同步收尾执行 pnpm maintain、pnpm maintain:check、pnpm docs:check 和 git diff --check。"
+  ],
+  "pending": [
+    "源码专项在 Electron 原生拖放入口记录实际文件路径，系统资源管理器接收并落盘留待人工复测。"
+  ]
+}

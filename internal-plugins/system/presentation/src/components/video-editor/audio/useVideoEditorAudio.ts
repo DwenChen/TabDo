@@ -1,3 +1,4 @@
+import type { ZoomPlaybackClock } from "../zoomPlayback";
 import React, { useMemo } from "react";
 import type { SourceAudioTrackSettings } from "@presentation/components/video-editor/audio/audioTypes";
 import { resolveSourceTrackRoutingPolicy } from "@presentation/lib/exporter/sourceTrackRoutingPolicy";
@@ -28,6 +29,7 @@ interface UseVideoEditorAudioParams {
 	selectedClipId: string | null;
 	clipRegions: ClipRegion[];
 	audioRegions: AudioRegion[];
+	zoomPlayback?: ZoomPlaybackClock;
 	sourceAudioTrackSettingsByClip: Record<string, SourceAudioTrackSettings>;
 	setSourceAudioTrackSettingsByClip: React.Dispatch<
 		React.SetStateAction<Record<string, SourceAudioTrackSettings>>
@@ -56,6 +58,7 @@ export function useVideoEditorAudio({
 	selectedClipId,
 	clipRegions,
 	audioRegions,
+	zoomPlayback,
 	sourceAudioTrackSettingsByClip,
 	setSourceAudioTrackSettingsByClip,
 	defaultSourceAudioTrackSettings,
@@ -119,12 +122,14 @@ export function useVideoEditorAudio({
 
 	const { playSourceAudioPreview, syncPreviewFrame } = useAudioPreviewSync({
 		audioRegions,
+		zoomPlayback,
 		previewVolume,
 		isPlaying,
 		currentTime,
 		timelineTime,
 		duration,
-		sourcePlaybackRate: findClipAtTimelineTime(timelineTime * 1000, clipRegions)?.speed ?? 1,
+		sourcePlaybackRate: (findClipAtTimelineTime(timelineTime * 1000, clipRegions)?.speed ?? 1) *
+			(zoomPlayback?.rateAt(timelineTime * 1000) ?? 1),
 		previewSourceAudioFallbackPaths,
 		sourceAudioFallbackStartDelayMsByPath,
 		sourceAudioResourceVersion: sourceAudioFallbackRefreshKey,

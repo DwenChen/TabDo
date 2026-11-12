@@ -24,10 +24,15 @@ export function findPreviewClipAtTimelineTime(
 	return last && Math.abs(timeMs - last.endMs) < 1e-7 ? last : null;
 }
 
-/** Timeline time advances at 1x; only the source media uses the clip's speed. */
+/**
+ * Drive edit positions from the media clock, applying video speed without seeking at zoom bounds.
+ * @param options Source media, edited clips, zoom speed, and transport callbacks.
+ * @returns Playback controller for the current media element.
+ */
 export function createClipPlayback({
 	video,
 	getClips,
+	getZoomRate,
 	onTime,
 	onPlaying,
 	onError,
@@ -35,6 +40,7 @@ export function createClipPlayback({
 }: {
 	video: HTMLVideoElement;
 	getClips: () => ClipRegion[];
+	getZoomRate?: (timeMs: number) => number;
 	onTime: (timelineSeconds: number, sourceSeconds: number | null) => void;
 	onPlaying: (playing: boolean) => void;
 	onError: (error: unknown) => void;
@@ -93,7 +99,9 @@ export function createClipPlayback({
 		if (clip && sourceMs !== null) {
 			enablePitchPreservingPlayback(video);
 			try {
-				video.playbackRate = clip.speed;
+				// The source-to-edit coordinate mapping still uses the clip's own speed.
+				const rate = clip.speed * (getZoomRate?.(timeMs) ?? 1);
+				if (video.playbackRate !== rate) video.playbackRate = rate;
 			} catch (error) {
 				pause();
 				onError(error);

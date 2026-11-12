@@ -1,0 +1,24 @@
+{
+  "id": "call-ai-settings-chat-and-bocha",
+  "date": "2026-11-11",
+  "summary": "精简呼叫AI运行能力并优化设置、附件和失败恢复",
+  "changes": [
+    "移除内置 context-mode 的运行接入、依赖和包资源。保留原生工具与用户手动引用的第三方 MCP。",
+    "网页搜索增加博查，复用固定 HTTPS 端点请求入口并分别加密保存两家密钥。全局规则按条目维护，旧文本作为一条保留。取消设置保存后残留的成功状态栏。",
+    "匹配文件与拖放共用附件准备，视觉模型接收受限图片字节，文件夹仅传递路径。附件、网页链接与产物使用强调色和完整地址提示。 根据用户反馈去除下划线，保留强调色、图标和完整地址提示。",
+    "移除聊天欢迎页说明，模型失败显示在本轮助手条目并提供用户提示词回填。失败轮次不进入下一轮模型上下文。"
+  ],
+  "checks": [
+    "pnpm test 通过，135 个文件共 904 项，归档 .artifacts/runs/2026-11-10T16-02-01-206Z-unit。",
+    "最终 pnpm test:e2e tests/e2e/call-ai.spec.ts 通过，归档 .artifacts/runs/2026-11-10T16-02-41-605Z-e2e。覆盖规则条目、密钥切换、保存提示、失败回填、匹配图片内联、目录拖放和无下划线链接。",
+    "初次 E2E 暴露规则取消模板表达式解析、测试定位重名及失败流事件交付时序问题，均在最终 E2E 复验通过。",
+    "pnpm build 通过，构建日志 .artifacts/diagnostics/2026-11-10-call-ai-settings-chat-and-bocha/build-final.log。",
+    "pnpm build:tools 重编译去下划线后的样式，日志 .artifacts/diagnostics/2026-11-10-call-ai-settings-chat-and-bocha/build-tools-links.log。",
+    "pnpm preview:sync 更新 .local/portable-preview，保留收据确认 194 个资料文件一致。pnpm test:preview:resources 通过，核验 2138 个程序文件、352 个内置文件和 11842 个运行依赖文件。当前 ASAR 与展开目录均已移除 context-mode。收据 .artifacts/backups/preview-sync/update-1794326621871/preservation.json。",
+    "回收本轮已消费的程序暂存和上一轮纯程序回退，共 29951 个文件、1382726860 字节。保留最新 previous-resources 及历次保留收据。审计 .artifacts/cleanup-2026-11-11/call-ai-preview-program-cleanup.json。同步前 .artifacts 约 6256 MiB，保留既有测试原件约 2699 MiB、在用工具链 1213 MiB、既有下载 570 MiB 和上游参考 181 MiB。",
+    "pnpm docs:check、pnpm test:regressions call-ai --list、pnpm maintain、pnpm maintain:check 与 git diff --check 通过。"
+  ],
+  "pending": [
+    "真实博查账号的检索及文件默认关联软件留待手动验收。"
+  ]
+}

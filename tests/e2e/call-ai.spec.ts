@@ -25,7 +25,7 @@ async function capturePlugin(app: ElectronApplication, url: string, file: string
   await fs.writeFile(file, Buffer.from(screenshot, 'base64'))
 }
 
-test('呼叫AI使用提供商、内置context-mode、审批和提问，关闭后清理并保留产物', async ({
+test('呼叫AI使用提供商、内置解释器、审批和提问，关闭后清理并保留产物', async ({
   browserName: _browserName
 }, testInfo) => {
   test.setTimeout(180_000)
@@ -127,11 +127,27 @@ test('呼叫AI使用提供商、内置context-mode、审批和提问，关闭后
     ).toHaveCount(2)
     await settings.getByLabel('结果产物默认位置').fill(path.join(temporary, 'outputs'))
     await settings.getByLabel('结果产物默认位置').press('Enter')
-    await expect(settings.getByText('产物位置已更新', { exact: true })).toBeVisible()
+    await expect
+      .poll(() =>
+        settings.evaluate(
+          async () => (await window.tabdo.internal.callAi('state')).settings.outputDirectory
+        )
+      )
+      .toBe(path.join(temporary, 'outputs'))
     await settings.getByText('全局规则', { exact: true }).click()
-    await settings.getByLabel('呼叫AI全局规则').fill('测试规则：所有产物保持 UTF-8')
-    await settings.getByLabel('呼叫AI全局规则').blur()
-    await expect(settings.getByText('全局规则已更新', { exact: true })).toBeVisible()
+    for (const rule of ['测试规则：所有产物保持 UTF-8', '第二条规则']) {
+      await settings.getByRole('button', { name: '添加规则', exact: true }).click()
+      await settings.getByLabel('添加规则', { exact: true }).fill(rule)
+      await settings.getByRole('button', { name: '保存规则' }).click()
+      await expect(settings.locator('.rule-list')).toContainText(rule)
+    }
+    await settings.getByRole('button', { name: '编辑规则 2' }).click()
+    await settings.getByRole('textbox', { name: '编辑规则 2', exact: true }).fill('第二条已编辑')
+    await settings.getByRole('button', { name: '保存规则' }).click()
+    await expect(settings.locator('.rule-list')).toContainText('第二条已编辑')
+    await settings.getByRole('button', { name: '删除规则 2' }).click()
+    await expect(settings.locator('.rule-list li')).toHaveCount(1)
+    await expect(settings.locator('.notice')).toHaveCount(0)
     const mcpServer = path.join(temporary, 'manual-mcp.cjs')
     const manualStarted = path.join(temporary, 'manual-started.txt')
     const inspectionPid = path.join(temporary, 'mcp-inspection-pid.txt')
@@ -252,6 +268,17 @@ test('呼叫AI使用提供商、内置context-mode、审批和提问，关闭后
     await settings.getByLabel('Brave Search API 密钥').fill('fixture-search-key')
     await settings.getByLabel('Brave Search API 密钥').blur()
     await expect(settings.getByRole('button', { name: '移除密钥' })).toBeVisible()
+    const searchProvider = settings.getByLabel('搜索服务')
+    await searchProvider.selectOption('bocha')
+    await settings.getByLabel('博查搜索 API 密钥').fill('fixture-bocha-key')
+    await settings.getByLabel('博查搜索 API 密钥').blur()
+    await expect(settings.getByRole('button', { name: '移除密钥' })).toBeVisible()
+    await searchProvider.selectOption('brave')
+    await expect(settings.getByLabel('Brave Search API 密钥')).toHaveAttribute(
+      'placeholder',
+      '已配置，输入可替换'
+    )
+    await expect(settings.locator('.notice')).toHaveCount(0)
     const desktop = path.join(temporary, '测试桌面')
     const picture = path.join(temporary, '附件图片.png')
     const draggedFile = path.join(temporary, '拖入的资料.txt')
@@ -364,6 +391,62 @@ test('呼叫AI使用提供商、内置context-mode、审批和提问，关闭后
               ],
               finishReason: 'tool_calls'
             })
+            if (task === '验证长回复结束后滚动') {
+              const formula = String.raw`\(\frac{\sqrt{x^2+1}+\sum_{i=1}^n i}{\left(1+\alpha\right)^2}\)`
+              const paragraph = '长回复中的公式 ' + formula + '\n\n'
+              const first =
+                '长回复前段已到达\n\n' +
+                paragraph.repeat(320) +
+                '~~~javascript\nconst live = true\n~~~\n\n~~~python\nprint("接收中")'
+              const suffix = [
+                '~~~javascript\nconst complete = true\n~~~',
+                '公式异常时保留该式 ' + String.raw`\(\notARealCommand{x}\)` + ' 的源码。',
+                '末尾的行内式 ' + String.raw`\(e^{-2\pi i k n/N}\)` + ' 继续排版。',
+                String.raw`\[\boxed{F[k]=\sum_{n=0}^{N-1}f[n]e^{-2\pi i kn/N}}\]`,
+                '| 量 | 定义 |\n| --- | --- |\n| 幅度 | ' +
+                  String.raw`\(\lvert F[k]\rvert\)` +
+                  ' |',
+                '长回复尾段已到达'
+              ].join('\n\n')
+              const last = '\n~~~\n\n' + paragraph.repeat(280) + suffix
+              // 等测试滚动到旧内容后释放最后一批正文。
+              const finish = new Promise<void>((resolve) => {
+                ;(globalThis as any).__finishLongCallAiReply = resolve
+              })
+              delta({ content: first })
+              await finish
+              delta({ content: last })
+              return { content: first + last, toolCalls: [], finishReason: 'stop' }
+            }
+            if (task === '验证同一条回复内的图示、代码和 HTML') {
+              const stillRegistered = input.tools.some(
+                ({ function: entry }) => entry.name === 'show_demo'
+              )
+              const content = stillRegistered
+                ? '旧演示工具仍在注册'
+                : [
+                    '## 放大器信号路径',
+                    '~~~svg\n<svg viewBox="0 0 560 112" xmlns="http://www.w3.org/2000/svg">' +
+                      '<title>放大器原理图</title><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#3375bc"/></marker></defs>' +
+                      '<rect x="18" y="22" width="135" height="60" rx="8" fill="#dbeafe"/><text x="86" y="57" text-anchor="middle" fill="#14283e">输入级</text>' +
+                      '<path d="M 157 52 H 210" fill="none" stroke="#3375bc" stroke-width="2" marker-end="url(#arrow)"/><path d="M 350 52 H 403" fill="none" stroke="#3375bc" stroke-width="2" marker-end="url(#arrow)"/>' +
+                      '<rect x="213" y="22" width="135" height="60" rx="8" fill="#d1fae5"/><text x="280" y="57" text-anchor="middle" fill="#164538">放大级</text>' +
+                      '<rect x="406" y="22" width="135" height="60" rx="8" fill="#e0e7ff"/><text x="474" y="57" text-anchor="middle" fill="#28275b">输出级</text>' +
+                      '<foreignObject><div>不可嵌入</div></foreignObject></svg>\n~~~',
+                    '~~~javascript\nconst rendered = "<img>";\n~~~',
+                    '~~~html\n<section><p><strong>观察</strong>：输入经放大后送到输出端。</p><img src="http://127.0.0.1:1/hidden" onerror="window.__unsafeMarkup = true"><script>window.__unsafeMarkup = true</script></section>\n~~~',
+                    String.raw`行内公式 \(E=mc^2\)，美元价格 $5 和 $10。`,
+                    String.raw`\[\frac{a+b}{2}\]`,
+                    '同一条回复结束。'
+                  ].join('\n\n')
+              delta({ content })
+              return { content, toolCalls: [], finishReason: 'stop' }
+            }
+            if (task === '验证 HTML 回复翻页到底') {
+              const content = '<section><p>仅 HTML 回复的末段</p></section>' + '\n'.repeat(2500)
+              delta({ content })
+              return { content, toolCalls: [], finishReason: 'stop' }
+            }
             if (task === '验证网页检索恢复') {
               const search = tool('web_search', { query: '网页检索夹具' })
               if (!replies.length) {
@@ -379,6 +462,19 @@ test('呼叫AI使用提供商、内置context-mode、审批和提问，关闭后
                 replies[2].content.includes('夹具摘要') &&
                 replies[3].content.includes('夹具正文')
               const content = recovered ? '检索已恢复并完成超过四十次往返' : '检索夹具失败'
+              delta({ content })
+              return { content, toolCalls: [], finishReason: 'stop' }
+            }
+            if (task === '验证请求失败 https://example.com/path') {
+              delta({ reasoningContent: '准备处理请求' })
+              throw Object.assign(new Error('PRIVATE_PROVIDER_BODY'), { status: 429 })
+            }
+            if (JSON.stringify(task).includes('验证文件匹配及文件夹')) {
+              const sent = JSON.stringify(task)
+              const content =
+                sent.includes('data:image/png;base64,') && sent.includes('文件夹路径')
+                  ? '已收到内联图片与文件夹路径'
+                  : '图片或文件夹未提交'
               delta({ content })
               return { content, toolCalls: [], finishReason: 'stop' }
             }
@@ -417,9 +513,9 @@ test('呼叫AI使用提供商、内置context-mode、审批和提问，关闭后
             if (turn <= 3) delta({ reasoningContent: `第 ${turn} 轮思考` })
             if (turn === 2) delta({ content: ' \n ' })
             if (turn === 1)
-              return tool('ctx_execute', {
-                language: 'javascript',
-                code: 'console.log("context-mode-real-execution")'
+              return tool('run_code', {
+                language: 'node',
+                code: 'console.log("native-script-execution")'
               })
             if (turn === 2)
               return tool('ask_user', { question: '结果需要什么格式？', options: ['文本', '表格'] })
@@ -427,8 +523,20 @@ test('呼叫AI使用提供商、内置context-mode、审批和提问，关闭后
               return tool('write_file', { path: '结果.txt', content: '一次性结果产物' })
             if (turn === 4) {
               delta({
-                content:
-                  '**任务已完成**\n\n|项目|状态|\n|---|---|\n|产物|已保存|\n[外部文件](file:///C:/unregistered.txt)\n<script>window.__unsafe=1</script>'
+                content: [
+                  '**任务已完成**',
+                  '',
+                  '这是一套**《示例图鉴》（Demo）工具包**（预览版）。',
+                  '',
+                  '`一套**《示例图鉴》工具包**`',
+                  '',
+                  '|项目|状态|',
+                  '|---|---|',
+                  '|产物|已保存|',
+                  '[来源链接](https://example.com/full-path)',
+                  '[外部文件](file:///C:/unregistered.txt)',
+                  '<script>window.__unsafe=1</script>'
+                ].join('\n')
               })
               return { content: '任务已完成', toolCalls: [], finishReason: 'stop' }
             }
@@ -582,14 +690,18 @@ test('呼叫AI使用提供商、内置context-mode、审批和提问，关闭后
         return false
       })
       .toBe(true)
-    await expect(chatTitlebar!.getByRole('button', { name: '临时常驻', exact: true })).toHaveCount(0)
+    await expect(chatTitlebar!.getByRole('button', { name: '临时常驻', exact: true })).toHaveCount(
+      0
+    )
     await expect(chatTitlebar!.getByTitle('开发者工具', { exact: true })).toHaveCount(0)
     await page.getByLabel('任务输入').fill('最小化时保留的草稿')
     await app.evaluate(({ app }) => {
       const detached = process.mainModule!.require(
         app.getAppPath() + '/src/main/core/detachedWindowManager.ts'
       ).default
-      const chat = detached.getAllWindows().find((entry: any) => entry.toolFeatureCode === 'call-ai')
+      const chat = detached
+        .getAllWindows()
+        .find((entry: any) => entry.toolFeatureCode === 'call-ai')
       chat.window.minimize()
       chat.window.restore()
     })
@@ -635,10 +747,11 @@ test('呼叫AI使用提供商、内置context-mode、审批和提问，关闭后
         )
     }
     await expect(page.getByText('Enter 发送', { exact: false })).toHaveCount(0)
+    await expect(page.getByText('可以处理文件、编写代码', { exact: false })).toHaveCount(0)
     await capturePlugin(app, 'http://127.0.0.1:15178', testInfo.outputPath('call-ai-initial.png'))
-    await page.getByLabel('任务输入').fill('测试 context-mode、向用户提问、保存结果')
+    await page.getByLabel('任务输入').fill('测试脚本、向用户提问、保存结果')
     await page.getByRole('button', { name: '发送' }).click()
-    await expect(page.getByText('请求批准 · ctx_execute', { exact: true })).toBeVisible({
+    await expect(page.getByText('请求批准 · run_code', { exact: true })).toBeVisible({
       timeout: 40_000
     })
     const approval = page.getByLabel('请求批准操作')
@@ -661,6 +774,12 @@ test('呼叫AI使用提供商、内置context-mode、审批和提问，关闭后
     await reasoning.locator('summary').click()
     await page.getByRole('button', { name: '批准本次操作' }).click()
     await expect(page.getByText('任务已完成', { exact: true })).toBeVisible()
+    await expect(
+      page.locator('.markdown strong').filter({ hasText: '《示例图鉴》（Demo）工具包' })
+    ).toBeVisible()
+    await expect(
+      page.locator('.markdown code').filter({ hasText: '一套**《示例图鉴》工具包**' })
+    ).toBeVisible()
     await expect(page.getByRole('button', { name: '发送' })).toBeVisible()
     const bubble = (await page.locator('.message.user .plain').boundingBox())!
     const assistant = (await page.locator('.message.assistant').last().boundingBox())!
@@ -685,19 +804,17 @@ test('呼叫AI使用提供商、内置context-mode、审批和提问，关闭后
     })
     expect(evidence.resident).toBe(false)
     expect(evidence.tools).toEqual(
-      expect.arrayContaining([
-        'ctx_execute',
-        'ctx_index',
-        'ctx_search',
-        'install_skill',
-        'install_mcp',
-        'configure_mcp'
-      ])
+      expect.arrayContaining(['run_code', 'install_skill', 'install_mcp', 'configure_mcp'])
     )
-    expect(evidence.tools).not.toContain('ctx_resume')
+    expect(evidence.tools.some((name: string) => name.startsWith('ctx_'))).toBe(false)
     expect(evidence.tools).not.toContain('web_search')
     expect(evidence.tools).not.toContain('web_fetch')
-    expect(JSON.stringify(evidence.messages)).toContain('context-mode-real-execution')
+    const execution = evidence.messages.find((message: { role: string }) => message.role === 'tool')
+    expect(execution?.content.trim()).toBe('native-script-execution')
+    const sourceLink = page.getByRole('link', { name: '来源链接' })
+    await expect(sourceLink).toHaveCSS('text-decoration-line', 'none')
+    await sourceLink.hover()
+    await expect(page.locator('.link-hint')).toHaveText('https://example.com/full-path')
     expect(JSON.stringify(evidence.messages)).toContain('测试规则')
     expect(JSON.stringify(evidence.messages)).toContain('mcp-packages')
     expect(JSON.stringify(evidence.messages)).not.toContain('SKILL_MANUAL_ONLY_SENTINEL')
@@ -707,7 +824,8 @@ test('呼叫AI使用提供商、内置context-mode、审批和提问，关闭后
     const artifact = path.join(temporary, 'outputs', directories[0], '结果.txt')
     expect(await fs.readFile(artifact, 'utf8')).toBe('一次性结果产物')
     const artifactLink = page.getByRole('link', { name: '结果.txt', exact: true })
-    await expect(artifactLink).toHaveAttribute('title', artifact)
+    await expect(artifactLink).toHaveAttribute('data-link-target', artifact)
+    await expect(artifactLink).toHaveCSS('text-decoration-line', 'none')
     await artifactLink.focus()
     await artifactLink.press('Enter')
     const reveal = page.getByRole('button', { name: '在文件夹中显示 结果.txt', exact: true })
@@ -788,7 +906,7 @@ test('呼叫AI使用提供商、内置context-mode、审批和提问，关闭后
     await settings.getByRole('switch', { name: '启用 对话Skill' }).click()
     await expect(page.getByRole('button', { name: '对话Skill Skill', exact: true })).toHaveCount(0)
     await page.getByLabel('选择附件文件').setInputFiles(picture)
-    await expect(page.getByRole('button', { name: '附件图片.png ×' })).toBeVisible()
+    await expect(page.getByRole('link', { name: '附件图片.png' })).toBeVisible()
     await page.evaluate(() => {
       const input = document.createElement('input')
       input.type = 'file'
@@ -807,7 +925,7 @@ test('呼叫AI使用提供商、内置context-mode、审批和提问，关闭后
       target.dispatchEvent(new DragEvent('drop', { dataTransfer, bubbles: true, cancelable: true }))
       source.remove()
     })
-    await expect(page.getByRole('button', { name: '拖入的资料.txt ×' })).toBeVisible()
+    await expect(page.getByRole('link', { name: '拖入的资料.txt' })).toBeVisible()
     await page
       .getByRole('combobox', { name: 'AI模型' })
       .selectOption({ label: 'DeepSeek - deepseek-flash' })
@@ -825,7 +943,7 @@ test('呼叫AI使用提供商、内置context-mode、审批和提问，关闭后
       expect((await fs.stat(path.join(desktop, `测试${index}.txt`))).size).toBe(0)
       await expect(
         page.getByRole('link', { name: `测试${index}.txt`, exact: true })
-      ).toHaveAttribute('title', path.join(desktop, `测试${index}.txt`))
+      ).toHaveAttribute('data-link-target', path.join(desktop, `测试${index}.txt`))
     }
     expect(await fs.readFile(path.join(desktop, '原有文件.txt'), 'utf8')).toBe('keep')
     const sent = await app.evaluate(() => (globalThis as any).__callAiPrompts[10])
@@ -902,7 +1020,10 @@ test('呼叫AI使用提供商、内置context-mode、审批和提问，关闭后
         for (const item of this.items) item.click()
       }
     }, evidence.owner)
-    const resultText = page.getByText('检索已恢复并完成超过四十次往返', { exact: true })
+    // 等正文排版完成，再建立原生右键菜单要读取的选区。
+    const resultText = page
+      .locator('.markdown:not(.reply-plain)')
+      .getByText('检索已恢复并完成超过四十次往返', { exact: true })
     await resultText.evaluate((element) => {
       const selection = window.getSelection()!
       selection.selectAllChildren(element)
@@ -987,10 +1108,7 @@ test('呼叫AI使用提供商、内置context-mode、审批和提问，关闭后
         }),
       plugin
     )
-    await expect(reopened.locator('.attachments button')).toHaveAttribute(
-      'title',
-      'SELECTED_TEXT_SENTINEL'
-    )
+    await expect(reopened.getByRole('button', { name: '移除选中文本' })).toBeVisible()
     await main.evaluate(
       ({ plugin, file }) =>
         window.tabdo.launch({
@@ -1002,7 +1120,10 @@ test('呼叫AI使用提供商、内置context-mode、审批和提问，关闭后
         }),
       { plugin, file: artifact }
     )
-    await expect(reopened.locator('.attachments button')).toHaveAttribute('title', artifact)
+    await expect(reopened.getByRole('link', { name: '结果.txt' })).toHaveAttribute(
+      'data-link-target',
+      artifact
+    )
     await main.evaluate(
       ({ plugin, folder }) =>
         window.tabdo.launch({
@@ -1017,7 +1138,10 @@ test('呼叫AI使用提供商、内置context-mode、审批和提问，关闭后
         }),
       { plugin, folder: temporary }
     )
-    await expect(reopened.locator('.attachments button')).toHaveAttribute('title', temporary)
+    await expect(reopened.getByRole('link', { name: '窗口所在路径' })).toHaveAttribute(
+      'data-link-target',
+      temporary
+    )
     await expect(reopened.locator('.message')).toHaveCount(0)
     const clipboardContent = {
       type: 'image',
@@ -1039,12 +1163,31 @@ test('呼叫AI使用提供商、内置context-mode、审批和提问，关闭后
       { url: main.url(), clipboardContent }
     )
     expect(matchedType).toBe('img')
-    await expect(reopened.getByRole('button', { name: '选中图片 ×' })).toBeVisible()
+    await expect(reopened.getByRole('button', { name: '移除选中图片' })).toBeVisible()
     await expect(reopened.locator('.message')).toHaveCount(0)
     await reopened.getByRole('button', { name: '发送' }).click()
     await expect(reopened.getByText('已收到匹配图片', { exact: true })).toBeVisible()
     await expect(reopened.locator('.message.user')).toContainText('选中图片')
     await expect(reopened.locator('.message.user')).not.toContainText('data:image')
+    const retryText = '验证请求失败 https://example.com/path'
+    await reopened.getByLabel('任务输入').fill(retryText)
+    await expect(reopened.locator('.draft-attachments').getByRole('link')).toHaveAttribute(
+      'href',
+      'https://example.com/path'
+    )
+    await reopened.getByRole('button', { name: '发送' }).click()
+    const failed = reopened.locator('.assistant').filter({ hasText: '本轮未完成' })
+    await expect(failed.getByRole('alert')).toContainText('模型服务达到频率或额度限制')
+    await expect(failed.getByText('思考过程')).toBeVisible()
+    await expect(reopened.getByText('PRIVATE_PROVIDER_BODY')).toHaveCount(0)
+    const retryButton = reopened.getByRole('button', { name: '重试此消息' })
+    await retryButton.click()
+    await expect(reopened.getByLabel('任务输入')).toHaveValue(retryText)
+    await expect(failed).toHaveCount(1)
+    await expect(reopened.locator('.message.user').getByRole('link')).toHaveAttribute(
+      'href',
+      'https://example.com/path'
+    )
     await reopened.getByLabel('任务输入').fill('验证类似命令未跨窗口')
     await reopened.getByRole('button', { name: '发送' }).click()
     const newApproval = reopened.getByLabel('请求批准操作')
@@ -1095,6 +1238,169 @@ test('呼叫AI使用提供商、内置context-mode、审批和提问，关闭后
     await expect(restored.getByRole('switch', { name: '网页搜索' })).toHaveAttribute(
       'aria-checked',
       'false'
+    )
+    // 匹配入口提交磁盘图片，并将实际目录作为本地文件投放。
+    await main.evaluate(
+      ({ plugin, picture }) =>
+        window.tabdo.launch({
+          path: plugin.path,
+          type: 'plugin',
+          featureCode: 'call-ai',
+          cmdType: 'files',
+          param: { type: 'files', payload: [{ path: picture, name: '附件图片.png' }] }
+        }),
+      { plugin, picture }
+    )
+    await expect(
+      restored.locator('.draft-attachments').getByRole('link', { name: '附件图片.png' })
+    ).toBeVisible()
+    const folder = path.join(temporary, '附件目录')
+    await fs.mkdir(folder)
+    const cdp = await restored.context().newCDPSession(restored)
+    const drag = { x: 50, y: 60, data: { items: [], files: [folder], dragOperationsMask: 1 } }
+    await cdp.send('Input.dispatchDragEvent', { type: 'dragEnter', ...drag })
+    await cdp.send('Input.dispatchDragEvent', { type: 'drop', ...drag })
+    await cdp.detach()
+    await expect(restored.getByRole('link', { name: '附件目录' })).toHaveAttribute(
+      'data-link-target',
+      folder
+    )
+    await restored.getByLabel('任务输入').fill('验证文件匹配及文件夹')
+    await restored.getByRole('button', { name: '发送' }).click()
+    await expect(restored.getByText('已收到内联图片与文件夹路径', { exact: true })).toBeVisible()
+    const svgPath = path.join(temporary, '放大器原理图.svg')
+    await app.evaluate(({ dialog }, filePath) => {
+      dialog.showSaveDialog = async () => ({ canceled: false, filePath })
+    }, svgPath)
+    await restored.getByLabel('任务输入').fill('验证同一条回复内的图示、代码和 HTML')
+    await restored.getByRole('button', { name: '发送' }).click()
+    const mixed = restored.locator('.message.assistant').filter({ hasText: '放大器信号路径' })
+    await expect(mixed).toHaveCount(1)
+    const diagram = mixed.getByRole('img', { name: '放大器原理图' })
+    await expect(diagram).toContainText('放大级')
+    await expect(diagram.locator('path[marker-end]').first()).toHaveAttribute(
+      'marker-end',
+      /url\(#reply-svg-/
+    )
+    await expect(mixed.locator('.reply-html')).toContainText('输入经放大后送到输出端。')
+    await expect(mixed.locator('foreignObject, script, [onerror], img')).toHaveCount(0)
+    expect(await restored.evaluate(() => (window as any).__unsafeMarkup)).toBeUndefined()
+    await expect(mixed.locator('.math-inline .katex')).toHaveCount(1)
+    await expect(mixed.locator('.math-display .katex')).toHaveCount(1)
+    await expect(mixed).toContainText('美元价格 $5 和 $10')
+    await expect(mixed.locator('.reply-code .hljs-keyword')).toHaveText('const')
+    expect(
+      await mixed
+        .locator('.markdown')
+        .evaluate((node) =>
+          [...node.querySelectorAll('.reply-diagram, .reply-code, .reply-html')].map(
+            (item) => item.className
+          )
+        )
+    ).toEqual(['reply-diagram', 'reply-code', 'reply-html'])
+    await mixed.getByRole('button', { name: '复制代码' }).click()
+    await expect
+      .poll(() => app.evaluate(({ clipboard }) => clipboard.readText()))
+      .toBe('const rendered = "<img>";')
+    await mixed.getByRole('button', { name: '导出 SVG' }).click()
+    await expect(mixed.getByRole('button', { name: '已导出 SVG' })).toBeVisible()
+    const exported = await fs.readFile(svgPath, 'utf8')
+    expect(exported).toContain('xmlns="http://www.w3.org/2000/svg"')
+    expect(exported).toContain('放大级')
+    expect(exported).not.toMatch(/foreignObject|<script|https?:\/\/(?!www\.w3\.org)/)
+    await diagram.scrollIntoViewIfNeeded()
+    await expect(diagram).toBeInViewport()
+    await capturePlugin(
+      app,
+      'http://127.0.0.1:15178',
+      testInfo.outputPath('call-ai-inline-reply.png')
+    )
+
+    await restored.getByLabel('任务输入').fill('验证长回复结束后滚动')
+    await restored.getByRole('button', { name: '发送' }).click()
+    const conversation = restored.locator('.conversation')
+    const longReply = restored.locator('.message.assistant').filter({ hasText: '长回复前段已到达' })
+    await expect(longReply).toBeVisible()
+    // 最后一批正文尚未发送，完整公式和代码已排版，未闭合的围栏保持原文。
+    await expect(longReply.locator('math')).toHaveCount(320)
+    const liveCode = longReply.locator('.reply-code').filter({ hasText: 'const live = true' })
+    await expect(liveCode.locator('.hljs-keyword')).toHaveText('const')
+    await expect(longReply.locator('.reply-plain')).toContainText('print("接收中")')
+    await liveCode.evaluate((node) => node.setAttribute('data-streaming-proof', 'kept'))
+    await expect
+      .poll(() =>
+        conversation.evaluate((node) => node.scrollHeight - node.clientHeight - node.scrollTop)
+      )
+      .toBeLessThan(100)
+    await conversation.hover()
+    await restored.mouse.wheel(0, -100000)
+    await expect.poll(() => conversation.evaluate((node) => node.scrollTop)).toBe(0)
+    await app.evaluate(() => (globalThis as any).__finishLongCallAiReply())
+    await expect(longReply).toContainText('长回复尾段已到达')
+    await expect(liveCode).toHaveAttribute('data-streaming-proof', 'kept')
+    await expect(
+      longReply
+        .locator('.reply-code')
+        .filter({ hasText: 'const complete = true' })
+        .locator('.hljs-keyword')
+    ).toHaveText('const')
+    // 旧版本达到整条回复的预算后，末尾的有效公式会全部退成 TeX。
+    await expect(longReply.locator('math')).toHaveCount(603)
+    await expect(
+      longReply.locator('.math-inline').filter({ hasText: 'notARealCommand' })
+    ).toHaveCount(1)
+    await expect(longReply.locator('table td math')).toHaveCount(1)
+    await expect(longReply.locator('.math-display math').last()).toHaveAttribute('display', 'block')
+    await expect.poll(() => conversation.evaluate((node) => node.scrollTop)).toBe(0)
+    await conversation.press('PageDown')
+    await expect.poll(() => conversation.evaluate((node) => node.scrollTop)).toBeGreaterThan(0)
+    await conversation.press('Control+End')
+    await expect
+      .poll(() =>
+        conversation.evaluate((node) => node.scrollHeight - node.clientHeight - node.scrollTop)
+      )
+      .toBeLessThan(100)
+    await expect(restored.getByLabel('任务输入')).toBeEnabled()
+    await expect(longReply.getByText('长回复尾段已到达', { exact: true })).toBeInViewport()
+    await expect(longReply.locator('table td math')).toBeInViewport()
+    await capturePlugin(
+      app,
+      'http://127.0.0.1:15178',
+      testInfo.outputPath('call-ai-long-formula-tail.png')
+    )
+    await restored.getByLabel('任务输入').fill('验证 HTML 回复翻页到底')
+    await restored.getByRole('button', { name: '发送' }).click()
+    const htmlTail = restored.locator('.reply-html').getByText('仅 HTML 回复的末段')
+    await expect(htmlTail).toBeVisible()
+    await conversation.press('Control+End')
+    await expect(htmlTail).toBeInViewport({ ratio: 0.8 })
+    expect(
+      await conversation.evaluate(
+        (node) =>
+          document.scrollingElement?.scrollTop === 0 &&
+          node.scrollHeight - node.scrollTop - node.clientHeight <= 2
+      )
+    ).toBe(true)
+    await capturePlugin(app, 'http://127.0.0.1:15178', testInfo.outputPath('call-ai-bottom.png'))
+    await app.evaluate(({ app, webContents }) => {
+      const view = webContents
+        .getAllWebContents()
+        .find((entry) => entry.getURL().startsWith('http://127.0.0.1:15178'))!
+      const owner = process
+        .mainModule!.require(app.getAppPath() + '/src/main/core/detachedWindowManager.ts')
+        .default.getWindowByPluginWebContents(view.id)
+      owner.setContentSize(520, owner.getContentSize()[1])
+    })
+    await expect
+      .poll(async () => Math.abs((await restored.evaluate(() => window.innerWidth)) - 520))
+      .toBeLessThan(8)
+    await conversation.press('Control+End')
+    await expect(htmlTail).toBeInViewport({ ratio: 0.8 })
+    await expect(restored.getByLabel('任务输入')).toBeInViewport()
+    await capturePlugin(
+      app,
+      'http://127.0.0.1:15178',
+      testInfo.outputPath('call-ai-bottom-narrow.png')
     )
     await app.evaluate(({ app, webContents }) => {
       const view = webContents

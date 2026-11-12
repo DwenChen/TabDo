@@ -1,5 +1,6 @@
 import { normalizeAnnotationRotation } from "./annotationGeometry";
 import { getZoomScale, normalizeZoomCamera } from './zoomCamera';
+import { normalizeZoomRate } from './zoomPlayback';
 import { getLocalMediaServerPath } from "@presentation/lib/localMediaUrl";
 import type { SourceAudioTrackSettings } from "@presentation/components/video-editor/audio/audioTypes";
 import { DEFAULT_WALLPAPER_PATH } from "@presentation/lib/wallpapers";
@@ -395,6 +396,12 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 						endMs,
 						depth: [1, 2, 3, 4, 5, 6].includes(region.depth) ? region.depth : DEFAULT_ZOOM_DEPTH,
 						...(region.scale !== undefined ? { scale: getZoomScale(region) } : {}),
+						...(region.playbackRate !== undefined
+							? { playbackRate: normalizeZoomRate(region.playbackRate) }
+							: {}),
+						...(region.animationRate !== undefined
+							? { animationRate: normalizeZoomRate(region.animationRate) }
+							: {}),
 						...(region.camera ? { camera: normalizeZoomCamera(region.camera) } : {}),
 						focus: {
 							cx: clamp(isFiniteNumber(region.focus?.cx) ? region.focus.cx : 0.5, 0, 1),

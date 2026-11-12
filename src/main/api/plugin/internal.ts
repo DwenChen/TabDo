@@ -223,6 +223,36 @@ export class InternalPluginAPI {
             return revealCallAiOutput(event.sender.id)
           case 'artifact':
             return accessCallAiArtifact(event.sender.id, input?.id, input?.action)
+          case 'export-reply-svg': {
+            const data = input?.svg
+            // 正文仅传入重建后的 SVG。检查尺寸与外层标记后交给原生保存对话框。
+            if (
+              typeof data !== 'string' ||
+              data.length > 120000 ||
+              !/^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg"[\s>]/.test(data) ||
+              !data.endsWith('</svg>')
+            )
+              throw new Error('SVG 数据无效或过大')
+            const targetWindow = detachedWindowManager.getWindowByPluginWebContents(event.sender.id)
+            if (!targetWindow) throw new Error('呼叫AI窗口已关闭')
+            const title =
+              typeof input?.title === 'string'
+                ? input.title
+                    .slice(0, 80)
+                    .replace(/[\\/:*?"<>|\x00-\x1f]/g, '_')
+                    .replace(/[. ]+$/, '')
+                : ''
+            const result = await windowManager.withBlurHideSuppressed(() =>
+              dialog.showSaveDialog(targetWindow, {
+                title: '导出 SVG',
+                defaultPath: (title || 'SVG 图示') + '.svg',
+                filters: [{ name: 'SVG', extensions: ['svg'] }]
+              })
+            )
+            if (result.canceled || !result.filePath || event.sender.isDestroyed()) return false
+            await fs.writeFile(result.filePath, data, 'utf8')
+            return true
+          }
           case 'window-path':
             return resolveCallAiWindowPath(input)
           default:

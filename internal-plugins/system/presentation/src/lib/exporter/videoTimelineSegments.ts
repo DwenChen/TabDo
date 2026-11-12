@@ -1,3 +1,4 @@
+import type { ZoomPlaybackClock } from "@presentation/components/video-editor/zoomPlayback";
 import {
 	type ClipRegion,
 	type SpeedRegion,
@@ -13,18 +14,26 @@ export interface VideoSegment {
 	speed: number;
 	outputStartSec?: number;
 	outputEndSec?: number;
+	editStartMs?: number;
+	zoomPlayback?: ZoomPlaybackClock;
 }
 
-/** One forward decode pass per source-order run; timeline gaps need no decoding. */
-export function buildClipDecodeRuns(clips: ClipRegion[]): VideoSegment[][] {
+/**
+ * Plan forward decode passes while placing each clip on the export clock.
+ * @param clips Explicit clips in edit-timeline coordinates.
+ * @param zoomPlayback Clock for zoom-region video speed, if present.
+ * @returns Runs ordered by presentation, with source positions intact.
+ */
+export function buildClipDecodeRuns(clips: ClipRegion[], zoomPlayback?: ZoomPlaybackClock): VideoSegment[][] {
 	const runs: VideoSegment[][] = [];
 	for (const clip of sortClipRegions(clips)) {
 		const segment: VideoSegment = {
 			startSec: getClipSourceStartMs(clip) / 1000,
 			endSec: getClipSourceEndMs(clip) / 1000,
 			speed: clip.speed,
-			outputStartSec: clip.startMs / 1000,
-			outputEndSec: clip.endMs / 1000,
+			outputStartSec: (zoomPlayback?.toOutputMs(clip.startMs) ?? clip.startMs) / 1000,
+			outputEndSec: (zoomPlayback?.toOutputMs(clip.endMs) ?? clip.endMs) / 1000,
+			...(zoomPlayback ? { editStartMs: clip.startMs, zoomPlayback } : {}),
 		};
 		const run = runs[runs.length - 1];
 		if (run && segment.startSec >= run[run.length - 1].endSec) run.push(segment);
@@ -39,7 +48,19 @@ export function segmentFrameCount(segment: VideoSegment, fps: number): number {
 		: Math.ceil(((segment.endSec - segment.startSec) / segment.speed) * fps);
 }
 
+/**
+ * Resolve source media time for an output frame.
+ * @param segment Current clip segment.
+ * @param index Output frame index within the segment.
+ * @param fps Export frames per second.
+ * @returns Source timestamp in seconds.
+ */
 export function segmentSourceTime(segment: VideoSegment, index: number, fps: number): number {
+	if (segment.zoomPlayback && segment.outputStartSec !== undefined && segment.editStartMs !== undefined) {
+		const outputMs = (Math.ceil(segment.outputStartSec * fps) + index) * 1000 / fps;
+		const editOffsetMs = segment.zoomPlayback.toEditMs(outputMs) - segment.editStartMs;
+		return segment.startSec + Math.max(0, editOffsetMs) * segment.speed / 1000;
+	}
 	const outputOffset =
 		segment.outputStartSec === undefined
 			? index / fps

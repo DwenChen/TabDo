@@ -1,5 +1,4 @@
 import { ipcMain, clipboard, nativeImage } from 'electron'
-import os from 'os'
 import { readClipboardFiles, writeClipboardFiles } from '../../utils/clipboardFiles'
 
 /**
@@ -62,11 +61,8 @@ export class PluginClipboardAPI {
       try {
         const files = Array.isArray(filePath) ? filePath : [filePath]
 
-        if (os.platform() === 'win32' || os.platform() === 'darwin') {
-          writeClipboardFiles(files)
-        }
-
-        event.returnValue = true
+        // 返回实际写入结果，调用方才能区分复制成功与系统剪贴板拒绝。
+        event.returnValue = writeClipboardFiles(files)
       } catch (error) {
         console.error('[PluginClipboard] 复制文件失败:', error)
         event.returnValue = false

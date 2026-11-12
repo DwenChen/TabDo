@@ -1,3 +1,4 @@
+import type { ZoomPlaybackClock } from "../zoomPlayback";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildResolvedAudioPlan } from "@presentation/lib/exporter/audioRoutingEngine";
 import { resolveMediaElementSource } from "@presentation/lib/exporter/localMediaSource";
@@ -21,6 +22,7 @@ const SOURCE_AUDIO_PREVIEW_PAUSED_SEEK_DRIFT_SECONDS = 0.01;
 
 interface UseAudioPreviewSyncParams {
 	audioRegions: AudioRegion[];
+	zoomPlayback?: ZoomPlaybackClock;
 	previewVolume: number;
 	isPlaying: boolean;
 	currentTime: number;
@@ -42,6 +44,7 @@ interface UseAudioPreviewSyncParams {
  */
 export function useAudioPreviewSync({
 	audioRegions,
+	zoomPlayback,
 	previewVolume,
 	isPlaying,
 	currentTime,
@@ -374,7 +377,7 @@ export function useAudioPreviewSync({
 						audio.currentTime = audioOffset;
 					}
 					const syncedPlaybackRate = getMediaSyncPlaybackRate({
-						basePlaybackRate: rate,
+						basePlaybackRate: rate * (zoomPlayback?.rateAt(currentTimeMs) ?? 1),
 						currentTime: audio.currentTime,
 						targetTime: audioOffset,
 					});
@@ -389,7 +392,7 @@ export function useAudioPreviewSync({
 				}
 			}
 		},
-		[isPlaying, resolvedUserTracks, previewVolume],
+		[isPlaying, resolvedUserTracks, previewVolume, zoomPlayback],
 	);
 	useEffect(() => {
 		syncPreviewFrame(timelineTime);
@@ -464,8 +467,7 @@ export function useAudioPreviewSync({
 				}
 			}
 
-			// KISS for companion source tracks: fixed playback rate avoids audible flutter/stutter
-			// from continuous micro-corrections on system audio.
+			// Follow the media speed directly; keep drift correction independent of the authored rate.
 			const syncedPlaybackRate = sourcePlaybackRate;
 			if (Math.abs(audio.playbackRate - syncedPlaybackRate) > 0.001) {
 				audio.playbackRate = syncedPlaybackRate;

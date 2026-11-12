@@ -98,6 +98,7 @@ export function useTimelineEditingController(input: Input) {
     currentSourcePath: input.currentSourcePath,
     selectedClipId: timeline.selectedClipId,
     clipRegions: timeline.clipRegions,
+    zoomPlayback: projection.zoomPlayback,
     audioRegions: timeline.audioRegions,
     sourceAudioTrackSettingsByClip: timeline.sourceAudioTrackSettingsByClip,
     setSourceAudioTrackSettingsByClip: timeline.setSourceAudioTrackSettingsByClip,

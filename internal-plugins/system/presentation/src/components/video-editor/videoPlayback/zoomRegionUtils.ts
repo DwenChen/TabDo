@@ -1,5 +1,6 @@
 import type { ZoomFocus, ZoomRegion } from '../types'
 import { getZoomScale } from '../zoomCamera'
+import { normalizeZoomRate } from '../zoomPlayback'
 import { canConnectZoomRegions } from '../zoomConnection'
 import {
   TRANSITION_WINDOW_MS,
@@ -36,19 +37,28 @@ type ConnectedPanTransition = {
   endScale: number
 }
 
+/**
+ * Evaluate a zoom's entry and exit using its own animation rate.
+ * @param region Current zoom and optional animation speed.
+ * @param timeMs Edit timeline time.
+ * @param options Base project transition durations.
+ * @returns Zoom strength at this time.
+ */
 export function computeRegionStrength(
   region: ZoomRegion,
   timeMs: number,
   options: Pick<DominantRegionOptions, 'zoomInDurationMs' | 'zoomOutDurationMs'> = {}
 ) {
-  const zoomInDurationMs = Math.max(1, options.zoomInDurationMs ?? ZOOM_IN_TRANSITION_WINDOW_MS)
-  const zoomOutDurationMs = Math.max(1, options.zoomOutDurationMs ?? TRANSITION_WINDOW_MS)
+  const animationRate = normalizeZoomRate(region.animationRate)
+  const zoomInDurationMs = Math.max(1, (options.zoomInDurationMs ?? ZOOM_IN_TRANSITION_WINDOW_MS) / animationRate)
+  const zoomOutDurationMs = Math.max(1, (options.zoomOutDurationMs ?? TRANSITION_WINDOW_MS) / animationRate)
   const adjustedTimeMs = timeMs - ZOOM_ANIMATION_DELAY_MS
   const leadInStart = region.startMs + ZOOM_IN_OVERLAP_MS - ZOOM_IN_TRANSITION_WINDOW_MS
   let zoomOutStart = region.endMs - ZOOM_OUT_EARLY_START_MS
   let zoomInEnd = leadInStart + zoomInDurationMs
 
   if (zoomInEnd > zoomOutStart) {
+    // Fit short transitions together while retaining the existing 1× phase timing.
     const midpoint = (zoomInEnd + zoomOutStart) / 2
     zoomInEnd = midpoint
     zoomOutStart = midpoint
@@ -61,7 +71,8 @@ export function computeRegionStrength(
   }
 
   if (adjustedTimeMs < zoomInEnd) {
-    const progress = (adjustedTimeMs - leadInStart) / zoomInDurationMs
+    const rampDuration = animationRate === 1 ? zoomInDurationMs : Math.max(1, zoomInEnd - leadInStart)
+    const progress = (adjustedTimeMs - leadInStart) / rampDuration
     return easeOutZoom(progress)
   }
 

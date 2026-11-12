@@ -2,6 +2,226 @@
 
 > 自动生成；原始记录在 [entries](../history/entries/)。
 
+## 2026-11-12 · 准备并发布 TabDo 1.5.4
+
+记录：[release-1.5.4](../../docs/history/entries/2026-11-12-04-release-1.5.4.json)；版本：1.5.4。
+
+- 交付呼叫AI正文排版与设置、文件搜索右键与拖放、演示变焦倍速和光标等优化。
+- 对照候选源码审校 README、开发与发布规范、仓库教程、应用内教程及更新说明。两份教程同步注明两个倍速滑块的范围与默认值。
+- 沿用 1.5.3 的版本标签触发流程。完整单元回归在本地运行，云端保留文档、维护和类型检查以及 Windows 打包。
+
+- 验证：pnpm test --maxWorkers=2 通过，135 个文件共 906 项。归档 .artifacts/runs/2026-11-12T03-57-43-997Z-unit。
+- 验证：pnpm typecheck 与 pnpm typecheck:setting 通过，日志位于 .artifacts/releases/1.5.4/。
+- 验证：5 项源码 Electron E2E 通过，覆盖呼叫AI、文件搜索、录制前控制条、演示光标、变焦片段倍速与 MP4 导出。归档 .artifacts/runs/2026-11-12T03-59-04-910Z-e2e。
+- 验证：查看该归档中的呼叫AI图示、公式、代码与窄窗口底部截图，正文尾段可见。文件搜索深浅主题菜单底色不透明，悬停与键盘焦点可区分。摄像头关闭态保留深浅主题底色。演示编辑器深色窄窗口和浅色窗口中的两条倍速滑块均显示 0.25×，录制光标在 1× 与 5× 截图中清楚可见。
+- 验证：pnpm build、pnpm preview:sync 与 pnpm test:preview:resources 通过。免安装预览已更新到 1.5.4，核对 2138 个程序文件、353 个内置文件与 11842 个运行依赖文件。同步前后 255 个资料文件一致，包含配置和已安装插件。资料保留收据位于 .artifacts/backups/preview-sync/update-1794456233494/preservation.json。
+- 验证：回收已消费的预览暂存和旧程序回退，共 29913 个文件、1376606402 字节。保留最新程序回退和全部资料保留收据。另回收已归档且内容相同的 29 个测试副本、1776022 字节。清理收据位于 .artifacts/releases/1.5.4/。
+- 验证：发布前通过 pnpm maintain、pnpm maintain:check、pnpm docs:check 和 Git 差异检查。
+
+## 2026-11-12 · 文件搜索支持拖出文件，右键菜单项恢复强调色
+
+记录：[file-search-drag-hover](../../docs/history/entries/2026-11-12-03-file-search-drag-hover.json)；版本：未发布。
+
+- 文件搜索结果复用宿主原生文件拖放入口。拖动普通行传递该项，拖动已勾选行传递全部勾选项。
+- 右键菜单的鼠标悬停与键盘焦点使用主题浅强调底色，保留不透明弹层。
+
+- 验证：源码 Electron 文件搜索专项通过，使用真实指针手势核对单项、多选和未勾选行经宿主拖放接口传递的文件路径，并回归右键、键盘及实际文件剪贴板。归档 .artifacts/runs/2026-11-12T03-28-08-239Z-e2e。
+- 验证：打开 file-search-menu-light.png 和 file-search-menu-dark.png，确认悬停项有主题色背景，文字清晰且弹层不透出正文；方向键焦点也有强调底色。核对 file-search-results.png 中结果行和批量复制反馈。
+- 验证：pnpm docs:check、回归分组清单和差异检查通过。
+- 验证：pnpm build、pnpm preview:sync 与 pnpm test:preview:resources 通过。255 个既有资料、配置和插件文件前后一致，核验 2138 个程序文件、353 个内置插件文件和 11842 个运行依赖文件。收据 .artifacts/backups/preview-sync/update-1794454252409/preservation.json。
+- 验证：清理已消费的程序暂存和被替代的程序回退，共 29913 个文件、1376606401 字节。保留最新程序回退与历次保留收据。审计 .artifacts/cleanup-2026-11-12/file-search-drag-hover-program-cleanup.json。
+- 验证：同步收尾执行 pnpm maintain、pnpm maintain:check、pnpm docs:check 和 git diff --check。
+
+## 2026-11-12 · 演示变焦片段的两个倍速滑块最低档调至 0.25×
+
+记录：[presentation-zoom-quarter-speed](../../docs/history/entries/2026-11-12-02-presentation-zoom-quarter-speed.json)；版本：未发布。
+
+- 统一下限从 0.5× 改为 0.25×，用于视频倍速、镜头动画倍速及项目值校验。默认 1×、最高 4×、步进 0.25×。
+
+- 验证：25 项演示时间轴和视觉效果单测通过，覆盖 0.25× 项目值与成片时间换算。归档 .artifacts/runs/2026-11-12T02-52-23-058Z-unit。
+- 验证：源码 Electron 专项验证两个滑块到达最低档、保存、撤销重做、实际 0.25× 视频播放及 MP4 音视频时长。归档 .artifacts/runs/2026-11-12T02-52-25-108Z-e2e。
+- 验证：打开 zoom-rates-light.png 和 zoom-rates-dark-narrow.png，确认两项均显示 0.25×，最左档位的手柄、标题和数值在正常与深色窄窗口中均可见。
+- 验证：教程、回归分组清单和差异检查通过。
+- 验证：pnpm build、pnpm preview:sync 和 pnpm test:preview:resources 通过，255 个原有资料、配置与插件文件前后一致。核验 2138 个程序文件、353 个内置插件文件和 11842 个运行依赖文件。收据 .artifacts/backups/preview-sync/update-1794452092633/preservation.json。
+- 验证：清理已消费的程序暂存和被替代的程序回退，共 29913 个文件、1376602269 字节。保留最新程序回退及历次资料收据。审计 .artifacts/cleanup-2026-11-12/presentation-zoom-quarter-speed-program-cleanup.json。
+- 验证：同步收尾执行 pnpm maintain、pnpm maintain:check、pnpm docs:check 和 git diff --check。
+
+## 2026-11-12 · 演示变焦片段可独立设置视频倍速和镜头动画倍速
+
+记录：[presentation-zoom-rates](../../docs/history/entries/2026-11-12-01-presentation-zoom-rates.json)；版本：未发布。
+
+- 变焦侧栏复用共享滑块，两个倍速均为 0.5–4×，步进 0.25×，默认及重置为 1×。
+- 视频倍速作用于变焦覆盖区间，与录屏片段倍速相乘。预览进度、视频、声音、字幕和导出共享成片时间映射，保留剪辑时间轴坐标。
+- 镜头动画倍速调整二维与三维变焦的进入和退出，沿用相邻镜头连接。项目保存、片段复制和撤销重做沿现有编辑模型运行。
+
+- 验证：25 项演示时间轴和视觉效果单测通过，归档 .artifacts/runs/2026-11-12T02-26-59-717Z-unit。
+- 验证：源码 Electron 专项通过，验证两项默认值、分别保存、连续撤销重做、单个录屏片段内实际 2× 播放、成片进度时长和 MP4 音视频时长。调整测试的导入入口、自动保存等待、滑块值读取和原始视频选择器后复跑通过。归档 .artifacts/runs/2026-11-12T02-34-56-686Z-e2e。
+- 验证：实际检查插件可见区截图 zoom-rates-light.png 和 zoom-rates-dark-narrow.png。两个滑块的标题、数值、轨道和手柄都可见，使用侧栏原有滚动布局。
+- 验证：pnpm docs:check、回归分组清单及差异检查通过。
+- 验证：全量单测首轮 904 项通过，图片格式及大型预览归档两项在并行运行时超时。相关两个文件降低并发复跑全部 30 项通过。归档 .artifacts/runs/2026-11-12T02-31-32-607Z-unit 和 .artifacts/runs/2026-11-12T02-38-30-900Z-unit。
+- 验证：pnpm build、pnpm preview:sync 和 pnpm test:preview:resources 通过。254 个原有资料、配置与插件文件前后一致，核验 2138 个程序文件、353 个内置插件文件和 11842 个运行依赖文件。收据 .artifacts/backups/preview-sync/update-1794451228613/preservation.json。
+- 验证：清理本轮已消费的程序暂存和被替代的程序回退，共 29913 个文件、1376612660 字节。保留最新程序回退与历次资料保留收据。审计 .artifacts/cleanup-2026-11-12/presentation-zoom-rates-program-cleanup.json。
+- 验证：同步收尾执行 pnpm maintain、pnpm maintain:check、pnpm docs:check 和 git diff --check。
+
+## 2026-11-11 · 微调高倍率光标，撤销调速轨道，补齐摄像头悬浮预览关闭态底色
+
+记录：[presentation-preview-polish](../../docs/history/entries/2026-11-11-07-presentation-preview-polish.json)；版本：未发布。
+
+- 录制光标随镜头小幅增大，实际倍率每增加 1×，屏幕尺寸增加基准尺寸的 6%，5× 时约比完全补偿时大 24%。
+- 撤销上一轮调速按钮、轨道、预览和导出时间映射以及项目字段，恢复原有分割与片段倍速行为，移除调速轨教程。
+- 摄像头菜单的悬浮预览关闭态在指针移开后继续使用浅灰主题底色，深色主题使用对应底色。
+
+- 验证：23 项演示时间轴和视觉效果单测通过。归档 .artifacts/runs/2026-11-11T15-22-17-882Z-unit。
+- 验证：源码 presentation-controls 专项通过。打开 floating-preview-disabled.png 和 floating-preview-disabled-dark.png，确认指针离开时浅色菜单有浅灰底，深色菜单有可辨认的深灰底，状态文字保持居中。归档 .artifacts/runs/2026-11-11T15-23-18-939Z-e2e。
+- 验证：源码 presentation-cursor-zoom 专项通过。使用 1×、5× 实际预览的灰底像素确认光标略微增大，检查变焦撤销重做及原有工具栏。打开 cursor-1x.png 和 cursor-5x.png，光标热点都位于灰色区域中央。归档 .artifacts/runs/2026-11-11T15-25-27-517Z-e2e。
+- 验证：首轮源码专项分别遇到悬停提示等待和预览画布初始化超时。后续修正测试的画布等待及文字光标测量阈值，两个专项分别复跑通过。
+- 验证：教程校验、回归分组清单和差异检查通过。
+- 验证：pnpm build 通过。等免安装预览退出后执行 pnpm preview:sync，248 个原有资料、配置与插件文件前后一致。收据 .artifacts/backups/preview-sync/update-1794410887580/preservation.json。
+- 验证：pnpm test:preview:resources 通过，核验 2138 个程序文件、353 个内置插件文件和 11842 个运行依赖文件。
+- 验证：清理本轮已消费的程序暂存和被替代的程序回退，共 29913 个文件、1376601961 字节。保留最新程序回退和历次资料保留收据。审计 .artifacts/cleanup-2026-11-11/presentation-preview-polish-program-cleanup.json。
+- 验证：收尾执行 pnpm maintain、pnpm maintain:check、pnpm docs:check 与 git diff --check。
+
+## 2026-11-11 · 演示编辑器新增顶层调速曲线并补偿高倍率录制光标尺寸
+
+记录：[presentation-speed-curve](../../docs/history/entries/2026-11-11-06-presentation-speed-curve.json)；版本：未发布。
+
+- 播放工具栏在自动添加变焦和分割之间加入调速。顶层轨道从 1× 开始，支持纵向调整控制点、横向选择区间并设置 0.5–4× 固定倍速，选区两端自动平滑衔接。
+- 调速曲线保存到项目并纳入撤销和重做。预览媒体按瞬时倍速播放。导出使用统一时间映射采样视频、画面效果和音频，保留片段的编辑位置。
+- 按实际镜头倍率补偿录制光标和点击效果的图形尺寸，保留画面中的热点位置。
+
+- 验证：pnpm typecheck、pnpm docs:check、回归分组清单和差异检查通过。
+- 验证：pnpm test 通过，135 个文件、906 项。归档 .artifacts/runs/2026-11-11T14-53-37-737Z-unit。
+- 验证：源码 Electron 专项通过。验证调速轨置顶、点拖动、区间 2×、单次撤销和重做、项目自动保存、媒体实际以 2× 播放及 MP4 音视频时长。归档 .artifacts/runs/2026-11-11T14-53-33-613Z-e2e。
+- 验证：打开实际插件可见区截图 cursor-1x.png、cursor-5x.png、speed-curve-selection.png 和 speed-curve.png。5× 时色块明显放大，文字光标热点仍在同一位置且高度接近 1×；调速位于录屏轨上方，区间表单和高亮可辨认，应用后平台两侧平滑衔接。早期专项修正了自动保存等待、媒体定位断言和截图目标。
+- 验证：pnpm build 与 pnpm preview:sync 通过。已有配置、资料与插件共 232 个文件前后一致。收据 .artifacts/backups/preview-sync/update-1794408998593/preservation.json。
+- 验证：pnpm test:preview:resources 通过，核验 2138 个程序文件、353 个内置插件文件和 11842 个运行依赖文件。
+- 验证：清理本轮已消费的程序暂存和上一次纯程序回退，共 29913 个文件、1376598703 字节。保留本轮程序回退和历史资料保留收据。审计 .artifacts/cleanup-2026-11-11/presentation-speed-curve-preview-program-cleanup.json。
+- 验证：源码专项复跑通过，追加窄窗向下拖至低于 0.6×。打开 speed-curve-narrow.png 和 speed-curve-narrow-dark.png，确认较窄窗口中曲线、控制点、高亮及倍速输入均可见，深色主题的调速区域未被裁切。归档 .artifacts/runs/2026-11-11T15-02-42-128Z-e2e。
+- 验证：交付收尾执行 pnpm maintain、pnpm maintain:check、pnpm docs:check 与 git diff --check。
+
+## 2026-11-11 · 呼叫AI即时排版完整 Markdown 块，修复长回复后段公式未渲染
+
+记录：[call-ai-streaming-math](../../docs/history/entries/2026-11-11-05-call-ai-streaming-math.json)；版本：未发布。
+
+- 移除整条回复共用的公式预算。KaTeX 输出更紧凑的 MathML，重复公式共用计算结果，页面分帧添加公式。无效或过大的单个公式保留源码。
+- 生成期间合并增量，在同一 Worker 中复用已经排版且语义不变的 Markdown 前缀。正文追加已完成的段落、公式和代码块，未定型的末块仍显示原文。
+- 保留长回复滚动和末尾可见性验证，覆盖结束前排版、末尾公式、代码节点复用和单式失败。
+- 密集公式回复跳过离屏段落布局，减少窗口缩放重排。框线类公式保留 KaTeX HTML 外观。
+
+- 验证：本地 Worker 夹具两批生成 600 个重复公式，再追加末尾公式。首批已有 320 个排版位置，未闭合 Python 块仍保留在末块。重复公式只生成一份 MathML。
+- 验证：pnpm test 通过，135 个文件共 904 项。归档 .artifacts/runs/2026-11-11T09-47-10-754Z-unit。
+- 验证：源码 Electron 首轮确认 603 个有效公式全部显示，但缩到窄窗后翻页操作超时。加入密集回复离屏布局后，重新执行呼叫AI回归通过。归档 .artifacts/runs/2026-11-11T09-49-46-086Z-e2e。
+- 验证：在最后一批送达前断言已有 320 个公式、完整代码块及未闭合围栏原文；追加后验证代码节点复用、末尾有效式和错误式独立处理。普通与 520px 窄窗口均验证翻到末尾。
+- 验证：打开当轮 call-ai-long-formula-tail.png 和 call-ai-bottom-narrow.png 检查。行内式、带框的独立式及表格式可见，末段和输入框未被裁切。
+- 验证：pnpm typecheck、pnpm build:tools、pnpm docs:check、回归分组清单和差异检查通过。
+- 验证：pnpm maintain、pnpm maintain:check、pnpm docs:check 与 git diff --check 通过。
+- 验证：确认旧预览退出后执行 pnpm preview:sync，免安装预览已更新。203 个现有资料文件前后一致，配置与插件均保留。收据 .artifacts/backups/preview-sync/update-1794391149882/preservation.json。
+- 验证：pnpm test:preview:resources 通过，核验 2138 个程序文件、353 个内置插件文件及 11842 个运行依赖文件。
+- 验证：清理本轮程序暂存及已被替代的旧程序回退，共 29913 个文件、1376611572 字节。保留最近一次回退和历次保留收据。审计 .artifacts/cleanup-2026-11-11/streaming-math-preview-program-cleanup.json。
+- 验证：同步后 pnpm maintain、pnpm maintain:check、pnpm docs:check 和 git diff --check 通过。
+
+## 2026-11-11 · 呼叫AI合并正文中的 SVG、代码和 HTML，修复翻页空白与搜索菜单透底
+
+记录：[call-ai-inline-svg-and-file-menu](../../docs/history/entries/2026-11-11-04-call-ai-inline-svg-and-file-menu.json)；版本：未发布。
+
+- 移除交互图表工具、执行 Worker 和原提示词。SVG 图示及静态 HTML 按顺序显示在同一条正文内，SVG 可通过原生对话框导出。
+- 对话只在正文区滚动，修复空排版替换可见正文，避免流式文本的尾部空白制造空白页。
+- 文件搜索右键菜单改用不透明的主题弹层底色。把界面及影响界面的功能改动的视觉检查写入开发规范。
+
+- 验证：pnpm test 通过，135 个文件共 904 项，归档 .artifacts/runs/2026-11-11T09-09-31-460Z-unit。
+- 验证：呼叫AI和文件搜索的最终源码 Electron 回归均通过，归档 .artifacts/runs/2026-11-11T09-14-15-990Z-e2e。验证混合回复顺序、SVG 文件实写、静态 HTML 清洗、长回复和纯 HTML 回复的末段可见，以及深浅菜单背景和焦点文字。
+- 验证：实际打开当轮截图查看。call-ai-inline-reply.png 中图示、箭头和代码相邻；call-ai-bottom.png 与 call-ai-bottom-narrow.png 中末段和输入框可见；file-search-menu-light.png 与 file-search-menu-dark.png 中实色菜单遮住下方文件行，焦点项可读。
+- 验证：首次运行遇到原生菜单用例选中了尚未完成排版的旧节点，深色用例也未切换到工具页媒体主题。调整等待和主题测试夹具后复验通过。实际检查深色截图后，保持焦点文字使用主题正文色。
+- 验证：pnpm build 和 pnpm docs:check 通过。成品主进程包含 SVG 导出路由，移除交互图表工具及旧导出路由。
+- 验证：pnpm preview:sync 已更新免安装预览（1.5.3）。200 个现有资料文件前后一致，保留配置及已安装插件。收据 .artifacts/backups/preview-sync/update-1794388576206/preservation.json。
+- 验证：pnpm test:preview:resources 通过，核验 2138 个程序文件、353 个内置插件文件和 11842 个运行依赖文件。
+- 验证：清理本轮已消费暂存和已替代的纯程序回退，共 29914 个文件、1376218280 字节。保留最新回退、历次收据、独有测试证据、原工具链和参考资料。审计 .artifacts/cleanup-2026-11-11/inline-svg-menu-preview-program-cleanup.json。
+- 验证：pnpm maintain、pnpm maintain:check、pnpm docs:check 和 git diff --check 通过。
+
+## 2026-11-11 · 修复呼叫AI长回复收尾时卡顿和无法翻页
+
+记录：[call-ai-long-reply-scroll](../../docs/history/entries/2026-11-11-03-call-ai-long-reply-scroll.json)；版本：未发布。
+
+- 回复流式期间显示原文，单条回复结束后由可终止的 Worker 排版 Markdown、代码和公式。限制排版输入和生成标记体积，失败或超限保留完整正文。
+- 滚动跟随按帧合并，用户向上阅读时保留位置。对话正文可聚焦并使用翻页键。
+- 剪贴板和呼叫AI共用原有 Highlight.js 供应商代码，通过模块导入。
+
+- 验证：对合成回复测量 KaTeX 扩张，约 3.8 万字符的 600 个公式单独生成约 308 万字符标记。
+- 验证：pnpm test 通过，135 个测试文件共 904 项。归档 .artifacts/runs/2026-11-11T08-34-22-781Z-unit。
+- 验证：呼叫AI和内置剪贴板源码 Electron 两项回归通过。含 600 个公式的长回复在完成后保留此前阅读位置，能用 PageDown 与 Ctrl+End 移动，仍可输入消息。归档 .artifacts/runs/2026-11-11T08-33-59-943Z-e2e。
+- 验证：pnpm typecheck、pnpm build:tools、pnpm docs:check、回归清单与差异检查通过。
+- 验证：构建产物的呼叫AI入口引用本地 Markdown Worker，剪贴板高亮继续使用同一供应商模块。
+- 验证：pnpm preview:sync 已更新免安装预览（1.5.3）。199 个现有资料文件逐项一致，配置和插件保留。收据 .artifacts/backups/preview-sync/update-1794386274530/preservation.json。
+- 验证：pnpm test:preview:resources 通过，核验 2138 个程序文件、353 个内置插件文件和 11842 个运行依赖文件。
+- 验证：回收本轮程序暂存和已替代的旧程序回退，共 29912 个文件、1376193291 字节。保留最近一份回退、历次收据和独有测试证据。既有工具链、下载与参考资料不属于本轮暂存。审计 .artifacts/cleanup-2026-11-11/call-ai-scroll-preview-program-cleanup.json。
+- 验证：pnpm maintain、pnpm maintain:check、pnpm docs:check 和 git diff --check 通过。
+
+## 2026-11-11 · 呼叫AI渲染公式与交互演示，文件搜索支持右键和批量复制
+
+记录：[call-ai-demos-file-search-actions](../../docs/history/entries/2026-11-11-02-call-ai-demos-file-search-actions.json)；版本：未发布。
+
+- 使用 KaTeX 解析聊天行内及块级公式，保留美元价格和代码内容；围栏代码按语言高亮并可直接复制。
+- 新增 show_demo。折线图和柱状图支持图例、数值查看及 PNG 导出，SVG 可绘制框架、流程和原理图。演示控件通过隔离 Worker 更新文本或图表。
+- 文件搜索结果菜单可打开、定位、复制文件或复制路径；底部可多选并一次复制到系统文件剪贴板。同步仓库教程和应用内教程。
+
+- 验证：pnpm test：135 个测试文件，904 项通过，归档 .artifacts/runs/2026-11-11T07-54-04-112Z-unit。
+- 验证：pnpm typecheck 通过。
+- 验证：呼叫AI源码 Electron 回归通过（.artifacts/runs/2026-11-11T08-00-45-513Z-e2e）。验证 TeX、代码复制、可调折线、SVG 原理图和实际写入 PNG。
+- 验证：首次回归发现二进制类型被通用 IPC 克隆器转换为普通对象；改为经 IPC 传递有界 PNG 字符串后复验导出。
+- 验证：文件搜索回归初次在查询防抖结束前操作了旧结果；已调整用例等待新查询。在和构建并行的一次冷启动中，宿主在初始等待内未列出内置插件，另行复验。
+- 验证：pnpm build、pnpm build:tools、pnpm docs:check 和回归清单检查通过。
+- 验证：文件搜索独立源码 Electron 回归通过（.artifacts/runs/2026-11-11T08-09-26-652Z-e2e）。验证菜单、实际文本和文件剪贴板、两项批量复制；打开和定位使用系统调用替身。
+- 验证：文件搜索独立用例复用宿主聚焦并等待首次源码加载；已有工具综合用例在独立文件搜索覆盖后未再重跑。
+- 验证：pnpm preview:sync 已更新 .local/portable-preview（1.5.3）；200 个原有资料文件逐项一致，保留配置与插件。收据 .artifacts/backups/preview-sync/update-1794384589041/preservation.json。
+- 验证：pnpm test:preview:resources 通过：2138 个程序文件、354 个内置插件资源、11842 个运行依赖文件。
+- 验证：清理本轮已消费的暂存和被替代的旧程序回退，共 29951 个文件、1382734413 字节；保留最新 previous-resources、保留收据及独有测试证据。既有工具链、下载和参考资料不属于本轮暂存。审计 .artifacts/cleanup-2026-11-11/ai-demo-finder-preview-program-cleanup.json。
+- 验证：pnpm maintain、pnpm maintain:check、pnpm docs:check 和 git diff --check 通过。
+
+## 2026-11-11 · 精简呼叫AI运行能力并优化设置、附件和失败恢复
+
+记录：[call-ai-settings-chat-and-bocha](../../docs/history/entries/2026-11-11-01-call-ai-settings-chat-and-bocha.json)；版本：未发布。
+
+- 移除内置 context-mode 的运行接入、依赖和包资源。保留原生工具与用户手动引用的第三方 MCP。
+- 网页搜索增加博查，复用固定 HTTPS 端点请求入口并分别加密保存两家密钥。全局规则按条目维护，旧文本作为一条保留。取消设置保存后残留的成功状态栏。
+- 匹配文件与拖放共用附件准备，视觉模型接收受限图片字节，文件夹仅传递路径。附件、网页链接与产物使用强调色和完整地址提示。 根据用户反馈去除下划线，保留强调色、图标和完整地址提示。
+- 移除聊天欢迎页说明，模型失败显示在本轮助手条目并提供用户提示词回填。失败轮次不进入下一轮模型上下文。
+
+- 验证：pnpm test 通过，135 个文件共 904 项，归档 .artifacts/runs/2026-11-10T16-02-01-206Z-unit。
+- 验证：最终 pnpm test:e2e tests/e2e/call-ai.spec.ts 通过，归档 .artifacts/runs/2026-11-10T16-02-41-605Z-e2e。覆盖规则条目、密钥切换、保存提示、失败回填、匹配图片内联、目录拖放和无下划线链接。
+- 验证：初次 E2E 暴露规则取消模板表达式解析、测试定位重名及失败流事件交付时序问题，均在最终 E2E 复验通过。
+- 验证：pnpm build 通过，构建日志 .artifacts/diagnostics/2026-11-10-call-ai-settings-chat-and-bocha/build-final.log。
+- 验证：pnpm build:tools 重编译去下划线后的样式，日志 .artifacts/diagnostics/2026-11-10-call-ai-settings-chat-and-bocha/build-tools-links.log。
+- 验证：pnpm preview:sync 更新 .local/portable-preview，保留收据确认 194 个资料文件一致。pnpm test:preview:resources 通过，核验 2138 个程序文件、352 个内置文件和 11842 个运行依赖文件。当前 ASAR 与展开目录均已移除 context-mode。收据 .artifacts/backups/preview-sync/update-1794326621871/preservation.json。
+- 验证：回收本轮已消费的程序暂存和上一轮纯程序回退，共 29951 个文件、1382726860 字节。保留最新 previous-resources 及历次保留收据。审计 .artifacts/cleanup-2026-11-11/call-ai-preview-program-cleanup.json。同步前 .artifacts 约 6256 MiB，保留既有测试原件约 2699 MiB、在用工具链 1213 MiB、既有下载 570 MiB 和上游参考 181 MiB。
+- 验证：pnpm docs:check、pnpm test:regressions call-ai --list、pnpm maintain、pnpm maintain:check 与 git diff --check 通过。
+
+## 2026-11-10 · 修复呼叫AI的 context-mode 执行和中文粗体
+
+记录：[call-ai-context-markdown-fix](../../docs/history/entries/2026-11-10-13-call-ai-context-markdown-fix.json)；版本：未发布。
+
+- 为内置 context-mode 2.1.6 指定项目适配器，并将 Windows 自带 PowerShell 目录加入其隔离 PATH。
+- 资料目录位于 Git 工作树时，MCP 使用专属系统临时工作目录，断开连接后回收。索引与 HOME 仍归会话。
+- 呼叫AI正文允许紧接汉字、内容以书名号等开头标点起始的粗体。继续由 Marked 处理代码片段与普通 Markdown。
+- 加强既有源码 Electron 回归，检查 MCP 真正的返回值和渲染后的 DOM。
+
+- 验证：最终 pnpm test 通过，135 个文件共 902 项。归档 .artifacts/runs/2026-11-10T14-49-20-897Z-unit。
+- 验证：pnpm test:e2e tests/e2e/call-ai.spec.ts 通过。检查 PowerShell 真正返回的 MCP 结果、普通与 Git 工作树下的执行目录、临时目录回收、粗体 DOM 及行内代码原文。归档 .artifacts/runs/2026-11-10T14-48-30-915Z-e2e。pnpm test:regressions call-ai --list 确认归组。
+- 验证：pnpm build 通过，最终构建日志 .artifacts/diagnostics/2026-11-10-call-ai-context-markdown-fix/build-final.log。
+- 验证：pnpm preview:sync 同步完成，保留收据确认同步前后 166 个资料文件一致。pnpm test:preview:resources 通过，核验 2138 个程序文件、352 个内置文件和 11881 个运行依赖文件。保留收据 .artifacts/backups/preview-sync/update-1794322252703/preservation.json。
+- 验证：回收已消费的程序暂存和上一轮纯程序回退，共 29990 个文件、1389266767 字节，保留本轮 previous-resources 与所有收据。删除两轮验证中的 16 个相同测试副本，共 711628 字节。分类复核 .artifacts 约 6252 MiB，保留既有测试原件 2697 MiB、备份与收据 1544 MiB、在用工具链 1213 MiB、既有下载 570 MiB 和上游参考 181 MiB。
+
+## 2026-11-10 · 诊断呼叫AI内置 context-mode 启动参数和中文粗体边界
+
+记录：[call-ai-context-markdown-diagnosis](../../docs/history/entries/2026-11-10-12-call-ai-context-markdown-diagnosis.json)；版本：1.5.3。
+
+- 只读检查安装版主日志、当前会话临时目录与内置 MCP 进程的启动参数，并保留脱敏的日志摘录及独立复现结果。
+- 确认 context-mode 2.1.6 在工具调用时需要适配器标识。补齐适配器后，Windows PowerShell 目录仍需位于会话 PATH。
+- 确认中文正文紧贴以书名号开头的粗体标记时，Marked 按 CommonMark 分隔符规则保留星号。开头星号前加入空格即可得到粗体。
+
+- 验证：用安装版的 Job Object 启动器、Node 和 context-mode 做隔离 MCP 对照。原参数下握手和工具发现成功，执行返回 Project source --agent is missing。指定适配器后 Python 可执行，PowerShell 报 No powershell runtime on PATH。补齐 PowerShell 目录后两种语言均通过。
+- 验证：使用 Marked 17.0.1 和应用相同的选项复现原句。原句只产生文本段，加入空格后生成 strong 标签。
+- 验证：回收独立复现的临时目录，只在忽略的诊断目录保留 4343 字节证据。分类复核 .artifacts 约 6251 MiB，保留既有测试原件、备份、工具链和在用资料。本轮无需重建或同步免安装预览。
+
 ## 2026-11-10 · 发布 TabDo 1.5.3 并将单元回归移至推送前
 
 记录：[release-1.5.3](../../docs/history/entries/2026-11-10-11-release-1.5.3.json)；版本：1.5.3。

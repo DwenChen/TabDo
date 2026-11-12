@@ -1,0 +1,24 @@
+{
+  "id": "call-ai-long-reply-scroll",
+  "date": "2026-11-11",
+  "summary": "修复呼叫AI长回复收尾时卡顿和无法翻页",
+  "changes": [
+    "回复流式期间显示原文，单条回复结束后由可终止的 Worker 排版 Markdown、代码和公式。限制排版输入和生成标记体积，失败或超限保留完整正文。",
+    "滚动跟随按帧合并，用户向上阅读时保留位置。对话正文可聚焦并使用翻页键。",
+    "剪贴板和呼叫AI共用原有 Highlight.js 供应商代码，通过模块导入。"
+  ],
+  "checks": [
+    "对合成回复测量 KaTeX 扩张，约 3.8 万字符的 600 个公式单独生成约 308 万字符标记。",
+    "pnpm test 通过，135 个测试文件共 904 项。归档 .artifacts/runs/2026-11-11T08-34-22-781Z-unit。",
+    "呼叫AI和内置剪贴板源码 Electron 两项回归通过。含 600 个公式的长回复在完成后保留此前阅读位置，能用 PageDown 与 Ctrl+End 移动，仍可输入消息。归档 .artifacts/runs/2026-11-11T08-33-59-943Z-e2e。",
+    "pnpm typecheck、pnpm build:tools、pnpm docs:check、回归清单与差异检查通过。",
+    "构建产物的呼叫AI入口引用本地 Markdown Worker，剪贴板高亮继续使用同一供应商模块。",
+    "pnpm preview:sync 已更新免安装预览（1.5.3）。199 个现有资料文件逐项一致，配置和插件保留。收据 .artifacts/backups/preview-sync/update-1794386274530/preservation.json。",
+    "pnpm test:preview:resources 通过，核验 2138 个程序文件、353 个内置插件文件和 11842 个运行依赖文件。",
+    "回收本轮程序暂存和已替代的旧程序回退，共 29912 个文件、1376193291 字节。保留最近一份回退、历次收据和独有测试证据。既有工具链、下载与参考资料不属于本轮暂存。审计 .artifacts/cleanup-2026-11-11/call-ai-scroll-preview-program-cleanup.json。",
+    "pnpm maintain、pnpm maintain:check、pnpm docs:check 和 git diff --check 通过。"
+  ],
+  "pending": [
+    "原始提供商回复未采集，真实对话留待用户复测。"
+  ]
+}

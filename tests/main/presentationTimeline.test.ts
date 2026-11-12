@@ -18,6 +18,51 @@ import { normalizeProjectEditor } from '../../internal-plugins/system/presentati
 import { normalizeEditorPreferences } from '../../internal-plugins/system/presentation/src/components/video-editor/editorPreferences'
 import { materializeSourceAudio } from '../../internal-plugins/system/presentation/src/components/video-editor/audio/independentSourceAudio'
 
+describe('per-zoom speeds', () => {
+  it('uses a reversible output clock with the edited speed only inside each zoom', async () => {
+    const { createZoomPlaybackClock } = await import(
+      '../../internal-plugins/system/presentation/src/components/video-editor/zoomPlayback'
+    )
+    const { buildClipDecodeRuns, segmentSourceTime } = await import(
+      '../../internal-plugins/system/presentation/src/lib/exporter/videoTimelineSegments'
+    )
+    const region = { id: 'zoom-1', startMs: 1000, endMs: 3000, depth: 3 as const, focus: { cx: 0.5, cy: 0.5 } }
+    expect(createZoomPlaybackClock([region])).toBeUndefined()
+    const clock = createZoomPlaybackClock([
+      { ...region, playbackRate: 2 },
+      { ...region, id: 'zoom-2', startMs: 3500, endMs: 4000, playbackRate: 0.25 }
+    ])!
+    expect([999, 1000, 2999, 3000, 3500, 4000].map(clock.rateAt)).toEqual([1, 2, 2, 1, 0.25, 1])
+    expect(clock.toOutputMs(3000)).toBe(2000)
+    expect(clock.toOutputMs(5000)).toBe(5500)
+    for (const ms of [0, 999, 1000, 2000, 3000, 3500, 3750, 4000, 5000]) {
+      expect(clock.toEditMs(clock.toOutputMs(ms))).toBe(ms)
+    }
+    const [[clip]] = buildClipDecodeRuns([
+      { id: 'clip', startMs: 0, endMs: 5000, sourceStartMs: 500, speed: 1.5 }
+    ], clock)
+    expect(segmentSourceTime(clip, 45, 30)).toBeCloseTo(3.5)
+  })
+
+  it('persists independent rates and makes the faster animation enter and exit sooner', async () => {
+    const { computeRegionStrength } = await import(
+      '../../internal-plugins/system/presentation/src/components/video-editor/videoPlayback/zoomRegionUtils'
+    )
+    const region = { id: 'zoom-1', startMs: 1000, endMs: 6000, depth: 3 as const, focus: { cx: 0.5, cy: 0.5 } }
+    const [saved] = normalizeProjectEditor({
+      zoomRegions: [{ ...region, animationRate: 2, playbackRate: 0.25 }]
+    }).zoomRegions
+    expect(saved).toMatchObject({ playbackRate: 0.25, animationRate: 2 })
+    const samples = Array.from({ length: 70 }, (_, index) => index * 100)
+    expect(samples.some((ms) => computeRegionStrength(saved, ms) > computeRegionStrength(region, ms)))
+      .toBe(true)
+    expect(samples.some((ms) => computeRegionStrength(saved, ms) < computeRegionStrength(region, ms)))
+      .toBe(true)
+    expect(computeRegionStrength({ ...region, playbackRate: 2 }, 1750))
+      .toBe(computeRegionStrength(region, 1750))
+  })
+})
+
 describe('independent presentation tracks', () => {
   it('预览终点保留相机末帧，内部切口与较短相机片段仍按原边界隐藏', () => {
     const clips = [{ id: 'screen', startMs: 0, endMs: 3233, speed: 1 }]

@@ -1,0 +1,24 @@
+{
+  "id": "call-ai-inline-svg-and-file-menu",
+  "date": "2026-11-11",
+  "summary": "呼叫AI合并正文中的 SVG、代码和 HTML，修复翻页空白与搜索菜单透底",
+  "changes": [
+    "移除交互图表工具、执行 Worker 和原提示词。SVG 图示及静态 HTML 按顺序显示在同一条正文内，SVG 可通过原生对话框导出。",
+    "对话只在正文区滚动，修复空排版替换可见正文，避免流式文本的尾部空白制造空白页。",
+    "文件搜索右键菜单改用不透明的主题弹层底色。把界面及影响界面的功能改动的视觉检查写入开发规范。"
+  ],
+  "checks": [
+    "pnpm test 通过，135 个文件共 904 项，归档 .artifacts/runs/2026-11-11T09-09-31-460Z-unit。",
+    "呼叫AI和文件搜索的最终源码 Electron 回归均通过，归档 .artifacts/runs/2026-11-11T09-14-15-990Z-e2e。验证混合回复顺序、SVG 文件实写、静态 HTML 清洗、长回复和纯 HTML 回复的末段可见，以及深浅菜单背景和焦点文字。",
+    "实际打开当轮截图查看。call-ai-inline-reply.png 中图示、箭头和代码相邻；call-ai-bottom.png 与 call-ai-bottom-narrow.png 中末段和输入框可见；file-search-menu-light.png 与 file-search-menu-dark.png 中实色菜单遮住下方文件行，焦点项可读。",
+    "首次运行遇到原生菜单用例选中了尚未完成排版的旧节点，深色用例也未切换到工具页媒体主题。调整等待和主题测试夹具后复验通过。实际检查深色截图后，保持焦点文字使用主题正文色。",
+    "pnpm build 和 pnpm docs:check 通过。成品主进程包含 SVG 导出路由，移除交互图表工具及旧导出路由。",
+    "pnpm preview:sync 已更新免安装预览（1.5.3）。200 个现有资料文件前后一致，保留配置及已安装插件。收据 .artifacts/backups/preview-sync/update-1794388576206/preservation.json。",
+    "pnpm test:preview:resources 通过，核验 2138 个程序文件、353 个内置插件文件和 11842 个运行依赖文件。",
+    "清理本轮已消费暂存和已替代的纯程序回退，共 29914 个文件、1376218280 字节。保留最新回退、历次收据、独有测试证据、原工具链和参考资料。审计 .artifacts/cleanup-2026-11-11/inline-svg-menu-preview-program-cleanup.json。",
+    "pnpm maintain、pnpm maintain:check、pnpm docs:check 和 git diff --check 通过。"
+  ],
+  "pending": [
+    "真实提供商和用户原有复现内容留待手动复测。"
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "id": "call-ai-context-markdown-diagnosis",
+  "date": "2026-11-10",
+  "version": "1.5.3",
+  "summary": "诊断呼叫AI内置 context-mode 启动参数和中文粗体边界",
+  "changes": [
+    "只读检查安装版主日志、当前会话临时目录与内置 MCP 进程的启动参数，并保留脱敏的日志摘录及独立复现结果。",
+    "确认 context-mode 2.1.6 在工具调用时需要适配器标识。补齐适配器后，Windows PowerShell 目录仍需位于会话 PATH。",
+    "确认中文正文紧贴以书名号开头的粗体标记时，Marked 按 CommonMark 分隔符规则保留星号。开头星号前加入空格即可得到粗体。"
+  ],
+  "checks": [
+    "用安装版的 Job Object 启动器、Node 和 context-mode 做隔离 MCP 对照。原参数下握手和工具发现成功，执行返回 Project source --agent is missing。指定适配器后 Python 可执行，PowerShell 报 No powershell runtime on PATH。补齐 PowerShell 目录后两种语言均通过。",
+    "使用 Marked 17.0.1 和应用相同的选项复现原句。原句只产生文本段，加入空格后生成 strong 标签。",
+    "回收独立复现的临时目录，只在忽略的诊断目录保留 4343 字节证据。分类复核 .artifacts 约 6251 MiB，保留既有测试原件、备份、工具链和在用资料。本轮无需重建或同步免安装预览。"
+  ],
+  "pending": ["原会话的 MCP 请求和返回未落盘，复现错误与主日志摘录分别标明来源。应用源码尚未修复。"]
+}

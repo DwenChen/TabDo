@@ -4,10 +4,16 @@ import { Switch } from '@presentation/components/ui/switch'
 import { SettingsRow } from './SettingsRow'
 import { SliderControl } from './SliderControl'
 import { getZoomScale, normalizeZoomCamera } from './zoomCamera'
+import { MAX_ZOOM_RATE, MIN_ZOOM_RATE, normalizeZoomRate } from './zoomPlayback'
 import type { ZoomCameraSettings, ZoomRegion } from './types'
 import './zoom-camera.css'
 
-export type ZoomCameraPatch = { scale?: number; camera?: Partial<ZoomCameraSettings> }
+export type ZoomCameraPatch = {
+  scale?: number
+  playbackRate?: number
+  animationRate?: number
+  camera?: Partial<ZoomCameraSettings>
+}
 const ANGLES = [
   { label: '正面', yaw: 0, pitch: 0 },
   { label: '向左', yaw: -24, pitch: 0 },
@@ -18,7 +24,7 @@ const ANGLES = [
 ]
 
 /**
- * 展示当前片段的连续倍率、镜头模式、角度及光学设置。
+ * 展示当前片段的变焦倍率、视频与动画倍速、镜头模式及光学设置。
  * @param props 当前片段与一次参数发布入口。
  * @returns 共享侧栏样式的变焦控件；三维控件随模式卸载。
  */
@@ -92,6 +98,24 @@ export function ZoomCameraControls({
         max={5}
         step={0.01}
         onChange={(scale) => onChange({ scale })}
+        formatValue={(value) => `${value.toFixed(2)}×`}
+      />
+      <SliderControl
+        label="视频倍速"
+        value={normalizeZoomRate(region.playbackRate)}
+        min={MIN_ZOOM_RATE}
+        max={MAX_ZOOM_RATE}
+        step={0.25}
+        onChange={(playbackRate) => onChange({ playbackRate })}
+        formatValue={(value) => `${value.toFixed(2)}×`}
+      />
+      <SliderControl
+        label="镜头动画倍速"
+        value={normalizeZoomRate(region.animationRate)}
+        min={MIN_ZOOM_RATE}
+        max={MAX_ZOOM_RATE}
+        step={0.25}
+        onChange={(animationRate) => onChange({ animationRate })}
         formatValue={(value) => `${value.toFixed(2)}×`}
       />
       {camera.mode === '3d' && (

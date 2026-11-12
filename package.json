@@ -1,6 +1,6 @@
 {
   "name": "TabDo",
-  "version": "1.5.3",
+  "version": "1.5.4",
   "description": "TabDo：鼠标驱动的本地工具箱、超级面板与按需插件",
   "main": "./out/main/index.js",
   "author": "DwenChen",
@@ -65,7 +65,6 @@
     "adm-zip": "^0.5.16",
     "builder-util-runtime": "9.7.0",
     "chokidar": "^4.0.3",
-    "context-mode": "2.1.6",
     "electron-log": "^5.4.3",
     "electron-updater": "6.8.9",
     "ffmpeg-static": "5.3.0",

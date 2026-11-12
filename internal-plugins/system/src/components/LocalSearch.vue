@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import FinderSidebar from './finder/FinderSidebar.vue'
 import FinderFooter from './finder/FinderFooter.vue'
 import SplitResizer from './finder/SplitResizer.vue'
@@ -19,6 +19,16 @@ const state = ref('checking'),
   total = ref(0),
   busy = ref(false),
   selected = ref(-1)
+const multi = ref(false)
+const checkedPaths = ref(new Set())
+const menu = ref(null)
+const menuPanel = ref(null)
+const resultActions = [
+  { id: 'open', label: '使用默认应用打开' },
+  { id: 'reveal', label: '在资源管理器中显示' },
+  { id: 'copy', label: '复制' },
+  { id: 'path', label: '复制路径' }
+]
 const stored = window.tabdo.dbStorage.getItem('local-search-preferences') || {}
 regex.value = stored.regex === true
 matchCase.value = stored.matchCase === true
@@ -77,6 +87,8 @@ async function search(append = false) {
   busy.value = true
   message.value = ''
   if (!append) {
+    closeMenu()
+    checkedPaths.value.clear()
     clearPreview()
     items.value = []
     total.value = 0
@@ -139,6 +151,8 @@ async function search(append = false) {
 function schedule() {
   clearTimeout(timer)
   version++
+  closeMenu()
+  checkedPaths.value.clear()
   clearPreview()
   timer = setTimeout(() => void search(), 250)
 }
@@ -186,7 +200,10 @@ async function open(item, reveal = false) {
   if (!item) return
   try {
     if (reveal) await window.tabdo.shellShowItemInFolder(item.path)
-    else await window.tabdo.shellOpenPath(item.path)
+    else {
+      const failure = await window.tabdo.shellOpenPath(item.path)
+      if (typeof failure === 'string' && failure) message.value = failure
+    }
   } catch (error) {
     message.value = error.message
   }
@@ -197,6 +214,18 @@ async function open(item, reveal = false) {
  * @returns 无返回值。
  */
 function keydown(event) {
+  if (event.defaultPrevented || event.target.closest('button, input, select')) return
+  const row = event.target.closest('[data-search-index]')
+  if (row && (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10'))) {
+    event.preventDefault()
+    void openResultMenu(event, Number(row.dataset.searchIndex))
+    return
+  }
+  if (row && multi.value && event.key === ' ') {
+    event.preventDefault()
+    chooseResult(Number(row.dataset.searchIndex))
+    return
+  }
   if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
     event.preventDefault()
     if (!items.value.length) return
@@ -211,7 +240,8 @@ function keydown(event) {
   }
   if (event.key === 'Enter' && selected.value >= 0) {
     event.preventDefault()
-    void open(items.value[selected.value], event.ctrlKey || event.metaKey)
+    if (multi.value && !event.ctrlKey && !event.metaKey) chooseResult(selected.value)
+    else void open(items.value[selected.value], event.ctrlKey || event.metaKey)
   }
 }
 /**
@@ -224,6 +254,11 @@ async function dispose() {
   version++
   clearTimeout(timer)
   observer?.disconnect()
+  window.removeEventListener('pointerdown', dismissMenu, true)
+  window.removeEventListener('blur', closeMenu)
+  window.removeEventListener('resize', closeMenu)
+  closeMenu()
+  checkedPaths.value.clear()
   items.value = []
   clearPreview()
   await window.toolsFiles.stopSearch()
@@ -236,12 +271,137 @@ function download() {
   window.tabdo.shellOpenExternal('https://www.voidtools.com/zh-cn/downloads/')
 }
 /**
- * 将文件路径复制链登记为必要任务。
- * @param file 用户明确选择的结果。
- * @returns 复制完成后的 Promise。
+ * 切换多选，关闭时清除勾选。
+ * @returns 无返回值。
  */
-async function copyPath(file) {
-  await window.toolsLifecycle.runTask(() => window.tabdo.copyText(file.path))
+function toggleMulti() {
+  multi.value = !multi.value
+  checkedPaths.value.clear()
+}
+
+/**
+ * 更新当前预览，并在多选模式下切换该行的勾选。
+ * @param index 结果序号。
+ * @returns 无返回值。
+ */
+function chooseResult(index) {
+  const item = items.value[index]
+  if (!item) return
+  if (multi.value) {
+    const paths = checkedPaths.value
+    if (paths.has(item.path)) paths.delete(item.path)
+    else paths.add(item.path)
+  }
+  void selectResult(index)
+}
+
+/**
+ * 将搜索结果作为系统文件拖出，勾选的条目可一起拖出。
+ * @param item 本次拖动开始的结果。
+ * @returns 无返回值。
+ */
+function dragResult(item) {
+  const paths = checkedPaths.value
+  // 从未勾选的行开始拖动时，只提交该行对应的文件。
+  window.tabdo.startDrag(multi.value && paths.has(item.path) ? [...paths] : item.path)
+}
+
+/**
+ * 在选中行旁展示菜单并聚焦第一个操作。
+ * @param event 鼠标或键盘事件。
+ * @param index 结果序号。
+ * @returns 菜单定位完成后的 Promise。
+ */
+async function openResultMenu(event, index) {
+  const item = items.value[index]
+  if (!item) return
+  const origin = event.target.closest('[data-search-index]')
+  const box = origin.getBoundingClientRect()
+  const pointer = event.type === 'contextmenu' && (event.clientX || event.clientY)
+  const point = pointer
+    ? { x: event.clientX, y: event.clientY }
+    : { x: box.left + 12, y: box.bottom }
+  menu.value = { item, origin, ...point }
+  void selectResult(index)
+  await nextTick()
+  const panel = menuPanel.value
+  if (!panel || menu.value?.item !== item) return
+  // 用实际尺寸把菜单限制在窗口可见范围内。
+  menu.value.x = Math.max(4, Math.min(point.x, window.innerWidth - panel.offsetWidth - 4))
+  menu.value.y = Math.max(4, Math.min(point.y, window.innerHeight - panel.offsetHeight - 4))
+  panel.querySelector('button')?.focus({ preventScroll: true })
+}
+
+/**
+ * 清除菜单和所属结果引用。
+ * @returns 无返回值。
+ */
+function closeMenu() {
+  menu.value = null
+}
+
+/**
+ * 在菜单以外点击时关闭。
+ * @param event 全局指针事件。
+ * @returns 无返回值。
+ */
+function dismissMenu(event) {
+  if (!menuPanel.value?.contains(event.target)) closeMenu()
+}
+
+/**
+ * 在菜单项间移动焦点，或取消并返回原行。
+ * @param event 菜单键盘事件。
+ * @returns 无返回值。
+ */
+function menuKeydown(event) {
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    menu.value?.origin.focus({ preventScroll: true })
+    closeMenu()
+  } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault()
+    const buttons = [...menuPanel.value.querySelectorAll('button')]
+    const index = buttons.indexOf(document.activeElement)
+    buttons[
+      (index + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length
+    ]?.focus()
+  } else if (event.key === 'Tab') {
+    closeMenu()
+  }
+}
+
+/**
+ * 用一次剪贴板写入复制文件对象或路径文本。
+ * @param paths 用户明确选中的路径列表。
+ * @param asText 是否仅复制第一个路径的文本。
+ * @returns 剪贴板操作完成后的 Promise。
+ */
+async function copyResults(paths, asText = false) {
+  if (!paths.length) return
+  try {
+    await window.toolsLifecycle.runTask(() => {
+      const copied = asText ? window.tabdo.copyText(paths[0]) : window.tabdo.copyFile(paths)
+      if (!copied) throw new Error('剪贴板写入失败')
+      message.value = asText ? '已复制路径' : '已复制 ' + paths.length + ' 项'
+    })
+  } catch (error) {
+    message.value = error.message || '复制失败'
+  }
+}
+
+/**
+ * 执行当前右键菜单中的操作。
+ * @param action 用户选择的操作标识。
+ * @returns 无返回值。
+ */
+function runResultAction(action) {
+  if (!menu.value) return
+  const { item, origin } = menu.value
+  closeMenu()
+  origin.focus({ preventScroll: true })
+  if (action === 'open' || action === 'reveal') void open(item, action === 'reveal')
+  else void copyResults([item.path], action === 'path')
 }
 /**
  * 为结果名称标出普通关键词，不把用户输入解释为正则表达式。
@@ -432,6 +592,9 @@ function focusSearch() {
 window.toolsLifecycle.addCleanup(dispose)
 onUnmounted(dispose)
 onMounted(async () => {
+  window.addEventListener('pointerdown', dismissMenu, true)
+  window.addEventListener('blur', closeMenu)
+  window.addEventListener('resize', closeMenu)
   observer = new ResizeObserver((entries) => {
     if (!disposed) shellWidth.value = entries[0].contentRect.width
   })
@@ -485,20 +648,36 @@ onMounted(async () => {
           role="listbox"
           aria-label="文件搜索结果"
           :aria-busy="busy"
+          :aria-multiselectable="multi || undefined"
+          @wheel.passive="closeMenu"
         >
           <div
             v-for="(item, index) in items"
             :key="item.path"
             :data-search-index="index"
             class="result-row search-result"
-            :class="{ selected: selected === index, 'active-focus': selected === index }"
+            :class="{
+              selected: multi ? checkedPaths.has(item.path) : selected === index,
+              'active-focus': selected === index
+            }"
             role="option"
-            :aria-selected="selected === index"
+            :aria-selected="multi ? checkedPaths.has(item.path) : selected === index"
             tabindex="0"
-            @click="selectResult(index)"
-            @dblclick="open(item)"
+            draggable="true"
+            @dragstart.prevent="dragResult(item)"
+            @click="chooseResult(index)"
+            @dblclick="!multi && open(item)"
+            @contextmenu.prevent.stop="openResultMenu($event, index)"
           >
-            <span class="file-icon fallback-icon" :class="{ folder: item.isDirectory }">{{
+            <span
+              v-if="multi"
+              class="file-icon multi-check"
+              :class="{ checked: checkedPaths.has(item.path) }"
+              aria-hidden="true"
+            >
+              {{ checkedPaths.has(item.path) ? '✓' : '' }}
+            </span>
+            <span v-else class="file-icon fallback-icon" :class="{ folder: item.isDirectory }">{{
               item.isDirectory ? '▰' : item.name.split('.').pop().slice(0, 4).toUpperCase()
             }}</span>
             <span class="file-text"
@@ -613,8 +792,58 @@ onMounted(async () => {
         @sort="setSort"
         @preview="setPreview"
         @request-input-focus="focusSearch"
-      />
+      >
+        <template #actions>
+          <button
+            type="button"
+            class="finder-action"
+            aria-label="多选"
+            title="多选"
+            :aria-pressed="multi"
+            @click="toggleMulti"
+          >
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <rect x="5" y="5" width="11" height="11" rx="2" />
+              <path d="M12 3H5a2 2 0 0 0-2 2v7m5-2 2 2 3-4" />
+            </svg>
+          </button>
+          <button
+            v-if="multi"
+            type="button"
+            class="finder-action"
+            :disabled="!checkedPaths.size"
+            aria-label="批量复制"
+            title="批量复制"
+            @click="copyResults([...checkedPaths])"
+          >
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <rect x="7" y="7" width="9" height="9" rx="1.5" />
+              <path d="M13 4H5a1 1 0 0 0-1 1v8" />
+            </svg>
+            <span>{{ checkedPaths.size }}</span>
+          </button>
+        </template>
+      </FinderFooter>
     </main>
+    <div
+      v-if="menu"
+      ref="menuPanel"
+      class="result-menu"
+      role="menu"
+      aria-label="文件操作"
+      :style="{ left: menu.x + 'px', top: menu.y + 'px' }"
+      @keydown.stop="menuKeydown"
+    >
+      <button
+        v-for="action in resultActions"
+        :key="action.id"
+        type="button"
+        role="menuitem"
+        @click="runResultAction(action.id)"
+      >
+        {{ action.label }}
+      </button>
+    </div>
     <SettingsDrawer
       :open="showGuide"
       :categories="allCategories"
@@ -669,6 +898,74 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.finder-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 5px;
+  color: inherit;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.finder-action:hover:not(:disabled),
+.finder-action[aria-pressed='true'] {
+  color: var(--primary-color);
+  background: var(--primary-color-alpha-10);
+}
+.finder-action:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.finder-action svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+.file-icon.multi-check {
+  width: 18px;
+  height: 18px;
+  justify-self: center;
+  border: 1px solid var(--text-secondary);
+  border-radius: 4px;
+  text-align: center;
+  line-height: 16px;
+}
+.file-icon.multi-check.checked {
+  color: white;
+  border-color: var(--primary-color);
+  background: var(--primary-color);
+}
+.result-menu {
+  position: fixed;
+  z-index: 100;
+  min-width: 165px;
+  padding: 4px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px #0003;
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+}
+.result-menu button {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 4px;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+.result-menu button:hover,
+.result-menu button:focus-visible {
+  background: var(--bg-accent-light);
+}
 /* Finder/index.vue */
 
 .finder-shell {

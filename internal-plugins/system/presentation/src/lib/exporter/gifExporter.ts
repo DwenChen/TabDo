@@ -1,3 +1,4 @@
+import type { ZoomPlaybackClock } from "@presentation/components/video-editor/zoomPlayback";
 import GIF from "gif.js";
 import type {
 	AnnotationRegion,
@@ -30,6 +31,7 @@ const GIF_WORKER_URL = new URL("gif.js/dist/gif.worker.js", import.meta.url).toS
 const PROGRESS_SAMPLE_WINDOW_MS = 1_000;
 
 interface GifExporterConfig {
+	zoomPlayback?: ZoomPlaybackClock;
 	clipRegions?: import("@presentation/components/video-editor/types").ClipRegion[];
 	videoUrl: string;
 	width: number;
@@ -259,6 +261,7 @@ export class GifExporter {
 				this.config.trimRegions,
 				this.config.speedRegions,
 				this.config.clipRegions,
+				this.config.zoomPlayback,
 			);
 			const totalFrames = Math.ceil(effectiveDuration * this.config.frameRate);
 
@@ -293,7 +296,9 @@ export class GifExporter {
 						sourceTimestampUs,
 						cursorTimestampUs,
 						frameDurationUs,
-						frameIndex * frameDurationUs,
+						this.config.zoomPlayback
+							? this.config.zoomPlayback.toEditMs((frameIndex * frameDurationUs) / 1000) * 1000
+							: frameIndex * frameDurationUs,
 					);
 
 					this.addRenderedGifFrame(frameDelay);
@@ -301,6 +306,7 @@ export class GifExporter {
 					this.reportProgress(frameIndex, totalFrames);
 				},
 				this.config.clipRegions,
+				this.config.zoomPlayback,
 			);
 
 			if (this.cancelled) {

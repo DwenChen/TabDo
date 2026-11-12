@@ -7,6 +7,7 @@ const bodyLimit = 512 * 1024
 export const deepSeekOrigin = 'https://api.deepseek.com'
 // 服务端点由代码登记，搜索词和待抓取 URL 只进入参数，不能改变服务地址。
 const webApiEndpoints = {
+  'bocha-search': 'https://api.bocha.cn/v1/web-search',
   'brave-search': 'https://api.search.brave.com/res/v1/web/search',
   'deepseek-search': `${deepSeekOrigin}/v1/tools/search`,
   'deepseek-fetch': `${deepSeekOrigin}/v1/tools/fetch`
@@ -250,6 +251,62 @@ export async function searchCallAiWeb(query: string, key: string, task: AbortSig
           ]
         : []
     )
+}
+
+/**
+ * 通过博查 Web Search 检索网页并整理标题、链接和摘要。
+ * @param query 用户授权发送的搜索词。
+ * @param key 本机解密的博查密钥。
+ * @param task 本轮取消信号。
+ * @returns 可供引用的网页结果。
+ * @throws 搜索词、凭据、网络或响应无效时拒绝。
+ */
+export async function searchBochaWeb(query: string, key: string, task: AbortSignal) {
+  const search = query.trim()
+  if (!search || search.length > 600) throw new Error('请输入不超过 600 字符的查询')
+  // 凭据只发给固定端点，请求正文使用官方 Web Search 参数。
+  const response = await requestWebResponse(
+    {
+      endpoint: 'bocha-search',
+      headers: {
+        accept: 'application/json',
+        'content-type': 'application/json',
+        authorization: `Bearer ${key}`
+      },
+      body: JSON.stringify({ query: search, freshness: 'noLimit', summary: true, count: 8 })
+    },
+    AbortSignal.any([task, AbortSignal.timeout(25_000)])
+  )
+  if ([401, 403].includes(response.status)) throw new Error('博查搜索密钥或服务权限无效')
+  if ([402, 429].includes(response.status)) throw new Error('博查搜索请求达到频率或额度限制')
+  if (response.status !== 200 || response.truncated)
+    throw new Error(`博查搜索响应异常（HTTP ${response.status}）`)
+  const payload = JSON.parse(response.body.toString('utf8'))
+  if (payload?.code !== 200 || !payload.data)
+    throw new Error('博查搜索未返回有效结果，请检查密钥和服务额度')
+  const results = payload.data.webPages?.value
+  if (!Array.isArray(results)) return []
+  return results.slice(0, 8).flatMap(
+    (
+      item: {
+        url?: unknown
+        name?: unknown
+        summary?: unknown
+        snippet?: unknown
+      } | null
+    ) => {
+      if (!item || typeof item.url !== 'string' || !/^https?:\/\//i.test(item.url)) return []
+      const description =
+        typeof item.summary === 'string' && item.summary.trim() ? item.summary : item.snippet
+      return [
+        {
+          url: item.url.slice(0, 2048),
+          title: typeof item.name === 'string' ? htmlText(item.name).slice(0, 240) : '',
+          snippet: typeof description === 'string' ? htmlText(description).slice(0, 600) : ''
+        }
+      ]
+    }
+  )
 }
 
 /**

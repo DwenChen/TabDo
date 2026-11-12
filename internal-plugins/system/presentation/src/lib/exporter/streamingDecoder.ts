@@ -1,3 +1,4 @@
+import type { ZoomPlaybackClock } from "@presentation/components/video-editor/zoomPlayback";
 import { WebDemuxer } from "web-demuxer";
 import {
 	type ClipRegion,
@@ -172,12 +173,24 @@ export class StreamingVideoDecoder {
 		return this.metadata;
 	}
 
+	/**
+	 * Decode source clips and deliver frames at their retimed output positions.
+	 * @param targetFrameRate Export frame rate.
+	 * @param trimRegions Legacy trim regions.
+	 * @param speedRegions Legacy speed regions.
+	 * @param onFrame Callback for each decoded frame or gap.
+	 * @param clipRegions Explicit edit timeline.
+	 * @param zoomPlayback Clock for zoom-region video speed, if present.
+	 * @returns Resolves after all frames are emitted.
+	 * @throws When metadata or an expected decoded frame is missing.
+	 */
 	async decodeAll(
 		targetFrameRate: number,
 		trimRegions: TrimRegion[] | undefined,
 		speedRegions: SpeedRegion[] | undefined,
 		onFrame: OnFrameCallback,
 		clipRegions?: ClipRegion[],
+		zoomPlayback?: ZoomPlaybackClock,
 	): Promise<void> {
 		if (!this.demuxer || !this.metadata) {
 			throw new Error("Must call loadMetadata() before decodeAll()");
@@ -207,14 +220,15 @@ export class StreamingVideoDecoder {
 		let nextFrame = 0;
 		const emitGapsUntil = async (endFrame: number) => {
 			while (!this.cancelled && nextFrame < endFrame) {
-				if (findClipAtTimelineTime((nextFrame * 1000) / targetFrameRate, clipRegions)) {
+				const outputMs = (nextFrame * 1000) / targetFrameRate;
+				if (findClipAtTimelineTime(zoomPlayback?.toEditMs(outputMs) ?? outputMs, clipRegions)) {
 					throw new Error(`Missing decoded clip frame at output frame ${nextFrame}`);
 				}
 				await onFrame(null, (nextFrame * 1_000_000) / targetFrameRate, 0, 0);
 				nextFrame++;
 			}
 		};
-		for (const run of buildClipDecodeRuns(clipRegions)) {
+		for (const run of buildClipDecodeRuns(clipRegions, zoomPlayback)) {
 			if (this.cancelled) break;
 			await decodeVideoStream(
 				context,
@@ -232,19 +246,31 @@ export class StreamingVideoDecoder {
 		}
 		await emitGapsUntil(
 			Math.ceil(
-				this.getEffectiveDuration(undefined, undefined, clipRegions) * targetFrameRate,
+				this.getEffectiveDuration(undefined, undefined, clipRegions, zoomPlayback) * targetFrameRate,
 			),
 		);
 	}
 
+	/**
+	 * Determine export duration after trims or explicit clip timing.
+	 * @param trimRegions Legacy trim regions.
+	 * @param speedRegions Legacy speed regions.
+	 * @param clipRegions Explicit edit timeline.
+	 * @param zoomPlayback Clock for zoom-region video speed, if present.
+	 * @returns Output duration in seconds.
+	 * @throws When source metadata is missing.
+	 */
 	getEffectiveDuration(
 		trimRegions?: TrimRegion[],
 		speedRegions?: SpeedRegion[],
 		clipRegions?: ClipRegion[],
+		zoomPlayback?: ZoomPlaybackClock,
 	): number {
 		if (!this.metadata) throw new Error("Must call loadMetadata() first");
-		if (clipRegions)
-			return getTimelineDurationMs(clipRegions, this.metadata.duration * 1000) / 1000;
+		if (clipRegions) {
+			const editMs = getTimelineDurationMs(clipRegions, this.metadata.duration * 1000);
+			return (zoomPlayback?.toOutputMs(editMs) ?? editMs) / 1000;
+		}
 		const trimSegments = computeVideoSegments(
 			getEffectiveVideoStreamDurationSeconds({
 				duration: this.metadata.duration,

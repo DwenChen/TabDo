@@ -1231,13 +1231,25 @@ export class PixiCursorOverlay {
 	 * @param previousFrameTimeMs 导出的前帧时间，用于一致的模糊采样。
 	 * @returns 无返回值；直接更新所属 Pixi 场景。
 	 */
+	/**
+	 * Draw the cursor at the source hotspot with size compensation for camera zoom.
+	 * @param samples Recorded cursor telemetry.
+	 * @param timeMs Source time in milliseconds.
+	 * @param viewport Cursor placement rectangle and crop.
+	 * @param visible Whether cursor rendering is enabled.
+	 * @param freeze Whether to hold the current frame.
+	 * @param previousFrameTimeMs Previous source sample for a frozen frame.
+	 * @param cameraScale Actual transform applied by the zoom camera.
+	 * @returns Nothing; updates the Pixi overlay in place.
+	 */
 	update(
 		samples: CursorTelemetryPoint[],
 		timeMs: number,
 		viewport: CursorViewportRect,
 		visible: boolean,
 		freeze = false,
-		previousFrameTimeMs?: number | null
+		previousFrameTimeMs?: number | null,
+		cameraScale = 1,
 	): void {
 		if (samples.length === 0 || viewport.width <= 0 || viewport.height <= 0) {
 			this.container.visible = false;
@@ -1269,8 +1281,13 @@ export class PixiCursorOverlay {
 
 		const projectedTarget = projectCursorPositionToViewport(target, viewport.sourceCrop);
 
+		// Cancel most of the camera scaling while allowing a modest increase at higher zoom.
+		const zoom = Math.max(1, cameraScale);
+		const sizeCompensation = (1 + (zoom - 1) * 0.06) / zoom;
 		const h =
-			this.config.dotRadius * getCursorViewportScale(viewport.width, this.config.minViewportScale);
+			this.config.dotRadius *
+			getCursorViewportScale(viewport.width, this.config.minViewportScale) *
+			sizeCompensation;
 		const { cursorType, clickSample, clickBounceProgress, clickProgress } = getCursorVisualState(
 			samples,
 			timeMs,

@@ -1,4 +1,5 @@
 import { SOURCE_AUDIO_NORMALIZE_GAIN } from "@presentation/components/video-editor/audio/audioTypes";
+import type { ZoomPlaybackClock } from "@presentation/components/video-editor/zoomPlayback";
 import type {
 	AudioRegion,
 	ClipRegion,
@@ -30,6 +31,15 @@ import {
 import type { VideoMuxer } from "./muxer";
 
 export class OfflineAudioProcessor extends AudioMediaProcessor {
+	/**
+	 * Mix audio against the same output clock used for video.
+	 * @param zoomPlayback Optional clock for zoom-region video speed.
+	 * @returns Offline audio processor for the current export.
+	 */
+	constructor(protected readonly zoomPlayback?: ZoomPlaybackClock) {
+		super();
+	}
+
 	protected async renderAndMuxOfflineAudio(
 		videoUrl: string,
 		trimRegions: TrimLikeRegion[],
@@ -211,7 +221,8 @@ export class OfflineAudioProcessor extends AudioMediaProcessor {
 		muxer: VideoMuxer,
 	): Promise<void> {
 		const { numChannels } = prepared;
-		const totalOutputSec = Math.max(prepared.outputDurationMs / 1000, 0.01);
+		const outputMs = this.zoomPlayback?.toOutputMs(prepared.outputDurationMs) ?? prepared.outputDurationMs;
+		const totalOutputSec = Math.max(outputMs / 1000, 0.01);
 
 		let encodeError: Error | null = null;
 		let muxError: Error | null = null;
@@ -281,7 +292,8 @@ export class OfflineAudioProcessor extends AudioMediaProcessor {
 	// Render timeline to a WAV blob for the native/FFmpeg export path.
 	// Processes in chunks to avoid holding the entire output in memory.
 	protected async renderToWavBlobChunked(prepared: PreparedOfflineRender): Promise<Blob> {
-		const totalOutputSec = Math.max(prepared.outputDurationMs / 1000, 0.01);
+		const outputMs = this.zoomPlayback?.toOutputMs(prepared.outputDurationMs) ?? prepared.outputDurationMs;
+		const totalOutputSec = Math.max(outputMs / 1000, 0.01);
 		const totalFrames = Math.ceil(totalOutputSec * OFFLINE_AUDIO_SAMPLE_RATE);
 		const numChannels = prepared.numChannels;
 
@@ -296,8 +308,13 @@ export class OfflineAudioProcessor extends AudioMediaProcessor {
 		return new Blob(pcmParts, { type: "audio/wav" });
 	}
 
-	// Shared chunked rendering loop. Processes the timeline in
-	// OFFLINE_CHUNK_DURATION_SEC segments, calling onChunk for each rendered buffer.
+	/**
+	 * Mix bounded timeline spans and stretch them with the existing pitch-preserving processor.
+	 * @param prepared Resolved edit-time sources and placements.
+	 * @param totalOutputSec Duration on the output clock.
+	 * @param onChunk Receives each output buffer at its sample-aligned time.
+	 * @returns Resolves on completion or cancellation.
+	 */
 	protected async renderChunked(
 		prepared: PreparedOfflineRender,
 		totalOutputSec: number,
@@ -308,17 +325,39 @@ export class OfflineAudioProcessor extends AudioMediaProcessor {
 		) => Promise<void>,
 	): Promise<void> {
 		const { slices, numChannels } = prepared;
-		let outputOffsetSec = 0;
-		const chunkCount = Math.ceil(totalOutputSec / OFFLINE_CHUNK_DURATION_SEC);
-
-		for (let i = 0; i < chunkCount && !this.cancelled; i++) {
-			const chunkSec = Math.min(OFFLINE_CHUNK_DURATION_SEC, totalOutputSec - outputOffsetSec);
-			const chunkFrames = Math.ceil(chunkSec * OFFLINE_AUDIO_SAMPLE_RATE);
-
+		const sampleRate = OFFLINE_AUDIO_SAMPLE_RATE;
+		const clock = this.zoomPlayback;
+		const totalFrames = Math.ceil(totalOutputSec * sampleRate);
+		const boundaries = clock?.spans.map((span) => ({
+			frame: Math.ceil(span.outputMs * sampleRate / 1000),
+			rate: span.rate,
+		})) ?? [];
+		let outputFrame = 0;
+		let spanIndex = 0;
+		let chunkIndex = 0;
+		while (outputFrame < totalFrames && !this.cancelled) {
+			// Cut on a sample boundary and bound the edit-time PCM per chunk.
+			while (spanIndex + 1 < boundaries.length && boundaries[spanIndex + 1].frame <= outputFrame) {
+				spanIndex++;
+			}
+			const rate = boundaries[spanIndex]?.rate ?? 1;
+			const nextFrame = Math.min(
+				totalFrames,
+				boundaries[spanIndex + 1]?.frame ?? totalFrames,
+				outputFrame + Math.floor(OFFLINE_CHUNK_DURATION_SEC * sampleRate / Math.max(1, rate)),
+			);
+			const chunkFrames = nextFrame - outputFrame;
+			const outputOffsetSec = outputFrame / sampleRate;
+			const chunkSec = chunkFrames / sampleRate;
+			const editSec = clock ? clock.toEditMs(outputOffsetSec * 1000) / 1000 : outputOffsetSec;
+			const padSec = rate === 1 ? 0 : 0.1 * rate;
+			const editStartSec = Math.max(0, editSec - padSec);
+			const sourceOffsetSec = editSec - editStartSec;
+			const editChunkSec = sourceOffsetSec + chunkSec * rate + padSec;
 			const offlineCtx = new OfflineAudioContext(
 				numChannels,
-				chunkFrames,
-				OFFLINE_AUDIO_SAMPLE_RATE,
+				rate === 1 ? chunkFrames : Math.ceil(editChunkSec * sampleRate),
+				sampleRate,
 			);
 
 			// Schedule main audio
@@ -329,8 +368,8 @@ export class OfflineAudioProcessor extends AudioMediaProcessor {
 					slices,
 					0,
 					prepared.mainBufferEntry.gain,
-					outputOffsetSec,
-					chunkSec,
+					editStartSec,
+					editChunkSec,
 					prepared.mutedSourceOutputRangesSec,
 				);
 			}
@@ -343,8 +382,8 @@ export class OfflineAudioProcessor extends AudioMediaProcessor {
 					slices,
 					entry.startDelaySec,
 					entry.gain,
-					outputOffsetSec,
-					chunkSec,
+					editStartSec,
+					editChunkSec,
 					prepared.mutedSourceOutputRangesSec,
 				);
 			}
@@ -356,20 +395,27 @@ export class OfflineAudioProcessor extends AudioMediaProcessor {
 					buffer,
 					region,
 					slices,
-					outputOffsetSec,
-					chunkSec,
+					editStartSec,
+					editChunkSec,
 					prepared.usesClipTimeline,
 				);
 			}
 
 			const rendered = await offlineCtx.startRendering();
 			if (this.cancelled) break;
-			softLimitOfflineMixPeaksInPlace(rendered);
-
-			await onChunk(rendered, outputOffsetSec, i);
-
-			outputOffsetSec += chunkSec;
-			this.onProgress?.(0.3 + (outputOffsetSec / totalOutputSec) * 0.7);
+			// Padding gives overlap-add the surrounding waveform at a speed boundary.
+			const output = rate === 1 ? rendered : this.stretchAudioBuffer(
+				rendered,
+				rate,
+				sourceOffsetSec,
+				chunkSec * rate,
+				(chunkFrames + 1e-6) / sampleRate,
+				offlineCtx,
+			);
+			softLimitOfflineMixPeaksInPlace(output);
+			await onChunk(output, outputOffsetSec, chunkIndex++);
+			outputFrame = nextFrame;
+			this.onProgress?.(0.3 + (outputFrame / totalFrames) * 0.7);
 		}
 	}
 

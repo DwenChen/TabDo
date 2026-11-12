@@ -57,13 +57,13 @@ async function createPreviewArchive(source, destination, unpackedEntries) {
   // ASAR 使用绝对文件名匹配；显式包含 .artifacts，避免 ** 跳过隐藏目录。
   const prefix = path.resolve(source).replaceAll('\\', '/')
   const mediaDirectories =
-    /^(?:resources\/|node_modules\/(?:sharp|pdfkit|ffmpeg-static|ffprobe-static|@modelcontextprotocol\/sdk|context-mode)\/)/
+    /^(?:resources\/|node_modules\/(?:sharp|pdfkit|ffmpeg-static|ffprobe-static|@modelcontextprotocol\/sdk)\/)/
   const hasMedia = unpackedEntries.some((entry) => mediaDirectories.test(entry))
   // 运行资源与依赖按完整目录树展开，避免文件增多形成超长glob，兼容两种分隔符。
   const entries = [...new Set(unpackedEntries)].filter((entry) => !mediaDirectories.test(entry))
   await asar.createPackageWithOptions(source, destination, {
     unpackDir: hasMedia
-      ? '{resources,node_modules/{sharp,pdfkit,ffmpeg-static,ffprobe-static,@modelcontextprotocol/sdk,context-mode},node_modules?{sharp,pdfkit,ffmpeg-static,ffprobe-static,@modelcontextprotocol?sdk,context-mode}}'
+      ? '{resources,node_modules/{sharp,pdfkit,ffmpeg-static,ffprobe-static,@modelcontextprotocol/sdk},node_modules?{sharp,pdfkit,ffmpeg-static,ffprobe-static,@modelcontextprotocol?sdk}}'
       : undefined,
     unpack:
       entries.length === 0
@@ -120,6 +120,25 @@ async function main() {
   const newUnpacked = newArchive + '.unpacked'
   await fsp.mkdir(resourcesStage, { recursive: true })
   const unpackedEntries = []
+  // 旧预览沿用成品依赖树，仅剔除新版锁文件中已经消失的旧直接依赖。
+  const previousPackage = JSON.parse(asar.extractFile(archive, 'package.json').toString('utf8'))
+  const currentPackage = require('../package.json')
+  const lockfile = await fsp.readFile(path.join(root, 'pnpm-lock.yaml'), 'utf8')
+  const retiredDependencies = Object.keys(previousPackage.dependencies || {})
+    .filter((name) => !Object.hasOwn(currentPackage.dependencies, name))
+    .filter((name) => !lockfile.includes(`\n  ${name}@`) && !lockfile.includes(`\n  '${name}@`))
+    .map((name) => 'node_modules/' + name)
+  /**
+   * 判断是否是上一版已退役的应用依赖。
+   * @param {string} relative 应用内的正斜杠相对路径。
+   * @returns {boolean} 是否应从新程序树排除。
+   */
+  function isRetiredDependency(relative) {
+    return retiredDependencies.some(
+      (directory) => relative === directory || relative.startsWith(directory + '/')
+    )
+  }
+
   /**
    * 保留既有归档中需要物理展开的原生模块和资源清单。
    * @param {Object} tree ASAR 文件树。
@@ -129,6 +148,7 @@ async function main() {
   function collectUnpacked(tree, prefix = '') {
     for (const [name, entry] of Object.entries(tree.files || {})) {
       const relative = prefix + name
+      if (isRetiredDependency(relative)) continue
       if (entry.files) collectUnpacked(entry, relative + '/')
       else if (entry.unpacked && fs.existsSync(path.join(unpacked, relative)))
         unpackedEntries.push(relative)
@@ -188,6 +208,7 @@ async function main() {
   async function extractPreviewTree(tree, prefix = '') {
     for (const [name, entry] of Object.entries(tree.files || {})) {
       const relative = prefix + name
+      if (isRetiredDependency(relative)) continue
       const destination = workspacePath(path.join(appStage, relative))
       if (entry.files) {
         await fsp.mkdir(destination, { recursive: true })
@@ -239,7 +260,10 @@ async function main() {
     unpackedEntries.push(file.relative)
   }
   // 先保留旧展开目录，再由 ASAR 写入新程序资源，防止旧副本覆盖本次原生模块。
-  await fsp.cp(unpacked, newUnpacked, { recursive: true })
+  await fsp.cp(unpacked, newUnpacked, {
+    recursive: true,
+    filter: (source) => !isRetiredDependency(path.relative(unpacked, source).replaceAll('\\', '/'))
+  })
   // 仅清理私有暂存中的旧编译输出，避免无效哈希资源随更新长期累积。
   await fsp.rm(workspacePath(path.join(newUnpacked, 'out')), { recursive: true, force: true })
   await fsp.rm(workspacePath(path.join(newUnpacked, 'resources')), { recursive: true, force: true })

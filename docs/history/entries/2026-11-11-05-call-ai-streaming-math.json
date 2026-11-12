@@ -1,0 +1,27 @@
+{
+  "id": "call-ai-streaming-math",
+  "date": "2026-11-11",
+  "summary": "呼叫AI即时排版完整 Markdown 块，修复长回复后段公式未渲染",
+  "changes": [
+    "移除整条回复共用的公式预算。KaTeX 输出更紧凑的 MathML，重复公式共用计算结果，页面分帧添加公式。无效或过大的单个公式保留源码。",
+    "生成期间合并增量，在同一 Worker 中复用已经排版且语义不变的 Markdown 前缀。正文追加已完成的段落、公式和代码块，未定型的末块仍显示原文。",
+    "保留长回复滚动和末尾可见性验证，覆盖结束前排版、末尾公式、代码节点复用和单式失败。",
+    "密集公式回复跳过离屏段落布局，减少窗口缩放重排。框线类公式保留 KaTeX HTML 外观。"
+  ],
+  "checks": [
+    "本地 Worker 夹具两批生成 600 个重复公式，再追加末尾公式。首批已有 320 个排版位置，未闭合 Python 块仍保留在末块。重复公式只生成一份 MathML。",
+    "pnpm test 通过，135 个文件共 904 项。归档 .artifacts/runs/2026-11-11T09-47-10-754Z-unit。",
+    "源码 Electron 首轮确认 603 个有效公式全部显示，但缩到窄窗后翻页操作超时。加入密集回复离屏布局后，重新执行呼叫AI回归通过。归档 .artifacts/runs/2026-11-11T09-49-46-086Z-e2e。",
+    "在最后一批送达前断言已有 320 个公式、完整代码块及未闭合围栏原文；追加后验证代码节点复用、末尾有效式和错误式独立处理。普通与 520px 窄窗口均验证翻到末尾。",
+    "打开当轮 call-ai-long-formula-tail.png 和 call-ai-bottom-narrow.png 检查。行内式、带框的独立式及表格式可见，末段和输入框未被裁切。",
+    "pnpm typecheck、pnpm build:tools、pnpm docs:check、回归分组清单和差异检查通过。",
+    "pnpm maintain、pnpm maintain:check、pnpm docs:check 与 git diff --check 通过。",
+    "确认旧预览退出后执行 pnpm preview:sync，免安装预览已更新。203 个现有资料文件前后一致，配置与插件均保留。收据 .artifacts/backups/preview-sync/update-1794391149882/preservation.json。",
+    "pnpm test:preview:resources 通过，核验 2138 个程序文件、353 个内置插件文件及 11842 个运行依赖文件。",
+    "清理本轮程序暂存及已被替代的旧程序回退，共 29913 个文件、1376611572 字节。保留最近一次回退和历次保留收据。审计 .artifacts/cleanup-2026-11-11/streaming-math-preview-program-cleanup.json。",
+    "同步后 pnpm maintain、pnpm maintain:check、pnpm docs:check 和 git diff --check 通过。"
+  ],
+  "pending": [
+    "截图对应的原始模型回复未采集，真实提供商的回复留待用户复测。"
+  ]
+}

@@ -113,6 +113,8 @@ export function resetProjectEditorSection(
                   ...region,
                   depth: DEFAULT_ZOOM_DEPTH,
                   scale: undefined,
+                  playbackRate: undefined,
+                  animationRate: undefined,
                   camera: undefined,
                   mode: 'auto' as const
                 }

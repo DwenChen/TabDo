@@ -1,4 +1,7 @@
+import type { ZoomPlaybackClock } from "@presentation/components/video-editor/zoomPlayback";
+
 export interface ExportConfig {
+	zoomPlayback?: ZoomPlaybackClock;
 	width: number;
 	height: number;
 	frameRate: number;

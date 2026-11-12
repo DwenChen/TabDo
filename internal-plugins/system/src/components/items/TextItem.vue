@@ -1,6 +1,7 @@
 <script setup>
 /* eslint vue/no-v-html: "off" -- highlight.js escapes clipboard text before adding syntax spans. */
 import { computed } from 'vue'
+import highlighter from '../../vendor/highlight.min'
 const props = defineProps({
   item: { type: Object, required: true },
   isExpanded: { type: Boolean, default: false },
@@ -10,7 +11,7 @@ const props = defineProps({
 
 // 只高亮当前已渲染的代码条目，长内容限制到 20KB，避免自动检测阻塞列表切换。
 const highlighted = computed(() => {
-  if (props.item.category !== 'code' || !window.hljs) return ''
+  if (props.item.category !== 'code') return ''
   const code = props.item.content.slice(0, 20000)
   // 明确语法优先指定语言，避免短 JavaScript 被自动检测为其他语言。
   const language = /^(?:const|let|var|function|import|export)\s/m.test(code)
@@ -21,8 +22,8 @@ const highlighted = computed(() => {
         ? 'json'
         : undefined
   return language
-    ? window.hljs.highlight(code, { language }).value
-    : window.hljs.highlightAuto(code).value
+    ? highlighter.highlight(code, { language }).value
+    : highlighter.highlightAuto(code).value
 })
 /**
  * 使用默认浏览器打开已分类且协议有效的链接。

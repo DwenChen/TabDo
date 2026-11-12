@@ -1,3 +1,4 @@
+import type { ZoomPlaybackClock } from "./zoomPlayback";
 import { Application, Container, Graphics, Rectangle, Sprite, Texture } from "pixi.js";
 import { applyZoomCamera, releaseZoomCamera } from './videoPlayback/zoomCameraFilter';
 import { MotionBlurFilter } from "pixi-filters/motion-blur";
@@ -228,6 +229,7 @@ function getEffectiveNativeAspectRatio(
 interface VideoPlaybackProps {
 	autoPlay?: boolean;
 	clipRegions: ClipRegion[];
+	zoomPlayback?: ZoomPlaybackClock;
 	videoPath: string;
 	onDurationChange: (duration: number) => void;
 	onPreviewReadyChange?: (ready: boolean) => void;
@@ -331,6 +333,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			onFrameTime,
 			currentTime: timelineTime,
 			clipRegions,
+			zoomPlayback,
 			onPlayStateChange,
 			onError,
 			wallpaper,
@@ -477,6 +480,8 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const webcamPreviewSample = overlaySample;
 		const isGap = !findPreviewClipAtTimelineTime(timelineTime * 1000, clipRegions);
 		const clipRegionsRef = useRef(clipRegions);
+		const zoomPlaybackRef = useRef(zoomPlayback);
+		zoomPlaybackRef.current = zoomPlayback;
 		const clipPlaybackRef = useRef<ReturnType<typeof createClipPlayback> | null>(null);
 		const onPlaybackErrorRef = useRef(onError);
 		const timelineTimeRef = useRef(timelineTime);
@@ -1375,7 +1380,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 
 			enablePitchPreservingPlayback(bgVideo);
 			const syncedPlaybackRate = getMediaSyncPlaybackRate({
-				basePlaybackRate: 1,
+				basePlaybackRate: zoomPlayback?.rateAt(clipTimelineTime * 1000) ?? 1,
 				currentTime: bgVideo.currentTime,
 				targetTime,
 				toleranceSeconds: 0.02,
@@ -1408,7 +1413,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			}
 
 			lastBackgroundSyncTimeRef.current = clipTimelineTime;
-		}, [timelineTime, isPlaying]);
+		}, [timelineTime, isPlaying, zoomPlayback]);
 
 		useEffect(() => {
 			if (!pixiReady) return;
@@ -1710,9 +1715,10 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				lastWebcamSyncTimeRef.current = targetTime;
 			}
 
-			const targetPlaybackRate = webcam?.segments
+			const basePlaybackRate = webcam?.segments
 				? 1
 				: (findClipAtTimelineTime(timelineTimeRef.current * 1000, clipRegions)?.speed ?? 1);
+			const targetPlaybackRate = basePlaybackRate * (zoomPlayback?.rateAt(timelineTimeRef.current * 1000) ?? 1);
 			if (!supportsPreviewPlaybackRate(targetPlaybackRate)) {
 				webcamVideo.pause();
 				return;
@@ -1753,6 +1759,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		}, [
 			timelineTime,
 			clipRegions,
+			zoomPlayback,
 			isPlaying,
 			webcamEnabled,
 			webcamTimeOffsetMs,
@@ -2018,6 +2025,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			const transport = createClipPlayback({
 				video,
 				getClips: () => clipRegionsRef.current,
+				getZoomRate: (timeMs) => zoomPlaybackRef.current?.rateAt(timeMs) ?? 1,
 				onSourceSeek: (reason) => {
 					preserveCameraAcrossCut = reason === "cut";
 				},
@@ -2343,6 +2351,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 						showCursorRef.current,
 						isSeekingRef.current || shouldSnapPausedFrameRef.current,
 						sampleFrozenFrame ? (frameSample?.previousSourceTimeMs ?? null) : undefined,
+						appliedScale,
 					);
 				}
 

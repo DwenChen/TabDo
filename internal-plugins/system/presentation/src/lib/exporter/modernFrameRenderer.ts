@@ -2946,6 +2946,9 @@ export class FrameRenderer {
 			: timestamp / 1000;
 		const cursorTimeMs = cursorTimestamp / 1000;
 
+
+		this.updateAnimationState(timeMs, cursorTimeMs);
+
 		if (this.cursorOverlay) {
 			this.cursorOverlay.update(
 				this.config.cursorTelemetry ?? [],
@@ -2953,11 +2956,10 @@ export class FrameRenderer {
 				layoutCache.maskRect,
 				this.config.showCursor ?? true,
 				false,
+				undefined,
+				this.animationState.appliedScale,
 			);
 		}
-
-		this.updateAnimationState(timeMs, cursorTimeMs);
-
 		applyZoomTransform({
 			cameraContainer: this.cameraContainer,
 			zoomBlurFilter: this.zoomBlurFilter,

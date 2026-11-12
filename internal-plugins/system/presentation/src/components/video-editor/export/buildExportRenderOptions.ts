@@ -1,3 +1,4 @@
+import type { ZoomPlaybackClock } from "../zoomPlayback";
 import type { ExportProgress } from "@presentation/lib/exporter";
 import { toFileUrl } from "../projectPersistence";
 import type { useAppearanceState } from "../state/useAppearanceState";
@@ -12,6 +13,7 @@ type BuildExportRenderOptionsInput = {
 	timeline: TimelineState;
 	effectiveSpeedRegions: SpeedRegion[];
 	effectiveZoomRegions: ZoomRegion[];
+	zoomPlayback?: ZoomPlaybackClock;
 	effectiveCursorTelemetry: CursorTelemetryPoint[];
 	effectiveShowCursor: boolean;
 	previewWidth: number;
@@ -30,6 +32,7 @@ export function buildExportRenderOptions({
 	timeline,
 	effectiveSpeedRegions,
 	effectiveZoomRegions,
+	zoomPlayback,
 	effectiveCursorTelemetry,
 	effectiveShowCursor,
 	previewWidth,
@@ -39,6 +42,7 @@ export function buildExportRenderOptions({
 }: BuildExportRenderOptionsInput) {
 	return {
 		clipRegions: timeline.clipRegions,
+		zoomPlayback,
 		wallpaper: appearance.wallpaper,
 		trimRegions: timeline.trimRegions,
 		speedRegions: effectiveSpeedRegions,

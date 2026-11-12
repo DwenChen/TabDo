@@ -132,13 +132,23 @@ window.toolsLifecycle.addCleanup(dispose)
       <input v-model="previewEnabled" type="checkbox" aria-label="文件预览开关" />
       <span class="toggle-track"></span>
     </label>
-    <span class="result-count" role="status" :title="status">{{
-      status || `共 ${everythingTotal} 条结果`
-    }}</span>
+    <div class="result-actions">
+      <slot name="actions" />
+      <span class="result-count" role="status" :title="status">{{
+        status || `共 ${everythingTotal} 条结果`
+      }}</span>
+    </div>
   </footer>
 </template>
 
 <style scoped>
+.result-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  min-width: 0;
+}
 .finder-footer {
   position: relative;
   z-index: 25;

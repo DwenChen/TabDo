@@ -11,5 +11,3 @@ allowBuilds:
   electron-winstaller: false
   '@google/genai': false
   protobufjs: false
-minimumReleaseAgeExclude:
-  - context-mode@2.1.6
