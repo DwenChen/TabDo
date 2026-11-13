@@ -1,0 +1,20 @@
+{
+  "id": "call-ai-artifact-path-and-paste",
+  "date": "2026-11-13",
+  "summary": "呼叫AI在原位置链接产物并支持粘贴附件",
+  "changes": [
+    "将正文直接输出的已登记产物绝对路径替换为原位链接，并让模型先交付产物再说明内容。",
+    "右键粘贴与键盘粘贴接入待发送附件，沿用路径去重和附件数量限制，并支持剪贴板截图和普通文本。"
+  ],
+  "checks": [
+    "相关单测 4 个文件共 27 项通过，归档 .artifacts/runs/2026-11-13T05-46-04-213Z-unit。call-ai 回归分组与双份教程一致性已核对。",
+    "最终源码 Electron 回归通过，归档 .artifacts/runs/2026-11-13T05-46-46-991Z-e2e。验证已登记绝对路径的原位链接与重复引用、文件打开与定位、真实右键事件走附件分支、Ctrl+V、附件去重、图片粘贴事件和系统文本粘贴。早期用例修正了 native 模块的单测替身和测试剪贴板参数后复验通过。",
+    "查看插件截图 call-ai-artifact-path.png 和 call-ai-paste-attachments.png。文件链接位于交付说明和内容标题之间，完整路径不占正文，重复引用只保留链接。输入框保留原文字，文件与截图都显示为可移除附件。",
+    "pnpm build、pnpm docs:check 和 git diff --check 通过。",
+    "已同步本地免安装预览 1.5.4，259 个现有资料文件前后一致。资料保留收据 .artifacts/backups/preview-sync/update-1794548827276/preservation.json。",
+    "pnpm test:preview:resources 通过，核验 2138 个程序文件、353 个内置插件文件和 11842 个媒体运行依赖文件。",
+    "清理本轮程序暂存和被替代的回退载荷，共 29913 个文件、1376607434 字节。保留最新程序回退、全部资料保留收据和既有独有证据。审计 .artifacts/cleanup-2026-11-13/call-ai-artifact-path-and-paste-preview.json。",
+    "pnpm maintain、pnpm maintain:check、pnpm docs:check 和 git diff --check 通过。"
+  ],
+  "pending": ["用户原始的真实提供商 HTML 卡片对话留待手动复测。"]
+}

@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import {
   callAiReplyMarkup as vReplyMarkup,
   prepareCallAiReply,
+  preparePlainCallAiReply,
   maxRichReplyLength
 } from '../utils/callAiMarkdown'
 import 'katex/dist/katex.min.css'
@@ -24,6 +25,7 @@ const references = ref([]),
   busy = ref(false),
   changingMode = ref(false),
   error = ref(''),
+  knownPathRevision = ref(0),
   ready = ref(false)
 const body = ref(null),
   composer = ref(null),
@@ -40,7 +42,9 @@ let disposed = false,
   replyTimer
 const repliesToRender = new Map()
 const markdownCache = new WeakMap()
+const plainReplyCache = new WeakMap()
 const knownPaths = new Map()
+const generatedArtifacts = new Map()
 const draftLinks = computed(() => [
   ...new Set(
     linkParts(text.value)
@@ -69,19 +73,66 @@ const choices = computed(() => {
 /**
  * 渲染 Markdown 并限定链接为网页或本会话已知的附件与产物。
  * @param message 当前内存消息。
- * @returns 可安全显示的 HTML。
+ * @returns 可安全显示的 HTML 和已放入正文的产物标识。
  */
-function markdown(message) {
+function preparedReply(message) {
   const source = message.rendered.html
+  const revision = knownPathRevision.value
+  const artifacts = message.artifacts
+  const artifactCount = artifacts?.length || 0
   const cached = markdownCache.get(message)
-  if (cached?.source === source && cached.pathCount === knownPaths.size) return cached.html
+  const compatible = cached?.revision === revision && cached.artifactCount === artifactCount
+  if (compatible && cached.source === source) return cached
   // 保留已重建的前缀，避免每批增量重复解析 SVG、HTML 和链接。
+  const appending = compatible && source.startsWith(cached.source)
+  const linked = new Set(appending ? cached.linked : [])
   const html =
-    cached?.pathCount === knownPaths.size && source.startsWith(cached.source)
-      ? cached.html + prepareCallAiReply(source.slice(cached.source.length), findKnownPath)
-      : prepareCallAiReply(source, findKnownPath)
-  markdownCache.set(message, { source, html, pathCount: knownPaths.size })
-  return html
+    (appending ? cached.html : '') +
+    prepareCallAiReply(
+      appending ? source.slice(cached.source.length) : source,
+      findKnownPath,
+      artifacts || [],
+      linked,
+      generatedArtifacts
+    )
+  const result = { source, html, linked, revision, artifactCount }
+  markdownCache.set(message, result)
+  return result
+}
+/**
+ * 为正文尚未链接到的产物保留本条回复内的操作入口。
+ * @param message 当前助手消息。
+ * @returns 需要在正文末尾展示的产物。
+ */
+function remainingArtifacts(message) {
+  const artifacts = message.artifacts || []
+  if (!artifacts.length) return artifacts
+  const { linked } = preparedPlainReply(message)
+  return artifacts.filter(({ id }) => !linked.has(id))
+}
+/**
+ * 将流式末段或降级显示的正文安全地渲染为纯文本和产物链接。
+ * @param message 当前助手消息。
+ * @returns 可显示的纯文本标记和整条回复已经链接的产物。
+ */
+function preparedPlainReply(message) {
+  const revision = knownPathRevision.value
+  const rich = message.rendered && preparedReply(message)
+  const source = message.rendered ? replyTail(message) : message.text.trimEnd()
+  const artifactCount = message.artifacts?.length || 0
+  const cached = plainReplyCache.get(message)
+  if (
+    cached?.source === source &&
+    cached.rich === rich &&
+    cached.revision === revision &&
+    cached.artifactCount === artifactCount
+  )
+    return cached
+  const linked = new Set(rich?.linked)
+  const html = preparePlainCallAiReply(source, message.artifacts || [], linked, generatedArtifacts)
+  const result = { source, rich, revision, artifactCount, linked, html }
+  plainReplyCache.set(message, result)
+  return result
 }
 
 /**
@@ -109,6 +160,8 @@ function findKnownPath(href) {
   try {
     const local = href
       .replace(/^file:\/\/\/(?=[a-z]:)/i, '')
+      .replace(/^file:\/\/(?=\/)/i, '')
+      .replace(/^file:\/\//i, '//')
       .replaceAll('/', '\\')
       .toLowerCase()
     return knownPaths.get(local) || knownPaths.get(decodeURIComponent(local).toLowerCase())
@@ -140,6 +193,11 @@ function showLinkHint(event) {
  * @returns 无返回值。
  */
 function openReplyLink(event) {
+  const reveal = event.target.closest?.('button[data-reveal-artifact]')
+  if (reveal) {
+    void accessArtifact(reveal.dataset.revealArtifact, 'reveal')
+    return
+  }
   const exportButton = event.target.closest?.('button[data-export-diagram]')
   if (exportButton) {
     void exportReplyDiagram(exportButton)
@@ -155,7 +213,8 @@ function openReplyLink(event) {
   if (!link) return
   event.preventDefault()
   const target = link.dataset.linkTarget
-  if (link.dataset.localLink) {
+  if (link.dataset.openArtifact) void accessArtifact(link.dataset.openArtifact, 'open')
+  else if (link.dataset.localLink) {
     const local = findKnownPath(target)
     if (local?.id) void accessArtifact(local.id, 'open')
     else if (local) openAttachment(local)
@@ -380,7 +439,7 @@ function receive(event) {
   if (event.type === 'assistant-end') {
     if (last?.role === 'assistant') {
       if (last.text.trim()) queueReply(last, true)
-      else if (!last.reasoning && !last.error) messages.value.pop()
+      else if (!last.reasoning && !last.error && !last.artifacts?.length) messages.value.pop()
     }
   } else if (event.type === 'assistant-start') {
     // 工具往返没有可见输出时复用上一条思考，保留已展开的状态。
@@ -392,7 +451,7 @@ function receive(event) {
     reasoningRoundStart = true
   } else if (event.type === 'text' && last?.role === 'assistant') {
     last.text += event.delta
-    queueReply(last)
+    if (last.text.trim()) queueReply(last)
   } else if (event.type === 'reasoning' && last?.role === 'assistant') {
     if (reasoningRoundStart && last.reasoning) last.reasoning += '\n\n'
     last.reasoning += event.delta
@@ -400,12 +459,22 @@ function receive(event) {
   } else if (['question', 'approval'].includes(event.type)) pending.value.push(event)
   else if (event.type === 'resolved')
     pending.value = pending.value.filter((item) => item.id !== event.id)
+  else if (event.type === 'paste-files') attachPaths(event.files)
   else if (event.type === 'artifact') {
+    // 工具在两次模型响应之间发布文件，先登记路径，再归入承载后续正文的条目。
     knownPaths.set(event.path.replaceAll('/', '\\').toLowerCase(), {
       id: event.id,
       value: event.path
     })
-    messages.value.push({ role: 'artifact', id: event.id, name: event.name, path: event.path })
+    const artifact = { id: event.id, name: event.name, path: event.path }
+    generatedArtifacts.set(event.id, artifact)
+    knownPathRevision.value++
+    if (last?.role === 'assistant' && !last.text.trim()) {
+      last.artifacts ??= []
+      last.artifacts.push(artifact)
+    } else {
+      messages.value.push({ role: 'assistant', text: '', reasoning: '', artifacts: [artifact] })
+    }
   } else if (event.type === 'catalog' && state.value) {
     // 立即更新已打开对话的引用菜单，并移除已停用的待发送引用。
     Object.assign(state.value, { skills: event.skills, mcps: event.mcps })
@@ -485,30 +554,103 @@ async function attachAction() {
 }
 
 /**
- * 记录选择或拖入的磁盘文件，在发送前可移除。
+ * 读取原生 File 对象对应的磁盘路径。
  * @param files 原生选择或拖放取得的 FileList。
  * @returns 无返回值。
  */
 function attachFiles(files) {
   if (!files || busy.value || !ready.value) return
+  const entries = []
+  for (const file of files) {
+    const path = window.tabdo.getPathForFile(file)
+    if (path) entries.push({ path, name: file.name })
+    else error.value = '请从文件资源管理器选择或拖入本地文件。'
+  }
+  attachPaths(entries)
+}
+/**
+ * 将选择、拖入或复制的磁盘路径加入待发送附件。
+ * @param files 原生文件路径和名称。
+ * @returns 无返回值。
+ */
+function attachPaths(files) {
+  if (disposed || busy.value || !ready.value) return
   const selected = new Set(
     attachments.value.filter((entry) => entry.kind === 'upload').map((entry) => entry.value)
   )
   const paths = []
-  for (const file of files) {
-    const location = window.tabdo.getPathForFile(file)
-    if (!location) {
-      error.value = '请从文件资源管理器选择或拖入本地文件。'
-      continue
-    }
+  for (const { path: location, name } of files) {
     if (selected.has(location)) continue
     selected.add(location)
-    paths.push({ kind: 'upload', label: file.name, value: location })
+    paths.push({ kind: 'upload', label: name || location.split(/[\\/]/).at(-1), value: location })
   }
   const existing = attachments.value.filter((entry) => entry.kind).length
   if (paths.length + existing > 12) error.value = '每轮最多添加 12 个文件附件。'
   attachments.value.push(...paths.slice(0, 12 - existing))
   composer.value?.focus()
+}
+/**
+ * 在系统把文件剪贴板交给文本控件之前接管文件粘贴。
+ * @param event 输入框键盘事件。
+ * @returns 无返回值，普通文本继续走系统粘贴。
+ */
+function pasteFileShortcut(event) {
+  if (
+    !((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'v') &&
+    !(event.shiftKey && event.key === 'Insert')
+  )
+    return
+  const files = window.tabdo.getCopyedFiles()
+  if (!files?.length) return
+  event.preventDefault()
+  attachPaths(files)
+}
+/**
+ * 接收浏览器提供的文件、剪贴板截图或文本。
+ * @param event 系统粘贴事件。
+ * @returns 粘贴图片读取完成后结束。
+ */
+async function pasteComposer(event) {
+  const files = window.tabdo.getCopyedFiles()
+  if (files?.length) {
+    event.preventDefault()
+    attachPaths(files)
+    return
+  }
+  const data = event.clipboardData
+  if (data?.getData('text/plain') || !data?.files.length) return
+  const dropped = [...data.files]
+  if (dropped.some((file) => window.tabdo.getPathForFile(file))) {
+    event.preventDefault()
+    attachFiles(dropped)
+    return
+  }
+  const image = dropped.find((file) => /^image\/(png|jpeg|webp|gif)$/.test(file.type))
+  if (!image) return
+  event.preventDefault()
+  if (busy.value || !ready.value) return
+  if (image.size > 4 * 1024 * 1024) {
+    error.value = '粘贴的图片超过 4 MB。'
+    return
+  }
+  const draft = attachments.value
+  try {
+    // 图片与匹配入口共用同一个受限图片位置，文件附件仍按原路径提交。
+    const value = await new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result)
+      reader.onerror = () => reject(reader.error)
+      reader.readAsDataURL(image)
+    })
+    if (disposed || busy.value || draft !== attachments.value) return
+    const index = draft.findIndex((entry) => entry.kind === 'image')
+    const attachment = { kind: 'image', label: '粘贴图片', value }
+    if (index >= 0) draft.splice(index, 1, attachment)
+    else if (draft.filter((entry) => entry.kind).length < 12) draft.push(attachment)
+    else error.value = '每轮最多添加 12 个附件。'
+  } catch {
+    if (!disposed) error.value = '无法读取剪贴板图片。'
+  }
 }
 
 /**
@@ -583,7 +725,11 @@ async function send() {
   referencesOpen.value = false
   attachments.value = []
   // 保存原始提示词和附件，用于用户气泡展示以及手动重试。
-  for (const entry of files) knownPaths.set(entry.value.replaceAll('/', '\\').toLowerCase(), entry)
+  for (const entry of files) {
+    const key = entry.value.replaceAll('/', '\\').toLowerCase()
+    if (!knownPaths.has(key)) knownPaths.set(key, entry)
+  }
+  if (files.length) knownPathRevision.value++
   const submittedIndex = messages.value.length
   messages.value.push({ role: 'user', text: content, attachments: submitted })
   busy.value = true
@@ -680,6 +826,7 @@ async function dispose() {
   cancelAnimationFrame(scrollFrame)
   messages.value = []
   knownPaths.clear()
+  generatedArtifacts.clear()
   pending.value = []
   attachments.value = []
   text.value = ''
@@ -721,50 +868,29 @@ onUnmounted(() => {
         <h1>这次需要完成什么？</h1>
       </section>
       <article v-for="(message, index) in messages" :key="index" :class="['message', message.role]">
-        <span class="role-label">{{
-          message.role === 'user' ? '你' : message.role === 'artifact' ? '结果产物' : '呼叫AI'
-        }}</span>
+        <span class="role-label">{{ message.role === 'user' ? '你' : '呼叫AI' }}</span>
         <details v-if="message.reasoning" class="reasoning">
           <summary>思考过程</summary>
           <pre>{{ message.reasoning }}</pre>
         </details>
-        <template v-if="message.role === 'assistant' && message.rendered !== undefined">
+        <template v-if="message.role === 'assistant'">
           <div
+            v-if="message.rendered"
             class="markdown"
             @click="openReplyLink"
             v-reply-markup="{
-              html: markdown(message),
+              html: preparedReply(message).html,
               formulas: message.rendered.formulas,
               onLayout: scroll
             }"
           />
-          <div v-if="replyTail(message)" class="markdown reply-plain">{{ replyTail(message) }}</div>
+          <div
+            v-if="preparedPlainReply(message).html"
+            class="markdown reply-plain"
+            @click="openReplyLink"
+            v-html="preparedPlainReply(message).html"
+          />
         </template>
-        <div v-else-if="message.role === 'assistant' && message.text" class="markdown reply-plain">
-          {{ message.text.trimEnd() }}
-        </div>
-        <div v-else-if="message.role === 'artifact'" class="artifact-actions">
-          <a
-            :href="`#artifact-${message.id}`"
-            class="accent-link"
-            :data-link-target="message.path"
-            @click.prevent="accessArtifact(message.id, 'open')"
-            >{{ message.name }}</a
-          >
-          <button
-            type="button"
-            class="artifact-reveal"
-            :aria-label="`在文件夹中显示 ${message.name}`"
-            title="在文件夹中显示"
-            @click="accessArtifact(message.id, 'reveal')"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M20 10V7a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4M3 8h17" />
-              <circle cx="16" cy="15" r="3.5" />
-              <path d="m18.5 17.5 3 3" />
-            </svg>
-          </button>
-        </div>
         <div v-else-if="message.role === 'user'" class="plain">
           <template v-for="(part, partIndex) in linkParts(message.text)" :key="partIndex">
             <a
@@ -804,6 +930,28 @@ onUnmounted(() => {
               </svg>
             </button>
           </div>
+        </div>
+        <div v-if="message.artifacts?.length" class="reply-files">
+          <span
+            v-for="artifact in remainingArtifacts(message)"
+            :key="artifact.id"
+            class="artifact-actions"
+          >
+            <a
+              :href="`#artifact-${artifact.id}`"
+              class="accent-link"
+              :data-link-target="artifact.path"
+              @click.prevent="accessArtifact(artifact.id, 'open')"
+              >{{ artifact.name }}</a
+            >
+            <button
+              type="button"
+              class="artifact-reveal"
+              :aria-label="`在文件夹中显示 ${artifact.name}`"
+              title="在文件夹中显示"
+              @click="accessArtifact(artifact.id, 'reveal')"
+            />
+          </span>
         </div>
         <div v-if="message.error" class="turn-error" role="alert">
           <strong>本轮未完成</strong>
@@ -941,6 +1089,8 @@ onUnmounted(() => {
           aria-label="任务输入"
           placeholder="描述任务，输入 / 引用能力…"
           :disabled="!ready"
+          @paste="pasteComposer"
+          @keydown="pasteFileShortcut"
           @keydown.enter.exact.prevent="send"
         />
         <div class="composer-actions">
@@ -1254,23 +1404,53 @@ option:is(:hover, :focus-visible, :checked) {
   border-radius: 14px 14px 4px 14px;
   padding: 10px 14px;
 }
-.artifact {
-  font-size: 12px;
-}
-.artifact-actions {
+.reply-files {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 6px;
+  gap: 4px 10px;
 }
-.artifact-actions .artifact-reveal {
+.reply-files:not(:empty) {
+  margin-block-start: 7px;
+}
+.artifact-actions,
+.markdown :deep(.artifact-actions) {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 4px;
+  vertical-align: middle;
+}
+.artifact-actions > .accent-link,
+.markdown :deep(.artifact-actions > .accent-link) {
+  min-width: 0;
+}
+.artifact-reveal,
+.markdown :deep(.artifact-reveal) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: none;
   width: 24px;
   height: 24px;
   padding: 0;
-  border-color: transparent;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.artifact-reveal:hover,
+.markdown :deep(.artifact-reveal:hover) {
+  background: #8881;
+}
+.artifact-reveal::before,
+.markdown :deep(.artifact-reveal)::before {
+  content: '';
+  width: 15px;
+  height: 15px;
+  background: currentColor;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 10V7a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4M3 8h17'/%3E%3Ccircle cx='16' cy='15' r='3.5'/%3E%3Cpath d='m18.5 17.5 3 3'/%3E%3C/svg%3E")
+    center / contain no-repeat;
 }
 .markdown :deep(p) {
   margin: 7px 0;
@@ -1514,7 +1694,6 @@ textarea {
   flex: none;
 }
 .composer-actions svg,
-.artifact-reveal svg,
 .retry-button svg {
   width: 17px;
   height: 17px;
@@ -1531,10 +1710,6 @@ textarea {
   height: 34px;
   width: 34px;
   padding: 0;
-}
-.artifact-reveal svg {
-  width: 15px;
-  height: 15px;
 }
 .composer-actions .search-switch[aria-checked='true'] {
   border-color: var(--primary-color);

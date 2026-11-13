@@ -37,6 +37,7 @@ vi.mock('../../src/main/api/shared/database', () => ({
   }
 }))
 vi.mock('../../src/main/core/aiProviderService', () => ({ default: { resolveModel: vi.fn() } }))
+vi.mock('../../src/main/utils/clipboardFiles', () => ({ readClipboardFiles: vi.fn(() => []) }))
 vi.mock('../../src/main/api/plugin/aiProtocol/adapters', () => ({ createAdapter: vi.fn() }))
 import {
   getCallAiSettings,

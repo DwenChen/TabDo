@@ -2,6 +2,53 @@
 
 > 自动生成；原始记录在 [entries](../history/entries/)。
 
+## 2026-11-13 · 准备发布 TabDo 1.5.5
+
+记录：[release-1.5.5](../../docs/history/entries/2026-11-13-03-release-1.5.5.json)；版本：1.5.5。
+
+- 发布呼叫AI正文产物链接和附件粘贴修复。
+- 审校 README、开发与发布规范、呼叫AI规范、两份教程及更新说明，更新版本号与用户可见说明。
+
+- 验证：pnpm test --maxWorkers=2 通过，135 个文件共 906 项。归档 .artifacts/runs/2026-11-13T06-00-14-334Z-unit。
+- 验证：pnpm typecheck、pnpm typecheck:setting 和 pnpm build 通过，日志位于 .artifacts/releases/1.5.5/。
+- 验证：源码 Electron 呼叫AI回归通过，归档 .artifacts/runs/2026-11-13T06-05-18-832Z-e2e。首次运行的截图粘贴夹具受宿主文件剪贴板影响，改为独立设置文件剪贴板替身并使用完整 PNG 后通过。
+- 验证：查看源码截图。绝对路径原位显示为文件链接，首次引用附有定位图标。输入框同时显示粘贴文件和截图，原文字保留。
+- 验证：pnpm preview:sync 与 pnpm test:preview:resources 通过。免安装预览已更新至 1.5.5，核对 2138 个程序文件、353 个内置文件和 11842 个运行依赖。同步前后 259 个现有资料文件一致，包含配置和已安装插件。收据 .artifacts/backups/preview-sync/update-1794549918142/preservation.json。
+- 验证：发布前通过 pnpm maintain、pnpm maintain:check、pnpm docs:check、改动源码格式检查和 Git 差异检查。
+
+## 2026-11-13 · 呼叫AI在原位置链接产物并支持粘贴附件
+
+记录：[call-ai-artifact-path-and-paste](../../docs/history/entries/2026-11-13-02-call-ai-artifact-path-and-paste.json)；版本：未发布。
+
+- 将正文直接输出的已登记产物绝对路径替换为原位链接，并让模型先交付产物再说明内容。
+- 右键粘贴与键盘粘贴接入待发送附件，沿用路径去重和附件数量限制，并支持剪贴板截图和普通文本。
+
+- 验证：相关单测 4 个文件共 27 项通过，归档 .artifacts/runs/2026-11-13T05-46-04-213Z-unit。call-ai 回归分组与双份教程一致性已核对。
+- 验证：最终源码 Electron 回归通过，归档 .artifacts/runs/2026-11-13T05-46-46-991Z-e2e。验证已登记绝对路径的原位链接与重复引用、文件打开与定位、真实右键事件走附件分支、Ctrl+V、附件去重、图片粘贴事件和系统文本粘贴。早期用例修正了 native 模块的单测替身和测试剪贴板参数后复验通过。
+- 验证：查看插件截图 call-ai-artifact-path.png 和 call-ai-paste-attachments.png。文件链接位于交付说明和内容标题之间，完整路径不占正文，重复引用只保留链接。输入框保留原文字，文件与截图都显示为可移除附件。
+- 验证：pnpm build、pnpm docs:check 和 git diff --check 通过。
+- 验证：已同步本地免安装预览 1.5.4，259 个现有资料文件前后一致。资料保留收据 .artifacts/backups/preview-sync/update-1794548827276/preservation.json。
+- 验证：pnpm test:preview:resources 通过，核验 2138 个程序文件、353 个内置插件文件和 11842 个媒体运行依赖文件。
+- 验证：清理本轮程序暂存和被替代的回退载荷，共 29913 个文件、1376607434 字节。保留最新程序回退、全部资料保留收据和既有独有证据。审计 .artifacts/cleanup-2026-11-13/call-ai-artifact-path-and-paste-preview.json。
+- 验证：pnpm maintain、pnpm maintain:check、pnpm docs:check 和 git diff --check 通过。
+
+## 2026-11-13 · 呼叫AI将生成文件集成到对应回复正文
+
+记录：[call-ai-artifacts-in-reply](../../docs/history/entries/2026-11-13-01-call-ai-artifacts-in-reply.json)；版本：未发布。
+
+- 产物发布后进入承载后续正文的助手条目，正文中的文件名和明确的产物链接就地提供打开及定位操作。
+- 未在正文找到匹配的产物保留在同一条回复末尾，文件打开和定位继续使用会话登记标识。
+- 同步呼叫AI规范和两份教程，新增 TX-149 回归覆盖。
+
+- 验证：call-ai 回归分组已核对。相关单测 4 个文件共 27 项通过，归档 .artifacts/runs/2026-11-13T04-34-32-832Z-unit。
+- 验证：最终 pnpm test:e2e tests/e2e/call-ai.spec.ts --workers=1 通过，归档 .artifacts/runs/2026-11-13T04-38-13-158Z-e2e。覆盖粗体和普通文件名、Markdown 链接、批量及脚本产物、键盘打开和文件夹定位。中间一次复跑因批量截图依赖滚动位置失败，改为显式滚动并等待目标进入可见区后通过。
+- 验证：查看源码插件截图 call-ai-reply-artifacts.png 和 call-ai-guide.png。正文里的两个产物及相邻定位图标与原列表对齐，其余三个产物在同一条回复末尾，应用内教程第 5 步完整可见。
+- 验证：pnpm build、pnpm docs:check 和改动源码 Prettier 检查通过。
+- 验证：免安装预览已同步至本地 1.5.4。首次同步的工具调用在替换前超时，后台重跑成功，255 个现有资料文件前后一致。收据 .artifacts/backups/preview-sync/update-1794544975910/preservation.json。
+- 验证：pnpm test:preview:resources 通过，核验 2138 个程序文件、353 个内置插件文件和 11842 个媒体运行依赖文件。
+- 验证：清理两次同步的纯程序暂存及被替代的回退载荷，共 57719 个文件、2598261229 字节。保留本次回退、历次资料保留收据、既有测试证据、工具链和下载参考材料。审计 .artifacts/cleanup-2026-11-13/call-ai-artifacts-in-reply-preview.json。
+- 验证：pnpm maintain、pnpm maintain:check、pnpm docs:check 和 git diff --check 通过。
+
 ## 2026-11-12 · 发布并核验 TabDo 1.5.4
 
 记录：[release-1.5.4](../../docs/history/entries/2026-11-12-04-release-1.5.4.json)；版本：1.5.4。

@@ -1,0 +1,21 @@
+{
+  "id": "call-ai-artifacts-in-reply",
+  "date": "2026-11-13",
+  "summary": "呼叫AI将生成文件集成到对应回复正文",
+  "changes": [
+    "产物发布后进入承载后续正文的助手条目，正文中的文件名和明确的产物链接就地提供打开及定位操作。",
+    "未在正文找到匹配的产物保留在同一条回复末尾，文件打开和定位继续使用会话登记标识。",
+    "同步呼叫AI规范和两份教程，新增 TX-149 回归覆盖。"
+  ],
+  "checks": [
+    "call-ai 回归分组已核对。相关单测 4 个文件共 27 项通过，归档 .artifacts/runs/2026-11-13T04-34-32-832Z-unit。",
+    "最终 pnpm test:e2e tests/e2e/call-ai.spec.ts --workers=1 通过，归档 .artifacts/runs/2026-11-13T04-38-13-158Z-e2e。覆盖粗体和普通文件名、Markdown 链接、批量及脚本产物、键盘打开和文件夹定位。中间一次复跑因批量截图依赖滚动位置失败，改为显式滚动并等待目标进入可见区后通过。",
+    "查看源码插件截图 call-ai-reply-artifacts.png 和 call-ai-guide.png。正文里的两个产物及相邻定位图标与原列表对齐，其余三个产物在同一条回复末尾，应用内教程第 5 步完整可见。",
+    "pnpm build、pnpm docs:check 和改动源码 Prettier 检查通过。",
+    "免安装预览已同步至本地 1.5.4。首次同步的工具调用在替换前超时，后台重跑成功，255 个现有资料文件前后一致。收据 .artifacts/backups/preview-sync/update-1794544975910/preservation.json。",
+    "pnpm test:preview:resources 通过，核验 2138 个程序文件、353 个内置插件文件和 11842 个媒体运行依赖文件。",
+    "清理两次同步的纯程序暂存及被替代的回退载荷，共 57719 个文件、2598261229 字节。保留本次回退、历次资料保留收据、既有测试证据、工具链和下载参考材料。审计 .artifacts/cleanup-2026-11-13/call-ai-artifacts-in-reply-preview.json。",
+    "pnpm maintain、pnpm maintain:check、pnpm docs:check 和 git diff --check 通过。"
+  ],
+  "pending": ["真实提供商生成的原始 HTML 卡片留待手动复测。"]
+}

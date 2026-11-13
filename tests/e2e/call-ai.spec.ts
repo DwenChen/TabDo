@@ -66,6 +66,16 @@ test('呼叫AI使用提供商、内置解释器、审批和提问，关闭后清
       .context()
       .pages()
       .find((page) => page.url().startsWith('http://127.0.0.1:15177'))!
+    await settings.getByRole('button', { name: '关于', exact: true }).click()
+    await settings.getByRole('button', { name: '阅读本地教程' }).click()
+    await settings.getByRole('button', { name: '用呼叫AI完成一次性任务' }).click()
+    const artifactGuide = settings.getByText('在回复正文或末尾点击文件名', { exact: false })
+    await expect(settings.getByText('拖入、粘贴文件、图片和文件夹', { exact: false })).toBeVisible()
+    await expect(artifactGuide).toBeVisible()
+    await artifactGuide.scrollIntoViewIfNeeded()
+    await expect(artifactGuide).toBeInViewport({ ratio: 0.8 })
+    await capturePlugin(app, 'http://127.0.0.1:15177', testInfo.outputPath('call-ai-guide.png'))
+    await settings.getByRole('button', { name: '返回关于' }).click()
     await expect(settings.getByTestId('call-ai-setting')).toHaveCount(0)
     await settings.getByRole('button', { name: '呼叫AI', exact: true }).click()
     await expect(settings.getByTestId('call-ai-setting')).toBeVisible({ timeout: 30_000 })
@@ -519,12 +529,23 @@ test('呼叫AI使用提供商、内置解释器、审批和提问，关闭后清
               })
             if (turn === 2)
               return tool('ask_user', { question: '结果需要什么格式？', options: ['文本', '表格'] })
-            if (turn === 3)
+            if (turn === 3) {
+              delta({ content: '我会先保存结果文件。' })
               return tool('write_file', { path: '结果.txt', content: '一次性结果产物' })
+            }
             if (turn === 4) {
+              const saved = JSON.parse(replies.at(-1).content)[0].path
               delta({
                 content: [
                   '**任务已完成**',
+                  '',
+                  '卡片已经做好了，文件保存在：',
+                  '',
+                  '`' + saved + '`',
+                  '',
+                  '**卡片内容结构**',
+                  '',
+                  '复查文件：' + saved,
                   '',
                   '这是一套**《示例图鉴》（Demo）工具包**（预览版）。',
                   '',
@@ -572,7 +593,7 @@ test('呼叫AI使用提供商、内置解释器、审批和提问，关闭后清
                 }))
               })
             if (turn === 12) {
-              const content = '桌面文件已创建\n\n- 测试1.txt\n- 测试2.txt\n\n完成。'
+              const content = '桌面文件已创建\n\n- 测试1.txt\n- [测试2.txt](测试2.txt)\n\n完成。'
               delta({ content })
               return { content, toolCalls: [], finishReason: 'stop' }
             }
@@ -823,15 +844,40 @@ test('呼叫AI使用提供商、内置解释器、审批和提问，关闭后清
     expect(directories[0]).toMatch(/^Call_AI-/)
     const artifact = path.join(temporary, 'outputs', directories[0], '结果.txt')
     expect(await fs.readFile(artifact, 'utf8')).toBe('一次性结果产物')
-    const artifactLink = page.getByRole('link', { name: '结果.txt', exact: true })
+    const resultReply = page.locator('.message.assistant').filter({ hasText: '任务已完成' })
+    const resultLinks = resultReply.locator('.markdown:not(.reply-plain)').getByRole('link', {
+      name: '结果.txt',
+      exact: true
+    })
+    const artifactLink = resultLinks.first()
+    await expect(resultLinks).toHaveCount(2)
+    await expect(page.getByText('结果产物', { exact: true })).toHaveCount(0)
     await expect(artifactLink).toHaveAttribute('data-link-target', artifact)
+    await expect(resultReply).not.toContainText(artifact)
+    await expect(resultReply.locator('.reply-files a')).toHaveCount(0)
+    await expect(resultReply.getByText('卡片内容结构', { exact: true })).toBeVisible()
+    const order = await artifactLink.evaluate((link) => {
+      const paragraph = link.closest('p')
+      return [
+        paragraph?.previousElementSibling?.textContent,
+        paragraph?.nextElementSibling?.textContent
+      ]
+    })
+    expect(order).toEqual(['卡片已经做好了，文件保存在：', '卡片内容结构'])
+    await artifactLink.scrollIntoViewIfNeeded()
+    await expect(artifactLink).toBeInViewport()
+    await capturePlugin(
+      app,
+      'http://127.0.0.1:15178',
+      testInfo.outputPath('call-ai-artifact-path.png')
+    )
     await expect(artifactLink).toHaveCSS('text-decoration-line', 'none')
     await artifactLink.focus()
     await artifactLink.press('Enter')
-    const reveal = page.getByRole('button', { name: '在文件夹中显示 结果.txt', exact: true })
+    const reveal = resultReply.getByRole('button', { name: '在文件夹中显示 结果.txt', exact: true })
     await expect(reveal).toHaveAttribute('title', '在文件夹中显示')
     await expect(reveal).toHaveText('')
-    await expect(reveal.locator('svg')).toBeVisible()
+    await expect(reveal).toBeVisible()
     await reveal.click()
     await expect(page.getByText('外部文件', { exact: true })).not.toHaveAttribute('href')
     expect(
@@ -870,7 +916,12 @@ test('呼叫AI使用提供商、内置解释器、审批和提问，关闭后清
     expect(await fs.readFile(path.join(path.dirname(artifact), 'python-result.txt'), 'utf8')).toBe(
       'python-ok'
     )
-    await expect(page.getByRole('link', { name: 'python-result.txt', exact: true })).toBeVisible()
+    const pythonReply = page.locator('.message.assistant').filter({ hasText: '手动引用已完成' })
+    await expect(
+      pythonReply
+        .locator('.reply-files')
+        .getByRole('link', { name: 'python-result.txt', exact: true })
+    ).toBeVisible()
     await expect(page.getByRole('link', { name: 'missing.txt', exact: true })).toHaveCount(0)
     expect(await fs.readFile(manualStarted, 'utf8')).toBe('started')
     expect(
@@ -939,12 +990,25 @@ test('呼叫AI使用提供商、内置解释器、审批和提问，关闭后清
     await batch.getByRole('button', { name: '批准本次操作' }).click()
     await expect(page.getByText('桌面文件已创建', { exact: true })).toBeVisible()
     await expect(page.getByLabel('请求批准操作')).toHaveCount(0)
+    const batchReply = page.locator('.message.assistant').filter({ hasText: '桌面文件已创建' })
     for (let index = 1; index <= 5; index++) {
       expect((await fs.stat(path.join(desktop, `测试${index}.txt`))).size).toBe(0)
       await expect(
-        page.getByRole('link', { name: `测试${index}.txt`, exact: true })
+        batchReply
+          .locator(index <= 2 ? '.markdown' : '.reply-files')
+          .getByRole('link', { name: `测试${index}.txt`, exact: true })
       ).toHaveAttribute('data-link-target', path.join(desktop, `测试${index}.txt`))
     }
+    await expect(batchReply.getByRole('link')).toHaveCount(5)
+    await expect(batchReply.getByRole('button', { name: /^在文件夹中显示 / })).toHaveCount(5)
+    const lastBatchFile = batchReply.getByRole('link', { name: '测试5.txt' })
+    await lastBatchFile.scrollIntoViewIfNeeded()
+    await expect(lastBatchFile).toBeInViewport()
+    await capturePlugin(
+      app,
+      'http://127.0.0.1:15178',
+      testInfo.outputPath('call-ai-reply-artifacts.png')
+    )
     expect(await fs.readFile(path.join(desktop, '原有文件.txt'), 'utf8')).toBe('keep')
     const sent = await app.evaluate(() => (globalThis as any).__callAiPrompts[10])
     expect(JSON.stringify(sent)).toContain('data:image/png;base64,')
@@ -982,6 +1046,7 @@ test('呼叫AI使用提供商、内置解释器、审批和提问，关闭后清
     await page.getByLabel('任务输入').fill('验证网页检索恢复')
     await page.getByRole('button', { name: '发送' }).click()
     await expect(page.getByText('检索已恢复并完成超过四十次往返', { exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: '发送' })).toBeVisible()
     await expect(page.getByLabel('请求批准操作')).toHaveCount(0)
     await expect(page.locator('.error')).toHaveCount(0)
     const webRequests = await app.evaluate(() => (globalThis as any).__callAiWebRequests)
@@ -992,32 +1057,38 @@ test('呼叫AI使用提供商、内置解释器、审批和提问，关闭后清
       auth: 'Bearer fixture-deepseek-key'
     })
     expect(webRequests[2].url).toBe('https://api.deepseek.com/v1/tools/fetch')
-    // 捕获原生菜单并验证操作发送到当前正文，测试不改写系统剪贴板。
-    await app.evaluate(({ Menu, webContents }, id) => {
+    // 使用真实正文右键，替换原生弹层和系统文件剪贴板读取。
+    await app.evaluate(({ app, Menu, webContents }, id) => {
       const owner = webContents.fromId(id)!
+      const { ClipboardMonitor } = process.mainModule!.require(
+        app.getAppPath() + '/src/main/core/native/index.ts'
+      )
+      const readFiles = ClipboardMonitor.getClipboardFiles
       const actions: string[] = []
       ;(globalThis as any).__callAiMenuActions = actions
+      ;(globalThis as any).__callAiClipboardFiles = '[]'
       const popup = Menu.prototype.popup
-      const { copy, paste } = owner
-      // 模拟剪贴板有可粘贴内容，同时保留真实右键事件。
+      const { copy } = owner
       const exposePaste = (_event: Electron.Event, params: Electron.ContextMenuParams): void => {
-        if (params.isEditable) params.editFlags.canPaste = true
+        if (params.isEditable) params.editFlags.canPaste = false
       }
       owner.prependListener('context-menu', exposePaste)
+      ClipboardMonitor.getClipboardFiles = () =>
+        JSON.parse((globalThis as any).__callAiClipboardFiles)
       ;(globalThis as any).__restoreCallAiMenu = () => {
         Menu.prototype.popup = popup
         owner.removeListener('context-menu', exposePaste)
+        ClipboardMonitor.getClipboardFiles = readFiles
         owner.copy = copy
-        owner.paste = paste
       }
       owner.copy = () => {
         actions.push('复制')
       }
-      owner.paste = () => {
-        actions.push('粘贴')
-      }
       Menu.prototype.popup = function () {
-        for (const item of this.items) item.click()
+        for (const item of this.items) {
+          if (item.label === '粘贴') actions.push(item.label)
+          item.click()
+        }
       }
     }, evidence.owner)
     // 等正文排版完成，再建立原生右键菜单要读取的选区。
@@ -1032,11 +1103,55 @@ test('呼叫AI使用提供商、内置解释器、审批和提问，关闭后清
     await expect
       .poll(() => app.evaluate(() => (globalThis as any).__callAiMenuActions))
       .toEqual(['复制'])
-    await page.getByLabel('任务输入').click({ button: 'right' })
+    const input = page.getByLabel('任务输入')
+    await app.evaluate((_electron, file) => {
+      ;(globalThis as any).__callAiClipboardFiles = JSON.stringify([
+        { path: file, name: '拖入的资料.txt', isDirectory: false }
+      ])
+    }, draggedFile)
+    await input.fill('保留输入')
+    await input.click({ button: 'right' })
     await expect
       .poll(() => app.evaluate(() => (globalThis as any).__callAiMenuActions))
       .toEqual(['复制', '粘贴'])
+    const pasted = page.locator('.draft-attachments').getByRole('link', { name: '拖入的资料.txt' })
+    await expect(pasted).toHaveAttribute('data-link-target', draggedFile)
+    await expect(input).toHaveValue('保留输入')
+    await page.getByRole('button', { name: '移除拖入的资料.txt' }).click()
+    await input.press('Control+v')
+    await expect(pasted).toHaveAttribute('data-link-target', draggedFile)
+    await input.press('Control+v')
+    await expect(pasted).toHaveCount(1)
+    await expect(input).toHaveValue('保留输入')
+    await app.evaluate(() => {
+      ;(globalThis as any).__callAiClipboardFiles = '[]'
+    })
+    await input.evaluate((element) => {
+      const data = new DataTransfer()
+      const png = Uint8Array.from(
+        atob(
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLttAAAAABJRU5ErkJggg=='
+        ),
+        (character) => character.charCodeAt(0)
+      )
+      data.items.add(new File([png], '截图.png', { type: 'image/png' }))
+      element.dispatchEvent(
+        new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true })
+      )
+    })
+    await expect(page.getByText('粘贴图片', { exact: true })).toBeVisible()
+    await capturePlugin(
+      app,
+      'http://127.0.0.1:15178',
+      testInfo.outputPath('call-ai-paste-attachments.png')
+    )
+    await page.getByRole('button', { name: '移除粘贴图片' }).click()
+    await page.getByRole('button', { name: '移除拖入的资料.txt' }).click()
     await app.evaluate(() => (globalThis as any).__restoreCallAiMenu())
+    await app.evaluate(({ clipboard }) => clipboard.writeText('普通粘贴文字'))
+    await input.fill('')
+    await input.press('Control+v')
+    await expect(input).toHaveValue('普通粘贴文字')
     await webSearch.click()
     await page.getByLabel('任务输入').fill('验证类似命令复用')
     await page.getByRole('button', { name: '发送' }).click()
