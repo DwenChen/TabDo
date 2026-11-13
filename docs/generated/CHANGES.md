@@ -2,7 +2,7 @@
 
 > 自动生成；原始记录在 [entries](../history/entries/)。
 
-## 2026-11-13 · 准备发布 TabDo 1.5.5
+## 2026-11-13 · 发布并核验 TabDo 1.5.5
 
 记录：[release-1.5.5](../../docs/history/entries/2026-11-13-03-release-1.5.5.json)；版本：1.5.5。
 
@@ -14,7 +14,11 @@
 - 验证：源码 Electron 呼叫AI回归通过，归档 .artifacts/runs/2026-11-13T06-05-18-832Z-e2e。首次运行的截图粘贴夹具受宿主文件剪贴板影响，改为独立设置文件剪贴板替身并使用完整 PNG 后通过。
 - 验证：查看源码截图。绝对路径原位显示为文件链接，首次引用附有定位图标。输入框同时显示粘贴文件和截图，原文字保留。
 - 验证：pnpm preview:sync 与 pnpm test:preview:resources 通过。免安装预览已更新至 1.5.5，核对 2138 个程序文件、353 个内置文件和 11842 个运行依赖。同步前后 259 个现有资料文件一致，包含配置和已安装插件。收据 .artifacts/backups/preview-sync/update-1794549918142/preservation.json。
-- 验证：发布前通过 pnpm maintain、pnpm maintain:check、pnpm docs:check、改动源码格式检查和 Git 差异检查。
+- 验证：发布前通过 pnpm maintain、pnpm maintain:check、pnpm docs:check、改动源码格式检查和 Git 差异检查。保留 hooks，原子推送 main 和 v1.5.5，远端标签解析为 827eb4ba02ba83349aee2211ac028331bce5b417。
+- 验证：云端 https://github.com/DwenChen/TabDo/actions/runs/43377235241 的 build 和 publish 均通过。https://github.com/DwenChen/TabDo/releases/tag/v1.5.5 已发布为最新正式版。
+- 验证：重试下载后，四个正式附件的大小与 GitHub SHA-256 均一致。latest.yml 中版本、安装程序名称、大小及 SHA-512 核对通过。ZIP 内应用版本为 1.5.5，设置、工具入口、图标、Node.js、npm、npx、Python、pip 和许可文件均存在。收据 .artifacts/releases/1.5.5/download-verification.json。
+- 验证：回收已消费的预览暂存和被替代的回退载荷，共 29913 个文件、1376610393 字节。保留最新程序回退与全部资料收据。
+- 验证：回收 6 个发行下载、重复下载和解包副本，共 1123968217 字节。保留测试原件、在用工具链、既有资料和发行核验收据。清理收据位于 .artifacts/releases/1.5.5/。
 
 ## 2026-11-13 · 呼叫AI在原位置链接产物并支持粘贴附件
 
