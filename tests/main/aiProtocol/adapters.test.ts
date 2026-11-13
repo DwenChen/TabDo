@@ -131,6 +131,112 @@ describe('aiProtocol adapters', () => {
     })
   })
 
+  it.each([
+    [
+      'openai-chat',
+      [
+        { choices: [{ delta: { role: 'assistant' } }] },
+        { choices: [{ delta: { content: '答案' }, finish_reason: 'stop' }] }
+      ]
+    ],
+    [
+      'openai-responses',
+      [
+        { type: 'response.created' },
+        {
+          type: 'response.completed',
+          response: {
+            output: [{ type: 'message', content: [{ type: 'output_text', text: '答案' }] }]
+          }
+        }
+      ]
+    ],
+    [
+      'anthropic-messages',
+      [
+        { type: 'ping' },
+        { type: 'message_start' },
+        { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: '答案' } }
+      ]
+    ]
+  ] as const)(
+    'reports model activity separately from visible deltas for %s',
+    async (format, events) => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () =>
+          createSseResponse([
+            ...events,
+            ...(format === 'anthropic-messages' ? [{ type: 'message_stop' }] : [])
+          ])
+        )
+      )
+      const activity = vi.fn()
+      const result = await createAdapter(createProvider(format)).stream(
+        { model: 'model-a', messages: [{ role: 'user', content: '测试' }] },
+        new AbortController().signal,
+        vi.fn(),
+        { onActivity: activity }
+      )
+      expect(result.content).toBe('答案')
+      expect(activity).toHaveBeenCalledTimes(format === 'anthropic-messages' ? 3 : 2)
+    }
+  )
+
+  it.each([
+    ['openai-chat', [{ choices: [{ delta: { content: '答案' }, finish_reason: 'stop' }] }]],
+    [
+      'openai-responses',
+      [
+        {
+          type: 'response.completed',
+          response: {
+            output: [{ type: 'message', content: [{ type: 'output_text', text: '答案' }] }]
+          }
+        }
+      ]
+    ],
+    [
+      'anthropic-messages',
+      [
+        { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: '答案' } },
+        { type: 'message_stop' }
+      ]
+    ]
+  ] as const)(
+    'finishes the call AI stream before the gateway closes for %s',
+    async (format, events) => {
+      const cancel = vi.fn()
+      const body = new ReadableStream({
+        start(controller) {
+          const frames = events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join('')
+          controller.enqueue(new TextEncoder().encode(frames))
+        },
+        cancel
+      })
+      const hostFetch = vi.fn(
+        async () =>
+          new Response(body, {
+            headers: { 'content-type': 'text/event-stream' }
+          })
+      )
+      const defaultFetch = vi.fn()
+      vi.stubGlobal('fetch', defaultFetch)
+      const onResponse = vi.fn()
+      const result = await createAdapter(createProvider(format), undefined, hostFetch).stream(
+        { model: 'model-a', messages: [{ role: 'user', content: '测试' }] },
+        AbortSignal.timeout(2_000),
+        vi.fn(),
+        { onActivity: vi.fn(), onResponse, finishOnStop: true }
+      )
+      expect(result.content).toBe('答案')
+      expect(onResponse).toHaveBeenCalledWith(200)
+      expect(cancel).toHaveBeenCalledOnce()
+      expect(hostFetch).toHaveBeenCalledOnce()
+      expect(defaultFetch).not.toHaveBeenCalled()
+    }
+  )
+
   it('streams Anthropic messages with native auth and normalized generation options', async () => {
     const fetchMock = vi.fn(async () =>
       createSseResponse([

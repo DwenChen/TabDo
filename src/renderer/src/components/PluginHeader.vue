@@ -128,6 +128,10 @@ onUnmounted(() => removeMenuListener?.())
 <template>
   <header
     class="plugin-header"
+    :class="{
+      'clipboard-header':
+        store.currentPlugin?.name === 'system' && store.currentPlugin.featureCode === 'clipboard'
+    }"
     :aria-busy="store.pluginLoading"
     :style="{ height: height + 'px' }"
     @dblclick="detach"
@@ -238,6 +242,9 @@ input {
   outline: none;
   font: inherit;
   -webkit-app-region: no-drag;
+}
+.clipboard-header input {
+  max-width: 300px;
 }
 nav {
   margin-left: auto;

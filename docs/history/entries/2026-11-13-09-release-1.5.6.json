@@ -1,0 +1,19 @@
+{
+  "id": "release-1.5.6",
+  "date": "2026-11-13",
+  "version": "1.5.6",
+  "summary": "准备 TabDo 1.5.6 发布",
+  "changes": [
+    "整合呼叫AI的首轮代理连接、模型超时续跑、额外库管理和剪贴板截图路径。",
+    "整合剪贴板上栏拖动、中转按钮状态与截图和图片文件多选。",
+    "核对 README、模块规范、两份本地教程、更新说明及维护记录。"
+  ],
+  "checks": [
+    "pnpm run test --maxWorkers=2 通过，135 个文件共 915 项。归档 .artifacts/runs/2026-11-13T12-56-41-882Z-unit。",
+    "pnpm typecheck、pnpm typecheck:setting 和 pnpm build 通过。",
+    "呼叫AI两项和剪贴板一项源码 Electron 回归通过，归档 .artifacts/runs/2026-11-13T12-54-06-695Z-e2e。同次运行发现本地教程仍按旧的 15 章断言。对齐现有 16 章及末尾导航并等待宿主和设置就绪后，教程回归通过，归档 .artifacts/runs/2026-11-13T12-57-36-546Z-e2e。查看教程中的剪贴板章节截图，拖动窗口及图片批量操作说明完整。",
+    "对照源码复核发布范围、两份教程及用户可见说明。pnpm maintain、pnpm maintain:check、pnpm docs:check 和 git diff --check 通过。",
+    "本地免安装预览 1.5.6 同步及资源核验通过。同步前后 6834 个资料文件一致。收据 .artifacts/backups/preview-sync/update-1794574708443/preservation.json。"
+  ],
+  "pending": ["发布工作流、正式附件及更新清单待核验。"]
+}

@@ -1,0 +1,19 @@
+{
+  "id": "call-ai-clipboard-image-path",
+  "date": "2026-11-13",
+  "summary": "呼叫AI为匹配的剪贴板截图添加文件路径",
+  "changes": [
+    "剪贴板截图本身没有文件路径。图片匹配后在呼叫AI当前会话目录保存截图原始字节，并显示可打开和悬停查看路径的待发送附件。",
+    "复用现有文件附件提交链，提供商请求携带图片路径，视觉模型还会收到内联图片。退出会话后清理截图副本。"
+  ],
+  "checks": [
+    "相关单测 4 个文件共 34 项通过，归档 .artifacts/runs/2026-11-13T12-08-47-365Z-unit。包含格式错误不写文件及关闭时拒绝迟到附件并清理。",
+    "pnpm typecheck:node、pnpm typecheck:setting、pnpm build 和 pnpm docs:check 通过。",
+    "首轮源码 Electron 在网页检索后等待发送控件超时，归档 .artifacts/runs/2026-11-13T12-07-04-122Z-e2e。第二轮已通过截图附件悬停、磁盘字节及实际模型载荷断言，旧重试断言因同时匹配图片和网页链接失败，已收窄至目标网页链接。归档 .artifacts/runs/2026-11-13T12-09-19-833Z-e2e。",
+    "最终源码 Electron 两个用例通过，归档 .artifacts/runs/2026-11-13T12-10-42-216Z-e2e。验证关闭聊天后截图文件被清理。",
+    "检查插件 WebContentsView 截图 call-ai-clipboard-image-path.png。附件位于输入框上方，文件图标、移除按钮和换行显示的完整路径均清楚可见。",
+    "免安装预览 1.5.5 同步后 6830 个资料文件前后一致。收据 .artifacts/backups/preview-sync/update-1794571969254/preservation.json。pnpm test:preview:resources 核验 2138 个程序文件、353 个内置插件文件和 11842 个媒体运行依赖文件。",
+    "清理本轮程序暂存和旧程序回退，共 29913 个文件、1376641157 字节。保留最新回退、核验收据及测试归档。审计 .artifacts/cleanup-2026-11-13/call-ai-clipboard-image-path-preview.json。"
+  ],
+  "pending": []
+}

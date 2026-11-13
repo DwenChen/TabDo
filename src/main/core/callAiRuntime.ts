@@ -182,6 +182,7 @@ export class CallAiProcesses {
    * @param cwd 当前工作目录。
    * @param env 最小进程环境。
    * @param signal 任务取消信号。
+   * @param timeoutSeconds 此命令的最长执行时间，默认 120 秒。
    * @returns 有界标准输出及错误输出。
    * @throws 启动、超时、输出超限、取消或非零退出时拒绝。
    */
@@ -190,7 +191,8 @@ export class CallAiProcesses {
     args: string[],
     cwd: string,
     env: NodeJS.ProcessEnv,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    timeoutSeconds = 120
   ): Promise<string> {
     const job = await prepareCallAiJob()
     if (this.closed || signal?.aborted) throw new Error('会话已停止')
@@ -215,10 +217,11 @@ export class CallAiProcesses {
         failure ||= '命令已取消'
         if (child.pid) void terminateCallAiTree(child.pid)
       }
+      // 命令时限从进程启动开始，独立于模型与审批等待。
       const timer = setTimeout(() => {
-        failure = '命令超过 120 秒'
+        failure = `命令超过 ${timeoutSeconds} 秒`
         stop()
-      }, 120_000)
+      }, timeoutSeconds * 1000)
       signal?.addEventListener('abort', stop, { once: true })
       const receive = (chunk: Buffer): void => {
         if (output.length + chunk.length > 256_000) {

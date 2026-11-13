@@ -196,6 +196,7 @@ const api = {
       name: string
       logo: string
       path: string
+      featureCode?: string
       sourceType?: 'open_source' | 'closed_source'
     }) => void
   ) => {

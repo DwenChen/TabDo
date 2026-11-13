@@ -34,6 +34,12 @@ export type AdapterInput = AiChatProtocolInput
 /** 流式增量回调携带的字段，缺省表示本轮该字段无增量。 */
 export type AdapterDelta = AiChatProtocolDelta
 
+export interface AiStreamObserver {
+  onActivity: () => void
+  onResponse?: (status: number) => void
+  finishOnStop?: boolean
+}
+
 /** 三种接口格式的统一调用契约。 */
 export interface AiProtocolAdapter {
   /**
@@ -48,12 +54,14 @@ export interface AiProtocolAdapter {
    * @param input 模型、消息与工具
    * @param signal 中止信号
    * @param onDelta 接收文本与推理增量的回调
+   * @param observer 可选流观察器，用于空闲计时和请求诊断
    * @returns 归一化的助手回复
    */
   stream(
     input: AdapterInput,
     signal: AbortSignal,
-    onDelta: (delta: AdapterDelta) => void
+    onDelta: (delta: AdapterDelta) => void,
+    observer?: AiStreamObserver
   ): Promise<AssistantTurn>
 }
 
@@ -61,16 +69,24 @@ export interface AiProtocolAdapter {
  * 按供应商配置的接口格式选择对应适配器。
  * @param provider 已解析的供应商连接配置
  * @param timeout 请求超时毫秒数；缺省时使用 SDK 默认值
+ * @param fetchRequest 可选的宿主网络实现；缺省时使用全局 fetch
  * @returns 该供应商的接口适配器
  */
-export function createAdapter(provider: AiProvider, timeout?: number): AiProtocolAdapter {
+export function createAdapter(
+  provider: AiProvider,
+  timeout?: number,
+  fetchRequest?: typeof fetch
+): AiProtocolAdapter {
   switch (provider.apiFormat) {
     case 'openai-chat':
-      return new OpenAiChatAdapter(provider, createOpenAiClient(provider, timeout))
+      return new OpenAiChatAdapter(provider, createOpenAiClient(provider, timeout, fetchRequest))
     case 'openai-responses':
-      return new OpenAiResponsesAdapter(provider, createOpenAiClient(provider, timeout))
+      return new OpenAiResponsesAdapter(
+        provider,
+        createOpenAiClient(provider, timeout, fetchRequest)
+      )
     case 'anthropic-messages':
-      return new AnthropicMessagesAdapter(provider)
+      return new AnthropicMessagesAdapter(provider, fetchRequest)
     default:
       // 理论上不会到达，防御未知格式以避免静默失败。
       throw new Error(`不支持的接口格式: ${String(provider.apiFormat)}`)
@@ -81,13 +97,19 @@ export function createAdapter(provider: AiProvider, timeout?: number): AiProtoco
  * 使用供应商凭据创建 OpenAI 兼容客户端，供 Chat 与 Responses 适配器复用。
  * @param provider 供应商连接配置
  * @param timeout 请求超时毫秒数；缺省时使用 SDK 默认值
+ * @param fetchRequest 可选的宿主网络实现；缺省时使用 SDK 默认值
  * @returns OpenAI SDK 客户端
  */
-function createOpenAiClient(provider: AiProvider, timeout?: number): OpenAI {
+function createOpenAiClient(
+  provider: AiProvider,
+  timeout?: number,
+  fetchRequest?: typeof fetch
+): OpenAI {
   return new OpenAI({
     apiKey: provider.apiKey,
     baseURL: provider.apiUrl,
     maxRetries: 0,
+    fetch: fetchRequest,
     ...(timeout === undefined ? {} : { timeout })
   })
 }
@@ -442,12 +464,14 @@ class OpenAiChatAdapter implements AiProtocolAdapter {
    * @param input 模型、消息、工具与生成参数
    * @param signal 请求中止信号
    * @param onDelta 正文与推理增量接收器
+   * @param observer 可选流观察器，用于响应计时及完成标记处理
    * @returns 流结束后的完整助手回复
    */
   public async stream(
     input: AdapterInput,
     signal: AbortSignal,
-    onDelta: (delta: AdapterDelta) => void
+    onDelta: (delta: AdapterDelta) => void,
+    observer?: AiStreamObserver
   ): Promise<AssistantTurn> {
     const tools = convertChatTools(input.tools)
     const temperature = resolveModelTemperature(input.temperature, input.modelTemperature)
@@ -457,19 +481,22 @@ class OpenAiChatAdapter implements AiProtocolAdapter {
       input.modelReasoning,
       input.reasoningEffort
     )
-    const stream = await this.client.chat.completions.create(
-      {
-        model: input.model,
-        messages: convertMessages(input.messages, this.provider, input.model),
-        stream: true,
-        stream_options: { include_usage: true },
-        ...(tools.length ? { tools, tool_choice: input.toolChoice || 'auto' } : {}),
-        ...(temperature === undefined ? {} : { temperature }),
-        ...(maxTokens === undefined ? {} : { max_tokens: maxTokens }),
-        ...reasoning.request
-      },
-      { signal }
-    )
+    const { data: stream, response } = await this.client.chat.completions
+      .create(
+        {
+          model: input.model,
+          messages: convertMessages(input.messages, this.provider, input.model),
+          stream: true,
+          stream_options: { include_usage: true },
+          ...(tools.length ? { tools, tool_choice: input.toolChoice || 'auto' } : {}),
+          ...(temperature === undefined ? {} : { temperature }),
+          ...(maxTokens === undefined ? {} : { max_tokens: maxTokens }),
+          ...reasoning.request
+        },
+        { signal }
+      )
+      .withResponse()
+    observer?.onResponse?.(response.status)
 
     let fullContent = ''
     let fullReasoning = ''
@@ -481,6 +508,7 @@ class OpenAiChatAdapter implements AiProtocolAdapter {
     const toolCalls = new Map<number, { id: string; name: string; arguments: string }>()
 
     for await (const chunk of stream) {
+      observer?.onActivity()
       if (chunk.id) responseId = chunk.id
       const delta = chunk.choices[0]?.delta
       if (chunk.choices[0]?.finish_reason) {
@@ -532,6 +560,8 @@ class OpenAiChatAdapter implements AiProtocolAdapter {
         usage = chunkUsage
         onDelta({ usage: chunkUsage })
       }
+      // 呼叫AI拿到完成原因即可交给 agent，避免兼容网关保留 SSE 连接导致空闲中止。
+      if (finishReason && observer?.finishOnStop) break
     }
 
     if (!finishReason) {
@@ -608,13 +638,15 @@ class OpenAiResponsesAdapter implements AiProtocolAdapter {
    * @param input 模型、消息、工具与生成参数
    * @param signal 请求中止信号
    * @param onDelta 正文与推理增量接收器
+   * @param observer 可选流观察器，用于响应计时及完成标记处理
    * @returns 流结束后的完整助手回复
    * @throws 响应失败、不完整或缺少完成事件时抛出错误
    */
   public async stream(
     input: AdapterInput,
     signal: AbortSignal,
-    onDelta: (delta: AdapterDelta) => void
+    onDelta: (delta: AdapterDelta) => void,
+    observer?: AiStreamObserver
   ): Promise<AssistantTurn> {
     const tools = toResponsesTools(input.tools)
     const temperature = resolveModelTemperature(input.temperature, input.modelTemperature)
@@ -631,7 +663,10 @@ class OpenAiResponsesAdapter implements AiProtocolAdapter {
       ...(maxOutputTokens === undefined ? {} : { max_output_tokens: maxOutputTokens }),
       ...reasoning
     } as unknown as OpenAI.Responses.ResponseCreateParamsStreaming
-    const stream = await this.client.responses.create(params, { signal })
+    const { data: stream, response } = await this.client.responses
+      .create(params, { signal })
+      .withResponse()
+    observer?.onResponse?.(response.status)
 
     let completed: OpenAI.Responses.Response | null = null
     let usage: ReturnType<typeof normalizeAiTokenUsage>
@@ -641,6 +676,7 @@ class OpenAiResponsesAdapter implements AiProtocolAdapter {
     const itemToolIndexes = new Map<string, number>()
     let nextToolCallIndex = 0
     for await (const event of stream) {
+      observer?.onActivity()
       // 文本与推理增量实时回传，工具调用在 completed 事件中一次性归一化。
       if (event.type === 'response.output_text.delta') {
         onDelta({ content: event.delta })
@@ -691,6 +727,7 @@ class OpenAiResponsesAdapter implements AiProtocolAdapter {
       } else if (event.type === 'response.completed') {
         completed = event.response
         usage = normalizeAiTokenUsage(event.response.usage)
+        if (observer?.finishOnStop) break
       } else if (event.type === 'response.failed' || event.type === 'response.incomplete') {
         throw new Error('Responses API 返回失败或不完整事件')
       }
@@ -709,10 +746,13 @@ class OpenAiResponsesAdapter implements AiProtocolAdapter {
 }
 
 /**
- * Anthropic Messages API 适配器，使用原生 fetch 以避免新增依赖并兼容自定义中转地址。
+ * Anthropic Messages API 适配器，兼容自定义中转地址及宿主提供的 fetch。
  */
 class AnthropicMessagesAdapter implements AiProtocolAdapter {
-  constructor(private readonly provider: AiProvider) {}
+  constructor(
+    private readonly provider: AiProvider,
+    private readonly fetchRequest: typeof fetch = fetch
+  ) {}
 
   /**
    * 通过 Anthropic Messages 执行非流式单轮请求。
@@ -741,18 +781,22 @@ class AnthropicMessagesAdapter implements AiProtocolAdapter {
    * @param input 模型、消息、工具与生成参数
    * @param signal 请求中止信号
    * @param onDelta 正文与推理增量接收器
+   * @param observer 可选流观察器，用于响应计时及完成标记处理
    * @returns 流结束后的完整助手回复
    */
   public async stream(
     input: AdapterInput,
     signal: AbortSignal,
-    onDelta: (delta: AdapterDelta) => void
+    onDelta: (delta: AdapterDelta) => void,
+    observer?: AiStreamObserver
   ): Promise<AssistantTurn> {
     const response = await this.request(this.buildBody(input, true), signal)
+    observer?.onResponse?.(response.status)
     return parseAnthropicSse(
       response.body,
       onDelta,
-      createReplayContext(this.provider, input.model)
+      createReplayContext(this.provider, input.model),
+      observer
     )
   }
 
@@ -804,7 +848,7 @@ class AnthropicMessagesAdapter implements AiProtocolAdapter {
    */
   private async request(body: Record<string, unknown>, signal: AbortSignal): Promise<Response> {
     const endpoint = buildAnthropicEndpoint(this.provider.apiUrl)
-    const response = await fetch(endpoint, {
+    const response = await this.fetchRequest(endpoint, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -850,13 +894,15 @@ interface AnthropicToolCallAccumulator {
  * @param body fetch 响应的可读流
  * @param onDelta 接收文本与推理增量的回调
  * @param context 当前协议、供应商与模型身份
+ * @param observer 可选流观察器，用于空闲计时及完成标记处理
  * @returns 归一化的助手回复
  * @throws 流中断或收到 error 事件时抛出错误
  */
 async function parseAnthropicSse(
   body: ReadableStream<Uint8Array> | null,
   onDelta: (delta: AdapterDelta) => void,
-  context: AiReplayContext
+  context: AiReplayContext,
+  observer?: AiStreamObserver
 ): Promise<AssistantTurn> {
   if (!body) throw new Error('Anthropic 流式响应缺少 body')
   const reader = body.getReader()
@@ -871,7 +917,7 @@ async function parseAnthropicSse(
   const toolBlocks = new Map<number, AnthropicToolCallAccumulator>()
   const nativeBlocks = new Map<number, Record<string, unknown>>()
 
-  for (;;) {
+  stream: for (;;) {
     const { done, value } = await reader.read()
     if (done) break
     buffer += decoder.decode(value, { stream: true })
@@ -886,6 +932,12 @@ async function parseAnthropicSse(
       if (data === '[DONE]') continue
       const event = JSON.parse(data) as Record<string, unknown>
       const type = typeof event.type === 'string' ? event.type : ''
+      if (type && type !== 'ping') observer?.onActivity()
+      if (type === 'message_stop' && observer?.finishOnStop) {
+        // 终止帧已经收到，释放还未关闭的响应体。
+        void reader.cancel().catch(() => {})
+        break stream
+      }
 
       if (type === 'content_block_start') {
         const index = event.index as number

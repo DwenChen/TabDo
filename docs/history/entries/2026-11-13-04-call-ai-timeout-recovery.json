@@ -1,0 +1,21 @@
+{
+  "id": "call-ai-timeout-recovery",
+  "date": "2026-11-13",
+  "summary": "呼叫AI保留超时前进度并独立等待长工具",
+  "changes": [
+    "原实现只提交成功轮次的上下文，模型超时会丢失已完成的工具步骤。模型超时后保留本窗口的任务、完整工具调用及结果和已收到的回复正文。",
+    "模型请求从固定 120 秒总时限改为连续 120 秒无流事件时中止。脚本默认 120 秒，可明确指定 1 至 900 秒。MCP 工具支持进度续期。",
+    "聊天区分别显示等待模型和执行工具，超时提示引导同窗继续。同步呼叫AI规范及两份教程。"
+  ],
+  "checks": [
+    "呼叫AI和提供商协议相关单测 6 个文件共 54 项通过，归档 .artifacts/runs/2026-11-13T08-14-00-230Z-unit。回归分组 call-ai 的单测与 E2E 列表已核对。",
+    "最终源码 Electron 回归通过，归档 .artifacts/runs/2026-11-13T08-19-03-224Z-e2e。验证长工具等待、模型本地空闲超时、同窗续跑上下文和持续流事件刷新计时。前两轮分别修正了续跑断言匹配过早的工具调用及悬停提示和尾段排版之间的竞态。",
+    "查看最终归档中的 call-ai-tool-wait.png 与 call-ai-model-timeout.png。执行状态在当前任务下方、停止按钮可见；超时后原正文留在提示上方，输入框恢复可编辑，续跑文案完整可见。",
+    "pnpm typecheck、pnpm build 和 pnpm docs:check 通过。",
+    "免安装预览已同步为本地 1.5.5，259 个现有资料文件前后一致。收据 .artifacts/backups/preview-sync/update-1794558020091/preservation.json。",
+    "pnpm test:preview:resources 通过，核验 2138 个程序文件、353 个内置插件文件和 11842 个媒体运行依赖文件。",
+    "清理本轮已消费的程序暂存及旧程序回退，共 29913 个文件、1376616028 字节。保留最新回退、资料核验收据及测试归档。清理审计 .artifacts/cleanup-2026-11-13/call-ai-timeout-recovery-preview.json。",
+    "pnpm maintain、pnpm maintain:check、pnpm docs:check 和 git diff --check 通过。"
+  ],
+  "pending": ["真实提供商超过两分钟的流式回复、MCP 连续进度通知及 15 分钟上限留待实际长任务验收。"]
+}

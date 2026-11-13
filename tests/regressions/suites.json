@@ -343,6 +343,7 @@
   },
   "clipboard-interactions": {
     "unit": [
+      "tests/main/clipboardCategory.test.ts",
       "tests/main/temporaryResidencyApi.test.ts",
       "tests/main/floatingPointer.test.ts",
       "tests/main/clipboardSelectionState.test.ts",
@@ -584,6 +585,8 @@
   },
   "call-ai": {
     "unit": [
+      "tests/main/aiProtocol/adapters.test.ts",
+      "tests/main/proxySessionReuse.test.ts",
       "tests/main/callAiRuntime.test.ts",
       "tests/main/callAiService.test.ts",
       "tests/main/callAiFiles.test.ts",

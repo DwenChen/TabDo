@@ -12,6 +12,7 @@ interface PluginInfo {
   title?: string
   logo: string
   path: string
+  featureCode?: string
   cmdName?: string
   subInputPlaceholder?: string
   subInputVisible?: boolean

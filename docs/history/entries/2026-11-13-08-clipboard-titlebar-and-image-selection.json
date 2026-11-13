@@ -1,0 +1,19 @@
+{
+  "id": "clipboard-titlebar-and-image-selection",
+  "date": "2026-11-13",
+  "summary": "修复剪贴板上栏拖动、中转图标和图片多选",
+  "changes": [
+    "按功能码限制剪贴板上栏输入框宽度，右侧空白可拖动窗口。",
+    "悬浮中转图标保持中性色，多选计数与复制、粘贴共用强调色，保留转交状态。",
+    "截图和纯图片文件组可一起选择、批量复制及拖出，使用各自文件路径。"
+  ],
+  "checks": [
+    "相关单测 4 个文件共 31 项通过，归档 .artifacts/runs/2026-11-13T12-33-33-100Z-unit。pnpm typecheck 通过。",
+    "源码 Electron 回归通过，归档 .artifacts/runs/2026-11-13T12-36-28-152Z-e2e。原生鼠标从搜索框右侧空白拖动窗体，验证输入、图标颜色、混合图片勾选、两张图悬浮、原生拖放及系统文件剪贴板的双路径。前三轮在主窗口或设置正文就绪前超时，改为定位实际主宿主并等待设置正文。",
+    "首版截图显示了中性色图标与灰色计数。按反馈恢复与复制、粘贴一致的计数颜色。最终端到端归档 .artifacts/runs/2026-11-13T12-40-14-971Z-e2e，核对 clipboard-header.png 和 clipboard-mixed-images.png。搜索框右侧留白，两条图片均选中，中转图标为中性色，三个数量角标共用主题色。",
+    "pnpm build 与角标调整后的 pnpm build:tools 通过。",
+    "最终免安装预览同步后 6834 个资料文件前后一致。收据 .artifacts/backups/preview-sync/update-1794573780812/preservation.json。pnpm test:preview:resources 核验 2138 个程序文件、353 个内置插件文件和 11842 个媒体运行依赖文件。",
+    "两次同步的已消费暂存及旧回退共清理 59826 个文件、2753282431 字节。保留最终同步的程序回退、两份资料核验收据与测试归档。审计 .artifacts/cleanup-2026-11-13/clipboard-titlebar-and-image-selection-preview.json 和 .artifacts/cleanup-2026-11-13/clipboard-titlebar-and-image-selection-badge-preview.json。"
+  ],
+  "pending": ["窗口拖动与视觉检查覆盖当前 Windows 桌面的缩放和材质。"]
+}

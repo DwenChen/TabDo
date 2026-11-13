@@ -1,0 +1,18 @@
+{
+  "id": "call-ai-first-model-connection",
+  "date": "2026-11-13",
+  "summary": "呼叫AI首轮模型请求沿用宿主代理",
+  "changes": [
+    "本地预览日志记录 12 次 OpenAI Chat 超时，均在 10541 至 10639 毫秒时失败，且没有 HTTP 响应头或模型事件。耗时符合 Node fetch 默认建连时限。原模型传输绕过 Electron 代理配置。",
+    "呼叫AI的三个模型协议复用 Electron 的网络栈和当前代理配置。启动时先登记已保存的代理，再进入设置初始化的异步步骤。请求等待代理生效后发送，保留流式空闲、停止和完成标记处理。"
+  ],
+  "checks": [
+    "相关单测 7 个文件共 44 项通过，归档 .artifacts/runs/2026-11-13T10-01-53-219Z-unit。核对 call-ai 回归分组。",
+    "源码 Electron 两个用例通过，归档 .artifacts/runs/2026-11-13T10-00-44-853Z-e2e。新窗口打开不预发模型请求，发送首条消息后代理仅收到一次流式请求。现有端到端回归同时通过。",
+    "检查从插件 WebContentsView 直接捕获的 call-ai-first-reply.png。首条提示和完整回复均可见，回复完成后输入框可见。",
+    "pnpm typecheck、pnpm build、pnpm maintain、pnpm maintain:check、pnpm docs:check 和 git diff --check 通过。",
+    "免安装预览 1.5.5 同步完成，6824 个原有资料文件前后一致。收据 .artifacts/backups/preview-sync/update-1794564233157/preservation.json。pnpm test:preview:resources 核验 2138 个程序文件、353 个内置插件文件和 11842 个媒体运行依赖文件。",
+    "清理已消费的程序暂存与旧程序回退，共 29913 个文件、1376628816 字节。保留最新回退、核验收据、测试归档和既有工具链及历史下载。审计 .artifacts/cleanup-2026-11-13/call-ai-first-model-connection-preview.json。"
+  ],
+  "pending": ["实际提供商在用户当前网络下的首轮成功率待复测。"]
+}

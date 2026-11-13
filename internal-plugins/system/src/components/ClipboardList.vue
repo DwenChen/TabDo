@@ -3,7 +3,11 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import TextItem from './items/TextItem.vue'
 import ImageItem from './items/ImageItem.vue'
 import FileItem from './items/FileItem.vue'
-import { getClipboardTransferError } from '@/utils/clipboardPayload'
+import {
+  clipboardItemPaths,
+  clipboardItemTransferType,
+  getClipboardTransferError
+} from '@/utils/clipboardPayload'
 
 const props = defineProps({
   items: { type: Array, required: true },
@@ -50,7 +54,7 @@ function dragContent(event, item) {
     ? props.items.filter((entry) => props.selectedItems.has(entry))
     : [item]
   // 拒绝混合选择，避免过滤后只拖出其中一种内容却让用户误以为全部成功。
-  const error = getClipboardTransferError(items.map((entry) => entry.type))
+  const error = getClipboardTransferError(items.map(clipboardItemTransferType))
   if (error) {
     event.preventDefault()
     event.dataTransfer.effectAllowed = 'none'
@@ -68,19 +72,7 @@ function dragContent(event, item) {
     )
     return
   }
-  const paths = [
-    ...new Set(
-      items
-        .flatMap((entry) =>
-          entry.type === 'file'
-            ? (entry.files || []).map((file) => file.path)
-            : entry.type === 'image'
-              ? [entry.imagePath]
-              : []
-        )
-        .filter(Boolean)
-    )
-  ]
+  const paths = clipboardItemPaths(items)
   event.preventDefault()
   if (paths.length) window.tabdo.startDrag(paths)
 }

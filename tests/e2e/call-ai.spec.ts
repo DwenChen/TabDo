@@ -5,6 +5,7 @@ import {
   type ElectronApplication
 } from '@playwright/test'
 import fs from 'node:fs/promises'
+import { createServer } from 'node:http'
 import os from 'node:os'
 import path from 'node:path'
 import AdmZip from 'adm-zip'
@@ -24,6 +25,106 @@ async function capturePlugin(app: ElectronApplication, url: string, file: string
   }, url)
   await fs.writeFile(file, Buffer.from(screenshot, 'base64'))
 }
+
+test('呼叫AI新窗口的首条消息通过宿主代理完成', async ({ browserName: _browserName }, testInfo) => {
+  const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'tabdo-call-ai-proxy-'))
+  const endpoint = 'http://call-ai-model.invalid/v1/chat/completions'
+  const requests: { auth: string | undefined; body: string }[] = []
+  // 目标域名没有直连服务，只有本地代理能返回模型流。
+  const proxy = createServer(async (request, response) => {
+    if (request.url !== endpoint || request.method !== 'POST') {
+      response.writeHead(502).end()
+      return
+    }
+    request.setEncoding('utf8')
+    let body = ''
+    for await (const chunk of request) body += chunk
+    requests.push({ auth: request.headers.authorization, body })
+    response.writeHead(200, { 'content-type': 'text/event-stream' })
+    const chunk = { choices: [{ delta: { content: '代理首轮回复已完成' }, finish_reason: 'stop' }] }
+    response.end(`data: ${JSON.stringify(chunk)}\n\ndata: [DONE]\n\n`)
+  })
+  let application: ElectronApplication | undefined
+  try {
+    await new Promise<void>((resolve, reject) => {
+      proxy.once('error', reject)
+      proxy.listen(0, '127.0.0.1', resolve)
+    })
+    const address = proxy.address()
+    if (!address || typeof address === 'string') throw new Error('测试代理缺少监听端口')
+    const root = path.resolve(__dirname, '../..')
+    const env = {
+      ...process.env,
+      TABDO_E2E: '1',
+      TABDO_DATA_ROOT: path.join(temporary, 'data'),
+      TABDO_LEGACY_USER_DATA_PATH: path.join(temporary, 'legacy'),
+      ELECTRON_RENDERER_URL: 'http://127.0.0.1:5174',
+      TABDO_SETTING_DEV_SERVER_URL: 'http://127.0.0.1:15177'
+    }
+    delete env.ELECTRON_RUN_AS_NODE
+    application = await electron.launch({
+      args: [path.join(root, 'scripts/preview-main.cjs')],
+      cwd: root,
+      env
+    })
+    const app = application
+    const main = await app.firstWindow()
+    await app.evaluate(({ app }, proxyUrl) => {
+      const source = app.getAppPath() + '/src/main/'
+      process.mainModule!.require(source + 'managers/proxyManager.ts').default.setProxyConfig({
+        enabled: true,
+        url: proxyUrl
+      })
+      process.mainModule!.require(source + 'core/aiProviderService.ts').default.addProvider({
+        name: '代理测试提供商',
+        apiUrl: 'http://call-ai-model.invalid/v1',
+        apiKey: 'proxy-fixture-key',
+        apiFormat: 'openai-chat',
+        enabled: true,
+        selectedModels: [{ ref: 'proxy-fixture', modelId: 'proxy-fixture' }]
+      })
+    }, `http://127.0.0.1:${address.port}`)
+    const plugin = await main.evaluate(async () =>
+      (await window.tabdo.getAllPlugins()).find((entry: any) => entry.name === 'system')
+    )
+    await main.evaluate(
+      (plugin) =>
+        window.tabdo.launch({ path: plugin.path, type: 'plugin', featureCode: 'call-ai' }),
+      plugin
+    )
+    const pluginUrl = 'http://127.0.0.1:15178'
+    await expect
+      .poll(() =>
+        app
+          .context()
+          .pages()
+          .some((page) => page.url().startsWith(pluginUrl))
+      )
+      .toBe(true)
+    const page = app
+      .context()
+      .pages()
+      .find((page) => page.url().startsWith(pluginUrl))!
+    await page.getByLabel('任务输入').fill('新窗口首轮连通性验证')
+    expect(requests).toHaveLength(0)
+    await page.getByRole('button', { name: '发送' }).click()
+    await expect(page.getByText('代理首轮回复已完成', { exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: '发送' })).toBeVisible()
+    expect(requests).toHaveLength(1)
+    expect(requests[0].auth).toBe('Bearer proxy-fixture-key')
+    expect(JSON.parse(requests[0].body)).toMatchObject({
+      model: 'proxy-fixture',
+      stream: true,
+      messages: expect.arrayContaining([{ role: 'user', content: '新窗口首轮连通性验证' }])
+    })
+    await capturePlugin(app, pluginUrl, testInfo.outputPath('call-ai-first-reply.png'))
+  } finally {
+    await application?.close().catch(() => {})
+    proxy.closeAllConnections()
+    await new Promise<void>((resolve) => proxy.close(() => resolve()))
+    await fs.rm(temporary, { recursive: true, force: true })
+  }
+})
 
 test('呼叫AI使用提供商、内置解释器、审批和提问，关闭后清理并保留产物', async ({
   browserName: _browserName
@@ -51,6 +152,27 @@ test('呼叫AI使用提供商、内置解释器、审批和提问，关闭后清
       env
     })
     const app = application
+    const packages = await app.evaluate(({ app }) => {
+      const path = process.mainModule!.require('node:path')
+      return path.join(app.getPath('userData'), 'call-ai', 'packages')
+    })
+    // 构造与 npm、pip --target 相同的本地安装结构，不访问包注册表。
+    const nodePackages = path.join(packages, 'node')
+    await fs.mkdir(nodePackages, { recursive: true })
+    const dependencies = { '@fixture/extra': '1.0.0', 'keep-extra': '2.0.0' }
+    await fs.writeFile(path.join(nodePackages, 'package.json'), JSON.stringify({ dependencies }))
+    for (const [name, version] of Object.entries(dependencies)) {
+      const directory = path.join(nodePackages, 'node_modules', name)
+      await fs.mkdir(directory, { recursive: true })
+      await fs.writeFile(path.join(directory, 'package.json'), JSON.stringify({ name, version }))
+    }
+    const pythonPackages = path.join(packages, 'python')
+    const pythonInfo = 'Fixture_Python-3.0.dist-info'
+    await fs.mkdir(path.join(pythonPackages, pythonInfo), { recursive: true })
+    await fs.writeFile(
+      path.join(pythonPackages, pythonInfo, 'METADATA'),
+      'Name: Fixture-Python\nVersion: 3.0\n'
+    )
     app.process().stdout?.on('data', (chunk) => logs.push(String(chunk)))
     app.process().stderr?.on('data', (chunk) => logs.push(String(chunk)))
     const main = await app.firstWindow()
@@ -112,12 +234,64 @@ test('呼叫AI使用提供商、内置解释器、审批和提问，关闭后清
     await expect(settings.getByLabel('结果产物默认位置')).toHaveValue(/[/\\]TabDo[/\\]Call_AI$/)
     await settings.getByText('运行时与额外库', { exact: true }).click()
     const runtimeRows = settings.locator('.runtime-row')
-    for (const label of ['更新', '清理额外库']) {
-      const buttons = runtimeRows.getByRole('button', { name: label, exact: true })
-      await expect(buttons).toHaveCount(2)
-      await expect(buttons.first()).toHaveAttribute('title', label)
-      await expect(buttons.first()).toHaveText('')
+    const updateButtons = runtimeRows.getByRole('button', { name: '更新', exact: true })
+    await expect(updateButtons).toHaveCount(2)
+    await expect(updateButtons.first()).toHaveAttribute('title', '更新')
+    await expect(updateButtons.first()).toHaveText('')
+    const nodeList = settings.locator('.runtime-group').filter({ hasText: 'Node.js' })
+    const pythonList = settings.locator('.runtime-group').filter({ hasText: 'Python' })
+    await nodeList.getByLabel('Node.js 额外库').click()
+    const selectedLibrary = nodeList.getByRole('checkbox', { name: '@fixture/extra 1.0.0' })
+    const selectedCleanup = nodeList.getByRole('button', { name: '清理所选', exact: false })
+    await expect(selectedCleanup).toBeDisabled()
+    await selectedLibrary.check()
+    await expect(selectedCleanup).toHaveText('清理所选（1）')
+    await expect(nodeList.getByRole('checkbox', { name: 'keep-extra 2.0.0' })).toBeVisible()
+    await selectedCleanup.scrollIntoViewIfNeeded()
+    await capturePlugin(
+      app,
+      'http://127.0.0.1:15177',
+      testInfo.outputPath('call-ai-library-selection.png')
+    )
+    await app.evaluate(({ dialog }) => {
+      const original = dialog.showMessageBox
+      ;(globalThis as any).__restorePackageDialog = () => {
+        dialog.showMessageBox = original
+      }
+      ;(globalThis as any).__packageDialogs = []
+      dialog.showMessageBox = (async (options: any) => {
+        const dialogs = (globalThis as any).__packageDialogs
+        dialogs.push({ message: options.message, detail: options.detail })
+        return { response: dialogs.length === 1 ? 0 : 1, checkboxChecked: false }
+      }) as any
+    })
+    try {
+      await selectedCleanup.click()
+      await expect(selectedLibrary).toBeChecked()
+      await expect(selectedCleanup).toBeEnabled()
+      expect(await fs.stat(path.join(nodePackages, 'node_modules', '@fixture/extra'))).toBeTruthy()
+      await selectedCleanup.click()
+      await expect(selectedLibrary).toHaveCount(0)
+      await expect(nodeList.getByRole('checkbox', { name: 'keep-extra 2.0.0' })).toBeVisible()
+      await expect(
+        fs.stat(path.join(nodePackages, 'node_modules', '@fixture/extra'))
+      ).rejects.toThrow()
+      await expect(nodeList.getByRole('button', { name: '全部清理' })).toBeEnabled()
+      await nodeList.getByRole('button', { name: '全部清理' }).click()
+      await expect(nodeList.getByText('暂无额外库')).toBeVisible()
+      await expect(fs.stat(nodePackages)).rejects.toThrow()
+      await pythonList.getByLabel('Python 额外库').click()
+      await expect(pythonList.getByRole('checkbox', { name: 'Fixture-Python 3.0' })).toBeVisible()
+      expect(await app.evaluate(() => (globalThis as any).__packageDialogs)).toMatchObject([
+        { message: '清理所选 Node.js 额外库？', detail: '@fixture/extra 1.0.0' },
+        { message: '清理所选 Node.js 额外库？', detail: '@fixture/extra 1.0.0' },
+        { message: '清理全部 Node.js 额外库？' }
+      ])
+    } finally {
+      await app.evaluate(() => (globalThis as any).__restorePackageDialog())
     }
+    await nodeList.getByLabel('Node.js 额外库').click()
+    await pythonList.getByLabel('Python 额外库').click()
     const checkRuntime = settings.getByRole('button', { name: '检查状态', exact: true })
     const checkRow = checkRuntime.locator('xpath=../..')
     await checkRuntime.click()
@@ -384,7 +558,12 @@ test('呼叫AI使用提供商、内置解释器、审批和提问，关闭后清
         let turn = 0
         ;(globalThis as any).__callAiPrompts = []
         adapters.createAdapter = () => ({
-          stream: async (input: any, _signal: AbortSignal, delta: (value: any) => void) => {
+          stream: async (
+            input: any,
+            signal: AbortSignal,
+            delta: (value: any) => void,
+            observer?: { onActivity: () => void }
+          ) => {
             const lastUser = input.messages.findLastIndex((entry: any) => entry.role === 'user')
             const task = input.messages[lastUser].content
             const replies = input.messages
@@ -475,6 +654,56 @@ test('呼叫AI使用提供商、内置解释器、审批和提问，关闭后清
               delta({ content })
               return { content, toolCalls: [], finishReason: 'stop' }
             }
+            if (task === '验证超时后续跑') {
+              if (!replies.length)
+                return tool('run_code', {
+                  language: 'node',
+                  code: 'setTimeout(() => console.log("saved-tool-output"), 1800)',
+                  timeoutSeconds: 6
+                })
+              // 发出正文后保持沉默，让主进程自己的空闲计时器中止请求。
+              observer?.onActivity()
+              delta({ content: '已处理第一步，接下来汇总。' })
+              delta({ toolCall: { id: 'unfinished', argumentsDelta: '{' } })
+              await new Promise((_, reject) => {
+                signal.addEventListener('abort', () => reject(signal.reason), { once: true })
+              })
+            }
+            if (task === '继续') {
+              const taskIndex = input.messages.findLastIndex(
+                (entry: any) => entry.role === 'user' && entry.content === '验证超时后续跑'
+              )
+              const history = input.messages.slice(taskIndex + 1, lastUser)
+              const call = history
+                .flatMap((entry: any) => entry.tool_calls || [])
+                .find((call: any) => call.function.name === 'run_code')
+              const restored =
+                taskIndex >= 0 &&
+                history.some(
+                  (entry: any) =>
+                    entry.role === 'tool' &&
+                    entry.tool_call_id === call?.id &&
+                    entry.content.includes('saved-tool-output')
+                ) &&
+                history.some(
+                  (entry: any) =>
+                    entry.role === 'assistant' &&
+                    entry.content.includes('已处理第一步，接下来汇总。') &&
+                    entry.content.includes('这一段模型回复中断')
+                ) &&
+                !history.some((entry: any) =>
+                  entry.tool_calls?.some((call: any) => call.id === 'unfinished')
+                )
+              const content = restored ? '已从工具结果继续，汇总完成' : '没有恢复到中断处'
+              // 总流式时长超过一次空闲窗口，每次模型活动间隔低于空闲时限。
+              for (let i = 0; i < 3; i++) {
+                await new Promise((resolve) => setTimeout(resolve, 550))
+                signal.throwIfAborted()
+                observer?.onActivity()
+              }
+              delta({ content })
+              return { content, toolCalls: [], finishReason: 'stop' }
+            }
             if (task === '验证请求失败 https://example.com/path') {
               delta({ reasoningContent: '准备处理请求' })
               throw Object.assign(new Error('PRIVATE_PROVIDER_BODY'), { status: 429 })
@@ -496,9 +725,8 @@ test('呼叫AI使用提供商、内置解释器、审批和提问，关闭后清
               return { content, toolCalls: [], finishReason: 'stop' }
             }
             if (JSON.stringify(task).includes('处理这些附件。')) {
-              const content = JSON.stringify(task).includes('data:image/png;base64,')
-                ? '已收到匹配图片'
-                : '匹配图片未发送'
+              ;(globalThis as any).__matchedImageRequest = task
+              const content = '已收到匹配图片'
               delta({ content })
               return { content, toolCalls: [], finishReason: 'stop' }
             }
@@ -834,8 +1062,15 @@ test('呼叫AI使用提供商、内置解释器、审批和提问，关闭后清
     expect(execution?.content.trim()).toBe('native-script-execution')
     const sourceLink = page.getByRole('link', { name: '来源链接' })
     await expect(sourceLink).toHaveCSS('text-decoration-line', 'none')
-    await sourceLink.hover()
-    await expect(page.locator('.link-hint')).toHaveText('https://example.com/full-path')
+    await expect(page.getByRole('status')).toHaveCount(0)
+    // 回复尾段排版可能触发滚动并清除第一次悬停提示。
+    await expect(async () => {
+      await page.locator('.composer').hover()
+      await sourceLink.hover()
+      await expect(page.locator('.link-hint')).toHaveText('https://example.com/full-path', {
+        timeout: 600
+      })
+    }).toPass({ timeout: 8000 })
     expect(JSON.stringify(evidence.messages)).toContain('测试规则')
     expect(JSON.stringify(evidence.messages)).toContain('mcp-packages')
     expect(JSON.stringify(evidence.messages)).not.toContain('SKILL_MANUAL_ONLY_SENTINEL')
@@ -1279,11 +1514,36 @@ test('呼叫AI使用提供商、内置解释器、审批和提问，关闭后清
     )
     expect(matchedType).toBe('img')
     await expect(reopened.getByRole('button', { name: '移除选中图片' })).toBeVisible()
+    const matchedAttachment = reopened.locator('.draft-attachments').getByRole('link', {
+      name: '选中图片'
+    })
+    const screenshotPath = (await matchedAttachment.getAttribute('data-link-target'))!
+    expect(path.isAbsolute(screenshotPath)).toBe(true)
+    expect(
+      path.relative(path.join(temporary, 'data', 'call-ai', 'sessions'), screenshotPath)
+    ).toMatch(/^[^\\/]+[\\/]clipboard-[a-f0-9-]+\.png$/)
+    expect(await fs.readFile(screenshotPath)).toEqual(await fs.readFile(picture))
     await expect(reopened.locator('.message')).toHaveCount(0)
+    await matchedAttachment.hover()
+    await expect(reopened.getByText(screenshotPath, { exact: true })).toBeVisible()
+    await capturePlugin(
+      app,
+      'http://127.0.0.1:15178',
+      testInfo.outputPath('call-ai-clipboard-image-path.png')
+    )
     await reopened.getByRole('button', { name: '发送' }).click()
     await expect(reopened.getByText('已收到匹配图片', { exact: true })).toBeVisible()
-    await expect(reopened.locator('.message.user')).toContainText('选中图片')
+    await expect(
+      reopened.locator('.message.user').getByRole('link', { name: '选中图片' })
+    ).toHaveAttribute('data-link-target', screenshotPath)
     await expect(reopened.locator('.message.user')).not.toContainText('data:image')
+    const imageRequest = await app.evaluate(() => (globalThis as any).__matchedImageRequest)
+    expect(imageRequest).toContainEqual({
+      type: 'image_url',
+      image_url: { url: clipboardContent.image }
+    })
+    const description = imageRequest.find((part: { type: string }) => part.type === 'text').text
+    expect(description).toContain(JSON.stringify({ path: screenshotPath }).slice(1, -1))
     const retryText = '验证请求失败 https://example.com/path'
     await reopened.getByLabel('任务输入').fill(retryText)
     await expect(reopened.locator('.draft-attachments').getByRole('link')).toHaveAttribute(
@@ -1299,10 +1559,9 @@ test('呼叫AI使用提供商、内置解释器、审批和提问，关闭后清
     await retryButton.click()
     await expect(reopened.getByLabel('任务输入')).toHaveValue(retryText)
     await expect(failed).toHaveCount(1)
-    await expect(reopened.locator('.message.user').getByRole('link')).toHaveAttribute(
-      'href',
-      'https://example.com/path'
-    )
+    await expect(
+      reopened.locator('.message.user').getByRole('link', { name: 'https://example.com/path' })
+    ).toHaveAttribute('href', 'https://example.com/path')
     await reopened.getByLabel('任务输入').fill('验证类似命令未跨窗口')
     await reopened.getByRole('button', { name: '发送' }).click()
     const newApproval = reopened.getByLabel('请求批准操作')
@@ -1310,6 +1569,47 @@ test('呼叫AI使用提供商、内置解释器、审批和提问，关闭后清
     await newApproval.getByRole('button', { name: '批准本次操作' }).click()
     await expect(reopened.getByText('类似命令验证完成', { exact: true })).toBeVisible()
     await expect(reopened.getByLabel('权限模式')).toBeEnabled()
+    await app.evaluate(() => {
+      const schedule = globalThis.setTimeout
+      // 只加速本机夹具中的 120 秒模型空闲时限，命令使用显式的 6 秒。
+      globalThis.setTimeout = new Proxy(schedule, {
+        apply(target, receiver, args) {
+          if (args[1] === 120_000) args[1] = 1200
+          return Reflect.apply(target, receiver, args)
+        }
+      })
+      ;(globalThis as any).__restoreCallAiTimer = () => {
+        globalThis.setTimeout = schedule
+      }
+    })
+    try {
+      await reopened.getByLabel('任务输入').fill('验证超时后续跑')
+      await reopened.getByRole('button', { name: '发送' }).click()
+      await expect(newApproval.locator('pre')).toContainText('"timeoutSeconds": 6')
+      await newApproval.getByRole('button', { name: '批准本次操作' }).click()
+      await expect(reopened.getByRole('status')).toHaveText('正在执行工具…')
+      await capturePlugin(
+        app,
+        'http://127.0.0.1:15178',
+        testInfo.outputPath('call-ai-tool-wait.png')
+      )
+      const timeout = reopened.getByRole('alert').filter({ hasText: '等待模型回复超时' })
+      await expect(timeout).toContainText('发送“继续”')
+      await expect(reopened.getByText('已处理第一步，接下来汇总。', { exact: true })).toBeVisible()
+      await capturePlugin(
+        app,
+        'http://127.0.0.1:15178',
+        testInfo.outputPath('call-ai-model-timeout.png')
+      )
+      await reopened.getByLabel('任务输入').fill('继续')
+      await reopened.getByRole('button', { name: '发送' }).click()
+      await expect(reopened.getByRole('status')).toHaveText('等待模型回复…')
+      await expect(reopened.getByText('已从工具结果继续，汇总完成', { exact: true })).toBeVisible()
+      await expect(newApproval).toHaveCount(0)
+      await expect(reopened.getByLabel('权限模式')).toBeEnabled()
+    } finally {
+      await app.evaluate(() => (globalThis as any).__restoreCallAiTimer())
+    }
     await app.evaluate(({ dialog }) => {
       dialog.showMessageBox = (async () => ({ response: 1, checkboxChecked: false })) as any
     })
@@ -1330,6 +1630,14 @@ test('呼叫AI使用提供商、内置解释器、审批和提问，关闭后清
         .close()
     })
     await expect.poll(() => reopened.isClosed()).toBe(true)
+    await expect
+      .poll(() =>
+        fs.stat(screenshotPath).then(
+          () => '存在',
+          (error) => error.code
+        )
+      )
+      .toBe('ENOENT')
     await main.evaluate(
       (plugin) =>
         window.tabdo.launch({ path: plugin.path, type: 'plugin', featureCode: 'call-ai' }),

@@ -4,7 +4,7 @@ import {
   hasNativeTextSelection,
   shouldUseNativeCopy
 } from '../utils/nativeCopy.js'
-import { getClipboardTransferError } from '../utils/clipboardPayload.js'
+import { clipboardItemTransferType, getClipboardTransferError } from '../utils/clipboardPayload.js'
 
 /**
  * 维护多选、范围选择及复制粘贴快捷键。
@@ -105,8 +105,10 @@ export function useSelection(
   const selectRange = (index) => {
     const item = filteredData.value[index]
     const anchorIndex = filteredData.value.indexOf(selectionAnchor.value)
-    if (item && anchorIndex >= 0 && selectionAnchor.value.type !== item.type) {
-      onInvalidSelection?.(getClipboardTransferError([selectionAnchor.value.type, item.type]))
+    const type = clipboardItemTransferType(item)
+    const anchorType = clipboardItemTransferType(selectionAnchor.value)
+    if (item && anchorIndex >= 0 && anchorType !== type) {
+      onInvalidSelection?.(getClipboardTransferError([anchorType, type]))
       return false
     }
     if (!item || anchorIndex < 0) {
@@ -122,7 +124,7 @@ export function useSelection(
       rangeIndex += direction
     ) {
       const rangeItem = filteredData.value[rangeIndex]
-      if (rangeItem.type === item.type) rangeItems.push(rangeItem)
+      if (clipboardItemTransferType(rangeItem) === type) rangeItems.push(rangeItem)
     }
 
     replaceSelection(rangeItems, item, selectionAnchor.value)
@@ -141,8 +143,10 @@ export function useSelection(
     clearNativeTextSelection()
 
     const currentItems = selectedItems.value
-    if (currentItems.length > 0 && currentItems[0].type !== item.type) {
-      onInvalidSelection?.(getClipboardTransferError([currentItems[0].type, item.type]))
+    const currentType = clipboardItemTransferType(currentItems[0])
+    const type = clipboardItemTransferType(item)
+    if (currentItems.length > 0 && currentType !== type) {
+      onInvalidSelection?.(getClipboardTransferError([currentType, type]))
       return false
     }
 
@@ -250,7 +254,7 @@ export function useSelection(
       index >= 0 && index < filteredData.value.length;
       index += direction
     ) {
-      if (!type || filteredData.value[index].type === type) return index
+      if (!type || clipboardItemTransferType(filteredData.value[index]) === type) return index
     }
     return startIndex
   }
@@ -262,7 +266,10 @@ export function useSelection(
   const selectAllOfActiveType = () => {
     const item = activeItem.value || filteredData.value[0]
     if (!item) return
-    const matchingItems = filteredData.value.filter((candidate) => candidate.type === item.type)
+    const type = clipboardItemTransferType(item)
+    const matchingItems = filteredData.value.filter(
+      (candidate) => clipboardItemTransferType(candidate) === type
+    )
     const orderedItems = [item, ...matchingItems.filter((candidate) => candidate !== item)]
     replaceSelection(orderedItems, item, item)
   }
@@ -352,7 +359,9 @@ export function useSelection(
         return
       }
       const currentIndex = activeIndex.value >= 0 ? activeIndex.value : 0
-      const type = event.shiftKey ? selectionAnchor.value?.type || activeItem.value?.type : null
+      const type = event.shiftKey
+        ? clipboardItemTransferType(selectionAnchor.value || activeItem.value)
+        : null
       const nextIndex = findNextIndex(currentIndex, direction, type)
 
       if (event.shiftKey) {

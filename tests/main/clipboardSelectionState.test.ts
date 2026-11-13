@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { effectScope, nextTick, ref } from 'vue'
 import { useSelection } from '../../internal-plugins/system/src/composables/useSelection.js'
+import { buildClipboardPayload } from '../../internal-plugins/system/src/utils/clipboardPayload.js'
 
 describe('clipboard explicit selection', () => {
   beforeEach(() => vi.useFakeTimers())
@@ -61,5 +62,38 @@ describe('clipboard explicit selection', () => {
     expect(invalid).toHaveBeenCalledWith(expect.stringContaining('不能混合'))
     expect(preventDefault).toHaveBeenCalledOnce()
     scope.stop()
+  })
+
+  it('selects screenshots and image files together and preserves both file paths', async () => {
+    const scope = effectScope()
+    const screenshot = { id: 's', type: 'image', imagePath: 'C:/history/screenshot.png' }
+    const imageFile = { id: 'i', type: 'file', files: [{ path: 'C:/source/photo.jpg' }] }
+    const folder = {
+      id: 'f',
+      type: 'file',
+      files: [{ path: 'C:/source/folder.png', isDirectory: true }]
+    }
+    const items = ref([screenshot, folder, imageFile])
+    const write = vi.fn()
+    const state = scope.run(() =>
+      useSelection(items, ref([{ key: 'all' }]), ref('all'), write, vi.fn())
+    )!
+    try {
+      state.handleToggleClick({}, 0)
+      state.handleToggleClick({ shiftKey: true }, 2)
+      await state.copySelected()
+      expect(write).toHaveBeenCalledWith([screenshot, imageFile], false)
+      expect(buildClipboardPayload(write.mock.calls[0][0])).toEqual({
+        type: 'file',
+        content: [screenshot.imagePath, imageFile.files[0].path]
+      })
+      expect(buildClipboardPayload([imageFile])).toEqual({
+        type: 'file',
+        content: [imageFile.files[0].path]
+      })
+      expect(buildClipboardPayload([screenshot, folder])).toBeNull()
+    } finally {
+      scope.stop()
+    }
   })
 })

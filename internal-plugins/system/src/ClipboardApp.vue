@@ -6,7 +6,11 @@ import { useClipboardData } from '@/composables/useClipboardData'
 import { useSelection } from '@/composables/useSelection'
 import { useContextMenu } from '@/composables/useContextMenu'
 import { useFavoriteDialog } from '@/composables/useFavoriteDialog'
-import { buildClipboardPayload, getClipboardTransferError } from '@/utils/clipboardPayload'
+import {
+  buildClipboardPayload,
+  clipboardItemTransferType,
+  getClipboardTransferError
+} from '@/utils/clipboardPayload'
 import TabBar from '@/components/TabBar.vue'
 import ClipboardList from '@/components/ClipboardList.vue'
 import SideBar from '@/components/SideBar.vue'
@@ -184,14 +188,14 @@ const isSuccessfulWrite = (result) => result === true || result?.success === tru
 // 将当前选择写入剪贴板
 /**
  * 合并所选条目并复制或粘贴。
- * @param items items 参数。
- * @param shouldPaste shouldPaste 参数。
- * @returns 操作完成后的 Promise。
+ * @param items 按列表顺序排列的已选条目。
+ * @param shouldPaste 复制后是否粘贴。
+ * @returns 宿主写入或粘贴结束后的 Promise。
  */
 const writeClipboardItems = async (items, shouldPaste = true) => {
   if (!items.length) return
   // 在任何宿主写入、隐藏或粘贴前拒绝混合载荷，不静默丢弃其中一种内容。
-  const error = getClipboardTransferError(items.map((item) => item.type))
+  const error = getClipboardTransferError(items.map(clipboardItemTransferType))
   if (error) {
     showFloatingMessage(error)
     return

@@ -43,10 +43,12 @@ import {
   getCallAiSettings,
   saveCallAiSettings,
   openCallAi,
+  saveCallAiMatchedImage,
   closeCallAi,
   setCallAiMode,
   cleanCallAiOutputs,
   maintainCallAiRuntime,
+  readCallAiPackages,
   installCallAiMcpPackage,
   configureCallAiMcp,
   installCallAiSkill,
@@ -271,6 +273,85 @@ describe('call AI settings and output ownership', () => {
     await Promise.all([closeCallAi(44221), closeCallAi(44221)])
     await expect(fs.stat(session)).rejects.toThrow()
     expect(fixture.db.has('call-ai-history')).toBe(false)
+  })
+
+  it('rejects invalid clipboard images and settles pending attachment writes before closing', async () => {
+    const owner = Object.assign(new EventEmitter(), {
+      id: 44222,
+      isDestroyed: () => false,
+      send: vi.fn()
+    }) as unknown as WebContents
+    const state = await openCallAi(owner)
+    const directory = path.join(fixture.root, 'userData', 'call-ai', 'sessions', String(state.id))
+    try {
+      await expect(saveCallAiMatchedImage(owner.id, 'data:image/png;base64,YQ==')).rejects.toThrow(
+        '选中的图片格式无效'
+      )
+      expect(await fs.readdir(directory)).toEqual([])
+      const png =
+        'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLttAAAAABJRU5ErkJggg=='
+      const pending = saveCallAiMatchedImage(owner.id, png)
+      const rejected = expect(pending).rejects.toThrow('本次对话已结束')
+      await Promise.all([closeCallAi(owner.id), rejected])
+      await expect(fs.stat(directory)).rejects.toMatchObject({ code: 'ENOENT' })
+    } finally {
+      await closeCallAi(owner.id)
+    }
+  })
+  it('removes only files owned by the selected Python distribution and preserves shared paths', async () => {
+    const directory = path.join(fixture.root, 'userData', 'call-ai', 'packages', 'python')
+    const selected = 'my_extra-1.0.dist-info'
+    const retained = 'keep_extra-2.0.dist-info'
+    const files = {
+      [`${selected}/METADATA`]: 'Name: My-Extra\nVersion: 1.0\n',
+      [`${selected}/RECORD`]: [
+        `${selected}/METADATA,,`,
+        `${selected}/RECORD,,`,
+        'shared/extra.py,,',
+        '"shared/name,with-comma.py",,',
+        'shared/common.py,,',
+        '../../bin/extra.exe,,'
+      ].join('\n'),
+      [`${retained}/METADATA`]: 'Name: Keep-Extra\nVersion: 2.0\n',
+      [`${retained}/RECORD`]: 'shared/common.py,,\nshared/keep.py,,',
+      'shared/extra.py': '',
+      'shared/name,with-comma.py': '',
+      'shared/common.py': 'shared',
+      'shared/keep.py': 'retained',
+      'bin/extra.exe': ''
+    }
+    for (const [relative, content] of Object.entries(files)) {
+      const file = path.join(directory, relative)
+      await fs.mkdir(path.dirname(file), { recursive: true })
+      await fs.writeFile(file, content)
+    }
+    expect(await readCallAiPackages('python')).toEqual([
+      { id: retained, name: 'Keep-Extra', version: '2.0' },
+      { id: selected, name: 'My-Extra', version: '1.0' }
+    ])
+    await expect(maintainCallAiRuntime('clean', 'python', ['../outside'])).rejects.toThrow('列表')
+    fixture.confirm = 1
+    const record = path.join(directory, selected, 'RECORD')
+    await fs.appendFile(record, '\n../../../outside.txt,,')
+    await expect(maintainCallAiRuntime('clean', 'python', [selected])).rejects.toThrow('无效路径')
+    expect(await fs.stat(path.join(directory, 'shared/extra.py'))).toBeTruthy()
+    await fs.writeFile(record, files[`${selected}/RECORD`])
+    await maintainCallAiRuntime('clean', 'python', [selected])
+    expect(await readCallAiPackages('python')).toEqual([
+      { id: retained, name: 'Keep-Extra', version: '2.0' }
+    ])
+    for (const removed of [
+      selected,
+      'shared/extra.py',
+      'shared/name,with-comma.py',
+      'bin/extra.exe'
+    ]) {
+      await expect(fs.stat(path.join(directory, removed))).rejects.toMatchObject({ code: 'ENOENT' })
+    }
+    expect(await fs.readFile(path.join(directory, 'shared/common.py'), 'utf8')).toBe('shared')
+    expect(await fs.readFile(path.join(directory, 'shared/keep.py'), 'utf8')).toBe('retained')
+    await maintainCallAiRuntime('clean', 'python')
+    expect(await readCallAiPackages('python')).toEqual([])
   })
 
   it('restores only a confirmed permission choice and defaults safely for older profiles', async () => {

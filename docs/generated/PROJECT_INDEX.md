@@ -258,7 +258,7 @@
 - `overlay-surfaces`：0 个单测文件、1 个源码 E2E 文件。
 - `branding`：0 个单测文件、1 个源码 E2E 文件。
 - `tabdo-release`：9 个单测文件、6 个源码 E2E 文件。
-- `clipboard-interactions`：4 个单测文件、4 个源码 E2E 文件。
+- `clipboard-interactions`：5 个单测文件、4 个源码 E2E 文件。
 - `documentation`：1 个单测文件、1 个源码 E2E 文件。
 - `relay-feedback`：0 个单测文件、2 个源码 E2E 文件。
 - `floating-relay`：5 个单测文件、4 个源码 E2E 文件。
@@ -278,7 +278,7 @@
 - `presentation-final-review`：7 个单测文件、5 个源码 E2E 文件。
 - `presentation-library-paths`：2 个单测文件、1 个源码 E2E 文件。
 - `file-search-actions`：0 个单测文件、1 个源码 E2E 文件。
-- `call-ai`：4 个单测文件、1 个源码 E2E 文件。
+- `call-ai`：6 个单测文件、1 个源码 E2E 文件。
 - `portable-preview-runtime-trees`：3 个单测文件、0 个源码 E2E 文件。
 - `presentation-zoom-rates`：1 个单测文件、1 个源码 E2E 文件。
 - `presentation-preview-polish`：0 个单测文件、2 个源码 E2E 文件。

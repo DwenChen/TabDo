@@ -3,6 +3,7 @@ import {
   dialog,
   Menu,
   safeStorage,
+  session as electronSession,
   shell,
   type ContextMenuParams,
   type MenuItemConstructorOptions,
@@ -22,6 +23,7 @@ import { parseDocument } from 'yaml'
 import databaseAPI from '../api/shared/database'
 import aiProviderService, { type ResolvedAiModel } from './aiProviderService'
 import { createAdapter } from '../api/plugin/aiProtocol/adapters'
+import proxyManager from '../managers/proxyManager'
 import { normalizeAiModelCapabilities } from '../../shared/aiProviderShared'
 import { readClipboardFiles } from '../utils/clipboardFiles'
 import {
@@ -42,7 +44,13 @@ import {
 } from './callAiRuntime'
 import { extractCallAiSkill, readCallAiSkillArchive } from './callAiSkillArchive'
 import { planCallAiWrites, publishCallAiWrites, type CallAiFileWrite } from './callAiFiles'
-import { prepareCallAiAttachments } from './callAiAttachments'
+import { decodeCallAiClipboardImage, prepareCallAiAttachments } from './callAiAttachments'
+import {
+  listCallAiPackages,
+  removeCallAiNodePackages,
+  removeCallAiPythonPackages,
+  type CallAiPackage
+} from './callAiPackages'
 import {
   deepSeekOrigin,
   searchBochaWeb,
@@ -93,7 +101,7 @@ interface Session {
   output: string
   mode: CallAiMode
   changingMode?: boolean
-  agent?: Agent
+  messages?: Message[]
   runningAgent?: Agent
   controller?: AbortController
   running?: Promise<void>
@@ -102,6 +110,7 @@ interface Session {
   pending: Map<string, Pending>
   allowedCommands: { name: string; args: unknown }[]
   artifacts: Map<string, string>
+  attachmentWrites: Set<Promise<void>>
   connections: Map<
     string,
     {
@@ -118,6 +127,10 @@ type McpConnectionScope = Pick<Session, 'temporary' | 'output' | 'controller' | 
 const mcpInspections = new Map<number, AbortController>()
 const replay = new WeakMap<AssistantMessage, AiChatReplayState>()
 const invalidToolCalls = new WeakMap<AssistantMessage, Set<string>>()
+const interruptedReplies = new WeakSet<AssistantMessage>()
+const modelIdleTimeoutMs = 120_000
+const continueModelMessage = '已保留本窗口的进度，发送“继续”可接着处理。'
+const maxToolWaitSeconds = 900
 const searchProviders = {
   brave: { name: 'Brave Search', key: 'call-ai-brave-search-key', search: searchCallAiWeb },
   bocha: { name: '博查搜索', key: 'call-ai-bocha-search-key', search: searchBochaWeb }
@@ -412,6 +425,7 @@ export async function openCallAi(owner: WebContents): Promise<Record<string, unk
     pending: new Map(),
     allowedCommands: [],
     artifacts: new Map(),
+    attachmentWrites: new Set(),
     connections: new Map()
   }
   sessions.set(owner.id, session)
@@ -481,6 +495,32 @@ function sessionFor(owner: number): Session {
   const session = sessions.get(owner)
   if (!session || session.disposed) throw new Error('本次对话已结束')
   return session
+}
+
+/**
+ * 为匹配到的剪贴板截图建立本会话内可引用的实际文件。
+ * @param owner 当前呼叫AI正文的 WebContents 标识。
+ * @param image 匹配指令携带的图片数据 URL。
+ * @returns 图片写入完成后的本机绝对路径。
+ * @throws 会话关闭、图片无效或写入失败时拒绝。
+ */
+export async function saveCallAiMatchedImage(owner: number, image: unknown): Promise<string> {
+  const session = sessionFor(owner)
+  const { mimeType, bytes } = decodeCallAiClipboardImage(image)
+  const target = path.join(session.temporary, `clipboard-${randomUUID()}.${mimeType.slice(6)}`)
+  // 跟踪落盘任务，关闭时等写入结束再回收会话目录。
+  const write = assertCallAiNoLinks(target).then(() => {
+    sessionFor(owner)
+    return fs.writeFile(target, bytes, { flag: 'wx' })
+  })
+  session.attachmentWrites.add(write)
+  try {
+    await write
+    sessionFor(owner)
+    return target
+  } finally {
+    session.attachmentWrites.delete(write)
+  }
 }
 
 /**
@@ -647,20 +687,54 @@ function toHost(message: Message, supportsImages: boolean): AiChatMessage {
 
 /**
  * 把提供商请求错误转换成便于采取下一步操作的提示。
- * @param failure 提供商或网络层抛出的错误。
+ * @param failure 已归一化的提供商或网络错误。
  * @returns 不包含响应正文和凭据的短提示。
  */
-function callAiModelError(failure: unknown): string {
-  const { code, status } = normalizeAiChatFailure(failure)
+function callAiModelError({ code, status }: ReturnType<typeof normalizeAiChatFailure>): string {
   if (code === 'AUTH') return '模型服务拒绝访问。请检查提供商密钥和模型权限。'
   if (code === 'INVALID_REQUEST' || status === 413)
     return '模型服务无法处理本轮内容。请检查模型能力，或减少输入和附件后重试。'
   if (code === 'NOT_FOUND') return '模型服务找不到此模型或接口。请检查提供商设置。'
   if (code === 'RATE_LIMIT' || status === 402)
     return '模型服务达到频率或额度限制。请稍后重试或切换模型。'
+  if (status === 408 || status === 504) return `提供商或中转网关返回 HTTP ${status} 超时。`
+  if (code === 'TIMEOUT') return '连接模型服务超时。'
+  if (code === 'STREAM_CLOSED') return '模型连接在回复完成前关闭。'
+  if (code === 'TRANSPORT') return '与模型服务的网络连接失败或中断。'
   if (code === 'SERVER') return '模型服务暂时不可用。请稍后重试。'
-  if (code === 'TIMEOUT') return '等待模型回复超时。请重试或切换模型。'
   return '未能收到完整的模型回复。请检查网络和提供商设置后重试。'
+}
+
+/**
+ * 使用 Electron 网络栈连接模型，等待当前代理配置生效后发送请求。
+ * @param input 模型接口地址或请求对象。
+ * @param init 请求正文、头和取消信号。
+ * @returns 提供商的 HTTP 响应，流式正文由协议适配器读取。
+ * @throws 地址不属于 HTTP(S)、请求取消、代理配置或网络连接失败时拒绝。
+ */
+const fetchCallAiModel: typeof fetch = async (input, init) => {
+  const url = new URL(input instanceof Request ? input.url : input)
+  if (url.protocol !== 'https:' && url.protocol !== 'http:')
+    throw new Error('模型服务地址仅支持 HTTP 和 HTTPS')
+
+  const network = electronSession.defaultSession
+  // 复用宿主代理；等待正在应用的配置，避免首个请求走旧路由。
+  await proxyManager.applyProxyToSession(network)
+  init?.signal?.throwIfAborted()
+  // 模型只使用适配器设置的凭据，绕过 Electron 自定义协议处理器。
+  try {
+    return await network.fetch(input instanceof Request ? input : url.href, {
+      ...init,
+      credentials: 'omit',
+      bypassCustomProtocolHandlers: true
+    })
+  } catch (error) {
+    init?.signal?.throwIfAborted()
+    // 保留 Chromium 建连超时的分类，供 OpenAI SDK 和 Anthropic 复用。
+    if (error instanceof Error && /\bERR_(?:CONNECTION_)?TIMED_OUT\b/.test(error.message))
+      throw new Error('Model connection timed out', { cause: error })
+    throw new Error('Model network request failed', { cause: error })
+  }
 }
 
 /**
@@ -698,9 +772,18 @@ function streamFor(
         cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 }
       }
     }
-    let textBuffer = '',
+    let partialText = '',
+      textBuffer = '',
       reasoningBuffer = '',
-      delivery: NodeJS.Timeout | undefined
+      delivery: NodeJS.Timeout | undefined,
+      timer: NodeJS.Timeout | undefined,
+      requestStarted = 0,
+      headersMs: number | undefined,
+      firstEventMs: number | undefined,
+      lastEventMs: number | undefined,
+      httpStatus: number | undefined,
+      eventCount = 0
+    const deadline = new AbortController()
     /**
      * 合并流式增量并在结束前发送尾段，减少IPC与界面重排。
      * @returns 无返回值。
@@ -732,7 +815,10 @@ function streamFor(
         stream.push({ type: 'start', partial: message })
         emit(session, { type: 'assistant-start' })
         const capabilities = normalizeAiModelCapabilities(resolved.model)
-        const result = await createAdapter(resolved.provider, 120_000).stream(
+        // 仅在请求模型时计时。有模型活动则重新等待，工具和审批使用各自的时限。
+        requestStarted = performance.now()
+        timer = setTimeout(() => deadline.abort(), modelIdleTimeoutMs)
+        const result = await createAdapter(resolved.provider, undefined, fetchCallAiModel).stream(
           {
             model: resolved.model.modelId,
             messages: context.messages.map((message) =>
@@ -742,16 +828,28 @@ function streamFor(
             modelReasoning: capabilities.reasoning,
             modelTemperature: capabilities.temperature
           },
-          AbortSignal.any([
-            options?.signal || session.controller!.signal,
-            AbortSignal.timeout(120_000)
-          ]),
+          AbortSignal.any([options?.signal || session.controller!.signal, deadline.signal]),
           (delta) => {
+            partialText += delta.content || ''
             textBuffer += delta.content || ''
             reasoningBuffer += delta.reasoningContent || ''
             delivery ||= setTimeout(flush, 32)
+          },
+          {
+            finishOnStop: true,
+            onResponse(status) {
+              httpStatus = status
+              headersMs = Math.round(performance.now() - requestStarted)
+            },
+            onActivity() {
+              lastEventMs = Math.round(performance.now() - requestStarted)
+              firstEventMs ??= lastEventMs
+              eventCount++
+              timer?.refresh()
+            }
           }
         )
+        deadline.signal.throwIfAborted()
         flush()
         emit(session, { type: 'assistant-end' })
         if (result.content) message.content.push({ type: 'text', text: result.content })
@@ -782,10 +880,49 @@ function streamFor(
         flush()
         const cancelled = options?.signal?.aborted || session.controller?.signal.aborted
         message.stopReason = cancelled ? 'aborted' : 'error'
+        const failure = normalizeAiChatFailure(error)
         // 提供商正文可能包含请求细节，只展示能帮助用户恢复的摘要。
-        message.errorMessage = cancelled ? '任务已停止' : callAiModelError(error)
+        message.errorMessage = cancelled
+          ? '任务已停止'
+          : deadline.signal.aborted
+            ? `等待模型回复超时。TabDo 连续 ${modelIdleTimeoutMs / 1000} 秒未收到${eventCount ? '后续' : '首个'}模型流事件。`
+            : callAiModelError(failure)
+        if (!cancelled && requestStarted) {
+          // 仅记录阶段和计时，不记录 URL、密钥、请求、回复或异常正文。
+          console.warn('[CallAi] 模型请求失败', {
+            source: deadline.signal.aborted ? 'local-idle' : failure.code,
+            protocol: resolved.provider.apiFormat,
+            status: failure.status ?? httpStatus,
+            elapsedMs: Math.round(performance.now() - requestStarted),
+            headersMs,
+            firstEventMs,
+            lastEventMs,
+            eventCount
+          })
+        }
+        if (
+          !cancelled &&
+          (deadline.signal.aborted ||
+            failure.status === 408 ||
+            failure.status === 504 ||
+            ['TIMEOUT', 'STREAM_CLOSED', 'TRANSPORT'].includes(failure.code))
+        ) {
+          interruptedReplies.add(message)
+          message.errorMessage += continueModelMessage
+          // 只带入已显示的正文和中断原因，丢弃不完整的工具参数和提供商回放数据。
+          message.content = [
+            {
+              type: 'text',
+              text: [partialText.trimEnd(), `（这一段模型回复中断。${message.errorMessage}）`]
+                .filter(Boolean)
+                .join('\n\n')
+            }
+          ]
+        }
         emit(session, { type: 'assistant-end' })
         stream.push({ type: 'error', reason: message.stopReason, error: message })
+      } finally {
+        clearTimeout(timer)
       }
     })()
     return stream
@@ -817,6 +954,13 @@ function makeTool(
     label: name,
     description,
     parameters: { type: 'object', properties, required, additionalProperties: false },
+    /**
+     * 预检并申请授权后执行工具，在结束时清除执行状态。
+     * @param _id 框架调用标识。
+     * @param input 模型提供的参数。
+     * @returns 提交给模型的有界结果。
+     * @throws 会话取消、审批失败或工具执行失败时拒绝。
+     */
     execute: async (_id, input) => {
       if (session.disposed || session.controller?.signal.aborted) throw new Error('任务已取消')
       const raw = input as Record<string, unknown>
@@ -826,8 +970,13 @@ function makeTool(
         await approve(session, name, args)
       sessionFor(session.owner.id)
       if (session.controller?.signal.aborted) throw new Error('任务已取消')
-      const value = await execute(args)
-      return { content: [{ type: 'text', text: value.slice(0, 100_000) }], details: null }
+      emit(session, { type: 'tool-start' })
+      try {
+        const value = await execute(args)
+        return { content: [{ type: 'text', text: value.slice(0, 100_000) }], details: null }
+      } finally {
+        emit(session, { type: 'tool-end' })
+      }
     }
   }
 }
@@ -1000,11 +1149,12 @@ function builtinTools(session: Session): AgentTool[] {
     makeTool(
       session,
       'run_code',
-      '复杂任务使用内置 Node.js 或 Python，采用 UTF-8。临时文件写入 TABDO_TEMP，结果默认写入 TABDO_OUTPUT，也可使用用户明确指定的完整路径。TABDO_DESKTOP 为真实桌面。若新建结果文件，在 artifacts 中列出它们相对 TABDO_OUTPUT 的路径或完整绝对路径，以便成功后展示可点击的文件名。简单建文件优先用 write_file 或 write_files。超时 120 秒。',
+      `复杂任务使用内置 Node.js 或 Python，采用 UTF-8。临时文件写入 TABDO_TEMP，结果默认写入 TABDO_OUTPUT，也可使用用户明确指定的完整路径。TABDO_DESKTOP 为真实桌面。若新建结果文件，在 artifacts 中列出它们相对 TABDO_OUTPUT 的路径或完整绝对路径，以便成功后展示可点击的文件名。简单建文件优先用 write_file 或 write_files。默认等待 120 秒，预计耗时较长时传入 timeoutSeconds，最多 ${maxToolWaitSeconds} 秒。`,
       {
         language: { enum: ['node', 'python'], type: 'string' },
         code: text,
-        artifacts: { type: 'array', maxItems: 50, items: text }
+        artifacts: { type: 'array', maxItems: 50, items: text },
+        timeoutSeconds: { type: 'integer', minimum: 1, maximum: maxToolWaitSeconds }
       },
       async (args) => {
         if (maintenance) throw new Error('内置工具正在维护，请稍后重试')
@@ -1036,7 +1186,8 @@ function builtinTools(session: Session): AgentTool[] {
             : [script],
           session.output,
           env,
-          session.controller?.signal
+          session.controller?.signal,
+          args.timeoutSeconds as number | undefined
         )
         // 只登记成功运行后确实存在的普通文件，脚本输出本身不参与路径解析。
         for (const target of (args.artifacts as string[] | undefined) || []) {
@@ -1204,10 +1355,19 @@ async function loadMcp(
       `${definition.name} / ${tool.name}: ${tool.description || ''}`,
       tool.inputSchema.properties || {},
       async (args) => {
-        const result = await client.callTool({ name: tool.name, arguments: args }, undefined, {
-          timeout: 120_000,
-          signal: session.controller?.signal
-        })
+        const deadline = AbortSignal.timeout(maxToolWaitSeconds * 1000)
+        // MCP 需要进度回调来申请进度通知，收到通知时由 SDK 延长空闲等待。
+        const result = await client
+          .callTool({ name: tool.name, arguments: args }, undefined, {
+            timeout: 120_000,
+            onprogress: () => {},
+            resetTimeoutOnProgress: true,
+            signal: AbortSignal.any([session.controller!.signal, deadline])
+          })
+          .catch((error: unknown) => {
+            if (deadline.aborted) throw new Error(`MCP 工具执行超过 ${maxToolWaitSeconds} 秒`)
+            throw error
+          })
         return JSON.stringify(result)
       },
       tool.inputSchema.required || []
@@ -1384,7 +1544,7 @@ export function cancelCallAiMcpInspection(ownerId: number): void {
 /**
  * 执行本窗口的一轮任务，引用由用户显式传入，Skill 正文不会提前载入。
  * @param owner 当前正文标识。
- * @param input 用户输入、文件和匹配图片、提供商模型、手动引用与本轮网页搜索开关。
+ * @param input 用户输入、文件与内联粘贴图片、提供商模型、手动引用及网页搜索开关。
  * @returns 整轮 agent 执行完成的 Promise。
  * @throws 会话忙碌、输入或引用无效时拒绝。
  */
@@ -1463,8 +1623,7 @@ export async function sendCallAi(
       }
     )}\n用户全局规则：\n${settings.rules.join('\n\n')}\n本轮手动引用：\n${instructions.join('\n\n')}`
     // 每轮重建框架实例及系统声明，旧技能正文和 MCP 定义不自动加入下一轮。
-    let messages =
-      session.agent?.state.messages.filter((message) => message.role !== 'system') || []
+    let messages = session.messages || []
     // 最新图片轮取代旧的图片字节，仍保留先前消息和文件路径。
     if (attachment.images.length) {
       messages = messages.map((message) =>
@@ -1508,7 +1667,7 @@ export async function sendCallAi(
       ...attachment.descriptions,
       ...(input.image ? ['选中图片已作为可直接查看的图片内容提交。'] : [])
     ]
-    // 仅提交成功轮次的模型上下文，手动重试不会重复带入失败提示词。
+    // 框架运行实例只属于本轮，跨轮只保留会话消息。
     session.runningAgent = agent
     await agent.prompt(
       text +
@@ -1516,9 +1675,16 @@ export async function sendCallAi(
       attachment.images
     )
     if (session.controller?.signal.aborted) return
+    const transcript = agent.state.messages.filter((message) => message.role !== 'system')
+    const last = transcript.at(-1)
+    // 模型超时之前结束的工具调用及结果按原顺序保存，后续发送可直接接着处理。
+    if (last?.role === 'assistant' && interruptedReplies.has(last)) {
+      transcript[transcript.length - 1] = { ...last, stopReason: 'stop', errorMessage: undefined }
+      session.messages = transcript
+    }
     // 通过发送操作回传失败，避免流事件晚于 IPC 返回而丢失本轮归属。
     if (agent.state.errorMessage) throw new Error(agent.state.errorMessage)
-    session.agent = agent
+    session.messages = transcript
   }
   session.running = run().finally(async () => {
     // 外部 MCP 仅属于本轮，下一轮引用时使用最新启用状态和配置。
@@ -1568,8 +1734,9 @@ export function closeCallAi(owner: number): Promise<void> {
   return (session.closing ||= (async () => {
     await stopCallAi(owner)
     await session.running?.catch(() => {})
-    session.agent?.reset()
-    session.agent = undefined
+    // 关闭期间阻止新附件写入，等待已开始的写入再移除会话目录。
+    await Promise.allSettled(session.attachmentWrites)
+    session.messages = undefined
     try {
       await removeCallAiOwned(path.join(runtime.root, 'sessions'), session.temporary)
     } finally {
@@ -1627,38 +1794,74 @@ export async function checkCallAiRuntime(): Promise<Record<string, unknown>> {
 }
 
 /**
+ * 读取指定运行时的额外库清单供内置设置展示。
+ * @param kind Node 或 Python。
+ * @returns 按库名排序的本地安装清单。
+ * @throws 运行时种类无效或安装元数据不可读取时拒绝。
+ */
+export function readCallAiPackages(kind: unknown): Promise<CallAiPackage[]> {
+  if (kind !== 'node' && kind !== 'python') throw new Error('无效运行时')
+  return listCallAiPackages(path.join(runtime.root, 'packages'), kind)
+}
+
+/**
  * 只在没有活跃任务时维护运行时或额外库，互斥避免更新时被使用。
  * @param action 更新程序或清理附加库。
  * @param kind Node 或 Python。
+ * @param ids 清理的库标识，省略表示清空此运行时的额外库。
  * @returns 维护后的状态。
- * @throws 任务活跃、取消或种类无效时拒绝。
+ * @throws 会话活跃、请求无效或维护失败时拒绝。
  */
 export async function maintainCallAiRuntime(
   action: string,
-  kind: string
+  kind: string,
+  ids?: unknown
 ): Promise<Record<string, unknown>> {
-  if (!['node', 'python'].includes(kind) || !['update', 'clean'].includes(action))
+  if ((kind !== 'node' && kind !== 'python') || (action !== 'update' && action !== 'clean'))
     throw new Error('无效工具操作')
+  if (
+    ids !== undefined &&
+    (!Array.isArray(ids) || !ids.length || ids.some((id) => typeof id !== 'string'))
+  )
+    throw new Error('请选择要清理的额外库')
   if (mcpInspections.size) throw new Error('请等待 MCP 工具列表读取完成')
   if (sessions.size || maintenance) throw new Error('请先关闭所有呼叫AI对话窗口')
+  /**
+   * 在互斥期间确认并执行本次维护。
+   * @returns 最新设置状态，取消时返回原状态。
+   */
   const task = async (): Promise<Record<string, unknown>> => {
-    if (action === 'update') await runtime.update(kind as 'node' | 'python')
+    if (action === 'update') await runtime.update(kind)
     else {
-      const directory = path.join(runtime.root, 'packages', kind)
-      if (
-        (
-          await dialog.showMessageBox({
-            type: 'warning',
-            title: '清理额外库',
-            message: `清理 ${kind} 对话任务安装的额外库？`,
-            detail: `仅清理：${directory}\n预置运行时与库保留。`,
-            buttons: ['取消', '清理'],
-            defaultId: 0,
-            cancelId: 0
-          })
-        ).response === 1
-      )
-        await removeCallAiOwned(path.join(runtime.root, 'packages'), directory)
+      const root = path.join(runtime.root, 'packages')
+      const directory = path.join(root, kind)
+      // 使用安装清单解析选择，IPC 参数不作为清理路径。
+      const selected = ids === undefined ? undefined : new Set<string>(ids)
+      const inventory = selected ? await listCallAiPackages(root, kind) : []
+      const entries = inventory.filter(({ id }) => selected?.has(id))
+      if (selected && entries.length !== selected.size)
+        throw new Error('额外库列表已变化，请重新选择')
+      const name = kind === 'node' ? 'Node.js' : 'Python'
+      const result = await dialog.showMessageBox({
+        type: 'warning',
+        title: '清理额外库',
+        message: selected ? `清理所选 ${name} 额外库？` : `清理全部 ${name} 额外库？`,
+        detail: selected
+          ? entries.map(({ name, version }) => [name, version].filter(Boolean).join(' ')).join('\n')
+          : directory,
+        buttons: ['取消', '清理'],
+        defaultId: 0,
+        cancelId: 0
+      })
+      if (result.response !== 1) return callAiState()
+      if (!selected) await removeCallAiOwned(root, directory)
+      else if (kind === 'node')
+        await removeCallAiNodePackages(
+          runtime,
+          directory,
+          entries.map(({ name }) => name)
+        )
+      else await removeCallAiPythonPackages(directory, inventory, selected)
     }
     return callAiState()
   }

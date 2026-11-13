@@ -64,21 +64,41 @@ test('剪贴板独立条目悬浮、多图悬浮、跨窗口拖放、临时常�
       .on('page', (page) =>
         page.on('pageerror', (error) => logs.push('PAGE ERROR ' + error.message))
       )
-    const main = await app.firstWindow()
-    await expect(main.locator('.plugin-host')).toBeAttached()
+    const hostUrl = 'http://127.0.0.1:5174'
     await expect
-      .poll(() =>
-        app!
-          .context()
-          .pages()
-          .some((page) => page.url().includes('15177'))
+      .poll(
+        () =>
+          app!
+            .context()
+            .pages()
+            .some((page) => page.url().startsWith(hostUrl)),
+        {
+          timeout: 30_000
+        }
+      )
+      .toBe(true)
+    const main = app
+      .context()
+      .pages()
+      .find((page) => page.url().startsWith(hostUrl))!
+    await expect(main.locator('.plugin-host')).toBeAttached({ timeout: 30_000 })
+    await expect
+      .poll(
+        () =>
+          app!
+            .context()
+            .pages()
+            .some((page) => page.url().includes('15177')),
+        { timeout: 30_000 }
       )
       .toBe(true)
     const settings = app
       .context()
       .pages()
       .find((page) => page.url().includes('15177'))!
-    await expect(settings.locator('.setting-group-title').first()).toHaveText('超级面板')
+    await expect(settings.locator('.setting-group-title').first()).toHaveText('超级面板', {
+      timeout: 30_000
+    })
     // 从真实设置正文检查数字输入、下拉及按钮的同高与材质，而非只检查样式源码。
     for (const theme of ['light', 'dark'] as const) {
       await app.evaluate(({ nativeTheme }, theme) => {
@@ -189,6 +209,43 @@ test('剪贴板独立条目悬浮、多图悬浮、跨窗口拖放、临时常�
       return result!
     }
     const tools = await launch('clipboard')
+    const search = main.getByPlaceholder('搜索剪贴板内容...')
+    await expect(search).toBeVisible()
+    const searchBox = (await search.boundingBox())!
+    const headerBox = (await main.locator('.plugin-header').boundingBox())!
+    expect(searchBox.width).toBeLessThanOrEqual(300)
+    expect(headerBox.width - searchBox.x - searchBox.width).toBeGreaterThan(100)
+    const titlebarDrag = await app.evaluate(
+      ({ app, screen }, { x, y }) => {
+        const win = process
+          .mainModule!.require(app.getAppPath() + '/src/main/managers/windowManager.ts')
+          .default.getMainWindow()
+        const bounds = win.getBounds()
+        return {
+          bounds,
+          from: screen.dipToScreenPoint({ x: bounds.x + x, y: bounds.y + y }),
+          to: screen.dipToScreenPoint({ x: bounds.x + x - 70, y: bounds.y + y - 50 })
+        }
+      },
+      { x: Math.round(searchBox.x + searchBox.width + 54), y: Math.round(headerBox.height / 2) }
+    )
+    nativeDrag(titlebarDrag.from, titlebarDrag.to)
+    await expect
+      .poll(() =>
+        app!.evaluate(({ app }) => {
+          return process
+            .mainModule!.require(app.getAppPath() + '/src/main/managers/windowManager.ts')
+            .default.getMainWindow()
+            .getBounds().x
+        })
+      )
+      .not.toBe(titlebarDrag.bounds.x)
+    await search.fill('剪贴板搜索验证')
+    await expect(search).toHaveValue('剪贴板搜索验证')
+    await search.clear()
+    await main
+      .locator('.plugin-header')
+      .screenshot({ path: info.outputPath('clipboard-header.png') })
     // 图像路径属于隔离夹具，native startDrag 不创建临时图片或更改剪贴板。
     const image = await tools.evaluate(() => {
       const canvas = document.createElement('canvas')
@@ -211,22 +268,35 @@ test('剪贴板独立条目悬浮、多图悬浮、跨窗口拖放、临时常�
           content: text,
           hash: `text-${index}`
         })
-      for (const [index, file] of paths.entries())
-        await db.promises.put({
-          _id: `CLIPBOARD/image-${index}`,
-          type: 'image',
-          timestamp: Date.now() - 10000 - index * 1000,
-          imagePath: file,
-          hash: `image-${index}`,
-          resolution: '120×80'
-        })
+      await db.promises.put({
+        _id: 'CLIPBOARD/image-0',
+        type: 'image',
+        timestamp: Date.now() - 10000,
+        imagePath: paths[0],
+        hash: 'image-0',
+        resolution: '120×80'
+      })
+      await db.promises.put({
+        _id: 'CLIPBOARD/image-file-1',
+        type: 'file',
+        timestamp: Date.now() - 11000,
+        files: [{ path: paths[1], name: 'two.png', isDirectory: false }],
+        hash: 'image-file-1'
+      })
     }, paths)
     await tools.locator('.tab-item').getByText('文本', { exact: true }).click()
     await expect(tools.locator('.clipboard-item')).toHaveCount(3)
+    const relay = tools.locator('.relay-btn')
+    const relayColor = await relay.evaluate((element) => getComputedStyle(element).color)
     await tools.locator('.selection-checkbox').nth(0).check()
+    await expect(relay).toHaveCSS('color', relayColor)
     await tools.locator('.selection-checkbox').nth(1).check()
     await expect(tools.locator('.relay-btn .selection-count')).toHaveText('2')
-    await expect(tools.locator('.relay-btn')).toHaveClass(/has-selection/)
+    await expect(relay).toHaveCSS('color', relayColor)
+    const badgeColor = await tools
+      .locator('.copy-btn .selection-count')
+      .evaluate((badge) => getComputedStyle(badge).backgroundColor)
+    await expect(relay.locator('.selection-count')).toHaveCSS('background-color', badgeColor)
     await tools.locator('.sidebar').getByRole('button', { name: '悬浮中转', exact: true }).click()
     await expect
       .poll(() =>
@@ -453,6 +523,19 @@ test('剪贴板独立条目悬浮、多图悬浮、跨窗口拖放、临时常�
     await expect(tools.locator('.clipboard-item')).toHaveCount(2)
     await tools.locator('.selection-checkbox').nth(0).check()
     await tools.locator('.selection-checkbox').nth(1).check()
+    await expect(tools.locator('.selection-checkbox:checked')).toHaveCount(2)
+    const bodyShot = await app.evaluate(
+      ({ webContents }, id) =>
+        webContents
+          .fromId(id)!
+          .capturePage()
+          .then((image) => image.toPNG().toString('base64')),
+      toolId
+    )
+    await fs.writeFile(
+      info.outputPath('clipboard-mixed-images.png'),
+      Buffer.from(bodyShot, 'base64')
+    )
     await tools.getByRole('button', { name: '悬浮固定', exact: true }).first().click()
     await expect
       .poll(
@@ -481,6 +564,16 @@ test('剪贴板独立条目悬浮、多图悬浮、跨窗口拖放、临时常�
     nativeDrag(await screenPoint(tools, '.clipboard-item'), await screenPoint(receiver, '#files'))
     await expect(receiver.locator('#files')).toHaveText('one.png,two.png')
     expect(tools.isClosed()).toBe(false)
+    await tools.locator('.copy-btn').click()
+    await expect
+      .poll(() =>
+        app!.evaluate(({ app }) =>
+          process
+            .mainModule!.require(app.getAppPath() + '/src/main/utils/clipboardFiles.ts')
+            .readClipboardFilePaths()
+        )
+      )
+      .toEqual(paths)
     await residentTitlebar!.getByRole('button', { name: '临时常驻', exact: true }).click()
     await expect.poll(() => tools.isClosed()).toBe(true)
     await expect.poll(() => residentTitlebar!.isClosed()).toBe(true)

@@ -283,6 +283,11 @@ export class SettingsAPI {
     try {
       const data = databaseAPI.dbGet('settings-general')
       console.log('[Settings] 加载到的设置:', data)
+      const hasSavedProxy = data?.proxyEnabled !== undefined && data?.proxyUrl !== undefined
+      // 在首次异步等待前登记代理，先到的模型请求也能等待同一配置生效。
+      if (hasSavedProxy) {
+        proxyManager.setProxyConfig({ enabled: data.proxyEnabled, url: data.proxyUrl })
+      }
       // 应用托盘图标显示设置（默认显示，在 if(data) 块外确保首次启动也能创建托盘）
       windowManager.setTrayIconVisible(data?.showTrayIcon ?? true)
       console.log('[Settings] 启动时应用托盘图标显示设置:', data?.showTrayIcon ?? true)
@@ -321,11 +326,7 @@ export class SettingsAPI {
           console.log('[Settings] 启动时应用窗口呼出位置策略:', data.windowPositionStrategy)
         }
         // 应用代理配置
-        if (data.proxyEnabled !== undefined && data.proxyUrl !== undefined) {
-          proxyManager.setProxyConfig({
-            enabled: data.proxyEnabled,
-            url: data.proxyUrl
-          })
+        if (hasSavedProxy) {
           // 应用全局代理
           await proxyManager.applyProxyToDefaultSession()
           console.log('[Settings] 启动时应用代理配置:', {

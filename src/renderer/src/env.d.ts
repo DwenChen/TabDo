@@ -198,6 +198,7 @@ declare global {
           name: string
           logo: string
           path: string
+          featureCode?: string
           subInputPlaceholder?: string
           subInputVisible?: boolean
         }) => void

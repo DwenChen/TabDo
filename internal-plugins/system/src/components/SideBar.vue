@@ -45,7 +45,6 @@ const emit = defineEmits(['copy', 'paste', 'clear', 'relay'])
       </button>
       <button
         class="sidebar-btn relay-btn"
-        :class="{ 'has-selection': selectedCount > 0 }"
         :data-tooltip="selectedCount ? `转入悬浮中转 ${selectedCount} 项` : '打开悬浮中转'"
         :aria-busy="relaying"
         :disabled="relaying"
@@ -141,10 +140,9 @@ const emit = defineEmits(['copy', 'paste', 'clear', 'relay'])
   width: 20px;
   height: 20px;
 }
-.relay-btn.has-selection {
-  color: var(--primary-color);
-  border-color: var(--primary-color);
-  background: var(--bg-accent-light);
+.relay-btn:hover {
+  color: var(--text-secondary);
+  border-color: var(--border-color);
 }
 
 .selection-count {

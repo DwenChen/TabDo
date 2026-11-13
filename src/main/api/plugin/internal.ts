@@ -41,6 +41,7 @@ import path from 'node:path'
 import { getWindowsExplorerPath } from '../renderer/systemCommands'
 import {
   openCallAi,
+  saveCallAiMatchedImage,
   closeCallAi,
   sendCallAi,
   stopCallAi,
@@ -50,6 +51,7 @@ import {
   checkCallAiRuntime,
   saveCallAiSettings,
   maintainCallAiRuntime,
+  readCallAiPackages,
   installCallAiSkill,
   readCallAiSkillDescription,
   inspectCallAiMcpTools,
@@ -145,6 +147,7 @@ export class InternalPluginAPI {
             'check',
             'save',
             'runtime',
+            'packages',
             'install-skill',
             'skill-description',
             'mcp-tools',
@@ -167,7 +170,9 @@ export class InternalPluginAPI {
             case 'save':
               return saveCallAiSettings(input)
             case 'runtime':
-              return maintainCallAiRuntime(input.action, input.kind)
+              return maintainCallAiRuntime(input.action, input.kind, input.ids)
+            case 'packages':
+              return readCallAiPackages(input)
             case 'install-skill':
               return installCallAiSkill()
             case 'skill-description':
@@ -209,6 +214,8 @@ export class InternalPluginAPI {
               return state
             })
           }
+          case 'save-matched-image':
+            return saveCallAiMatchedImage(event.sender.id, input)
           case 'send':
             return sendCallAi(event.sender.id, input)
           case 'answer':

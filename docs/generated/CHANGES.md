@@ -2,6 +2,100 @@
 
 > 自动生成；原始记录在 [entries](../history/entries/)。
 
+## 2026-11-13 · 准备 TabDo 1.5.6 发布
+
+记录：[release-1.5.6](../../docs/history/entries/2026-11-13-09-release-1.5.6.json)；版本：1.5.6。
+
+- 整合呼叫AI的首轮代理连接、模型超时续跑、额外库管理和剪贴板截图路径。
+- 整合剪贴板上栏拖动、中转按钮状态与截图和图片文件多选。
+- 核对 README、模块规范、两份本地教程、更新说明及维护记录。
+
+- 验证：pnpm run test --maxWorkers=2 通过，135 个文件共 915 项。归档 .artifacts/runs/2026-11-13T12-56-41-882Z-unit。
+- 验证：pnpm typecheck、pnpm typecheck:setting 和 pnpm build 通过。
+- 验证：呼叫AI两项和剪贴板一项源码 Electron 回归通过，归档 .artifacts/runs/2026-11-13T12-54-06-695Z-e2e。同次运行发现本地教程仍按旧的 15 章断言。对齐现有 16 章及末尾导航并等待宿主和设置就绪后，教程回归通过，归档 .artifacts/runs/2026-11-13T12-57-36-546Z-e2e。查看教程中的剪贴板章节截图，拖动窗口及图片批量操作说明完整。
+- 验证：对照源码复核发布范围、两份教程及用户可见说明。pnpm maintain、pnpm maintain:check、pnpm docs:check 和 git diff --check 通过。
+- 验证：本地免安装预览 1.5.6 同步及资源核验通过。同步前后 6834 个资料文件一致。收据 .artifacts/backups/preview-sync/update-1794574708443/preservation.json。
+
+## 2026-11-13 · 修复剪贴板上栏拖动、中转图标和图片多选
+
+记录：[clipboard-titlebar-and-image-selection](../../docs/history/entries/2026-11-13-08-clipboard-titlebar-and-image-selection.json)；版本：未发布。
+
+- 按功能码限制剪贴板上栏输入框宽度，右侧空白可拖动窗口。
+- 悬浮中转图标保持中性色，多选计数与复制、粘贴共用强调色，保留转交状态。
+- 截图和纯图片文件组可一起选择、批量复制及拖出，使用各自文件路径。
+
+- 验证：相关单测 4 个文件共 31 项通过，归档 .artifacts/runs/2026-11-13T12-33-33-100Z-unit。pnpm typecheck 通过。
+- 验证：源码 Electron 回归通过，归档 .artifacts/runs/2026-11-13T12-36-28-152Z-e2e。原生鼠标从搜索框右侧空白拖动窗体，验证输入、图标颜色、混合图片勾选、两张图悬浮、原生拖放及系统文件剪贴板的双路径。前三轮在主窗口或设置正文就绪前超时，改为定位实际主宿主并等待设置正文。
+- 验证：首版截图显示了中性色图标与灰色计数。按反馈恢复与复制、粘贴一致的计数颜色。最终端到端归档 .artifacts/runs/2026-11-13T12-40-14-971Z-e2e，核对 clipboard-header.png 和 clipboard-mixed-images.png。搜索框右侧留白，两条图片均选中，中转图标为中性色，三个数量角标共用主题色。
+- 验证：pnpm build 与角标调整后的 pnpm build:tools 通过。
+- 验证：最终免安装预览同步后 6834 个资料文件前后一致。收据 .artifacts/backups/preview-sync/update-1794573780812/preservation.json。pnpm test:preview:resources 核验 2138 个程序文件、353 个内置插件文件和 11842 个媒体运行依赖文件。
+- 验证：两次同步的已消费暂存及旧回退共清理 59826 个文件、2753282431 字节。保留最终同步的程序回退、两份资料核验收据与测试归档。审计 .artifacts/cleanup-2026-11-13/clipboard-titlebar-and-image-selection-preview.json 和 .artifacts/cleanup-2026-11-13/clipboard-titlebar-and-image-selection-badge-preview.json。
+
+## 2026-11-13 · 呼叫AI为匹配的剪贴板截图添加文件路径
+
+记录：[call-ai-clipboard-image-path](../../docs/history/entries/2026-11-13-07-call-ai-clipboard-image-path.json)；版本：未发布。
+
+- 剪贴板截图本身没有文件路径。图片匹配后在呼叫AI当前会话目录保存截图原始字节，并显示可打开和悬停查看路径的待发送附件。
+- 复用现有文件附件提交链，提供商请求携带图片路径，视觉模型还会收到内联图片。退出会话后清理截图副本。
+
+- 验证：相关单测 4 个文件共 34 项通过，归档 .artifacts/runs/2026-11-13T12-08-47-365Z-unit。包含格式错误不写文件及关闭时拒绝迟到附件并清理。
+- 验证：pnpm typecheck:node、pnpm typecheck:setting、pnpm build 和 pnpm docs:check 通过。
+- 验证：首轮源码 Electron 在网页检索后等待发送控件超时，归档 .artifacts/runs/2026-11-13T12-07-04-122Z-e2e。第二轮已通过截图附件悬停、磁盘字节及实际模型载荷断言，旧重试断言因同时匹配图片和网页链接失败，已收窄至目标网页链接。归档 .artifacts/runs/2026-11-13T12-09-19-833Z-e2e。
+- 验证：最终源码 Electron 两个用例通过，归档 .artifacts/runs/2026-11-13T12-10-42-216Z-e2e。验证关闭聊天后截图文件被清理。
+- 验证：检查插件 WebContentsView 截图 call-ai-clipboard-image-path.png。附件位于输入框上方，文件图标、移除按钮和换行显示的完整路径均清楚可见。
+- 验证：免安装预览 1.5.5 同步后 6830 个资料文件前后一致。收据 .artifacts/backups/preview-sync/update-1794571969254/preservation.json。pnpm test:preview:resources 核验 2138 个程序文件、353 个内置插件文件和 11842 个媒体运行依赖文件。
+- 验证：清理本轮程序暂存和旧程序回退，共 29913 个文件、1376641157 字节。保留最新回退、核验收据及测试归档。审计 .artifacts/cleanup-2026-11-13/call-ai-clipboard-image-path-preview.json。
+
+## 2026-11-13 · 呼叫AI首轮模型请求沿用宿主代理
+
+记录：[call-ai-first-model-connection](../../docs/history/entries/2026-11-13-06-call-ai-first-model-connection.json)；版本：未发布。
+
+- 本地预览日志记录 12 次 OpenAI Chat 超时，均在 10541 至 10639 毫秒时失败，且没有 HTTP 响应头或模型事件。耗时符合 Node fetch 默认建连时限。原模型传输绕过 Electron 代理配置。
+- 呼叫AI的三个模型协议复用 Electron 的网络栈和当前代理配置。启动时先登记已保存的代理，再进入设置初始化的异步步骤。请求等待代理生效后发送，保留流式空闲、停止和完成标记处理。
+
+- 验证：相关单测 7 个文件共 44 项通过，归档 .artifacts/runs/2026-11-13T10-01-53-219Z-unit。核对 call-ai 回归分组。
+- 验证：源码 Electron 两个用例通过，归档 .artifacts/runs/2026-11-13T10-00-44-853Z-e2e。新窗口打开不预发模型请求，发送首条消息后代理仅收到一次流式请求。现有端到端回归同时通过。
+- 验证：检查从插件 WebContentsView 直接捕获的 call-ai-first-reply.png。首条提示和完整回复均可见，回复完成后输入框可见。
+- 验证：pnpm typecheck、pnpm build、pnpm maintain、pnpm maintain:check、pnpm docs:check 和 git diff --check 通过。
+- 验证：免安装预览 1.5.5 同步完成，6824 个原有资料文件前后一致。收据 .artifacts/backups/preview-sync/update-1794564233157/preservation.json。pnpm test:preview:resources 核验 2138 个程序文件、353 个内置插件文件和 11842 个媒体运行依赖文件。
+- 验证：清理已消费的程序暂存与旧程序回退，共 29913 个文件、1376628816 字节。保留最新回退、核验收据、测试归档和既有工具链及历史下载。审计 .artifacts/cleanup-2026-11-13/call-ai-first-model-connection-preview.json。
+
+## 2026-11-13 · 呼叫AI查看和选择清理额外库，并诊断模型超时
+
+记录：[call-ai-library-management-and-timeout-diagnostics](../../docs/history/entries/2026-11-13-05-call-ai-library-management-and-timeout-diagnostics.json)；版本：未发布。
+
+- 在运行时与额外库下按 Node.js 和 Python 展示库名与版本，支持勾选清理与按运行时全清，并沿用原生确认。
+- 使用 npm 卸载直接依赖；按 pip 安装记录清理所选发行包，保留共用文件。
+- 修复收到完成帧后仍等待网关关闭连接的问题。区分本地空闲超时、上游 HTTP 超时及传输中断，失败日志记录响应阶段和时长。
+
+- 验证：在现有免安装预览使用用户授权的已保存 deepseek-flash 配置发送固定连通性文本，约 20 秒内观察到完整 OK 回复。桌面操作随后被用户停止。
+- 验证：现有预览与默认安装日志缺少可归因的超时记录。该次请求证明当时模型可用，历史间歇性超时的具体来源仍待复现。
+- 验证：相关单测 7 个文件共 61 项通过，归档 .artifacts/runs/2026-11-13T09-10-15-340Z-unit。覆盖三种协议的未关闭响应体和 Python 清理的共享、脚本、逗号及越界路径。
+- 验证：pnpm typecheck、pnpm typecheck:setting、pnpm build、pnpm docs:check 和 call-ai 回归分组清单通过。
+- 验证：首轮源码 Electron 已通过包列表、取消、实跑 npm 卸载和全清断言，后续长正文回归等待超时，归档 .artifacts/runs/2026-11-13T09-11-44-026Z-e2e。随后两次完整复跑通过，归档 .artifacts/runs/2026-11-13T09-16-00-325Z-e2e 和 .artifacts/runs/2026-11-13T09-19-35-704Z-e2e。
+- 验证：检查最终归档直接捕获的 call-ai-library-selection.png 与 call-ai-model-timeout.png。两个运行时分组分明，库名和版本未截断，选中数量和两种清理操作可见；本地空闲超时来源及续跑提示在原正文下方完整显示。
+- 验证：本地免安装预览 1.5.5 已同步，6823 个已有资料文件前后一致。收据 .artifacts/backups/preview-sync/update-1794561282051/preservation.json。
+- 验证：pnpm test:preview:resources 通过，核验 2138 个程序文件、353 个内置插件文件和 11842 个媒体运行依赖文件。
+- 验证：清理已消费程序暂存与旧程序回退，共 29913 个文件、1376624989 字节。保留最新回退、核验收据和测试归档。审计 .artifacts/cleanup-2026-11-13/call-ai-library-management-preview.json。
+- 验证：pnpm maintain、pnpm maintain:check、pnpm docs:check 和 git diff --check 通过。
+
+## 2026-11-13 · 呼叫AI保留超时前进度并独立等待长工具
+
+记录：[call-ai-timeout-recovery](../../docs/history/entries/2026-11-13-04-call-ai-timeout-recovery.json)；版本：未发布。
+
+- 原实现只提交成功轮次的上下文，模型超时会丢失已完成的工具步骤。模型超时后保留本窗口的任务、完整工具调用及结果和已收到的回复正文。
+- 模型请求从固定 120 秒总时限改为连续 120 秒无流事件时中止。脚本默认 120 秒，可明确指定 1 至 900 秒。MCP 工具支持进度续期。
+- 聊天区分别显示等待模型和执行工具，超时提示引导同窗继续。同步呼叫AI规范及两份教程。
+
+- 验证：呼叫AI和提供商协议相关单测 6 个文件共 54 项通过，归档 .artifacts/runs/2026-11-13T08-14-00-230Z-unit。回归分组 call-ai 的单测与 E2E 列表已核对。
+- 验证：最终源码 Electron 回归通过，归档 .artifacts/runs/2026-11-13T08-19-03-224Z-e2e。验证长工具等待、模型本地空闲超时、同窗续跑上下文和持续流事件刷新计时。前两轮分别修正了续跑断言匹配过早的工具调用及悬停提示和尾段排版之间的竞态。
+- 验证：查看最终归档中的 call-ai-tool-wait.png 与 call-ai-model-timeout.png。执行状态在当前任务下方、停止按钮可见；超时后原正文留在提示上方，输入框恢复可编辑，续跑文案完整可见。
+- 验证：pnpm typecheck、pnpm build 和 pnpm docs:check 通过。
+- 验证：免安装预览已同步为本地 1.5.5，259 个现有资料文件前后一致。收据 .artifacts/backups/preview-sync/update-1794558020091/preservation.json。
+- 验证：pnpm test:preview:resources 通过，核验 2138 个程序文件、353 个内置插件文件和 11842 个媒体运行依赖文件。
+- 验证：清理本轮已消费的程序暂存及旧程序回退，共 29913 个文件、1376616028 字节。保留最新回退、资料核验收据及测试归档。清理审计 .artifacts/cleanup-2026-11-13/call-ai-timeout-recovery-preview.json。
+- 验证：pnpm maintain、pnpm maintain:check、pnpm docs:check 和 git diff --check 通过。
+
 ## 2026-11-13 · 发布并核验 TabDo 1.5.5
 
 记录：[release-1.5.5](../../docs/history/entries/2026-11-13-03-release-1.5.5.json)；版本：1.5.5。

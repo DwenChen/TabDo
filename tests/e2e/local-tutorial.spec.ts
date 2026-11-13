@@ -43,13 +43,32 @@ test('本地教程走真实关于入口，离线资源齐全且升级重启保�
     })
     application.process().stdout?.on('data', (chunk) => logs.push(String(chunk)))
     application.process().stderr?.on('data', (chunk) => logs.push(String(chunk)))
-    await expect((await application.firstWindow()).locator('.plugin-host')).toBeAttached()
+    const hostUrl = 'http://127.0.0.1:5174'
     await expect
-      .poll(() =>
-        application!
-          .context()
-          .pages()
-          .some((page) => page.url().includes('15177'))
+      .poll(
+        () =>
+          application!
+            .context()
+            .pages()
+            .some((page) => page.url().startsWith(hostUrl)),
+        {
+          timeout: 30_000
+        }
+      )
+      .toBe(true)
+    const main = application
+      .context()
+      .pages()
+      .find((page) => page.url().startsWith(hostUrl))!
+    await expect(main.locator('.plugin-host')).toBeAttached({ timeout: 30_000 })
+    await expect
+      .poll(
+        () =>
+          application!
+            .context()
+            .pages()
+            .some((page) => page.url().includes('15177')),
+        { timeout: 30_000 }
       )
       .toBe(true)
     const settings = application
@@ -89,18 +108,20 @@ test('本地教程走真实关于入口，离线资源齐全且升级重启保�
       async () =>
         (await window.tabdo.internal.getPlugins()).find((plugin) => plugin.name === 'setting')!
     )
-    await (
-      await application!.firstWindow()
-    ).evaluate(
-      (plugin) =>
-        window.tabdo.launch({
-          path: plugin.path,
-          type: 'plugin',
-          featureCode: 'ui.router?router=About',
-          name: '关于'
-        }),
-      setting
-    )
+    await application!
+      .context()
+      .pages()
+      .find((page) => page.url().startsWith('http://127.0.0.1:5174'))!
+      .evaluate(
+        (plugin) =>
+          window.tabdo.launch({
+            path: plugin.path,
+            type: 'plugin',
+            featureCode: 'ui.router?router=About',
+            name: '关于'
+          }),
+        setting
+      )
     await expect(settings.getByRole('button', { name: '阅读本地教程', exact: true })).toBeVisible()
     await expect(settings.getByRole('button', { name: '开始全屏引导', exact: true })).toHaveCount(0)
     await settings.getByRole('button', { name: '阅读本地教程', exact: true }).click()
@@ -117,7 +138,7 @@ test('本地教程走真实关于入口，离线资源齐全且升级重启保�
       return route.continue()
     })
     const buttons = settings.getByRole('navigation', { name: '教程章节' }).getByRole('button')
-    await expect(buttons).toHaveCount(15)
+    await expect(buttons).toHaveCount(16)
     await expect(settings.locator('.guide-article')).not.toContainText('阅读本地教程')
     const titles = await buttons.allTextContents()
     for (let index = 0; index < titles.length; index++) {
@@ -132,12 +153,12 @@ test('本地教程走真实关于入口，离线资源齐全且升级重启保�
     }
     expect(remoteRequests).toEqual([])
     await settings.getByRole('button', { name: '上一章', exact: true }).click()
-    await expect(settings.locator('.guide-article h2')).toHaveText('安装和管理插件')
-    await settings.getByRole('button', { name: '下一章', exact: true }).click()
     await expect(settings.locator('.guide-article h2')).toHaveText('备份与更换数据目录')
+    await settings.getByRole('button', { name: '下一章', exact: true }).click()
+    await expect(settings.locator('.guide-article h2')).toHaveText('用呼叫AI完成一次性任务')
     await settings.getByLabel('查找操作', { exact: true }).fill('收藏')
     expect(await buttons.count()).toBeGreaterThan(0)
-    expect(await buttons.count()).toBeLessThan(15)
+    expect(await buttons.count()).toBeLessThan(titles.length)
     await settings.getByLabel('查找操作', { exact: true }).fill('不存在的操作xyz')
     await expect(settings.getByRole('status')).toHaveText('没有匹配章节，请换个关键词。')
     await settings.getByLabel('查找操作', { exact: true }).fill('')

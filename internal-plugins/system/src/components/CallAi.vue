@@ -23,6 +23,8 @@ const references = ref([]),
   attachments = ref([]),
   webSearch = ref(false),
   busy = ref(false),
+  phase = ref(''),
+  attachingImage = ref(false),
   changingMode = ref(false),
   error = ref(''),
   knownPathRevision = ref(0),
@@ -437,11 +439,13 @@ function receive(event) {
   if (disposed) return
   const last = messages.value.at(-1)
   if (event.type === 'assistant-end') {
+    phase.value = ''
     if (last?.role === 'assistant') {
       if (last.text.trim()) queueReply(last, true)
       else if (!last.reasoning && !last.error && !last.artifacts?.length) messages.value.pop()
     }
   } else if (event.type === 'assistant-start') {
+    phase.value = '等待模型回复…'
     // 工具往返没有可见输出时复用上一条思考，保留已展开的状态。
     if (last?.role !== 'assistant' || last.text.trim()) {
       messages.value.push({ role: 'assistant', text: '', reasoning: '' })
@@ -456,7 +460,9 @@ function receive(event) {
     if (reasoningRoundStart && last.reasoning) last.reasoning += '\n\n'
     last.reasoning += event.delta
     reasoningRoundStart = false
-  } else if (['question', 'approval'].includes(event.type)) pending.value.push(event)
+  } else if (event.type === 'tool-start') phase.value = '正在执行工具…'
+  else if (event.type === 'tool-end') phase.value = ''
+  else if (['question', 'approval'].includes(event.type)) pending.value.push(event)
   else if (event.type === 'resolved')
     pending.value = pending.value.filter((item) => item.id !== event.id)
   else if (event.type === 'paste-files') attachPaths(event.files)
@@ -521,16 +527,29 @@ function reference(entry) {
 }
 
 /**
- * 按匹配指令带入选区、图片、文件或窗口路径，普通入口不读取剪贴板。
+ * 带入匹配指令的载荷，为没有原始路径的截图建立临时附件。
  * @returns 当前载荷处理完成的Promise。
  */
 async function attachAction() {
+  if (disposed || !ready.value) return
   const action = props.action
+  attachingImage.value = false
   if (['over', 'regex'].includes(action.type) && typeof action.payload === 'string')
     attachments.value = [{ label: '选中文本', value: action.payload }]
-  else if (action.type === 'img' && typeof action.payload === 'string' && action.payload)
-    attachments.value = [{ label: '选中图片', value: action.payload, kind: 'image' }]
-  else if (action.type === 'files' && Array.isArray(action.payload)) {
+  else if (action.type === 'img' && typeof action.payload === 'string' && action.payload) {
+    // 先清除上次匹配的附件，临时文件写完再发布路径。
+    attachments.value = []
+    attachingImage.value = true
+    try {
+      const value = await api.callAi('save-matched-image', action.payload)
+      if (!disposed && props.action === action)
+        attachments.value = [{ label: '选中图片', value, kind: 'upload' }, ...attachments.value]
+    } catch (failure) {
+      if (!disposed && props.action === action) error.value = failure.message
+    } finally {
+      if (!disposed && props.action === action) attachingImage.value = false
+    }
+  } else if (action.type === 'files' && Array.isArray(action.payload)) {
     // 匹配文件和拖入文件共用上传链，图片由主进程识别并内联。
     const paths = new Set()
     attachments.value = action.payload
@@ -584,7 +603,8 @@ function attachPaths(files) {
     selected.add(location)
     paths.push({ kind: 'upload', label: name || location.split(/[\\/]/).at(-1), value: location })
   }
-  const existing = attachments.value.filter((entry) => entry.kind).length
+  const existing =
+    attachments.value.filter((entry) => entry.kind).length + Number(attachingImage.value)
   if (paths.length + existing > 12) error.value = '每轮最多添加 12 个文件附件。'
   attachments.value.push(...paths.slice(0, 12 - existing))
   composer.value?.focus()
@@ -635,7 +655,7 @@ async function pasteComposer(event) {
   }
   const draft = attachments.value
   try {
-    // 图片与匹配入口共用同一个受限图片位置，文件附件仍按原路径提交。
+    // 输入框直接粘贴的截图使用受限的内联图片位置。
     const value = await new Promise((resolve, reject) => {
       const reader = new FileReader()
       reader.onload = () => resolve(reader.result)
@@ -646,7 +666,8 @@ async function pasteComposer(event) {
     const index = draft.findIndex((entry) => entry.kind === 'image')
     const attachment = { kind: 'image', label: '粘贴图片', value }
     if (index >= 0) draft.splice(index, 1, attachment)
-    else if (draft.filter((entry) => entry.kind).length < 12) draft.push(attachment)
+    else if (draft.filter((entry) => entry.kind).length + Number(attachingImage.value) < 12)
+      draft.push(attachment)
     else error.value = '每轮最多添加 12 个附件。'
   } catch {
     if (!disposed) error.value = '无法读取剪贴板图片。'
@@ -705,6 +726,7 @@ async function send() {
   if (
     !ready.value ||
     busy.value ||
+    attachingImage.value ||
     changingMode.value ||
     !model.value ||
     (!text.value.trim() && !attachments.value.length)
@@ -733,6 +755,7 @@ async function send() {
   const submittedIndex = messages.value.length
   messages.value.push({ role: 'user', text: content, attachments: submitted })
   busy.value = true
+  phase.value = ''
   error.value = ''
   scroll(true)
   try {
@@ -748,7 +771,10 @@ async function send() {
   } catch (failure) {
     if (!disposed) failTurn(submittedIndex, failure.message)
   } finally {
-    if (!disposed) busy.value = false
+    if (!disposed) {
+      busy.value = false
+      phase.value = ''
+    }
   }
 }
 
@@ -791,7 +817,7 @@ async function changeMode(event) {
 async function initialize() {
   removeEvents = api.onCallAiEvent(receive)
   try {
-    // 只有窗口匹配需要宿主解析，图片在用户点击发送时才提交。
+    // 打开会话后再处理匹配载荷，附件只在用户发送时提交给模型。
     const result = await api.callAi(
       'open',
       props.action.type === 'window' ? props.action : undefined
@@ -803,8 +829,8 @@ async function initialize() {
     if (disposed) return
     models.value = choices
     model.value = choices[0]?.value || choices[0]?.id || ''
-    attachAction()
     ready.value = true
+    void attachAction()
     composer.value?.focus()
   } catch (failure) {
     if (!disposed) error.value = failure.message
@@ -957,17 +983,6 @@ onUnmounted(() => {
           <strong>本轮未完成</strong>
           <span>{{ message.error }}</span>
         </div>
-        <span
-          v-if="
-            busy &&
-            index === messages.length - 1 &&
-            message.role === 'assistant' &&
-            !message.error &&
-            !message.text.trim()
-          "
-          class="muted"
-          >正在处理…</span
-        >
       </article>
       <section
         v-for="item in pending"
@@ -1010,6 +1025,7 @@ onUnmounted(() => {
           </form></template
         >
       </section>
+      <div v-if="busy && phase && !pending.length" class="muted" role="status">{{ phase }}</div>
       <div v-if="error" class="turn-error" role="alert">
         <span>{{ error }}</span>
         <button type="button" aria-label="关闭提示" @click="error = ''">×</button>
@@ -1208,7 +1224,13 @@ onUnmounted(() => {
             type="submit"
             aria-label="发送"
             title="发送"
-            :disabled="!ready || changingMode || !model || (!text.trim() && !attachments.length)"
+            :disabled="
+              !ready ||
+              attachingImage ||
+              changingMode ||
+              !model ||
+              (!text.trim() && !attachments.length)
+            "
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M12 19V5m-6 6 6-6 6 6" />

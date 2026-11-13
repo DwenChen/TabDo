@@ -432,12 +432,21 @@ export class PluginManager {
   }
 
   /**
-   * 通知渲染进程：插件已打开
+   * 通知宿主渲染进程显示已打开的插件及其当前指令。
+   * @param pluginConfig 插件配置。
+   * @param pluginPath 插件路径。
+   * @param logoUrl 宿主图标地址。
+   * @param featureCode 当前功能码。
+   * @param cmdName 当前指令名称。
+   * @param subInputPlaceholder 子输入框占位文案。
+   * @param subInputVisible 子输入框是否可见。
+   * @returns 无返回值。
    */
   private sendPluginOpenedEvent(
     pluginConfig: any,
     pluginPath: string,
     logoUrl: string,
+    featureCode: string,
     cmdName: string,
     subInputPlaceholder: string,
     subInputVisible: boolean
@@ -455,6 +464,7 @@ export class PluginManager {
       title: pluginConfig.title || pluginConfig.name,
       logo: logoUrl,
       path: pluginPath,
+      featureCode,
       cmdName,
       subInputPlaceholder,
       subInputVisible,
@@ -804,6 +814,7 @@ export class PluginManager {
         pluginConfig,
         pluginPath,
         logoUrl,
+        featureCode,
         cmdName || '',
         cached.subInputPlaceholder || '搜索',
         cached.subInputVisible !== undefined ? cached.subInputVisible : false
@@ -892,6 +903,7 @@ export class PluginManager {
         pluginConfig,
         pluginPath,
         logoUrl,
+        featureCode,
         cmdName || '',
         pluginInfo.subInputPlaceholder!,
         pluginInfo.subInputVisible!

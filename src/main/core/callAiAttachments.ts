@@ -21,11 +21,36 @@ function imageMime(data: Buffer): string | undefined {
 }
 
 /**
- * 为用户本轮明确提交的本地文件和匹配图片生成路径引用与受限图片内容。
+ * 校验剪贴板图片的编码、实际格式及大小。
+ * @param image 剪贴板传入的图片数据 URL。
+ * @returns 图片 MIME 类型、原始字节和规范的 Base64 内容。
+ * @throws 数据无效、格式不受支持或超过单图限制时拒绝。
+ */
+export function decodeCallAiClipboardImage(image: unknown): {
+  mimeType: string
+  bytes: Buffer
+  encoded: string
+} {
+  if (typeof image !== 'string') throw new Error('选中的图片格式无效')
+  const header = /^data:(image\/(?:png|jpeg|webp|gif));base64,/.exec(image)
+  if (!header) throw new Error('选中的图片格式无效')
+  if (image.length - header[0].length > 4 * Math.ceil(maxImageBytes / 3))
+    throw new Error('选中的图片超过 4 MB')
+  const encoded = image.slice(header[0].length)
+  const bytes = Buffer.from(encoded, 'base64')
+  if (bytes.length > maxImageBytes) throw new Error('选中的图片超过 4 MB')
+  const mimeType = imageMime(bytes)
+  if (mimeType !== header[1] || bytes.toString('base64') !== encoded)
+    throw new Error('选中的图片格式无效')
+  return { mimeType, bytes, encoded }
+}
+
+/**
+ * 为用户本轮明确提交的本地文件和内联图片生成路径引用与受限图片内容。
  * @param files 用户匹配、选择或拖入的本地文件和文件夹路径。
  * @param supportsImages 当前提供商模型是否声明图片输入能力。
  * @param signal 本轮会话取消信号。
- * @param matchedImage 图片匹配入口提供的数据 URL。
+ * @param inlineImage 输入框直接粘贴的图片数据 URL。
  * @returns 可供工具处理的附件清单与可直接送往视觉模型的图片。
  * @throws 文件路径、类型或数量无效时拒绝提交。
  */
@@ -33,32 +58,21 @@ export async function prepareCallAiAttachments(
   files: unknown,
   supportsImages: boolean,
   signal: AbortSignal,
-  matchedImage?: unknown
+  inlineImage?: unknown
 ): Promise<{ descriptions: string[]; images: ImageContent[] }> {
   const descriptions: string[] = []
   const images: ImageContent[] = []
   const paths = files === undefined ? [] : files
-  const hasMatchedImage = matchedImage !== undefined
-  if (!Array.isArray(paths) || paths.length + Number(hasMatchedImage) > 12)
+  if (!Array.isArray(paths) || paths.length + Number(inlineImage !== undefined) > 12)
     throw new Error('每轮最多添加 12 个附件')
   let remaining = maxImageBytes * 2
-  if (hasMatchedImage) {
-    // 匹配图片和磁盘图片共享模型能力检查与字节预算。
+  if (inlineImage !== undefined) {
+    // 内联图片和磁盘图片共享模型能力检查与字节预算。
     signal.throwIfAborted()
     if (!supportsImages) throw new Error('当前模型不支持图片输入，请切换模型或移除选中图片')
-    if (typeof matchedImage !== 'string') throw new Error('选中的图片格式无效')
-    const header = /^data:(image\/(?:png|jpeg|webp|gif));base64,/.exec(matchedImage)
-    if (!header) throw new Error('选中的图片格式无效')
-    if (matchedImage.length - header[0].length > 4 * Math.ceil(maxImageBytes / 3))
-      throw new Error('选中的图片超过 4 MB')
-    const encoded = matchedImage.slice(header[0].length)
-    const data = Buffer.from(encoded, 'base64')
-    if (data.length > maxImageBytes) throw new Error('选中的图片超过 4 MB')
-    const mimeType = imageMime(data)
-    if (mimeType !== header[1] || data.toString('base64') !== encoded)
-      throw new Error('选中的图片格式无效')
+    const { mimeType, bytes, encoded } = decodeCallAiClipboardImage(inlineImage)
     images.push({ type: 'image', mimeType, data: encoded })
-    remaining -= data.length
+    remaining -= bytes.length
   }
   for (const selected of new Set<unknown>(paths)) {
     signal.throwIfAborted()

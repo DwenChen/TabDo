@@ -22,6 +22,7 @@ interface Settings {
 
 type SearchProvider = 'brave' | 'bocha'
 type Kind = 'node' | 'python'
+type ExtraPackage = { id: string; name: string; version: string }
 type EditorMode = 'add' | 'edit' | 'npm'
 type McpTool = { name: string; description?: string }
 type EntryDetail<T> = { loading: true } | { value: T } | { error: string }
@@ -39,6 +40,8 @@ const ruleError = ref('')
 const outputDirectory = ref('')
 const busy = ref(false)
 const runtimeChecked = ref(false)
+const libraries = ref<Partial<Record<Kind, EntryDetail<ExtraPackage[]>>>>({})
+const selectedLibraries = ref<Record<Kind, string[]>>({ node: [], python: [] })
 const mcpTools = ref(new Map<string, EntryDetail<McpTool[]>>())
 const skillDescriptions = ref(new Map<string, EntryDetail<string>>())
 const error = ref('')
@@ -58,6 +61,7 @@ const example = JSON.stringify(
   2
 )
 const kinds = ['node', 'python'] as const
+const runtimeNames = { node: 'Node.js', python: 'Python' }
 let pendingOutputSave = Promise.resolve()
 const managers = computed(() => [
   {
@@ -359,15 +363,60 @@ async function submitEditor(): Promise<void> {
 }
 
 /**
- * 执行指定内置运行时的维护操作。
+ * 安装或更新指定的内置运行时。
  * @param kind 运行时种类。
- * @param action 更新运行时或清理额外库。
  * @returns 维护完成的 Promise。
  */
-async function maintain(kind: Kind, action: 'update' | 'clean'): Promise<void> {
-  const latest: State = await api('runtime', { kind, action })
+async function updateRuntime(kind: Kind): Promise<void> {
+  const latest: State = await api('runtime', { kind, action: 'update' })
   if (state.value) state.value.runtime = latest.runtime
   runtimeChecked.value = false
+}
+/**
+ * 在额外库清单展开后读取本地安装信息。
+ * @param kind 运行时种类。
+ * @param event 折叠项的切换事件。
+ * @returns 列表刷新结束的 Promise。
+ */
+async function toggleLibraries(kind: Kind, event: Event): Promise<void> {
+  if ((event.currentTarget as HTMLDetailsElement).open) await refreshLibraries(kind)
+}
+/**
+ * 获取最新库名并保留仍然有效的勾选。
+ * @param kind 运行时种类。
+ * @returns 列表及选择状态刷新完成的 Promise。
+ */
+async function refreshLibraries(kind: Kind): Promise<void> {
+  libraries.value[kind] = { loading: true }
+  try {
+    const value: ExtraPackage[] = await api('packages', kind)
+    libraries.value[kind] = { value }
+    const ids = new Set(value.map(({ id }) => id))
+    selectedLibraries.value[kind] = selectedLibraries.value[kind].filter((id) => ids.has(id))
+  } catch (failure) {
+    libraries.value[kind] = {
+      error: failure instanceof Error ? failure.message : String(failure)
+    }
+  }
+}
+/**
+ * 请求主进程确认并清理指定运行时的额外库，然后重新读取列表。
+ * @param kind 运行时种类。
+ * @param all 是否清空此运行时的额外库。
+ * @returns 清理及列表刷新完成的 Promise。
+ */
+async function cleanLibraries(kind: Kind, all: boolean): Promise<void> {
+  await run(async () => {
+    try {
+      await api('runtime', {
+        kind,
+        action: 'clean',
+        ids: all ? undefined : [...selectedLibraries.value[kind]]
+      })
+    } finally {
+      await refreshLibraries(kind)
+    }
+  })
 }
 
 /**
@@ -664,46 +713,76 @@ onBeforeUnmount(() => {
       <details class="panel collapsible">
         <summary>运行时与额外库</summary>
         <div class="runtime-content">
-          <div v-for="kind in kinds" :key="kind" class="row runtime-row">
-            <span
-              >{{ kind === 'node' ? 'Node.js' : 'Python' }}
-              <small
-                >{{ state.runtime[kind].installed ? state.runtime[kind].version : '尚未安装' }}
-                {{
-                  state.runtime[kind].healthy === undefined
-                    ? ''
-                    : state.runtime[kind].healthy
-                      ? ' · 正常'
-                      : ' · 检查失败'
-                }}
-              </small>
-            </span>
-            <div class="buttons">
-              <button
-                type="button"
-                class="icon-button"
-                :aria-label="state.runtime[kind].installed ? '更新' : '安装'"
-                :title="state.runtime[kind].installed ? '更新' : '安装'"
-                :disabled="busy"
-                @click="run(() => maintain(kind, 'update'))"
-              >
-                <span
-                  :class="state.runtime[kind].installed ? 'i-z-refresh' : 'i-z-download'"
-                  aria-hidden="true"
-                />
-              </button>
-              <button
-                type="button"
-                class="icon-button"
-                aria-label="清理额外库"
-                title="清理额外库"
-                :disabled="busy"
-                @click="run(() => maintain(kind, 'clean'))"
-              >
-                <span class="i-z-trash" aria-hidden="true" />
-              </button>
+          <section v-for="kind in kinds" :key="kind" class="runtime-group">
+            <div class="row runtime-row">
+              <span
+                >{{ runtimeNames[kind] }}
+                <small
+                  >{{ state.runtime[kind].installed ? state.runtime[kind].version : '尚未安装' }}
+                  {{
+                    state.runtime[kind].healthy === undefined
+                      ? ''
+                      : state.runtime[kind].healthy
+                        ? ' · 正常'
+                        : ' · 检查失败'
+                  }}
+                </small>
+              </span>
+              <div class="buttons">
+                <button
+                  type="button"
+                  class="icon-button"
+                  :aria-label="state.runtime[kind].installed ? '更新' : '安装'"
+                  :title="state.runtime[kind].installed ? '更新' : '安装'"
+                  :disabled="busy"
+                  @click="run(() => updateRuntime(kind))"
+                >
+                  <span
+                    :class="state.runtime[kind].installed ? 'i-z-refresh' : 'i-z-download'"
+                    aria-hidden="true"
+                  />
+                </button>
+              </div>
             </div>
-          </div>
+            <details class="extra-libraries" @toggle="toggleLibraries(kind, $event)">
+              <summary :aria-label="`${runtimeNames[kind]} 额外库`">额外库</summary>
+              <template v-if="libraries[kind]" v-for="list in [libraries[kind]!]" :key="kind">
+                <p v-if="'loading' in list" class="library-note" role="status">正在读取额外库…</p>
+                <p v-else-if="'error' in list" class="library-note danger" role="alert">
+                  {{ list.error }}
+                </p>
+                <p v-else-if="!list.value.length" class="library-note">暂无额外库</p>
+                <ul v-else class="library-list">
+                  <li v-for="item in list.value" :key="item.id">
+                    <label class="library-entry">
+                      <input
+                        v-model="selectedLibraries[kind]"
+                        type="checkbox"
+                        :value="item.id"
+                        :disabled="busy"
+                      />
+                      <span>{{ item.name }}</span>
+                      <small v-if="item.version">{{ item.version }}</small>
+                    </label>
+                  </li>
+                </ul>
+                <div v-if="!('loading' in list)" class="buttons library-actions">
+                  <button
+                    type="button"
+                    :disabled="busy || !selectedLibraries[kind].length || !('value' in list)"
+                    @click="cleanLibraries(kind, false)"
+                  >
+                    清理所选<span v-if="selectedLibraries[kind].length"
+                      >（{{ selectedLibraries[kind].length }}）</span
+                    >
+                  </button>
+                  <button type="button" :disabled="busy" @click="cleanLibraries(kind, true)">
+                    全部清理
+                  </button>
+                </div>
+              </template>
+            </details>
+          </section>
           <div class="row">
             <div class="buttons">
               <button type="button" :disabled="busy" @click="run(checkRuntime)">检查状态</button>
@@ -1005,8 +1084,51 @@ summary {
   padding: 0 12px 10px;
 }
 .runtime-row {
-  margin-bottom: 8px;
   flex-wrap: wrap;
+}
+.runtime-group {
+  display: grid;
+  gap: 5px;
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--divider-color);
+}
+.extra-libraries > summary {
+  width: fit-content;
+  padding: 5px 0;
+}
+.library-list {
+  list-style: none;
+  margin: 4px 0;
+  padding: 0;
+}
+.library-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding-inline: 6px;
+  border-radius: 7px;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.library-entry:hover {
+  background: var(--hover-bg);
+}
+.library-entry input {
+  flex: none;
+  width: 16px;
+  min-height: 16px;
+  margin: 0;
+  accent-color: var(--primary-color);
+}
+.library-note {
+  margin: 4px 0 8px;
+  font-size: 12px;
+}
+.library-actions {
+  flex-wrap: wrap;
+  margin-top: 6px;
 }
 .runtime-row small {
   margin-left: 5px;

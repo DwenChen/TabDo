@@ -1,0 +1,23 @@
+{
+  "id": "call-ai-library-management-and-timeout-diagnostics",
+  "date": "2026-11-13",
+  "summary": "呼叫AI查看和选择清理额外库，并诊断模型超时",
+  "changes": [
+    "在运行时与额外库下按 Node.js 和 Python 展示库名与版本，支持勾选清理与按运行时全清，并沿用原生确认。",
+    "使用 npm 卸载直接依赖；按 pip 安装记录清理所选发行包，保留共用文件。",
+    "修复收到完成帧后仍等待网关关闭连接的问题。区分本地空闲超时、上游 HTTP 超时及传输中断，失败日志记录响应阶段和时长。"
+  ],
+  "checks": [
+    "在现有免安装预览使用用户授权的已保存 deepseek-flash 配置发送固定连通性文本，约 20 秒内观察到完整 OK 回复。桌面操作随后被用户停止。",
+    "现有预览与默认安装日志缺少可归因的超时记录。该次请求证明当时模型可用，历史间歇性超时的具体来源仍待复现。",
+    "相关单测 7 个文件共 61 项通过，归档 .artifacts/runs/2026-11-13T09-10-15-340Z-unit。覆盖三种协议的未关闭响应体和 Python 清理的共享、脚本、逗号及越界路径。",
+    "pnpm typecheck、pnpm typecheck:setting、pnpm build、pnpm docs:check 和 call-ai 回归分组清单通过。",
+    "首轮源码 Electron 已通过包列表、取消、实跑 npm 卸载和全清断言，后续长正文回归等待超时，归档 .artifacts/runs/2026-11-13T09-11-44-026Z-e2e。随后两次完整复跑通过，归档 .artifacts/runs/2026-11-13T09-16-00-325Z-e2e 和 .artifacts/runs/2026-11-13T09-19-35-704Z-e2e。",
+    "检查最终归档直接捕获的 call-ai-library-selection.png 与 call-ai-model-timeout.png。两个运行时分组分明，库名和版本未截断，选中数量和两种清理操作可见；本地空闲超时来源及续跑提示在原正文下方完整显示。",
+    "本地免安装预览 1.5.5 已同步，6823 个已有资料文件前后一致。收据 .artifacts/backups/preview-sync/update-1794561282051/preservation.json。",
+    "pnpm test:preview:resources 通过，核验 2138 个程序文件、353 个内置插件文件和 11842 个媒体运行依赖文件。",
+    "清理已消费程序暂存与旧程序回退，共 29913 个文件、1376624989 字节。保留最新回退、核验收据和测试归档。审计 .artifacts/cleanup-2026-11-13/call-ai-library-management-preview.json。",
+    "pnpm maintain、pnpm maintain:check、pnpm docs:check 和 git diff --check 通过。"
+  ],
+  "pending": ["真实间歇性超时未在此次最小请求中重现。下一次失败可按提示及本地日志区分请求阶段。"]
+}
