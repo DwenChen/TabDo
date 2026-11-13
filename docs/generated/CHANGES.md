@@ -2,7 +2,7 @@
 
 > 自动生成；原始记录在 [entries](../history/entries/)。
 
-## 2026-11-13 · 准备 TabDo 1.5.6 发布
+## 2026-11-13 · 发布并核验 TabDo 1.5.6
 
 记录：[release-1.5.6](../../docs/history/entries/2026-11-13-09-release-1.5.6.json)；版本：1.5.6。
 
@@ -15,6 +15,10 @@
 - 验证：呼叫AI两项和剪贴板一项源码 Electron 回归通过，归档 .artifacts/runs/2026-11-13T12-54-06-695Z-e2e。同次运行发现本地教程仍按旧的 15 章断言。对齐现有 16 章及末尾导航并等待宿主和设置就绪后，教程回归通过，归档 .artifacts/runs/2026-11-13T12-57-36-546Z-e2e。查看教程中的剪贴板章节截图，拖动窗口及图片批量操作说明完整。
 - 验证：对照源码复核发布范围、两份教程及用户可见说明。pnpm maintain、pnpm maintain:check、pnpm docs:check 和 git diff --check 通过。
 - 验证：本地免安装预览 1.5.6 同步及资源核验通过。同步前后 6834 个资料文件一致。收据 .artifacts/backups/preview-sync/update-1794574708443/preservation.json。
+- 验证：通过提交及推送 hooks，原子推送 main 和 v1.5.6。远端标签解析为 1e5207e026ccc89aec131355b2a3ab9960f29241。
+- 验证：云端 https://github.com/DwenChen/TabDo/actions/runs/43430393624 的 build 和 publish 均成功。https://github.com/DwenChen/TabDo/releases/tag/v1.5.6 为最新正式版。
+- 验证：四个正式附件的大小与 GitHub SHA-256 一致。latest.yml 的版本、安装程序文件名、大小和 SHA-512 核验通过。ZIP 内应用版本为 1.5.6，核对主程序、预加载、宿主页面、内置插件、呼叫AI运行时、npm、npx、pip 与许可文件。收据 .artifacts/releases/1.5.6/download-verification.json。
+- 验证：回收已消费预览暂存和旧程序回退 29913 个文件、1376645346 字节，并清理本轮发行下载及解包副本 5 个文件、735189478 字节。保留最近一次程序回退、全部资料收据及发行核验记录。
 
 ## 2026-11-13 · 修复剪贴板上栏拖动、中转图标和图片多选
 
