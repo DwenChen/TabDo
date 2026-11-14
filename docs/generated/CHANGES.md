@@ -2,7 +2,7 @@
 
 > 自动生成；原始记录在 [entries](../history/entries/)。
 
-## 2026-11-14 · 准备 TabDo 1.5.7 发布
+## 2026-11-14 · 发布并核验 TabDo 1.5.7
 
 记录：[release-1.5.7](../../docs/history/entries/2026-11-14-02-release-1.5.7.json)；版本：1.5.7。
 
@@ -14,6 +14,10 @@
 - 验证：呼叫AI及本地教程源码 Electron 3 项通过。查看插件截图，脚本产物链接和回复末尾的网页来源均完整可见。归档 .artifacts/runs/2026-11-14T06-04-09-087Z-e2e。
 - 验证：免安装预览 1.5.7 已同步，6834 个现有资料文件逐文件核验一致，程序及依赖资源核验通过。收据 .artifacts/backups/preview-sync/update-1794636429663/preservation.json。
 - 验证：发布前 pnpm maintain、pnpm maintain:check、pnpm docs:check 和差异检查通过。
+- 验证：通过提交及推送 hooks，原子推送 main 和 v1.5.7，远端标签解析为 e8e672188ed8574836056306710ad5fc16e1ab24。
+- 验证：云端 https://github.com/DwenChen/TabDo/actions/runs/43565181989 的 build 和 publish 均成功。https://github.com/DwenChen/TabDo/releases/tag/v1.5.7 为最新正式版。
+- 验证：四个正式附件的大小与 GitHub SHA-256 一致。latest.yml 的版本、安装程序文件名、大小和 SHA-512 核验通过。ZIP 内应用版本为 1.5.7，并核对本轮呼叫AI改动、主程序、预加载、内置插件、npm、npx、pip 与必要许可。收据 .artifacts/releases/1.5.7/download-verification.json。
+- 验证：回收程序暂存和旧程序回退 29913 个文件、1376656161 字节，清理发行下载、解包副本及临时核验材料共 30 个文件、1036922623 字节。保留最新程序回退、资料及发行核验收据。预览清理审计 .artifacts/cleanup-2026-11-14/release-1.5.7-preview.json。
 
 ## 2026-11-14 · 呼叫AI使用网页资料时在回复末尾列出来源
 
