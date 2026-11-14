@@ -2,6 +2,16 @@
 
 > 自动生成；状态只描述已有证据，不以加入测试清单替代实际验证。
 
+## BUG-CALL-AI-PYTHON-SCRIPT-DEPENDENCIES · 呼叫AI用子进程运行已有 Python 脚本时无法导入额外库
+
+状态：已提供直接执行入口，源码 Electron 和免安装预览资源核验通过。
+
+原因：run_code 将额外库注入当前 Python 进程的 sys.path，而模型自行启动的 Python 子进程不会继承该配置。
+
+处理：run_code 支持直接运行已有 Python 脚本，依赖检查与脚本复用同一内置解释器进程，并返回实际产物回执。
+
+回归：TX-158；源码 Electron 使用隔离额外库，覆盖缺包、直接执行、参数、结果目录、回执和产物链接。
+
 ## BUG-CLIPBOARD-TITLEBAR-RELAY-MIXED-IMAGES · 剪贴板上栏难以拖动，中转按钮勾选后变色，截图与图片文件不能多选
 
 状态：已修复，单测、源码 Electron、视觉检查和免安装预览资源核验通过。

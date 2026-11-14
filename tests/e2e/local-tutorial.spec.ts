@@ -156,6 +156,22 @@ test('本地教程走真实关于入口，离线资源齐全且升级重启保�
     await expect(settings.locator('.guide-article h2')).toHaveText('备份与更换数据目录')
     await settings.getByRole('button', { name: '下一章', exact: true }).click()
     await expect(settings.locator('.guide-article h2')).toHaveText('用呼叫AI完成一次性任务')
+    const sourceNote = settings.getByText(
+      '回复采用网页资料时，可在末尾的“参考资料来源”中打开对应网页。'
+    )
+    await expect(sourceNote).toBeVisible()
+    await sourceNote.evaluate((note) =>
+      note.scrollIntoView({ block: 'center', behavior: 'instant' })
+    )
+    await expect(sourceNote).toBeInViewport()
+    const sourceScreenshot = await application!.evaluate(async ({ webContents }, url) => {
+      const view = webContents.getAllWebContents().find((entry) => entry.getURL() === url)!
+      return (await view.capturePage()).toPNG().toString('base64')
+    }, settings.url())
+    await fs.writeFile(
+      testInfo.outputPath('tutorial-call-ai-web-sources.png'),
+      Buffer.from(sourceScreenshot, 'base64')
+    )
     await settings.getByLabel('查找操作', { exact: true }).fill('收藏')
     expect(await buttons.count()).toBeGreaterThan(0)
     expect(await buttons.count()).toBeLessThan(titles.length)

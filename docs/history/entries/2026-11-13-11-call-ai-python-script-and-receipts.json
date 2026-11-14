@@ -1,0 +1,19 @@
+{
+  "id": "call-ai-python-script-and-receipts",
+  "date": "2026-11-13",
+  "summary": "呼叫AI直接运行已有 Python 脚本并返回产物回执",
+  "changes": [
+    "run_code 接受已有 Python 脚本路径和参数，在同一内置解释器中检查声明的依赖并加载额外库，沿用安装授权、命令超时与会话回收。",
+    "明确结果目录、工作目录及环境变量，返回进程输出、已登记文件名、绝对路径、字节数和未登记路径。",
+    "已有脚本可能在同一路径改变，请求批准模式逐次确认。内联代码保留按完整参数复用批准的入口。"
+  ],
+  "checks": [
+    "呼叫AI相关单测 4 个文件共 29 项通过，归档 .artifacts/runs/2026-11-13T13-54-18-364Z-unit。类型检查、本地构建和 call-ai 回归分组清单通过。",
+    "源码 Electron 初次发现测试局部变量重名，修复后更新旧纯文本断言为 JSON 回执，并用空格分隔正文中的中文文件名以匹配现有链接规则。最终 2 项通过，归档 .artifacts/runs/2026-11-13T13-58-10-573Z-e2e。",
+    "直接查看插件 WebContentsView 截图 call-ai-python-approval.png 和 call-ai-python-receipt.png。审批按钮、中文和带引号的参数可见，长路径可横向滚动，实际结果链接在正文原位，未生成项无链接。",
+    "免安装预览 1.5.6 已同步，6834 个现有资料文件逐文件核验一致。收据 .artifacts/backups/preview-sync/update-1794578377098/preservation.json。pnpm test:preview:resources 通过，核验 2138 个程序文件、353 个内置插件文件和 11842 个媒体依赖文件。",
+    "清理已消费程序暂存及旧程序回退，共 29913 个文件、1376650511 字节。保留最新程序回退、全部保留收据及测试归档。审计 .artifacts/cleanup-2026-11-13/call-ai-python-script-preview.json。",
+    "pnpm maintain、pnpm maintain:check、pnpm docs:check 和 git diff --check 通过。"
+  ],
+  "pending": ["使用隔离额外库夹具和本机模型替身验证，实际模型的工具选择及用量变化待人工测试。"]
+}

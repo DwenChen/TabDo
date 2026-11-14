@@ -2,6 +2,57 @@
 
 > 自动生成；原始记录在 [entries](../history/entries/)。
 
+## 2026-11-14 · 准备 TabDo 1.5.7 发布
+
+记录：[release-1.5.7](../../docs/history/entries/2026-11-14-02-release-1.5.7.json)；版本：1.5.7。
+
+- 发布呼叫AI的已有 Python 脚本入口、依赖检查、产物回执及网页资料来源列表。
+- 对照源码审校 README、开发指南、呼叫AI规范、应用内和仓库教程及当轮记录，并更新版本和更新说明。
+
+- 验证：pnpm test --maxWorkers=2 完整单测 135 个文件共 915 项通过。归档 .artifacts/runs/2026-11-14T06-02-59-341Z-unit。
+- 验证：pnpm typecheck、pnpm typecheck:setting 和 pnpm build 通过。
+- 验证：呼叫AI及本地教程源码 Electron 3 项通过。查看插件截图，脚本产物链接和回复末尾的网页来源均完整可见。归档 .artifacts/runs/2026-11-14T06-04-09-087Z-e2e。
+- 验证：免安装预览 1.5.7 已同步，6834 个现有资料文件逐文件核验一致，程序及依赖资源核验通过。收据 .artifacts/backups/preview-sync/update-1794636429663/preservation.json。
+- 验证：发布前 pnpm maintain、pnpm maintain:check、pnpm docs:check 和差异检查通过。
+
+## 2026-11-14 · 呼叫AI使用网页资料时在回复末尾列出来源
+
+记录：[call-ai-web-sources](../../docs/history/entries/2026-11-14-01-call-ai-web-sources.json)；版本：未发布。
+
+- 网页搜索开启时，通过内部指令让模型把实际使用的搜索、抓取和搜索 MCP 来源列在最终回复末尾，按网址去重，使用可点击的网页标题链接。
+- 同步呼叫AI规范、应用内教程和仓库教程。
+
+- 验证：呼叫AI相关单测 20 项通过，归档 .artifacts/runs/2026-11-14T05-52-55-176Z-unit。本地构建通过。
+- 验证：首轮网页来源断言通过，后续长回复窄窗口场景遇到开发页重载并未通过，归档 .artifacts/runs/2026-11-14T05-50-58-711Z-e2e。呼叫AI及本地教程完整复跑 3 项通过，归档 .artifacts/runs/2026-11-14T05-53-09-328Z-e2e。
+- 验证：查看插件 WebContentsView 截图 call-ai-web-sources.png，来源标题和网页链接显示在正文末尾。教程专项复跑通过并查看 tutorial-call-ai-web-sources.png，新增来源说明完整可见，归档 .artifacts/runs/2026-11-14T05-55-15-285Z-e2e。
+- 验证：免安装预览 1.5.6 已同步，6834 个现有资料文件逐文件核验一致。pnpm test:preview:resources 通过，覆盖 2138 个程序文件、353 个内置插件文件和 11842 个媒体依赖。收据 .artifacts/backups/preview-sync/update-1794635608956/preservation.json。
+- 验证：清理已消费程序暂存与旧程序回退，共 29913 个文件、1376650894 字节。保留最新程序回退、核验收据及测试证据。清理审计 .artifacts/cleanup-2026-11-14/call-ai-web-sources-preview.json。
+- 验证：pnpm maintain、pnpm maintain:check、pnpm docs:check 和 git diff --check 通过。
+
+## 2026-11-13 · 呼叫AI直接运行已有 Python 脚本并返回产物回执
+
+记录：[call-ai-python-script-and-receipts](../../docs/history/entries/2026-11-13-11-call-ai-python-script-and-receipts.json)；版本：未发布。
+
+- run_code 接受已有 Python 脚本路径和参数，在同一内置解释器中检查声明的依赖并加载额外库，沿用安装授权、命令超时与会话回收。
+- 明确结果目录、工作目录及环境变量，返回进程输出、已登记文件名、绝对路径、字节数和未登记路径。
+- 已有脚本可能在同一路径改变，请求批准模式逐次确认。内联代码保留按完整参数复用批准的入口。
+
+- 验证：呼叫AI相关单测 4 个文件共 29 项通过，归档 .artifacts/runs/2026-11-13T13-54-18-364Z-unit。类型检查、本地构建和 call-ai 回归分组清单通过。
+- 验证：源码 Electron 初次发现测试局部变量重名，修复后更新旧纯文本断言为 JSON 回执，并用空格分隔正文中的中文文件名以匹配现有链接规则。最终 2 项通过，归档 .artifacts/runs/2026-11-13T13-58-10-573Z-e2e。
+- 验证：直接查看插件 WebContentsView 截图 call-ai-python-approval.png 和 call-ai-python-receipt.png。审批按钮、中文和带引号的参数可见，长路径可横向滚动，实际结果链接在正文原位，未生成项无链接。
+- 验证：免安装预览 1.5.6 已同步，6834 个现有资料文件逐文件核验一致。收据 .artifacts/backups/preview-sync/update-1794578377098/preservation.json。pnpm test:preview:resources 通过，核验 2138 个程序文件、353 个内置插件文件和 11842 个媒体依赖文件。
+- 验证：清理已消费程序暂存及旧程序回退，共 29913 个文件、1376650511 字节。保留最新程序回退、全部保留收据及测试归档。审计 .artifacts/cleanup-2026-11-13/call-ai-python-script-preview.json。
+- 验证：pnpm maintain、pnpm maintain:check、pnpm docs:check 和 git diff --check 通过。
+
+## 2026-11-13 · 分析呼叫AI生成动画时的重复推理和工具试错
+
+记录：[call-ai-agent-token-analysis](../../docs/history/entries/2026-11-13-10-call-ai-agent-token-analysis.json)；版本：未发布。
+
+- 对照用户提供的动画任务思考记录，核对呼叫AI的工具参数、Python 执行方式、额外库、产物登记、回复渲染和模型用量传递。
+- 提出明确代码交付与运行验证边界、复用同一 Python 启动方式、返回产物收据及按需选用回复图示的建议。本轮为分析，未修改产品行为。
+
+- 验证：静态核对当前源码及呼叫AI文档。未运行附件中的代码，未执行产品测试，未同步免安装预览。
+
 ## 2026-11-13 · 发布并核验 TabDo 1.5.6
 
 记录：[release-1.5.6](../../docs/history/entries/2026-11-13-09-release-1.5.6.json)；版本：1.5.6。

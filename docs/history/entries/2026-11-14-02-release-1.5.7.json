@@ -1,0 +1,18 @@
+{
+  "id": "release-1.5.7",
+  "date": "2026-11-14",
+  "version": "1.5.7",
+  "summary": "准备 TabDo 1.5.7 发布",
+  "changes": [
+    "发布呼叫AI的已有 Python 脚本入口、依赖检查、产物回执及网页资料来源列表。",
+    "对照源码审校 README、开发指南、呼叫AI规范、应用内和仓库教程及当轮记录，并更新版本和更新说明。"
+  ],
+  "checks": [
+    "pnpm test --maxWorkers=2 完整单测 135 个文件共 915 项通过。归档 .artifacts/runs/2026-11-14T06-02-59-341Z-unit。",
+    "pnpm typecheck、pnpm typecheck:setting 和 pnpm build 通过。",
+    "呼叫AI及本地教程源码 Electron 3 项通过。查看插件截图，脚本产物链接和回复末尾的网页来源均完整可见。归档 .artifacts/runs/2026-11-14T06-04-09-087Z-e2e。",
+    "免安装预览 1.5.7 已同步，6834 个现有资料文件逐文件核验一致，程序及依赖资源核验通过。收据 .artifacts/backups/preview-sync/update-1794636429663/preservation.json。",
+    "发布前 pnpm maintain、pnpm maintain:check、pnpm docs:check 和差异检查通过。"
+  ],
+  "pending": ["真实模型的工具选择、用量变化及来源筛选保留人工验收。"]
+}

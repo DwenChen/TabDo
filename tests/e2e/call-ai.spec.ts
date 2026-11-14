@@ -173,6 +173,7 @@ test('呼叫AI使用提供商、内置解释器、审批和提问，关闭后清
       path.join(pythonPackages, pythonInfo, 'METADATA'),
       'Name: Fixture-Python\nVersion: 3.0\n'
     )
+    await fs.writeFile(path.join(pythonPackages, 'fixture_python.py'), 'VALUE = "已导入"\n')
     app.process().stdout?.on('data', (chunk) => logs.push(String(chunk)))
     app.process().stderr?.on('data', (chunk) => logs.push(String(chunk)))
     const main = await app.firstWindow()
@@ -650,7 +651,16 @@ test('呼叫AI使用提供商、内置解释器、审批和提问，关闭后清
                 replies[1].content.includes('返回了无效的 JSON') &&
                 replies[2].content.includes('夹具摘要') &&
                 replies[3].content.includes('夹具正文')
-              const content = recovered ? '检索已恢复并完成超过四十次往返' : '检索夹具失败'
+              const instructions = input.messages.find((entry: any) => entry.role === 'system')
+              const source = recovered && JSON.parse(replies[3].content)
+              const content = recovered
+                ? [
+                    '检索已恢复并完成超过四十次往返',
+                    ...(instructions?.content.includes('回复末尾用 Markdown 标题“参考资料来源”')
+                      ? ['## 参考资料来源', `- [${source.title}](${source.url})`]
+                      : [])
+                  ].join('\n\n')
+                : '检索夹具失败'
               delta({ content })
               return { content, toolCalls: [], finishReason: 'stop' }
             }
@@ -727,6 +737,44 @@ test('呼叫AI使用提供商、内置解释器、审批和提问，关闭后清
             if (JSON.stringify(task).includes('处理这些附件。')) {
               ;(globalThis as any).__matchedImageRequest = task
               const content = '已收到匹配图片'
+              delta({ content })
+              return { content, toolCalls: [], finishReason: 'stop' }
+            }
+            if (task === '验证已有 Python 脚本与产物回执') {
+              const args = {
+                language: 'python',
+                scriptPath: '示例 脚本.py',
+                args: ['中文 参数', '引号"与反斜杠\\', ''],
+                artifacts: ['运行结果.txt', '未生成.txt'],
+                timeoutSeconds: 10
+              }
+              const dependencies = [{ module: 'fixture_python', package: 'Fixture-Python' }]
+              if (!replies.length)
+                return tool('write_file', {
+                  path: args.scriptPath,
+                  content: [
+                    'import os, sys, json',
+                    'from pathlib import Path',
+                    'import fixture_python',
+                    'assert Path.cwd() == Path(os.environ["TABDO_OUTPUT"])',
+                    'assert Path(sys.argv[0]) == Path(__file__)',
+                    'assert Path(os.environ["TABDO_TEMP"]).is_dir()',
+                    'data = [fixture_python.VALUE, *sys.argv[1:]]',
+                    'Path("运行结果.txt").write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")',
+                    'print("执行成功")'
+                  ].join('\n')
+                })
+              if (replies.length === 1)
+                return tool('run_code', {
+                  ...args,
+                  dependencies: [
+                    ...dependencies,
+                    { module: 'tabdo_fixture_missing', package: 'tabdo-fixture-missing' }
+                  ]
+                })
+              if (replies.length === 2) return tool('run_code', { ...args, dependencies })
+              ;(globalThis as any).__callAiPythonReceipts = replies.map(({ content }) => content)
+              const content = '已有脚本执行完成，结果见 运行结果.txt。'
               delta({ content })
               return { content, toolCalls: [], finishReason: 'stop' }
             }
@@ -1059,7 +1107,12 @@ test('呼叫AI使用提供商、内置解释器、审批和提问，关闭后清
     expect(evidence.tools).not.toContain('web_search')
     expect(evidence.tools).not.toContain('web_fetch')
     const execution = evidence.messages.find((message: { role: string }) => message.role === 'tool')
-    expect(execution?.content.trim()).toBe('native-script-execution')
+    expect(JSON.parse(execution!.content)).toEqual({
+      output: 'native-script-execution\n',
+      outputTruncated: false,
+      artifacts: [],
+      missingArtifacts: []
+    })
     const sourceLink = page.getByRole('link', { name: '来源链接' })
     await expect(sourceLink).toHaveCSS('text-decoration-line', 'none')
     await expect(page.getByRole('status')).toHaveCount(0)
@@ -1173,6 +1226,59 @@ test('呼叫AI使用提供商、内置解释器、审批和提问，关闭后清
       'http://127.0.0.1:15178',
       testInfo.outputPath('call-ai-conversation.png')
     )
+    const pythonOutput = path.dirname(artifact)
+    const pythonResult = path.join(pythonOutput, '运行结果.txt')
+    const pythonApproval = page.getByRole('region', { name: '请求批准操作' })
+    await page.getByLabel('任务输入').fill('验证已有 Python 脚本与产物回执')
+    await page.getByRole('button', { name: '发送' }).click()
+    await expect(page.getByText('请求批准 · write_file', { exact: true })).toBeVisible()
+    await page.getByRole('button', { name: '批准本次操作' }).click()
+    await expect(page.getByText('请求批准 · run_code', { exact: true })).toBeVisible()
+    await expect(pythonApproval).toContainText('tabdo_fixture_missing')
+    await expect(pythonApproval).toContainText('示例 脚本.py')
+    await expect(pythonApproval.getByRole('button', { name: '允许类似命令' })).toHaveCount(0)
+    await pythonApproval.getByRole('button', { name: '批准本次操作' }).scrollIntoViewIfNeeded()
+    await capturePlugin(
+      app,
+      'http://127.0.0.1:15178',
+      testInfo.outputPath('call-ai-python-approval.png')
+    )
+    await page.getByRole('button', { name: '批准本次操作' }).click()
+    await expect(page.getByText('请求批准 · run_code', { exact: true })).toBeVisible()
+    await expect(pythonApproval).not.toContainText('tabdo_fixture_missing')
+    await expect(fs.stat(pythonResult)).rejects.toThrow()
+    await page.getByRole('button', { name: '批准本次操作' }).click()
+    const scriptReply = page.locator('.message.assistant').filter({ hasText: '已有脚本执行完成' })
+    await expect(
+      scriptReply.locator('.markdown').getByRole('link', { name: '运行结果.txt', exact: true })
+    ).toHaveAttribute('data-link-target', pythonResult)
+    await expect(scriptReply.getByRole('link', { name: '未生成.txt' })).toHaveCount(0)
+    expect(JSON.parse(await fs.readFile(pythonResult, 'utf8'))).toEqual([
+      '已导入',
+      '中文 参数',
+      '引号"与反斜杠\\',
+      ''
+    ])
+    const [, missingDependencies, successfulRun] = await app.evaluate(
+      () => (globalThis as any).__callAiPythonReceipts
+    )
+    expect(missingDependencies).toContain(
+      '"missingDependencies": [{"module": "tabdo_fixture_missing", "package": "tabdo-fixture-missing"}]'
+    )
+    expect(JSON.parse(successfulRun)).toEqual({
+      output: expect.stringContaining('执行成功'),
+      outputTruncated: false,
+      artifacts: [
+        { name: '运行结果.txt', path: pythonResult, bytes: (await fs.stat(pythonResult)).size }
+      ],
+      missingArtifacts: [path.join(pythonOutput, '未生成.txt')]
+    })
+    await capturePlugin(
+      app,
+      'http://127.0.0.1:15178',
+      testInfo.outputPath('call-ai-python-receipt.png')
+    )
+    await expect(page.getByRole('button', { name: '发送' })).toBeVisible()
     await page.getByLabel('任务输入').fill('安装这个 Skill 并配置这个 MCP')
     await page.getByRole('button', { name: '发送' }).click()
     for (const action of ['install_skill', 'configure_mcp']) {
@@ -1273,6 +1379,7 @@ test('呼叫AI使用提供商、内置解释器、审批和提问，关闭后清
     await page.getByLabel('任务输入').fill('验证关闭网页搜索')
     await page.getByRole('button', { name: '发送' }).click()
     await expect(page.getByText('本轮网页工具仍关闭', { exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: '参考资料来源', exact: true })).toHaveCount(0)
     expect(await app.evaluate(() => (globalThis as any).__callAiWebRequests.length)).toBe(0)
     // 原会话内重新开启，下一轮应重新注册 Search 和 Fetch。
     await expect(webSearch).toBeEnabled()
@@ -1282,6 +1389,16 @@ test('呼叫AI使用提供商、内置解释器、审批和提问，关闭后清
     await page.getByRole('button', { name: '发送' }).click()
     await expect(page.getByText('检索已恢复并完成超过四十次往返', { exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: '发送' })).toBeVisible()
+    const searchReply = page.locator('.markdown').filter({
+      hasText: '检索已恢复并完成超过四十次往返'
+    })
+    await expect(searchReply.getByRole('heading', { name: '参考资料来源', exact: true })).toBeVisible()
+    const reference = searchReply.getByRole('link', { name: '夹具网页', exact: true })
+    await expect(reference).toHaveAttribute('href', 'https://example.com/page')
+    await expect(searchReply.locator('> :last-child')).toContainText('夹具网页')
+    await page.locator('.conversation').press('Control+End')
+    await expect(reference).toBeInViewport()
+    await capturePlugin(app, 'http://127.0.0.1:15178', testInfo.outputPath('call-ai-web-sources.png'))
     await expect(page.getByLabel('请求批准操作')).toHaveCount(0)
     await expect(page.locator('.error')).toHaveCount(0)
     const webRequests = await app.evaluate(() => (globalThis as any).__callAiWebRequests)
