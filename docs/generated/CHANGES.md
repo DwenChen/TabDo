@@ -18,6 +18,10 @@
 - 验证：pnpm build 通过；pnpm preview:sync 同步 1.5.8，保留 176 个现有资料文件，核验 2139 个程序文件。收据 .artifacts/backups/preview-sync/update-1794833828739/preservation.json。pnpm test:preview:resources 核验 2138 个程序文件、353 个内置插件文件和 11842 个媒体依赖。
 - 验证：pnpm maintain、pnpm maintain:check、pnpm docs:check 与 git diff --check 通过（38 个文档、260 个本地链接、40 个功能、16 章教程、74 个步骤）。
 - 验证：pnpm lint 仍报告 CallAiSetting.vue 等本轮未修改文件的既有规则错误与警告，未纳入本次发布范围。
+- 验证：通过提交及推送 hooks，原子推送 main 和 v1.5.8，提交 5b74b70cb55e2757cce9de530a7fe2abb7f3a300，远端标签指向同一提交。
+- 验证：云端 https://github.com/DwenChen/TabDo/actions/runs/43871938229 的 build 和 publish 均成功。https://github.com/DwenChen/TabDo/releases/tag/v1.5.8 非草稿、非预发布，并已成为最新正式版。
+- 验证：四个正式附件的大小与 GitHub SHA-256 一致；latest.yml 的版本、安装程序文件名、大小和 SHA-512 核验通过。ZIP 内应用版本为 1.5.8，插件清单只含“按图搜索”，包含截图原生模块、设置与系统插件页面、npm、npx、Python 运行时、pip.pyz 及必要许可。收据 .artifacts/releases/1.5.8/download-verification.json。
+- 验证：核验完成后回收本轮发行下载与解包副本，保留核验收据。
 
 ## 2026-11-16 · 按图搜索更名，并将文字网站和识图引擎的初始默认统一为 Bing
 
