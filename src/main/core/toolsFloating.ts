@@ -576,7 +576,9 @@ async function operate(sender: WebContents, action: string, value: any): Promise
     entry.dragging = false
     // 受控拖动已结束，立即识别最终边界，避免等待移出或观察器延时。
     if (content.type === 'text') {
-      if (entry.undockedDuringDrag || value?.moved === false) return true
+      if (value?.moved === false) return true
+      // 收起色签拖到另一边缘时也要重新判定贴靠：不能因为拖动中已解贴而停留在展开态。
+      entry.undockedDuringDrag = false
       entry.dockArmed = true
       updateDock(entry)
       if (entry.dock?.expanded) setDockExpanded(entry, false)

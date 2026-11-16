@@ -54,6 +54,15 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 describe('web quick open', () => {
+  it('defaults to a single Bing selection for websites and image engines', () => {
+    const config = normalizeWebQuickOpenConfig()
+    expect(config.sites.map((site) => [site.name, site.enabled])).toEqual([
+      ['百度', false],
+      ['Bing', true],
+      ['Google', false]
+    ])
+    expect(config.imageEngines).toEqual(['bing'])
+  })
   it('encodes search text as one URL value and rejects executable or credential URLs', () => {
     expect(buildTextSearchUrl('https://example.org/?q={query}', '中文 &?#')).toBe(
       'https://example.org/?q=%E4%B8%AD%E6%96%87%20%26%3F%23'

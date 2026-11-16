@@ -1,0 +1,19 @@
+{
+  "id": "web-quick-open-defaults",
+  "date": "2026-11-16",
+  "summary": "按图搜索更名，并将文字网站和识图引擎的初始默认统一为 Bing",
+  "changes": [
+    "匹配指令“以图搜图”更名为“按图搜索”，同步网站配置界面的图片搜索按钮、插件清单、图标来源和当前文档/教程。",
+    "初始安装时文字网站只勾选 Bing，百度与 Google 保留为可手动启用的条目；识图引擎只勾选 Bing 识图，Google Lens 默认不勾选。",
+    "已有配置继续保留用户显式勾选或清空的选择；仅缺少配置字段时使用新的 Bing 默认值。"
+  ],
+  "checks": [
+    "webQuickOpen 单测 5 项通过，新增初始默认只选中 Bing 网站和 Bing 识图引擎的用例。",
+    "完整单测 918 项通过，归档 .artifacts/runs/2026-11-16T11-55-43-688Z-unit。",
+    "源码 Electron web quick open 专项通过，归档 .artifacts/runs/2026-11-16T11-48-35-668Z-e2e；验证初始文字网站仅 Bing 勾选、识图引擎仅 Bing 勾选、文本菜单与图片搜索链路正常。",
+    "pnpm build、pnpm preview:sync 与 pnpm test:preview:resources 通过；版本 1.5.7，保留 175 个现有资料文件，核验 2138 个程序文件、353 个内置插件文件和 11842 个媒体依赖。收据 .artifacts/backups/preview-sync/update-1794829824863/preservation.json。",
+    "核对免安装预览的插件清单和 WebQuickOpen 构建资源均只包含“按图搜索”，不再包含“以图搜图”。",
+    "node scripts/check-docs.mjs、project-maintenance prepare/check 与 git diff --check 通过；回收上一份 1.46 GB 预览回退，保留最新回退与测试证据。"
+  ],
+  "pending": ["实际百度、Google 和 Google Lens 搜索结果仍受网络、账号和地区限制，保留人工验收。"]
+}

@@ -22,7 +22,21 @@ describe('native screenshot result delivery', () => {
     mocks.start.mockImplementation((_options, callback) => callback(result))
     const callback = vi.fn()
     screenWindow(callback, { autoConfirm: false })
-    expect(callback).toHaveBeenCalledWith(result.base64, { x: 1, y: 2, width: 900, height: 40000 })
+    expect(callback).toHaveBeenCalledWith(
+      result.base64,
+      { x: 1, y: 2, width: 900, height: 40000 },
+      false
+    )
+    expect(mocks.readImage).not.toHaveBeenCalled()
+  })
+
+  it('marks an OCR toolbar result so the host can open the recognition tool', () => {
+    mocks.start.mockImplementation((_options, callback) =>
+      callback({ success: true, base64: 'data:image/png;base64,ocr', ocr: true })
+    )
+    const callback = vi.fn()
+    screenWindow(callback)
+    expect(callback).toHaveBeenCalledWith('data:image/png;base64,ocr', expect.any(Object), true)
     expect(mocks.readImage).not.toHaveBeenCalled()
   })
 

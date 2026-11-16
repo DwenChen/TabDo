@@ -102,6 +102,8 @@ export interface ScreenCaptureResult {
   y?: number
   /** 截图 PNG 的 base64（成功时） */
   base64?: string
+  /** 原生工具栏选择“文字识别”时标记为 true，交宿主打开识别子组件 */
+  ocr?: boolean
 }
 
 /** UWP 应用激活结果与前台权限诊断信息。 */

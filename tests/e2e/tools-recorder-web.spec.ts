@@ -120,7 +120,10 @@ test('web quick open config, matched text/image, native recorder output and clea
     }
     let tools = await launch('web-quick-open')
     await expect(tools.getByLabel('搜索网址')).toHaveCount(3)
-    await tools.getByLabel('启用百度').uncheck()
+    // 初始安装只勾选 Bing，文字网站和识图引擎各保持一个默认选择。
+    await expect(tools.getByLabel('启用百度')).not.toBeChecked()
+    await expect(tools.getByLabel('启用Bing')).toBeChecked()
+    await expect(tools.getByLabel('启用Google')).not.toBeChecked()
     await tools.getByLabel('搜索文字').fill('中文 &?#')
     await tools.getByRole('button', { name: '保存设置' }).click()
     await expect(tools.getByRole('status')).toHaveText('已保存')
@@ -165,9 +168,11 @@ test('web quick open config, matched text/image, native recorder output and clea
     await expect.poll(() => tools.isClosed()).toBe(true)
     await expect.poll(() => menu.isClosed()).toBe(true)
     tools = await launch('web-quick-open')
+    // 前面为验证多网站菜单显式启用了百度，这里恢复为只启用 Bing。
     await tools.getByLabel('启用百度').uncheck()
     await tools.getByRole('button', { name: '识图引擎', exact: true }).click()
-    await tools.getByText('Google Lens', { exact: true }).locator('input').uncheck()
+    await expect(tools.getByText('Bing 识图', { exact: true }).locator('input')).toBeChecked()
+    await expect(tools.getByText('Google Lens', { exact: true }).locator('input')).not.toBeChecked()
     await tools.getByRole('button', { name: '保存设置' }).click()
     // 使用纯色合成图片和本地响应替身，网络探测不上传桌面或用户图片。
     const image = await tools.evaluate(() => {

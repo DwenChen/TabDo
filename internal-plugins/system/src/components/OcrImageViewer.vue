@@ -8,7 +8,7 @@ const props = defineProps({
   recognized: { type: Boolean, default: false },
   selectedText: { type: String, default: '' }
 })
-const emit = defineEmits(['select', 'copy'])
+const emit = defineEmits(['select'])
 const viewport = ref(null)
 const imageElement = ref(null)
 const layer = ref(null)
@@ -117,16 +117,6 @@ function selectLine(line) {
 }
 
 /**
- * 点击明细时替换已有浏览器选区，选择对应整行。
- * @param line 用户点击的识别行。
- * @returns 无返回值。
- */
-function selectDetail(line) {
-  clearSelection()
-  selectLine(line)
-}
-
-/**
  * 清除属于当前图片的选区，不影响其他输入框。
  * @returns 无返回值。
  */
@@ -219,27 +209,7 @@ onUnmounted(dispose)
         </div>
       </div>
     </div>
-    <template v-if="lines.length">
-      <p class="viewer-hint">点击标注选择整行，或在图中文字上拖选片段。悬停标注可查看原图坐标。</p>
-      <details class="line-details">
-        <summary>文字坐标与逐行结果（{{ lines.length }} 行）</summary>
-        <div
-          v-for="line in lines"
-          :key="line.index"
-          class="ocr-line"
-          :class="{ active: hovered === line.index }"
-          @mouseenter="hovered = line.index"
-          @mouseleave="hovered = -1"
-        >
-          <button @click="selectDetail(line)">
-            {{ line.text }}
-          </button>
-          <span>({{ line.left }}, {{ line.top }}) — ({{ line.right }}, {{ line.bottom }})</span>
-          <button @click="emit('copy', line.text)">复制此行</button>
-        </div>
-      </details>
-    </template>
-    <p v-else-if="recognized" class="viewer-hint">
+    <p v-if="!lines.length && recognized" class="viewer-hint">
       当前服务未返回有效文字坐标，可在下方识别结果中选择和复制文字。
     </p>
   </div>
@@ -315,22 +285,8 @@ img {
   color: transparent;
   background: rgba(25, 118, 210, 0.4);
 }
-.viewer-hint,
-.ocr-line span {
+.viewer-hint {
   color: var(--text-secondary);
   line-height: 1.7;
-}
-summary {
-  cursor: pointer;
-}
-.ocr-line {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  padding: 5px 0;
-  flex-wrap: wrap;
-}
-.ocr-line.active {
-  background: rgba(25, 118, 210, 0.1);
 }
 </style>

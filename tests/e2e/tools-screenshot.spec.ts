@@ -147,7 +147,7 @@ test('native tools screenshot keeps editing and confirms silently without transl
     expect(await app.evaluate(() => (globalThis as any).__captureResult)).toBeNull()
     nativePointer(`
       $factor=${factor}; $scale=[CaptureInput]::GetDpiForSystem()/96.0; $btn=[Math]::Round(32*$scale); $gap=[Math]::Round($scale); $pad=[Math]::Round(6*$scale); $border=[Math]::Round($scale);
-      $tw=19*($btn+$gap)-$gap+2*$pad+2*$border-2*($btn-[Math]::Floor($btn*3/8));
+      $tw=20*($btn+$gap)-$gap+2*$pad+2*$border-2*($btn-[Math]::Floor($btn*3/8));
       $left=${x}+(${endX - x}-$tw)/2; $by=[int](${endY}+[Math]::Round(6*$scale)+[Math]::Round(44*$scale)/2);
       function ClickPoint([int]$px,[int]$py) { [CaptureInput]::SetCursorPos($px,$py); Start-Sleep -Milliseconds 100; [CaptureInput]::mouse_event(2,0,0,0,[UIntPtr]::Zero); [CaptureInput]::mouse_event(4,0,0,0,[UIntPtr]::Zero); Start-Sleep -Milliseconds 100 }
       function Tool([int]$index) { ClickPoint ([int]($left+$pad+$border+($index+1)*($btn+$gap)+$btn/2)) $by }
@@ -156,6 +156,7 @@ test('native tools screenshot keeps editing and confirms silently without transl
       Tool 8; ClickPoint (${x}+80*$factor) (${y}+60*$factor); ClickPoint (${x}+180*$factor) (${y}+60*$factor);
       [CaptureInput]::keybd_event(17,0,0,[UIntPtr]::Zero); [CaptureInput]::keybd_event(90,0,0,[UIntPtr]::Zero); [CaptureInput]::keybd_event(90,0,2,[UIntPtr]::Zero); [CaptureInput]::keybd_event(17,0,2,[UIntPtr]::Zero);
       [CaptureInput]::keybd_event(17,0,0,[UIntPtr]::Zero); [CaptureInput]::keybd_event(89,0,0,[UIntPtr]::Zero); [CaptureInput]::keybd_event(89,0,2,[UIntPtr]::Zero); [CaptureInput]::keybd_event(17,0,2,[UIntPtr]::Zero);
+      Start-Sleep -Milliseconds 200;
       Tool 9; DragPoint (${x}+500*$factor) (${y}+200*$factor) (${x}+40*$factor) (${y}+30*$factor);
       DragPoint (${x}+400*$factor) (${y}+140*$factor) (${x}+620*$factor) (${y}+220*$factor);
     `)
@@ -283,7 +284,7 @@ test('native tools screenshot keeps editing and confirms silently without transl
       )
     )
     nativePointer(`
-      $scale = [CaptureInput]::GetDpiForSystem() / 96.0; $btn = [Math]::Round(32*$scale); $gap = [Math]::Round($scale); $pad=[Math]::Round(6*$scale); $border=[Math]::Round($scale); $tw=19*($btn+$gap)-$gap+2*$pad+2*$border-2*($btn-[Math]::Floor($btn*3/8)); $left=${x}+(${endX - x}-$tw)/2; $bx=[int]($left+$pad+$border+11*($btn+$gap)+$btn/2); $by=[int](${longEndY}+[Math]::Round(6*$scale)+[Math]::Round(44*$scale)/2); [CaptureInput]::SetCursorPos($bx,$by); [CaptureInput]::mouse_event(2,0,0,0,[UIntPtr]::Zero); [CaptureInput]::mouse_event(4,0,0,0,[UIntPtr]::Zero);
+      $scale = [CaptureInput]::GetDpiForSystem() / 96.0; $btn = [Math]::Round(32*$scale); $gap = [Math]::Round($scale); $pad=[Math]::Round(6*$scale); $border=[Math]::Round($scale); $tw=20*($btn+$gap)-$gap+2*$pad+2*$border-2*($btn-[Math]::Floor($btn*3/8)); $left=${x}+(${endX - x}-$tw)/2; $bx=[int]($left+$pad+$border+12*($btn+$gap)+$btn/2); $by=[int](${longEndY}+[Math]::Round(6*$scale)+[Math]::Round(44*$scale)/2); [CaptureInput]::SetCursorPos($bx,$by); [CaptureInput]::mouse_event(2,0,0,0,[UIntPtr]::Zero); [CaptureInput]::mouse_event(4,0,0,0,[UIntPtr]::Zero);
       $toolbar=[IntPtr]::Zero; for($i=0; $i -lt 50; $i++) { $toolbar=[CaptureInput]::FindWindow('ZToolsLongCaptureToolbar','LongCaptureToolbar'); if($toolbar -ne [IntPtr]::Zero) { break }; Start-Sleep -Milliseconds 50 }; if($toolbar -eq [IntPtr]::Zero) { throw ('Long capture toolbar not found: scale=' + $scale + ', click=' + $bx + ',' + $by) }`)
     for (let step = 1; step <= scrollSteps; step++) {
       await fixture.evaluate(async (distance) => {
@@ -307,8 +308,9 @@ test('native tools screenshot keeps editing and confirms silently without transl
       Buffer.from(longCapture.image.split(',')[1], 'base64')
     )
     expect(longCapture.size.height).toBeGreaterThan(30_000)
-    const continuity = await app.evaluate(({ clipboard }) => {
-      const image = clipboard.readImage()
+    const continuity = await app.evaluate(({ nativeImage }, png) => {
+      // 直接解码返回的长图，避免超长剪贴板位图在 Electron 中的解码上限影响连续性检查。
+      const image = nativeImage.createFromBuffer(Buffer.from(png.split(',')[1], 'base64'))
       const { width, height } = image.getSize()
       const bits = image.toBitmap()
       // 从原图色带定位身份列，兼容系统 DPI、窗口缩放与选区边缘舍入。
@@ -343,7 +345,7 @@ test('native tools screenshot keeps editing and confirms silently without transl
         gaps: gaps.slice(0, 12),
         gapCount: gaps.length
       }
-    })
+    }, longCapture.image)
     await fs.writeFile(
       testInfo.outputPath('long-screenshot-continuity.json'),
       JSON.stringify({ ...continuity, collectedEvaluations }, null, 2)
@@ -426,6 +428,40 @@ test('native tools screenshot keeps editing and confirms silently without transl
         })
       )
     ).toBe(true)
+
+    // 工具栏“文字识别”应关闭覆盖层、保留坐标并把选区交给识别子组件，同时不写入剪贴板。
+    await app.evaluate(({ app, clipboard }) => {
+      clipboard.writeText('ocr-sentinel')
+      ;(globalThis as any).__captureResult = null
+      ;(globalThis as any).__ocrLaunch = null
+      const command = process.mainModule!.require(
+        app.getAppPath() + '/src/main/api/renderer/systemCommands.ts'
+      )
+      void command
+        .executeSystemCommand('screenshot', {
+          mainWindow: null,
+          pluginManager: null,
+          launchFeature: async (code: string, param: any, name: string) => {
+            ;(globalThis as any).__ocrLaunch = { code, param, name }
+            return { success: true }
+          }
+        })
+        .then((result: any) => {
+          ;(globalThis as any).__captureResult = result
+        })
+    })
+    nativePointer(
+      `$capture = [IntPtr]::Zero; for($i=0; $i -lt 50; $i++) { $capture = [CaptureInput]::FindWindow('ZToolsScreenshotOverlay', 'Screenshot Overlay'); if($capture -ne [IntPtr]::Zero) { break }; Start-Sleep -Milliseconds 50 }; if($capture -eq [IntPtr]::Zero) { throw 'Capture overlay not found' }; [CaptureInput]::SetCursorPos(${x},${y}); [CaptureInput]::mouse_event(2,0,0,0,[UIntPtr]::Zero); Start-Sleep -Milliseconds 100; [CaptureInput]::SetCursorPos(${endX},${endY}); Start-Sleep -Milliseconds 100; [CaptureInput]::mouse_event(4,0,0,0,[UIntPtr]::Zero); Start-Sleep -Milliseconds 150;
+      $scale=[CaptureInput]::GetDpiForSystem()/96.0; $btn=[Math]::Round(32*$scale); $gap=[Math]::Round($scale); $pad=[Math]::Round(6*$scale); $border=[Math]::Round($scale); $tw=20*($btn+$gap)-$gap+2*$pad+2*$border-2*($btn-[Math]::Floor($btn*3/8)); $left=${x}+(${endX - x}-$tw)/2; $by=[int](${endY}+[Math]::Round(6*$scale)+[Math]::Round(44*$scale)/2); [CaptureInput]::SetCursorPos([int]($left+$pad+$border+11*($btn+$gap)+$btn/2),$by); Start-Sleep -Milliseconds 100; [CaptureInput]::mouse_event(2,0,0,0,[UIntPtr]::Zero); [CaptureInput]::mouse_event(4,0,0,0,[UIntPtr]::Zero)`
+    )
+    await expect.poll(captureComplete, { timeout: 30_000 }).toBe(true)
+    const ocrCapture = await app.evaluate(() => (globalThis as any).__captureResult)
+    expect(ocrCapture).toMatchObject({ success: true, ocr: true })
+    const ocrLaunch = await app.evaluate(() => (globalThis as any).__ocrLaunch)
+    expect(ocrLaunch).toMatchObject({ code: 'recognize', name: '文字识别' })
+    expect(ocrLaunch.param).toMatchObject({ type: 'img' })
+    expect(ocrLaunch.param.payload).toMatch(/^data:image\/png;base64,/)
+    expect(await app.evaluate(({ clipboard }) => clipboard.readText())).toBe('ocr-sentinel')
   } finally {
     await app?.close()
     await fs.rm(temporary, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })

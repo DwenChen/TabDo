@@ -823,7 +823,17 @@ export class AppsAPI {
             featureCode || '',
             {
               mainWindow: this.mainWindow,
-              pluginManager: this.pluginManager
+              pluginManager: this.pluginManager,
+              // 系统指令完成截图后可直接进入识别子组件，并让宿主窗口重新可见。
+              launchFeature: (targetCode, featureParam, targetName) =>
+                this.launch({
+                  path: appPath,
+                  type: 'plugin',
+                  featureCode: targetCode,
+                  name: targetName,
+                  cmdType: featureParam?.type || 'text',
+                  param: featureParam
+                })
             },
             param
           )

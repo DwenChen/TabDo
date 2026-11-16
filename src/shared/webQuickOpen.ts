@@ -14,7 +14,8 @@ export const imageSearchEngines = [
   { id: 'google-lens' as const, name: 'Google Lens' }
 ]
 export const defaultSearchWebsites: SearchWebsite[] = [
-  { id: 'baidu', name: '百度', url: 'https://www.baidu.com/s?wd={query}', enabled: true },
+  // 初始安装只启用 Bing，其他网站保留为可手动勾选的条目。
+  { id: 'baidu', name: '百度', url: 'https://www.baidu.com/s?wd={query}', enabled: false },
   { id: 'bing', name: 'Bing', url: 'https://www.bing.com/search?q={query}', enabled: true },
   { id: 'google', name: 'Google', url: 'https://www.google.com/search?q={query}', enabled: false }
 ]
@@ -56,7 +57,7 @@ export function normalizeWebQuickOpenConfig(
   value?: Partial<WebQuickOpenConfig> | null
 ): WebQuickOpenConfig {
   const sites = Array.isArray(value?.sites) ? value.sites : defaultSearchWebsites
-  const engines = Array.isArray(value?.imageEngines) ? value.imageEngines : ['bing', 'google-lens']
+  const engines = Array.isArray(value?.imageEngines) ? value.imageEngines : ['bing']
   return {
     sites: sites
       .slice(0, 30)

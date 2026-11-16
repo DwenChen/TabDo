@@ -59,7 +59,7 @@
 | 视频处理   | 视频处理       | `video-batch`            | clapperboard         |
 | 网页快开   | 网页快开       | `web-quick-open`         | globe                |
 | 网页快开   | 网页搜索       | `web-search-text`        | search               |
-| 网页快开   | 以图搜图       | `web-search-image`       | scan-search          |
+| 网页快开   | 按图搜索       | `web-search-image`       | scan-search          |
 | 图片识别   | 文字识别       | `recognize`              | scan-text            |
 | 图片识别   | 公式识别       | `latex-recognize`        | sigma                |
 

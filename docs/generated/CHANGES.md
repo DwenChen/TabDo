@@ -2,6 +2,67 @@
 
 > 自动生成；原始记录在 [entries](../history/entries/)。
 
+## 2026-11-16 · 发布并核验 TabDo 1.5.8
+
+记录：[release-1.5.8](../../docs/history/entries/2026-11-16-03-release-1.5.8.json)；版本：1.5.8。
+
+- 整合截图工具栏文字识别入口、文字识别结果页整理、便签跨边缘拖动修复与透明便签修复。
+- 整合“按图搜索”更名，以及文字网站和识图引擎初始默认只勾选 Bing。
+- 更新 package.json、README 与更新说明，对照源码审校截图说明、工具清单、开发规范、应用内和仓库教程。
+- 稳定源码 E2E：键盘撤销/重做后等待 200 毫秒再点击工具栏，避免首个点击被吞；便签右边缘断言等待收展动画完成后再读取最终几何。
+
+- 验证：pnpm typecheck:node、typecheck:web 与 typecheck:setting 通过；本机未安装全局 pnpm，构建与检查通过 corepack pnpm 执行。
+- 验证：完整单测 135 个文件、918 项通过，归档 .artifacts/runs/2026-11-16T12-29-57-582Z-unit。
+- 验证：源码 Electron 的截图、内置提供商、网页快开和便签四项 E2E 通过，归档 .artifacts/runs/2026-11-16T12-52-47-663Z-e2e。查看 native-screenshot-toolbar.png 确认聚光灯压暗、序号圆圈、荧光笔和新增文字识别图标；查看 ocr-coordinate-selection.png 确认识别页无更换图片和逐行坐标栏，复制结果按钮为中性常态；查看 web-quick-open-light.png 确认只有 Bing 勾选且按钮为“按图搜索”。
+- 验证：首轮 E2E 受前台 Edge 全屏视频遮挡，截图像素断言失效；关闭视频后重跑。另发现键盘撤销/重做后的工具栏点击偶发被吞、便签右边缘读到收展动画中间帧，补充等待后两项均通过，未降低产品断言。
+- 验证：pnpm build 通过；pnpm preview:sync 同步 1.5.8，保留 176 个现有资料文件，核验 2139 个程序文件。收据 .artifacts/backups/preview-sync/update-1794833828739/preservation.json。pnpm test:preview:resources 核验 2138 个程序文件、353 个内置插件文件和 11842 个媒体依赖。
+- 验证：pnpm maintain、pnpm maintain:check、pnpm docs:check 与 git diff --check 通过（38 个文档、260 个本地链接、40 个功能、16 章教程、74 个步骤）。
+- 验证：pnpm lint 仍报告 CallAiSetting.vue 等本轮未修改文件的既有规则错误与警告，未纳入本次发布范围。
+
+## 2026-11-16 · 按图搜索更名，并将文字网站和识图引擎的初始默认统一为 Bing
+
+记录：[web-quick-open-defaults](../../docs/history/entries/2026-11-16-02-web-quick-open-defaults.json)；版本：未发布。
+
+- 匹配指令“以图搜图”更名为“按图搜索”，同步网站配置界面的图片搜索按钮、插件清单、图标来源和当前文档/教程。
+- 初始安装时文字网站只勾选 Bing，百度与 Google 保留为可手动启用的条目；识图引擎只勾选 Bing 识图，Google Lens 默认不勾选。
+- 已有配置继续保留用户显式勾选或清空的选择；仅缺少配置字段时使用新的 Bing 默认值。
+
+- 验证：webQuickOpen 单测 5 项通过，新增初始默认只选中 Bing 网站和 Bing 识图引擎的用例。
+- 验证：完整单测 918 项通过，归档 .artifacts/runs/2026-11-16T11-55-43-688Z-unit。
+- 验证：源码 Electron web quick open 专项通过，归档 .artifacts/runs/2026-11-16T11-48-35-668Z-e2e；验证初始文字网站仅 Bing 勾选、识图引擎仅 Bing 勾选、文本菜单与图片搜索链路正常。
+- 验证：pnpm build、pnpm preview:sync 与 pnpm test:preview:resources 通过；版本 1.5.7，保留 175 个现有资料文件，核验 2138 个程序文件、353 个内置插件文件和 11842 个媒体依赖。收据 .artifacts/backups/preview-sync/update-1794829824863/preservation.json。
+- 验证：核对免安装预览的插件清单和 WebQuickOpen 构建资源均只包含“按图搜索”，不再包含“以图搜图”。
+- 验证：node scripts/check-docs.mjs、project-maintenance prepare/check 与 git diff --check 通过；回收上一份 1.46 GB 预览回退，保留最新回退与测试证据。
+
+## 2026-11-16 · 截图工具栏新增文字识别入口，并整理文字识别结果区
+
+记录：[screenshot-ocr-and-recognition-ui](../../docs/history/entries/2026-11-16-01-screenshot-ocr-and-recognition-ui.json)；版本：未发布。
+
+- 原生截图工具栏在长截图前新增“文字识别”图标：按当前选区（含已确认标注）编码 PNG 后关闭覆盖层，回传 ocr 标记，由宿主直接打开文字识别子组件；该路径不写入剪贴板。
+- 截图补丁脚本新增 TB_Ocr 枚举、图标数组、提示、点击裁剪和结果字段，并兼容新版 binutils 的导出符号格式。
+- 文字识别页移除原始图片说明、图上选文说明、新图片提示、翻译方向说明、更换图片按钮和“文字坐标与逐行结果”折叠栏。
+- 复制结果与复制译文恢复常态，所有按钮在悬停和按下时使用主题强调色；图上选中文字卡片出现后自动滚动到结果区视觉中心。
+- 修复共享图标清单回归：文字识别图标不再写入 actions，避免悬浮内容页查找不存在的 #ocr 按钮后中断初始化，导致便签透明。
+- 修复收起便签跨边缘拖动：释放时重新判定最终贴靠，拖到另一边缘后继续收起，不再停留在展开态并卡在边缘。
+- 同步截图说明、工具开发规范、应用内教程和仓库教程。
+
+- 验证：135 个单测文件、916 项测试通过，归档 .artifacts/runs/2026-11-16T10-29-22-368Z-unit。
+- 验证：源码 Electron 同时运行 builtin-providers 与 native screenshot 专项 2 项通过，归档 .artifacts/runs/2026-11-16T10-31-12-483Z-e2e；覆盖识别页移除的文本与入口、复制按钮常态/悬停色、选中卡片居中，以及截图工具栏文字识别关闭覆盖层、交付 data URL 且不写入剪贴板。
+- 验证：查看 ocr-coordinate-selection.png 和 ocr-translation-result.png，确认原始图片栏无多余说明、选中卡片居中、复制结果按钮常态为中性色且悬停按钮显示强调色；查看 native-screenshot-toolbar.png 确认新增图标可见。
+- 验证：长截图连续性首轮读取超长剪贴板位图得到 0×0，改为直接解码原生返回的 base64 长图后通过；工具栏悬停点击偶发未切换，复跑通过，未降低产品断言。
+- 验证：node scripts/check-docs.mjs 通过（38 个文档、260 个本地链接、40 个功能、16 章教程）；project-maintenance prepare/check 通过；tsc 与 vue-tsc 通过。
+- 验证：重建 .local/portable-preview：本地 pnpm build 通过，使用 electron-builder --dir 产出未打包程序树；最后的 winCodeSign 解压因当前用户无符号链接权限失败，但程序树、app.asar 与内置插件已完整生成并用作预览基线。
+- 验证：pnpm preview:sync 通过：程序文件 2139 项，data/legacy 原有文件 0 项，版本 1.5.7。pnpm test:preview:resources 通过，核验 2138 个程序文件、353 个内置插件文件和 11842 个媒体依赖。
+- 验证：使用独立临时数据根启动打包成品，主进程和子进程正常运行，随后结束并清理；.local/portable-preview 的 data/legacy 仍为空。
+- 验证：首次手动启动预览出现旧版更新迁移提示；原因是重建基线缺少 resources/app-update.yml。补充与 electron-builder publish 配置一致的 app-update.yml 后，预览按便携版检查更新，不再弹出迁移提示。
+- 验证：针对便签透明问题复现打包预览：页面抛出 Cannot set properties of null (setting 'innerHTML')，body 缺少 data-kind。移除共享 actions 中的 ocr 后再次打开便签，data-kind 为 text，纸张背景为 rgb(243, 240, 189)，标题栏和正文恢复。
+- 验证：源码 Electron 便签专项通过，归档 .artifacts/runs/2026-11-16T11-21-03-229Z-e2e；剪贴板专项通过，归档 .artifacts/runs/2026-11-16T11-21-38-672Z-e2e。tools-polish 首次在剪贴板标签可见性处超时，未复现为便签问题。
+- 验证：floating-pointer 真实系统鼠标 E2E 通过，归档 .artifacts/runs/2026-11-16T11-32-49-239Z-e2e；新增左侧收起色签拖到右边缘后 data-edge=right、data-dock=collapsed、宽度不超过 22 且完全位于工作区内的断言。
+- 验证：floatingPointer 单测 14 项通过；新增收起色签拖离左边缘后在右侧释放、最终收起为右侧色签的用例。
+- 验证：第二次 preview:sync 保留 174 个现有资料文件，验证 2138 个程序文件、353 个内置插件文件和 11842 个媒体依赖。
+- 验证：便签跨边缘拖动修复后重新构建主进程并执行 preview:sync，保留 174 个现有资料文件，验证通过；收据 .artifacts/backups/preview-sync/update-1794828849532/preservation.json。
+- 验证：回收本轮下载并解压的 MinGW 工具链、固定提交源码副本、打包暂存 dist 和更旧预览回退，共约 5.09 GB；保留预览、最新程序回退、构建日志与测试证据。
+
 ## 2026-11-14 · 发布并核验 TabDo 1.5.7
 
 记录：[release-1.5.7](../../docs/history/entries/2026-11-14-02-release-1.5.7.json)；版本：1.5.7。

@@ -96,14 +96,19 @@ test('native dragging docks notes and OS pointer entry exposes a clickable image
     }
 
     /**
-     * 用系统鼠标按住收起色签，沿所属边缘拖动指定距离。
+     * 用系统鼠标按住收起色签，沿所属边缘拖动指定距离，或拖到指定工作区位置。
      * @param id 独立窗口标识。
      * @param distance 沿边缘移动的像素距离（正数向下或向右）。
+     * @param target 可选的绝对 DIP 目标点，用于跨边缘拖动。
      * @returns 拖动完成后的 Promise。
      */
-    async function dragTabAlong(id: number, distance: number): Promise<void> {
+    async function dragTabAlong(
+      id: number,
+      distance: number,
+      target?: { x: number; y: number }
+    ): Promise<void> {
       await app.evaluate(
-        async ({ app, BrowserWindow, screen }, { id, distance }) => {
+        async ({ app, BrowserWindow, screen }, { id, distance, target }) => {
           const win = BrowserWindow.fromId(id)!
           // 等收起动画结束再按住色签，避免按在过渡中的位置。
           let previous = win.getBounds()
@@ -122,9 +127,11 @@ test('native dragging docks notes and OS pointer entry exposes a clickable image
           const b = win.getBounds()
           const vertical = b.height > b.width
           const startDip = { x: b.x + b.width / 2, y: b.y + b.height / 2 }
-          const endDip = vertical
-            ? { x: startDip.x, y: startDip.y + distance }
-            : { x: startDip.x + distance, y: startDip.y }
+          const endDip =
+            target ??
+            (vertical
+              ? { x: startDip.x, y: startDip.y + distance }
+              : { x: startDip.x + distance, y: startDip.y })
           const start = screen.dipToScreenPoint(startDip)
           const end = screen.dipToScreenPoint(endDip)
           await new Promise<void>((resolve, reject) =>
@@ -153,7 +160,7 @@ test('native dragging docks notes and OS pointer entry exposes a clickable image
               )
           )
         },
-        { id, distance }
+        { id, distance, target }
       )
     }
 
@@ -273,6 +280,49 @@ test('native dragging docks notes and OS pointer entry exposes a clickable image
     expect(Math.abs(tabAfter.x - tabBefore.x)).toBeLessThanOrEqual(2)
     expect(tabAfter.width).toBeLessThanOrEqual(22)
     await expect(note.locator('body')).toHaveAttribute('data-dock', 'collapsed')
+    // 收起色签拖到另一边缘后应继续贴靠并收起，不能在展开态卡住。
+    const workArea = await app.evaluate(({ screen }) => screen.getPrimaryDisplay().workArea)
+    await dragTabAlong(noteId, 0, {
+      x: workArea.x + workArea.width - 20,
+      y: workArea.y + workArea.height / 2
+    })
+    await expect(note.locator('body')).toHaveAttribute('data-edge', 'right')
+    await expect(note.locator('body')).toHaveAttribute('data-dock', 'collapsed')
+    await expect
+      .poll(() =>
+        app.evaluate(({ BrowserWindow }, id) => BrowserWindow.fromId(id)!.getBounds().width, noteId)
+      )
+      .toBeLessThanOrEqual(22)
+    // 收展使用分帧动画：等右边缘真正收进工作区后再读取最终几何，避免读到中间帧。
+    await expect
+      .poll(() =>
+        app.evaluate(
+          ({ BrowserWindow, screen }, id) => {
+            const bounds = BrowserWindow.fromId(id)!.getBounds()
+            const area = screen.getPrimaryDisplay().workArea
+            return bounds.x + bounds.width - (area.x + area.width)
+          },
+          noteId
+        )
+      )
+      .toBeLessThanOrEqual(2)
+    const rightTab = await app.evaluate(
+      ({ BrowserWindow, screen }, id) => ({
+        bounds: BrowserWindow.fromId(id)!.getBounds(),
+        area: screen.getPrimaryDisplay().workArea
+      }),
+      noteId
+    )
+    expect(rightTab.bounds.x + rightTab.bounds.width).toBeGreaterThanOrEqual(
+      rightTab.area.x + rightTab.area.width - 2
+    )
+    expect(rightTab.bounds.x + rightTab.bounds.width).toBeLessThanOrEqual(
+      rightTab.area.x + rightTab.area.width + 2
+    )
+    expect(rightTab.bounds.y).toBeGreaterThanOrEqual(rightTab.area.y)
+    expect(rightTab.bounds.y + rightTab.bounds.height).toBeLessThanOrEqual(
+      rightTab.area.y + rightTab.area.height
+    )
     // 点击色签解除贴靠并恢复完整纸张。
     await note.locator('#note-dock-tab').click()
     await expect(note.locator('body')).toHaveAttribute('data-edge', '')

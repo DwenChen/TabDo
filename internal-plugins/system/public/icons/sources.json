@@ -237,7 +237,7 @@
     },
     {
       "code": "web-search-image",
-      "name": "以图搜图",
+      "name": "按图搜索",
       "group": "网页快开",
       "icon": "scan-search",
       "color": "#2589ac"

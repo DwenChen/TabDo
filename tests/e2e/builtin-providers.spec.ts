@@ -396,6 +396,22 @@ test('builtin providers configure in settings, reuse AI, download safely and rel
     await expect(tools.getByLabel('处理结果')).toHaveValue(
       /离线识别成功\|\d+\|\d+\nHELLO WORLD\nSECOND LINE/
     )
+    // 识别页只保留结果所需元素，复制按钮默认不高亮，悬停才使用强调色。
+    await expect(tools.getByText('更换图片', { exact: true })).toHaveCount(0)
+    await expect(tools.getByText('拖入或粘贴图片，自动识别', { exact: true })).toHaveCount(0)
+    await expect(tools.getByText('新图片会自动识别', { exact: true })).toHaveCount(0)
+    await expect(tools.locator('.line-details')).toHaveCount(0)
+    await expect(tools.getByText(/使用当前图上选文|使用完整识别文本/)).toHaveCount(0)
+    const copyResult = tools.getByRole('button', { name: '复制结果' })
+    await expect(copyResult).not.toHaveClass(/primary/)
+    const copyIdleBackground = await copyResult.evaluate(
+      (element) => getComputedStyle(element).backgroundColor
+    )
+    await copyResult.hover()
+    expect(
+      await copyResult.evaluate((element) => getComputedStyle(element).backgroundColor)
+    ).not.toBe(copyIdleBackground)
+    await tools.mouse.move(0, 0)
     const pids = (await tools.getByLabel('处理结果').inputValue())
       .split('\n')[0]
       .split('|')
@@ -435,6 +451,24 @@ test('builtin providers configure in settings, reuse AI, download safely and rel
     await tools.getByRole('button', { name: '适应宽度' }).click()
     await firstBox.click()
     await expect(tools.getByLabel('图上选中文字')).toHaveValue('HELLO WORLD')
+    // 图上选文按钮使用悬停强调色，选中卡片出现后自动滚到结果区中心。
+    const copySelection = tools.getByRole('button', { name: '复制选中文字' })
+    const selectionIdleBackground = await copySelection.evaluate(
+      (element) => getComputedStyle(element).backgroundColor
+    )
+    await copySelection.hover()
+    expect(
+      await copySelection.evaluate((element) => getComputedStyle(element).backgroundColor)
+    ).not.toBe(selectionIdleBackground)
+    await expect
+      .poll(() =>
+        tools.evaluate(() => {
+          const scroll = document.querySelector('.result-scroll')!.getBoundingClientRect()
+          const card = document.querySelector('.selection-card')!.getBoundingClientRect()
+          return Math.abs(card.top + card.height / 2 - (scroll.top + scroll.height / 2))
+        })
+      )
+      .toBeLessThan(90)
     await captureTools('ocr-coordinate-selection.png')
     await tools.getByRole('button', { name: '翻译', exact: true }).click()
     await expect(tools.getByLabel('翻译结果', { exact: true })).toHaveValue('你好，世界')
@@ -456,11 +490,6 @@ test('builtin providers configure in settings, reuse AI, download safely and rel
     await tools.getByRole('button', { name: '复制选中文字' }).click()
     expect(await app.evaluate(({ clipboard }) => clipboard.readText())).toBe('HELLO')
     await tools.getByRole('button', { name: '清除选区' }).click()
-    await tools.locator('.line-details summary').click()
-    await expect(tools.getByText('(60, 40) — (600, 100)', { exact: true })).toBeVisible()
-    await tools.locator('.ocr-line').nth(1).hover()
-    await expect(tools.locator('.ocr-box[data-line="2"]')).toHaveClass(/active/)
-    await tools.locator('.line-details summary').click()
     await tools.getByRole('button', { name: '翻译', exact: true }).click()
     await expect(tools.getByLabel('翻译结果', { exact: true })).toHaveValue('你好，世界')
     expect(

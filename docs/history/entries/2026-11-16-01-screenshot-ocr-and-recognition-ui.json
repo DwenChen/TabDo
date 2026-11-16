@@ -1,0 +1,38 @@
+{
+  "id": "screenshot-ocr-and-recognition-ui",
+  "date": "2026-11-16",
+  "summary": "截图工具栏新增文字识别入口，并整理文字识别结果区",
+  "changes": [
+    "原生截图工具栏在长截图前新增“文字识别”图标：按当前选区（含已确认标注）编码 PNG 后关闭覆盖层，回传 ocr 标记，由宿主直接打开文字识别子组件；该路径不写入剪贴板。",
+    "截图补丁脚本新增 TB_Ocr 枚举、图标数组、提示、点击裁剪和结果字段，并兼容新版 binutils 的导出符号格式。",
+    "文字识别页移除原始图片说明、图上选文说明、新图片提示、翻译方向说明、更换图片按钮和“文字坐标与逐行结果”折叠栏。",
+    "复制结果与复制译文恢复常态，所有按钮在悬停和按下时使用主题强调色；图上选中文字卡片出现后自动滚动到结果区视觉中心。",
+    "修复共享图标清单回归：文字识别图标不再写入 actions，避免悬浮内容页查找不存在的 #ocr 按钮后中断初始化，导致便签透明。",
+    "修复收起便签跨边缘拖动：释放时重新判定最终贴靠，拖到另一边缘后继续收起，不再停留在展开态并卡在边缘。",
+    "同步截图说明、工具开发规范、应用内教程和仓库教程。"
+  ],
+  "checks": [
+    "135 个单测文件、916 项测试通过，归档 .artifacts/runs/2026-11-16T10-29-22-368Z-unit。",
+    "源码 Electron 同时运行 builtin-providers 与 native screenshot 专项 2 项通过，归档 .artifacts/runs/2026-11-16T10-31-12-483Z-e2e；覆盖识别页移除的文本与入口、复制按钮常态/悬停色、选中卡片居中，以及截图工具栏文字识别关闭覆盖层、交付 data URL 且不写入剪贴板。",
+    "查看 ocr-coordinate-selection.png 和 ocr-translation-result.png，确认原始图片栏无多余说明、选中卡片居中、复制结果按钮常态为中性色且悬停按钮显示强调色；查看 native-screenshot-toolbar.png 确认新增图标可见。",
+    "长截图连续性首轮读取超长剪贴板位图得到 0×0，改为直接解码原生返回的 base64 长图后通过；工具栏悬停点击偶发未切换，复跑通过，未降低产品断言。",
+    "node scripts/check-docs.mjs 通过（38 个文档、260 个本地链接、40 个功能、16 章教程）；project-maintenance prepare/check 通过；tsc 与 vue-tsc 通过。",
+    "重建 .local/portable-preview：本地 pnpm build 通过，使用 electron-builder --dir 产出未打包程序树；最后的 winCodeSign 解压因当前用户无符号链接权限失败，但程序树、app.asar 与内置插件已完整生成并用作预览基线。",
+    "pnpm preview:sync 通过：程序文件 2139 项，data/legacy 原有文件 0 项，版本 1.5.7。pnpm test:preview:resources 通过，核验 2138 个程序文件、353 个内置插件文件和 11842 个媒体依赖。",
+    "使用独立临时数据根启动打包成品，主进程和子进程正常运行，随后结束并清理；.local/portable-preview 的 data/legacy 仍为空。",
+    "首次手动启动预览出现旧版更新迁移提示；原因是重建基线缺少 resources/app-update.yml。补充与 electron-builder publish 配置一致的 app-update.yml 后，预览按便携版检查更新，不再弹出迁移提示。",
+    "针对便签透明问题复现打包预览：页面抛出 Cannot set properties of null (setting 'innerHTML')，body 缺少 data-kind。移除共享 actions 中的 ocr 后再次打开便签，data-kind 为 text，纸张背景为 rgb(243, 240, 189)，标题栏和正文恢复。",
+    "源码 Electron 便签专项通过，归档 .artifacts/runs/2026-11-16T11-21-03-229Z-e2e；剪贴板专项通过，归档 .artifacts/runs/2026-11-16T11-21-38-672Z-e2e。tools-polish 首次在剪贴板标签可见性处超时，未复现为便签问题。",
+    "floating-pointer 真实系统鼠标 E2E 通过，归档 .artifacts/runs/2026-11-16T11-32-49-239Z-e2e；新增左侧收起色签拖到右边缘后 data-edge=right、data-dock=collapsed、宽度不超过 22 且完全位于工作区内的断言。",
+    "floatingPointer 单测 14 项通过；新增收起色签拖离左边缘后在右侧释放、最终收起为右侧色签的用例。",
+    "第二次 preview:sync 保留 174 个现有资料文件，验证 2138 个程序文件、353 个内置插件文件和 11842 个媒体依赖。",
+    "便签跨边缘拖动修复后重新构建主进程并执行 preview:sync，保留 174 个现有资料文件，验证通过；收据 .artifacts/backups/preview-sync/update-1794828849532/preservation.json。",
+    "回收本轮下载并解压的 MinGW 工具链、固定提交源码副本、打包暂存 dist 和更旧预览回退，共约 5.09 GB；保留预览、最新程序回退、构建日志与测试证据。"
+  ],
+  "pending": [
+    "通过 PreviewPortable.cmd 使用预览数据进行实际鼠标操作和深色主题验收。",
+    "深色主题、非 100% DPI、多显示器下的原生工具栏观感仍需人工验收。",
+    "macOS 截图仍使用独立原生模块，未包含本次 Windows 工具栏按钮。",
+    "后续从零重建预览时须保留 resources/app-update.yml；preview:sync 只替换 app.asar 与展开目录。"
+  ]
+}

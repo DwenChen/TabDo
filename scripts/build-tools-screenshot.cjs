@@ -64,20 +64,44 @@ function main() {
   }
   patch('src/screenshot/windows/sc_types.h', (s) =>
     s
-      .replace(/ {4}TB_Translate,[^\n]*\n/, '')
+      .replace(/ {4}TB_Translate,[^\n]*\n/, '    TB_Ocr,             // 文字识别\n')
+      .replace(
+        '    std::string base64;\n};',
+        '    std::string base64;\n    bool ocr = false;       // 文字识别结果，交由宿主打开识别子组件。\n};'
+      )
       .replace(
         '    TB_Count\n};',
         '    TB_Count\n};\n// 工具栏不再包含翻译；保留不可命中的内部值，避免改动其他标注和长截图逻辑。\nstatic constexpr int TB_Translate = -100;'
       )
   )
   // 标注数据、输入和绘制必须来自同一固定版本，再一次性扩展新增工具。
-  for (const file of ['sc_annotations.h', 'capture_context.h', 'overlay_input_windows.cpp']) {
+  for (const file of ['sc_annotations.h', 'capture_context.h']) {
     patch('src/screenshot/windows/' + file, (s) => s)
   }
-  patch('src/screenshot/windows/internal.h', (s) =>
+  patch('src/screenshot/windows/overlay_input_windows.cpp', (s) =>
     s.replace(
-      'int CalcToolbarWidth(const SCToolbarMetrics& m);',
-      `/**
+      '            // 翻译：OCR 识别选区文字 → 翻译 → 译文覆盖原文字区域（流程见 translate_windows.cpp）。',
+      `            // 文字识别：提取选区并关闭截图，由宿主直接打开识别子组件。
+            if (b == TB_Ocr) {
+                ScreenshotResult* result = ExtractRegionForOcr(ctx->memDC, ctx->selection,
+                    ctx->virtualX, ctx->virtualY, ctx->dpiScale, ctx->annotations,
+                    ctx->selectionCornerRadius, ctx->mosaicSizeIdx, ctx->translateBlocks);
+                // 与确定共用结果发射口，保留坐标并标记 OCR 以便宿主分流。
+                EmitScreenshotResult(result->success, result->x, result->y, result->x2, result->y2,
+                                     result->width, result->height, result->base64, result->ocr);
+                delete result;
+                ctx->state = CS_Done;
+                DestroyWindow(hwnd);
+                return 0;
+            }
+            // 翻译：OCR 识别选区文字 → 翻译 → 译文覆盖原文字区域（流程见 translate_windows.cpp）。`
+    )
+  )
+  patch('src/screenshot/windows/internal.h', (s) =>
+    s
+      .replace(
+        'int CalcToolbarWidth(const SCToolbarMetrics& m);',
+        `/**
  * Return the compact separator or normal button width.
  * @param btn Toolbar button index.
  * @param m DPI-scaled toolbar metrics.
@@ -92,7 +116,31 @@ int ToolbarButtonWidth(int btn, const SCToolbarMetrics& m);
  */
 int ToolbarButtonOffset(int btn, const SCToolbarMetrics& m);
 int CalcToolbarWidth(const SCToolbarMetrics& m);`
-    )
+      )
+      .replace(
+        '    const std::vector<TranslateBlock>& translateBlocks = {});',
+        `    const std::vector<TranslateBlock>& translateBlocks = {});
+/**
+ * Extract the selected region for text recognition without touching the clipboard.
+ * @param memDC Primed screenshot bitmap.
+ * @param rect Selection in logical screen coordinates.
+ * @param vx Virtual screen horizontal origin.
+ * @param vy Virtual screen vertical origin.
+ * @param dpiScale Physical pixel scale.
+ * @param anns Committed annotations.
+ * @param radius Selection corner radius.
+ * @param mosaicSizeIdx Mosaic block size index.
+ * @param translateBlocks Rendered translation overlays.
+ * @returns A result marked for OCR; the caller owns it.
+ */
+ScreenshotResult* ExtractRegionForOcr(HDC memDC, const RECT& rect, int vx, int vy,
+    double dpiScale, const std::vector<Annotation>& anns, int radius, int mosaicSizeIdx,
+    const std::vector<TranslateBlock>& translateBlocks);`
+      )
+      .replace(
+        'int width = 0, int height = 0, const std::string& base64 = "");',
+        'int width = 0, int height = 0, const std::string& base64 = "", bool ocr = false);'
+      )
   )
   patch('src/screenshot/windows/icons_windows.cpp', (s) =>
     s.replace(
@@ -177,6 +225,84 @@ int HitTestToolbar(int x, int y, const RECT& toolbarRect, const SCToolbarMetrics
       .replace(
         'InvalidateRect(hwnd, &InflateRectBy(line, 4), FALSE);',
         'const RECT dirtyLine = InflateRectBy(line, 4);\n    InvalidateRect(hwnd, &dirtyLine, FALSE);'
+      )
+  )
+  // 文字识别复用选区导出模型，但不写入剪贴板，避免用户未确认时产生额外复制。
+  patch('src/screenshot/windows/output_windows.cpp', (s) =>
+    s.replace(
+      '// ==================== 保存对话框辅助 ====================',
+      `/**
+ * Extract the selected region for text recognition without writing the clipboard.
+ * @param memDC Primed screenshot bitmap.
+ * @param rect Selection in logical screen coordinates.
+ * @param vx Virtual screen horizontal origin.
+ * @param vy Virtual screen vertical origin.
+ * @param dpiScale Physical pixel scale.
+ * @param anns Committed annotations.
+ * @param radius Selection corner radius.
+ * @param mosaicSizeIdx Mosaic block size index.
+ * @param translateBlocks Rendered translation overlays.
+ * @returns A result marked for OCR; the caller owns it.
+ */
+ScreenshotResult* ExtractRegionForOcr(HDC memDC, const RECT& rect, int vx, int vy,
+    double dpiScale, const std::vector<Annotation>& anns, int radius, int mosaicSizeIdx,
+    const std::vector<TranslateBlock>& translateBlocks) {
+    ScreenshotResult* result = new ScreenshotResult();
+    result->ocr = true;
+    int width = rect.right - rect.left;
+    int height = rect.bottom - rect.top;
+    result->x = rect.left;
+    result->y = rect.top;
+    result->x2 = rect.right;
+    result->y2 = rect.bottom;
+    result->width = width;
+    result->height = height;
+    if (width <= 0 || height <= 0) return result;
+
+    if (radius > 0) {
+        HDC finalDC = NULL; void* finalBits = NULL; int fw = 0, fh = 0;
+        HBITMAP finalBmp = BuildRoundedArgbFinal(memDC, rect, vx, vy, dpiScale, anns, radius,
+                                                 mosaicSizeIdx, translateBlocks,
+                                                 finalDC, finalBits, fw, fh);
+        if (finalBmp && finalBits) {
+            std::string png;
+            if (EncodePremulArgbPng(finalBits, fw, fh, fw * 4, &png, nullptr)) {
+                result->base64 = png;
+                result->success = true;
+            }
+        }
+        if (finalDC) DeleteDC(finalDC);
+        if (finalBmp) DeleteObject(finalBmp);
+        return result;
+    }
+
+    HDC finalDC = NULL; HBITMAP finalBmp = NULL;
+    if (ComposeSelectedBitmap(memDC, rect, vx, vy, dpiScale, anns, mosaicSizeIdx,
+                              translateBlocks, finalDC, finalBmp)) {
+        result->base64 = BitmapToBase64Png(finalBmp);
+        result->success = !result->base64.empty();
+    }
+    DeleteDC(finalDC);
+    DeleteObject(finalBmp);
+    return result;
+}
+
+// ==================== 保存对话框辅助 ====================`
+    )
+  )
+  patch('src/screenshot/windows/session_windows.cpp', (s) =>
+    s
+      .replace(
+        'int width, int height, const std::string& base64) {',
+        'int width, int height, const std::string& base64, bool ocr) {'
+      )
+      .replace(
+        '    result->base64 = base64;',
+        '    result->base64 = base64;\n    result->ocr = ocr;'
+      )
+      .replace(
+        '            napi_set_named_property(env, resultObj, "base64", base64);',
+        '            napi_set_named_property(env, resultObj, "base64", base64);\n            if (result->ocr) {\n                napi_value ocr;\n                napi_get_boolean(env, true, &ocr);\n                napi_set_named_property(env, resultObj, "ocr", ocr);\n            }'
       )
   )
   patch('src/screenshot/windows/lc_panel_ui_windows.cpp', (s) =>
@@ -305,7 +431,8 @@ NODE_API_MODULE(tabdo_screenshot, Init)
     windowsHide: true,
     maxBuffer: 50 * 1024 * 1024
   })
-  const names = [...exportsText.matchAll(/\]\s+((?:napi_|node_api_)[A-Za-z0-9_]+)\s*$/gm)].map(
+  // 新版 binutils 在名称前插入 +base[序号] 和地址，按行尾名称解析以兼容两种格式。
+  const names = [...exportsText.matchAll(/\b((?:napi_|node_api_)[A-Za-z0-9_]+)\s*$/gm)].map(
     (match) => match[1]
   )
   if (names.length < 100)

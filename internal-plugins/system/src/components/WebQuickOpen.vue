@@ -172,7 +172,7 @@ onUnmounted(dispose)
       <input v-model="query" aria-label="搜索文字" placeholder="输入文字，在启用的网站中搜索" />
       <button class="primary" :disabled="busy || !query.trim()">文本搜索</button>
       <label class="image-button"
-        >以图搜图<input
+        >按图搜索<input
           type="file"
           accept="image/png,image/jpeg,image/webp,image/gif,image/bmp"
           @change="chooseImage"

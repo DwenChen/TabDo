@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import OcrImageViewer from './OcrImageViewer.vue'
 import katex from 'katex'
 import 'katex/dist/katex.min.css'
@@ -61,6 +61,8 @@ const translationDirection = computed(() => {
   }
   return `${labels[preferences.from || 'auto'] || preferences.from} → ${labels[preferences.to || 'zh-CN'] || preferences.to}`
 })
+const resultScroll = ref(null)
+const selectionCard = ref(null)
 const cleanup = new Set()
 let disposed = false
 let currentRequest = ''
@@ -257,6 +259,26 @@ function selectText(text) {
 }
 
 /**
+ * 将图上选中文字卡片滚动到结果区视觉中心，避免用户继续手动寻找。
+ * @returns 滚动设置完成后的 Promise。
+ */
+async function centerSelectionCard() {
+  await nextTick()
+  const scroll = resultScroll.value
+  const card = selectionCard.value
+  if (!scroll || !card) return
+  // 以实际渲染矩形计算目标位置，兼容卡片上方结果块高度变化。
+  const scrollRect = scroll.getBoundingClientRect()
+  const cardRect = card.getBoundingClientRect()
+  const target =
+    scroll.scrollTop + (cardRect.top - scrollRect.top) - (scroll.clientHeight - cardRect.height) / 2
+  scroll.scrollTo({ top: Math.max(0, target), behavior: 'smooth' })
+}
+watch(selectedText, (text) => {
+  if (text) void centerSelectionCard()
+})
+
+/**
  * 原文编辑或翻译渠道变化后清除旧译文。
  * @returns 无返回值。
  */
@@ -440,9 +462,7 @@ onMounted(async () => {
   >
     <div class="recognition-stage">
       <section class="pane pane-image" aria-label="识别图片">
-        <div class="pane-heading">
-          <span>原始图片</span><span class="subtle">拖入或粘贴图片，自动识别</span>
-        </div>
+        <div class="pane-heading"><span>原始图片</span></div>
         <div class="image-canvas">
           <OcrImageViewer
             v-show="image"
@@ -451,7 +471,6 @@ onMounted(async () => {
             :recognized="mode === 'ocr' && !!result"
             :selected-text="selectedText"
             @select="selectText"
-            @copy="copy"
           />
           <label v-if="!image" class="image-empty" for="recognition-file">
             <svg viewBox="0 0 48 48" aria-hidden="true">
@@ -467,20 +486,13 @@ onMounted(async () => {
             }}</small>
           </label>
         </div>
-        <div class="image-actions">
-          <label class="file-button" for="recognition-file"
-            ><svg viewBox="0 0 24 24" aria-hidden="true">
-              <rect x="3" y="3" width="18" height="18" rx="2" />
-              <path d="m3 17 6-6 4 4 3-5 5 7" /></svg
-            >{{ image ? '更换图片' : '选择图片' }}</label
-          ><input
-            id="recognition-file"
-            class="file-input"
-            type="file"
-            accept="image/*"
-            @change="chooseFile"
-          /><span>新图片会自动识别</span>
-        </div>
+        <input
+          id="recognition-file"
+          class="file-input"
+          type="file"
+          accept="image/*"
+          @change="chooseFile"
+        />
       </section>
       <section class="pane pane-result">
         <nav aria-label="工具子组件" class="mode-switch">
@@ -508,7 +520,7 @@ onMounted(async () => {
             {{ busy === 'recognize' ? '正在识别…' : '重新识别' }}</button
           ><button v-if="busy" @click="cancel">取消</button>
         </header>
-        <div class="result-scroll" :aria-busy="!!busy">
+        <div ref="resultScroll" class="result-scroll" :aria-busy="!!busy">
           <div
             v-if="message || busy"
             class="status-message"
@@ -555,7 +567,7 @@ onMounted(async () => {
               spellcheck="false"
               @input="editResult"
             ></textarea>
-            <div v-if="selectedText" class="selection-card">
+            <div v-if="selectedText" ref="selectionCard" class="selection-card">
               <label
                 >图上选中文字<textarea
                   :value="selectedText"
@@ -570,7 +582,7 @@ onMounted(async () => {
               </div>
             </div>
             <div class="result-actions">
-              <button class="primary" @click="copy(result)">复制结果</button
+              <button @click="copy(result)">复制结果</button
               ><button @click="copy(result, true)">粘贴结果</button
               ><template v-if="mode === 'formula'"
                 ><button @click="copy('$' + result + '$')">复制 $…$</button
@@ -594,10 +606,6 @@ onMounted(async () => {
                   {{ busy === 'translate' ? '正在翻译…' : '翻译' }}
                 </button>
               </div>
-              <p class="hint">
-                {{ translationDirection }} ·
-                {{ selectedText ? '使用当前图上选文' : '使用完整识别文本' }}
-              </p>
             </div>
           </section>
           <section v-if="translation" class="result translation-result">
@@ -611,7 +619,7 @@ onMounted(async () => {
             </details>
             <textarea :value="translation" aria-label="翻译结果" rows="4" readonly></textarea>
             <div class="result-actions">
-              <button class="primary" @click="copy(translation)">复制译文</button
+              <button @click="copy(translation)">复制译文</button
               ><button @click="copy(translation, true)">粘贴译文</button>
             </div>
           </section>
@@ -720,32 +728,6 @@ onMounted(async () => {
   font-size: 11px;
   opacity: 0.75;
 }
-.image-actions {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
-  border-top: 1px solid var(--border-color);
-}
-.image-actions > span {
-  color: var(--text-secondary);
-  font-size: 11px;
-}
-.file-button {
-  display: inline-flex;
-  gap: 6px;
-  align-items: center;
-  cursor: pointer;
-  color: var(--primary-color);
-}
-.file-button svg {
-  width: 18px;
-  height: 18px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.6;
-}
 .file-input {
   position: absolute;
   width: 1px;
@@ -766,8 +748,14 @@ textarea {
 button {
   cursor: pointer;
 }
-button:hover {
-  background: var(--bg-hover);
+button:not(:disabled):hover {
+  background: var(--bg-accent-light);
+  border-color: color-mix(in srgb, var(--primary-color) 45%, var(--border-color));
+  color: var(--primary-color);
+}
+button:not(:disabled):active {
+  background: color-mix(in srgb, var(--primary-color) 18%, var(--bg-surface));
+  border-color: var(--primary-color);
 }
 button:disabled {
   opacity: 0.45;
@@ -898,11 +886,6 @@ textarea {
   flex-wrap: wrap;
   gap: 8px;
 }
-.primary {
-  color: var(--primary-color);
-  border-color: color-mix(in srgb, var(--primary-color) 40%, var(--border-color));
-  background: var(--bg-accent-light);
-}
 .translation-actions {
   margin-top: 18px;
   padding-top: 14px;
@@ -912,12 +895,6 @@ textarea {
   max-width: 100%;
   flex: 1;
   min-width: 100px;
-}
-.hint {
-  color: var(--text-secondary);
-  font-size: 11px;
-  line-height: 1.7;
-  margin: 8px 0 0;
 }
 .selection-card {
   border-left: 2px solid var(--primary-color);

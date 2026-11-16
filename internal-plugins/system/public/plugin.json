@@ -617,17 +617,17 @@
     },
     {
       "code": "web-search-image",
-      "explain": "以图搜图",
+      "explain": "按图搜索",
       "icon": "icons/web-search-image.png",
       "mainHide": true,
       "cmds": [
         {
           "type": "img",
-          "label": "以图搜图"
+          "label": "按图搜索"
         },
         {
           "type": "files",
-          "label": "以图搜图",
+          "label": "按图搜索",
           "extensions": [
             "png",
             "jpg",

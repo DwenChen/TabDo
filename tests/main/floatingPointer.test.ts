@@ -197,6 +197,30 @@ describe('floating native pointer observation', () => {
     win.close()
   })
 
+  it('docks a collapsed tab dragged to another edge instead of leaving the paper expanded', async () => {
+    const win = await open()
+    const send = mocks.handlers.get('tools-floating')!
+    win.bounds.x = -90
+    win.bounds.y = 180
+    await vi.advanceTimersByTimeAsync(320)
+    await send({ sender: win.webContents }, 'drag-end')
+    await vi.advanceTimersByTimeAsync(400)
+    expect(win.getBounds()).toMatchObject({ width: 18, height: 80 })
+    // 拖离左边缘后到达右边缘：途中恢复完整纸张，释放时必须重新判定贴靠。
+    await send({ sender: win.webContents }, 'drag-start')
+    await send({ sender: win.webContents }, 'move', { x: 1180, y: 400, width: 18, height: 80 })
+    await vi.advanceTimersByTimeAsync(400)
+    expect(win.getBounds()).toMatchObject({ x: 900, width: 300, height: 280 })
+    await send({ sender: win.webContents }, 'drag-end', { moved: true })
+    await vi.advanceTimersByTimeAsync(400)
+    expect(win.webContents.send).toHaveBeenCalledWith('tools-floating-dock', {
+      edge: 'right',
+      expanded: false
+    })
+    expect(win.getBounds()).toMatchObject({ x: 1182, width: 18, height: 80 })
+    win.close()
+  })
+
   it('docks on drag release without moving the pointer out of the note', async () => {
     const win = await open()
     win.bounds.x = -90

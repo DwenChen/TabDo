@@ -17,6 +17,8 @@ import { applyToolsWindowIdentity, getToolsWindowIcon } from '../../core/toolsWi
 interface SystemCommandContext {
   mainWindow: Electron.BrowserWindow | null
   pluginManager: PluginManager | null
+  /** 由启动入口注入，用于系统指令完成后打开另一个工具子组件。 */
+  launchFeature?: (featureCode: string, param: any, name?: string) => Promise<any>
 }
 
 function getSingleFilePathParam(param: any): string | undefined {
@@ -224,13 +226,9 @@ async function handleTemplateSearch(
 }
 
 /**
- * 使用精简后的原生截图工具栏，确认后静默复制。
- * @param ctx 系统指令上下文
- * @returns 截图结果，包含 dataURL 与区域信息
- */
-/**
  * 打开截图编辑器并交付最终图像，复用原生完成的剪贴板或保存操作。
- * @param ctx 本次调用的窗口和插件管理上下文。
+ * 原生工具栏选择“文字识别”时，携带选区图像直接启动识别子组件。
+ * @param ctx 本次调用的窗口、启动能力和插件管理上下文。
  * @returns 截图结果或取消、失败说明。
  */
 async function handleScreenshot(ctx: SystemCommandContext): Promise<any> {
@@ -241,6 +239,20 @@ async function handleScreenshot(ctx: SystemCommandContext): Promise<any> {
     const result = await screenCapture(ctx.mainWindow || undefined, false, { autoConfirm: false })
     if (!result.image) {
       return { success: false, error: '未获取到截图内容' }
+    }
+
+    // 原生“文字识别”按钮已裁好选区，关闭截图窗口后直接进入识别子组件。
+    if (result.ocr) {
+      if (!ctx.launchFeature) {
+        return { success: false, error: '无法打开文字识别子组件' }
+      }
+      const launched = await ctx.launchFeature(
+        'recognize',
+        { type: 'img', payload: result.image },
+        '文字识别'
+      )
+      if (launched?.success === false) return launched
+      return { success: true, image: result.image, bounds: result.bounds, ocr: true }
     }
 
     // Windows/macOS 已在原生确认时复制或保存，重复解码和写回会放大长图内存峰值。

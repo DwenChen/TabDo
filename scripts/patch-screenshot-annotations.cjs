@@ -2,6 +2,11 @@ const fs = require('node:fs')
 const path = require('node:path')
 const catalogue = require('../resources/annotation-tools.js')
 
+// 截图工具栏的专用动作图标，不加入共用 actions；
+// 悬浮内容页会为 actions 的每个键查找同名 DOM 按钮。
+const OCR_ICON_PATH =
+  'M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3M7 9h10M7 12h10M7 15h6'
+
 /**
  * Extend the pinned screenshot sources with the same annotation tools as the image editor.
  * @param {string} file Upstream source path.
@@ -165,7 +170,7 @@ function patchAnnotations(file, source) {
       .replace('case TB_Circle:      return L"圆形";', 'case TB_Circle:      return L"椭圆";')
       .replace(
         'case TB_Brush:       return L"画笔";',
-        'case TB_Brush:       return L"画笔";\n    case TB_Highlighter: return L"荧光笔";\n    case TB_Number: return L"序号圆圈";\n    case TB_Spotlight: return L"聚光灯";'
+        'case TB_Brush:       return L"画笔";\n    case TB_Highlighter: return L"荧光笔";\n    case TB_Number: return L"序号圆圈";\n    case TB_Spotlight: return L"聚光灯";\n    case TB_Ocr: return L"文字识别";'
       )
   }
   return documentAnnotationFunctions(file, s)
@@ -291,12 +296,18 @@ function patchIcons(sourcePath) {
   }
   header = header
     .replace(
+      '#pragma once',
+      '#pragma once\nstatic const char* kIconSvg_Ocr = ' +
+        JSON.stringify(catalogue.svg(OCR_ICON_PATH)) +
+        ';'
+    )
+    .replace(
       'kIconSvg_Brush, kIconSvg_Mosaic',
       'kIconSvg_Brush, kIconSvg_Highlighter, kIconSvg_Mosaic'
     )
     .replace(
       'kIconSvg_Text, kIconSvg_LongCapture',
-      'kIconSvg_Text, kIconSvg_Number, kIconSvg_Spotlight, kIconSvg_LongCapture'
+      'kIconSvg_Text, kIconSvg_Number, kIconSvg_Spotlight, kIconSvg_Ocr, kIconSvg_LongCapture'
     )
   fs.writeFileSync(file, header)
 }

@@ -1,0 +1,25 @@
+{
+  "id": "release-1.5.8",
+  "date": "2026-11-16",
+  "version": "1.5.8",
+  "summary": "发布并核验 TabDo 1.5.8",
+  "changes": [
+    "整合截图工具栏文字识别入口、文字识别结果页整理、便签跨边缘拖动修复与透明便签修复。",
+    "整合“按图搜索”更名，以及文字网站和识图引擎初始默认只勾选 Bing。",
+    "更新 package.json、README 与更新说明，对照源码审校截图说明、工具清单、开发规范、应用内和仓库教程。",
+    "稳定源码 E2E：键盘撤销/重做后等待 200 毫秒再点击工具栏，避免首个点击被吞；便签右边缘断言等待收展动画完成后再读取最终几何。"
+  ],
+  "checks": [
+    "pnpm typecheck:node、typecheck:web 与 typecheck:setting 通过；本机未安装全局 pnpm，构建与检查通过 corepack pnpm 执行。",
+    "完整单测 135 个文件、918 项通过，归档 .artifacts/runs/2026-11-16T12-29-57-582Z-unit。",
+    "源码 Electron 的截图、内置提供商、网页快开和便签四项 E2E 通过，归档 .artifacts/runs/2026-11-16T12-52-47-663Z-e2e。查看 native-screenshot-toolbar.png 确认聚光灯压暗、序号圆圈、荧光笔和新增文字识别图标；查看 ocr-coordinate-selection.png 确认识别页无更换图片和逐行坐标栏，复制结果按钮为中性常态；查看 web-quick-open-light.png 确认只有 Bing 勾选且按钮为“按图搜索”。",
+    "首轮 E2E 受前台 Edge 全屏视频遮挡，截图像素断言失效；关闭视频后重跑。另发现键盘撤销/重做后的工具栏点击偶发被吞、便签右边缘读到收展动画中间帧，补充等待后两项均通过，未降低产品断言。",
+    "pnpm build 通过；pnpm preview:sync 同步 1.5.8，保留 176 个现有资料文件，核验 2139 个程序文件。收据 .artifacts/backups/preview-sync/update-1794833828739/preservation.json。pnpm test:preview:resources 核验 2138 个程序文件、353 个内置插件文件和 11842 个媒体依赖。",
+    "pnpm maintain、pnpm maintain:check、pnpm docs:check 与 git diff --check 通过（38 个文档、260 个本地链接、40 个功能、16 章教程、74 个步骤）。",
+    "pnpm lint 仍报告 CallAiSetting.vue 等本轮未修改文件的既有规则错误与警告，未纳入本次发布范围。"
+  ],
+  "pending": [
+    "通过 PreviewPortable.cmd 使用预览数据进行深色主题、非 100% DPI 和多显示器下的截图与便签观感验收。",
+    "实际百度、Google 与 Google Lens 搜索结果仍受网络、账号和地区限制，保留人工验收。"
+  ]
+}

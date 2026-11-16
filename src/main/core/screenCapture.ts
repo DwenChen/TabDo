@@ -8,12 +8,16 @@ import windowManager from '../managers/windowManager'
 
 /**
  * 接收原生截图结果，直接复用已编码的 PNG，避免长图再次读取与编码。
- * @param cb 截图完成回调，取消时图像为空串。
+ * @param cb 截图完成回调，取消时图像为空串；原生选择文字识别时附带 ocr 标记。
  * @param options 原生覆盖层、标注及确认选项。
  * @returns 无返回值。
  */
 export const screenWindow = (
-  cb: (image: string, bounds?: { x: number; y: number; width: number; height: number }) => void,
+  cb: (
+    image: string,
+    bounds?: { x: number; y: number; width: number; height: number },
+    ocr?: boolean
+  ) => void,
   options?: ScreenCaptureOptions
 ): void => {
   // 透传 autoConfirm 选项；旧签名仅传 callback 时走默认 true 自动出图
@@ -26,10 +30,10 @@ export const screenWindow = (
         height: result.height!
       }
       // 新版原生模块已编码并完成对应的复制或保存；仅旧模块缺失图像时回退。
-      if (result.base64) cb?.(result.base64, bounds)
+      if (result.base64) cb?.(result.base64, bounds, result.ocr === true)
       else {
         const image = clipboard.readImage()
-        cb?.(image.isEmpty() ? '' : image.toDataURL(), bounds)
+        cb?.(image.isEmpty() ? '' : image.toDataURL(), bounds, false)
       }
     } else {
       cb && cb('')
@@ -186,13 +190,17 @@ const MAC_WINDOW_DISMISS_SETTLE_MS = 250
  * @param mainWindow 截图期间需要隐藏的主窗口；省略或不可见时直接开始截图
  * @param restoreShowWindow 截图结束后是否恢复主窗口显示
  * @param options 原生截图选项（如 autoConfirm），透传给原生模块
- * @returns 截图流程结束后 resolve 为 { image, bounds } 的 Promise；image 为 dataURL 或空串
+ * @returns 截图流程结束后 resolve 为 { image, bounds, ocr } 的 Promise；image 为 dataURL 或空串
  */
 export const screenCapture = (
   mainWindow?: BrowserWindow,
   restoreShowWindow: boolean = true,
   options?: ScreenCaptureOptions
-): Promise<{ image: string; bounds?: { x: number; y: number; width: number; height: number } }> => {
+): Promise<{
+  image: string
+  bounds?: { x: number; y: number; width: number; height: number }
+  ocr?: boolean
+}> => {
   return new Promise((resolve) => {
     // 隐藏主窗口（记录隐藏前可见性，用于后续恢复与 macOS 等待判断）
     const wasVisible = mainWindow?.isVisible() || false
@@ -212,9 +220,9 @@ export const screenCapture = (
       if (process.platform === 'darwin' || process.platform === 'win32') {
         // 原生截图（两平台全功能对等）：透传 autoConfirm 选项，false 时进入编辑态
         // 由用户标注确认后再出图（macOS 会话阻塞主线程直至收束，为原生模块既定行为）
-        screenWindow((image, bounds) => {
+        screenWindow((image, bounds, ocr) => {
           restoreWindow()
-          resolve({ image, bounds })
+          resolve({ image, bounds, ocr })
         }, options)
       } else {
         // Linux
