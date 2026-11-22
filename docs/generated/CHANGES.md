@@ -23,6 +23,10 @@
 - 验证：pnpm maintain、pnpm maintain:check、pnpm docs:check 通过（38 个文档、261 个本地链接、41 个功能、16 章教程、76 个步骤）。
 - 验证：自动化辅助验证完成后删除 1.5.8 基线 worktree，未改动正式依赖与用户资料。
 - 验证：空间收尾：删除根目录临时 HTML 分享包（约 3MB），清理更早一次预览回退载荷（约 1.4GB），保留最新完整回退 update-1795339944490 与全部 preservation.json 收据。
+- 验证：通过提交及推送 hooks，原子推送 main 和 v1.5.9，提交 e67231ee6d3b033cdf0f3a26659d0a73a2d75618，远端 main 与标签指向同一提交。
+- 验证：云端 https://github.com/DwenChen/TabDo/actions/runs/45008535985 的 build 和 publish 均成功。https://github.com/DwenChen/TabDo/releases/tag/v1.5.9 非草稿、非预发布，并已成为最新正式版；发行 id 454343513。
+- 验证：四个正式附件的大小与 GitHub SHA-256 一致；latest.yml 的版本 1.5.9、安装程序文件名、大小和 SHA-512 核验通过。ZIP 内应用版本为 1.5.9，包含置顶边框脚本、托盘 ICO、文件占用脚本、设置与系统插件页面、npm、npx、Python 运行时、pip.pyz 及必要许可。收据 .artifacts/releases/1.5.9/download-verification.json 与 artifact-content-verification.json。
+- 验证：核验完成后回收本轮发行下载与解包副本（约 691MB），保留两份核验收据。
 
 ## 2026-11-22 · Windows 托盘改用多尺寸 ICO 并按系统小图标尺寸读取对应帧，改善小尺寸图标边缘模糊
 
