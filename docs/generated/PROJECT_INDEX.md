@@ -16,9 +16,9 @@
 
 ## 自动化测试文件
 
-共 194 个文件；文件数不等于用例数，通过状态以每轮变更记录为准。
+共 201 个文件；文件数不等于用例数，通过状态以每轮变更记录为准。
 
-### tests/main（125）
+### tests/main（130）
 
 - [tests/main/aiChatEventBatcher.test.ts](../../tests/main/aiChatEventBatcher.test.ts)
 - [tests/main/aiChatTransport.test.ts](../../tests/main/aiChatTransport.test.ts)
@@ -26,9 +26,11 @@
 - [tests/main/aiProtocol/converters.test.ts](../../tests/main/aiProtocol/converters.test.ts)
 - [tests/main/aiProviderService.test.ts](../../tests/main/aiProviderService.test.ts)
 - [tests/main/aiRequestStatusTracker.test.ts](../../tests/main/aiRequestStatusTracker.test.ts)
+- [tests/main/alwaysOnTopService.test.ts](../../tests/main/alwaysOnTopService.test.ts)
 - [tests/main/appWatcher.test.ts](../../tests/main/appWatcher.test.ts)
 - [tests/main/appsCacheRefresh.test.ts](../../tests/main/appsCacheRefresh.test.ts)
 - [tests/main/asyncPool.test.ts](../../tests/main/asyncPool.test.ts)
+- [tests/main/awakeService.test.ts](../../tests/main/awakeService.test.ts)
 - [tests/main/backupArchive.test.ts](../../tests/main/backupArchive.test.ts)
 - [tests/main/builtinProviderService.test.ts](../../tests/main/builtinProviderService.test.ts)
 - [tests/main/callAiFiles.test.ts](../../tests/main/callAiFiles.test.ts)
@@ -86,6 +88,7 @@
 - [tests/main/pluginUpgradeFlow.test.ts](../../tests/main/pluginUpgradeFlow.test.ts)
 - [tests/main/pluginUserPreload.test.ts](../../tests/main/pluginUserPreload.test.ts)
 - [tests/main/pluginVersion.test.ts](../../tests/main/pluginVersion.test.ts)
+- [tests/main/pluginWindowConfig.test.ts](../../tests/main/pluginWindowConfig.test.ts)
 - [tests/main/presentationAudioMeter.test.ts](../../tests/main/presentationAudioMeter.test.ts)
 - [tests/main/presentationBehavior.test.ts](../../tests/main/presentationBehavior.test.ts)
 - [tests/main/presentationCaptureClock.test.ts](../../tests/main/presentationCaptureClock.test.ts)
@@ -137,7 +140,9 @@
 - [tests/main/viewRepaint.test.ts](../../tests/main/viewRepaint.test.ts)
 - [tests/main/webQuickOpen.test.ts](../../tests/main/webQuickOpen.test.ts)
 - [tests/main/windowManagerMacActivation.test.ts](../../tests/main/windowManagerMacActivation.test.ts)
+- [tests/main/windowManagerTrayIcon.test.ts](../../tests/main/windowManagerTrayIcon.test.ts)
 - [tests/main/windowMaterialDefaults.test.ts](../../tests/main/windowMaterialDefaults.test.ts)
+- [tests/main/windowSizeMemory.test.ts](../../tests/main/windowSizeMemory.test.ts)
 - [tests/main/windowsExplorerCommands.test.ts](../../tests/main/windowsExplorerCommands.test.ts)
 - [tests/main/windowsInstallCompatibility.test.ts](../../tests/main/windowsInstallCompatibility.test.ts)
 - [tests/main/windowsLauncherWorkingDirectory.test.ts](../../tests/main/windowsLauncherWorkingDirectory.test.ts)
@@ -162,7 +167,7 @@
 - [tests/scripts/projectMaintenance.test.ts](../../tests/scripts/projectMaintenance.test.ts)
 - [tests/scripts/updateMetadata.test.ts](../../tests/scripts/updateMetadata.test.ts)
 
-### tests/e2e（59）
+### tests/e2e（61）
 
 - [tests/e2e/all-commands-pinning.spec.ts](../../tests/e2e/all-commands-pinning.spec.ts)
 - [tests/e2e/builtin-models.spec.ts](../../tests/e2e/builtin-models.spec.ts)
@@ -170,9 +175,11 @@
 - [tests/e2e/call-ai.spec.ts](../../tests/e2e/call-ai.spec.ts)
 - [tests/e2e/clipboard-interactions.spec.ts](../../tests/e2e/clipboard-interactions.spec.ts)
 - [tests/e2e/console-pipe.spec.ts](../../tests/e2e/console-pipe.spec.ts)
+- [tests/e2e/file-locksmith.spec.ts](../../tests/e2e/file-locksmith.spec.ts)
 - [tests/e2e/file-search-actions.spec.ts](../../tests/e2e/file-search-actions.spec.ts)
 - [tests/e2e/floating-pointer.spec.ts](../../tests/e2e/floating-pointer.spec.ts)
 - [tests/e2e/floating-relay.spec.ts](../../tests/e2e/floating-relay.spec.ts)
+- [tests/e2e/host-services.spec.ts](../../tests/e2e/host-services.spec.ts)
 - [tests/e2e/idle-input-state.spec.ts](../../tests/e2e/idle-input-state.spec.ts)
 - [tests/e2e/idle-memory.spec.ts](../../tests/e2e/idle-memory.spec.ts)
 - [tests/e2e/image-annotation-interactions.spec.ts](../../tests/e2e/image-annotation-interactions.spec.ts)
@@ -254,9 +261,11 @@
 - `recorder-reference`：6 个单测文件、5 个源码 E2E 文件。
 - `clipboard-trigger`：3 个单测文件、0 个源码 E2E 文件。
 - `settings-defaults`：6 个单测文件、8 个源码 E2E 文件。
+- `host-services`：3 个单测文件、2 个源码 E2E 文件。
+- `file-locksmith`：1 个单测文件、2 个源码 E2E 文件。
 - `tools-catalog`：6 个单测文件、4 个源码 E2E 文件。
 - `overlay-surfaces`：0 个单测文件、1 个源码 E2E 文件。
-- `branding`：0 个单测文件、1 个源码 E2E 文件。
+- `branding`：1 个单测文件、1 个源码 E2E 文件。
 - `tabdo-release`：9 个单测文件、6 个源码 E2E 文件。
 - `clipboard-interactions`：5 个单测文件、4 个源码 E2E 文件。
 - `documentation`：1 个单测文件、1 个源码 E2E 文件。

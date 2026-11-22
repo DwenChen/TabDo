@@ -155,7 +155,10 @@ test('region capture avoids the control bar and excludes it even after dragging 
     )
     expect(selectionBounds.x).toBe(target.display.x)
     expect(selectionBounds.y).toBe(target.display.y)
-    await expect(selection.getByText('拖动调整录制区域 · Enter 开始 · Esc 取消')).toBeVisible()
+    // 打开后保持待选状态，由用户拖出区域后才显示尺寸与可用开始按钮。
+    await expect(selection.getByText('拖动鼠标选择录制区域 · Esc 取消')).toBeVisible()
+    await expect(selection.getByRole('button', { name: '开始录制', exact: true })).toBeDisabled()
+    await selection.screenshot({ path: testInfo.outputPath('region-pending.png') })
     await selection.mouse.move(target.x - target.display.x, target.y - target.display.y)
     await selection.mouse.down()
     await selection.mouse.move(

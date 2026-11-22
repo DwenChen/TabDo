@@ -94,8 +94,8 @@ export class WindowAPI {
    */
   public resizeWindow(height: number): void {
     if (this.mainWindow) {
-      // 使用固定宽度常量，避免多显示器 DPI 缩放导致 getSize() 返回被缩放的值
-      const width = WINDOW_WIDTH
+      // 工具正文允许用户改宽后保留该宽度；搜索界面继续使用标准宽度。
+      const width = windowManager.getToolWindowWidth()
       // 限制高度范围：最小为当前顶部栏高度，最大不超过当前屏幕可用高度。
       const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
       const maxHeight = display.workAreaSize.height

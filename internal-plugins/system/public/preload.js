@@ -117,8 +117,10 @@ window.toolsPresentation = {
   }
 }
 const { readImage, createFilesBridge } = require('./tools-files.cjs')
+const { createFileLocksmithBridge } = require('./file-locksmith.cjs')
 const { pathToFileURL } = require('node:url')
 window.toolsFiles = createFilesBridge(lifecycle)
+window.toolsLocksmith = createFileLocksmithBridge(lifecycle)
 window.toolsMedia = {
   /**
    * 在独立进程执行读图或已登记的媒体批次，所属监听随请求结束释放。

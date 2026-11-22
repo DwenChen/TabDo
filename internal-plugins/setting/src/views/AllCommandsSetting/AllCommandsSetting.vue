@@ -13,18 +13,7 @@ import {
 } from '@/components'
 import type { TagDropdownMenuItem } from '@/components'
 import { usePluginCommandActions, useTabDoSubInput } from '@/composables'
-import {
-  jumpFunctionShortcutsSetting,
-  type ShortcutsSettingAliasDraftTarget
-} from '@/views/ShortcutsSetting/ShortcutsSetting'
-import {
-  DIRECT_APP_ALIAS_GROUP_KEY,
-  DIRECT_APP_ALIAS_GROUP_TITLE,
-  LOCAL_SHORTCUT_ALIAS_GROUP_KEY,
-  LOCAL_SHORTCUT_ALIAS_GROUP_TITLE,
-  getCommandId as _getCommandId,
-  getLegacyDirectAppCommandId
-} from '@shared/commandShared'
+import { getCommandId as _getCommandId, getLegacyDirectAppCommandId } from '@shared/commandShared'
 
 // 定义 Command 类型（从 commandDataStore 复制）
 export type CommandType = 'direct' | 'plugin' | 'builtin'
@@ -110,34 +99,6 @@ function getCommandId(
   })
 }
 
-function isDirectAppCommand(cmd: Command): boolean {
-  return cmd.type === 'direct' && (cmd.subType === 'app' || cmd.subType === 'local-shortcut')
-}
-
-function buildAppAliasDraftTarget(cmd: Command): ShortcutsSettingAliasDraftTarget {
-  const isLocalShortcut = cmd.subType === 'local-shortcut'
-  const groupKey = isLocalShortcut ? LOCAL_SHORTCUT_ALIAS_GROUP_KEY : DIRECT_APP_ALIAS_GROUP_KEY
-  const groupTitle = isLocalShortcut
-    ? LOCAL_SHORTCUT_ALIAS_GROUP_TITLE
-    : DIRECT_APP_ALIAS_GROUP_TITLE
-
-  return {
-    commandId: getCommandId(cmd),
-    type: 'direct',
-    subType: cmd.subType as 'app' | 'local-shortcut',
-    path: cmd.path,
-    groupKey,
-    groupTitle,
-    featureCode: cmd.path || '',
-    subtitle: cmd.path || '',
-    pluginName: groupKey,
-    pluginTitle: groupTitle,
-    cmdName: cmd.name,
-    cmdType: 'text',
-    icon: cmd.icon
-  }
-}
-
 function isDirectAppCommandDisabled(cmd: Command): boolean {
   const nextId = getCommandId(cmd)
   const legacyId = getLegacyDirectAppCommandId(cmd.name, cmd.cmdType || 'text')
@@ -197,14 +158,6 @@ function getAppMenuItems(cmd: Command): TagDropdownMenuItem[] {
     icon: 'i-z-play'
   })
 
-  if (isDirectAppCommand(cmd)) {
-    items.push({
-      key: 'custom-alias',
-      label: '自定义别名',
-      icon: 'i-z-alias'
-    })
-  }
-
   const superPinned = isAppPinnedToSuperPanel(cmd)
   items.push({
     key: 'pin-super-panel',
@@ -222,15 +175,6 @@ function getAppMenuItems(cmd: Command): TagDropdownMenuItem[] {
   return items
 }
 
-function openAppAliasShortcut(cmd: Command): void {
-  if (!isDirectAppCommand(cmd)) return
-
-  jumpFunctionShortcutsSetting({
-    tab: 'alias',
-    draftTarget: buildAppAliasDraftTarget(cmd)
-  })
-}
-
 async function handleAppMenuSelect(key: string, cmd: Command): Promise<void> {
   if (key === 'open') {
     try {
@@ -243,9 +187,6 @@ async function handleAppMenuSelect(key: string, cmd: Command): Promise<void> {
     } catch (error) {
       console.error('打开应用失败:', error)
     }
-  } else if (key === 'custom-alias') {
-    if (!isDirectAppCommand(cmd)) return
-    openAppAliasShortcut(cmd)
   } else if (key === 'pin-super-panel') {
     await toggleAppSuperPanelPin(cmd)
   } else if (key === 'toggle') {

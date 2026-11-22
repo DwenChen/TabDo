@@ -121,6 +121,7 @@ watch(
   }
 )
 watch([cropping, () => active.value?.path], () => {
+  dragStart = null
   if (cropping.value && active.value?.width) applyCropRatio(parameters.value.cropRatio || '自由')
   previewTime.value = 0
 })
@@ -325,6 +326,7 @@ async function add(files) {
   if (busy.value || disposed) return
   const current = version
   const image = imageInput.value
+  const hasInput = files.length > 0 || Boolean(image)
   const cancellation = new AbortController()
   const previous = readingPending
   let complete
@@ -357,7 +359,7 @@ async function add(files) {
     )
     if (disposed || current !== version) return
     result.forEach(append)
-    message.value = result.length ? '' : '未找到支持的媒体文件'
+    message.value = !hasInput ? '' : result.length ? '' : '未找到支持的媒体文件'
   } catch (error) {
     if (!disposed && !cancellation.signal.aborted && current === version)
       message.value = error.message
@@ -374,9 +376,15 @@ async function add(files) {
  * @returns {void} 无返回值。
  */
 function drop(event) {
-  void add(
-    [...event.dataTransfer.files].map((file) => window.toolsProvider.filePath(file)).filter(Boolean)
-  )
+  const dropped = [...event.dataTransfer.files]
+  // 页面内拖动没有本地文件时保持安静，不误报不支持。
+  if (!dropped.length) return
+  const files = dropped.map((file) => window.toolsProvider.filePath(file)).filter(Boolean)
+  if (!files.length) {
+    message.value = '无法读取拖入文件的路径，请改用“选择文件”添加'
+    return
+  }
+  void add(files)
 }
 /**
  * 为水印或封面选择辅助图片/音频。
@@ -547,12 +555,29 @@ async function execute() {
   }
 }
 /**
+ * 判断裁剪框是否已经铺满整张画面；铺满时框内拖动应重新框选而不是无效移动。
+ * @param {object} region 当前相对裁剪区域。
+ * @returns {boolean} 是否覆盖整张画面。
+ */
+function coversWholeImage(region) {
+  return region.x <= 0.001 && region.y <= 0.001 && region.width >= 0.999 && region.height >= 0.999
+}
+/**
+ * 结束裁剪拖动。
+ * @returns {void} 无返回值。
+ */
+function cropUp() {
+  dragStart = null
+}
+/**
  * 记录裁剪框选、移动或四角调整的相对坐标起点。
  * @param {PointerEvent} event 指针事件。
  * @returns {void} 无返回值。
  */
 function cropDown(event) {
   if (!active.value || busy.value || event.button !== 0) return
+  // 阻止原生图片拖拽和文本选择，避免拖动被浏览器拖放打断或触发空拖入。
+  event.preventDefault()
   const rect = event.currentTarget.getBoundingClientRect()
   const r = parameters.value.region || { x: 0, y: 0, width: 1, height: 1 }
   dragStart = {
@@ -560,7 +585,9 @@ function cropDown(event) {
     y: (event.clientY - rect.top) / rect.height,
     rect,
     region: { ...r },
-    handle: event.target.dataset.handle || (event.target.closest('.crop-box') ? 'move' : 'draw')
+    handle:
+      event.target.dataset.handle ||
+      (event.target.closest('.crop-box') && !coversWholeImage(r) ? 'move' : 'draw')
   }
   event.currentTarget.setPointerCapture(event.pointerId)
 }
@@ -571,6 +598,11 @@ function cropDown(event) {
  */
 function cropMove(event) {
   if (!dragStart || !active.value) return
+  // 指针已在窗口外松开时收束拖动，避免鼠标停留时选区继续移动。
+  if (event.buttons === 0) {
+    cropUp()
+    return
+  }
   const { rect, x, y, region: r, handle } = dragStart
   const endX = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width))
   const endY = Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height))
@@ -820,8 +852,9 @@ onUnmounted(dispose)
           :style="{ width: Math.min(400, (180 * active.width) / active.height) + 'px' }"
           @pointerdown="cropDown"
           @pointermove="cropMove"
-          @pointerup="dragStart = null"
-          @pointercancel="dragStart = null"
+          @pointerup="cropUp"
+          @pointercancel="cropUp"
+          @dragstart.prevent
         >
           <img :src="manualPreview || active.thumbnail" alt="拖动框选裁剪范围" draggable="false" />
           <div

@@ -1,0 +1,24 @@
+{
+  "id": "always-on-top-border",
+  "date": "2026-11-19",
+  "summary": "窗口置顶改为可启用总开关，并为置顶窗口增加可配置的外置高亮边框与置顶提示音",
+  "changes": [
+    "新增 alwaysOnTopBorder 宿主模块：为每个置顶窗口创建透明、点击穿透、置顶的覆盖层，并通过按需启动的 PowerShell 追踪进程同步窗口位置、最小化和关闭状态；边框画在目标窗口外侧，支持系统强调色或自定义颜色、不透明度、粗细与圆角，跟踪进程随取消置顶立即回收。",
+    "重写 alwaysOnTopService：通用设置 alwaysOnTopEnabled 成为唯一总开关，默认快捷键改为 Shift+T 并支持在快捷键页修改；外观配置与快捷键统一写入 settings-general 的 alwaysOnTop* 字段，注册失败时恢复原组合并回告设置页。取消置顶不再弹出 TabDo 通知，固定窗口时按开关播放系统提示音。",
+    "通用设置“基础”在“唤醒”之后新增窗口置顶总开关（仅 Windows 显示）；启用后才显示可折叠的边框颜色模式、自定义颜色、不透明度、粗细、圆角、置顶声音和快捷键引导，点击“前往快捷键设置”跳转到快捷键页。",
+    "快捷键页移除固定 Win+Ctrl+T 的内置项，新增窗口置顶专用卡片，使用 HotkeyInput 修改组合键并显示启用状态；内置快捷键默认值表格不再包含 alwaysOnTop。",
+    "同步宿主 IPC、preload、设置页类型声明、应用内教程、使用指南、工具开发规范、设置规范、回归说明与本轮维护记录。"
+  ],
+  "checks": [
+    "node tsconfig.node 类型检查通过；internal-plugins/setting/tsconfig.web.json 的 vue-tsc 检查通过。",
+    "完整单测 137 个文件、929 项通过，归档 .artifacts/runs/2026-11-19T04-54-17-278Z-unit；alwaysOnTopService 7 项覆盖默认 Shift+T、注册占用、关闭注销、快捷键重注册与回退、外观持久化和非法值回退。",
+    "host-services 源码 Electron 专项通过：设置页“基础”出现窗口置顶总开关，启用后显示并折叠/展开外观子项；快捷键注册、真实前台窗口连续置顶切换、覆盖层登记与释放均通过。归档 .artifacts/runs/2026-11-19T05-04-00-281Z-e2e；截图 always-on-top-settings.png 与 host-services-settings.png 已人工检查，滑块、开关、快捷键行无横向溢出。",
+    "E2E 曾捕获透明覆盖层页面，确认圆角高亮边框实际绘制；随后将边框改为绘制在目标窗口外侧，避免覆盖层遮挡被置顶窗口的渲染区域。追踪进程额外检查宿主 PID，宿主异常退出后自动结束。",
+    "源码 Electron、设置插件与 system 插件构建完成；node scripts/sync-portable-preview.cjs 同步到 .local/portable-preview，保留既有 180 个文件，核验 2139 个程序文件，版本 1.5.8，回退批次 update-1795064689622；node scripts/verify-portable-preview.cjs 通过：2138 个程序文件、360 个内置插件文件、11842 个媒体依赖。随后清理更旧的预览回退载荷，保留最新完整回退及各轮 preservation.json 审计收据。"
+  ],
+  "pending": [
+    "不同 DPI、多显示器、最大化窗口和系统强调色变化下的边框观感需在免安装预览中人工复核。",
+    "Shift+T 作为全局组合键可能与用户输入习惯冲突，保留快捷键页修改入口，实际可用性需在预览中确认。",
+    "提示音使用 Windows 系统星号音效，静音或声音方案差异下的听感保留人工验收。"
+  ]
+}

@@ -547,17 +547,20 @@ export class AppsAPI {
       featureCode: string
       name?: string
       launchSource?: PluginLaunchSource
+      cursorPoint?: { x: number; y: number }
     },
     pluginConfig: any
   ): Promise<{ success: boolean; error?: string }> {
     if (!this.pluginManager) {
       return { success: false, error: 'Plugin Manager 未初始化' }
     }
-    const { path: appPath, featureCode, name, launchSource } = options
+    const { path: appPath, featureCode, name, launchSource, cursorPoint } = options
     const plugin = this.getPluginsFromDB().find((p: any) => p.path === appPath)
     const effectiveName = plugin?.name
-    // 内置设置始终使用独立窗口；通用自动分离配置仍由用户管理。
-    let shouldAutoDetach = effectiveName === 'setting'
+    // 内置设置与呼叫AI始终使用独立窗口；通用自动分离配置仍由用户管理。
+    let shouldAutoDetach =
+      effectiveName === 'setting' ||
+      this.pluginManager.shouldLaunchInDetachedWindow(appPath, featureCode)
     if (!shouldAutoDetach && pluginConfig && effectiveName) {
       try {
         const autoDetachPlugins: string[] = databaseAPI.dbGet('auto-detach-plugin') || []
@@ -590,15 +593,23 @@ export class AppsAPI {
     this.pluginManager.retireToolsViewForLaunch(appPath, featureCode)
 
     if (shouldAutoDetach) {
-      const result = await this.pluginManager.createPluginInDetachedWindow(appPath, featureCode)
+      const result = await this.pluginManager.createPluginInDetachedWindow(
+        appPath,
+        featureCode,
+        // 使用本次启动的参数快照，避免其他入口在页面加载期间覆盖功能代码。
+        this.launchParam,
+        { cursorPoint }
+      )
 
       if (!result.success) {
         console.error('[Commands] 在独立窗口中创建插件失败:', result.error)
         // 如果创建失败，降级到主窗口模式
+        if (this.showWindowCallback) this.showWindowCallback()
+        else this.mainWindow?.show()
         this.notifyRenderer('show-plugin-placeholder')
         await this.pluginManager.createPluginView(appPath, featureCode, name)
       } else {
-        // 创建成功，隐藏主窗口
+        // 目标窗口完成可见交接后再隐藏来源窗口，避免桌面出现空白间隙。
         this.mainWindow?.hide()
       }
     } else {
@@ -645,8 +656,18 @@ export class AppsAPI {
     cmdType?: string // cmd 类型（用于判断是否添加历史记录）
     confirmDialog?: ConfirmDialogOptions // 确认对话框配置
     launchSource?: PluginLaunchSource
+    cursorPoint?: { x: number; y: number } // 超级面板触发光标，用于跟随光标打开
   }): Promise<any> {
-    const { path: appPath, type, param, name, cmdType, confirmDialog, launchSource } = options
+    const {
+      path: appPath,
+      type,
+      param,
+      name,
+      cmdType,
+      confirmDialog,
+      launchSource,
+      cursorPoint
+    } = options
     let { featureCode } = options
     this.launchParam = param || {}
     // 异步准备期间持续保护当前输入，结束后重新安排闲置检查。
@@ -797,6 +818,7 @@ export class AppsAPI {
             'latex-recognize',
             'file-renamer',
             'folder-break',
+            'file-locksmith',
             'qrcode-scan',
             'image-annotate',
             'float-content',
@@ -832,7 +854,9 @@ export class AppsAPI {
                   featureCode: targetCode,
                   name: targetName,
                   cmdType: featureParam?.type || 'text',
-                  param: featureParam
+                  param: featureParam,
+                  // 截图后进入识别等后续子组件仍使用面板触发位置。
+                  cursorPoint
                 })
             },
             param
@@ -843,7 +867,8 @@ export class AppsAPI {
             path: appPath,
             featureCode: featureCode || '',
             name,
-            launchSource
+            launchSource,
+            cursorPoint
           },
           pluginConfig
         )

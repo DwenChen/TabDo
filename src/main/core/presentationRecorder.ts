@@ -10,6 +10,8 @@ import detachedWindowManager from './detachedWindowManager'
 import { applyToolsWindowIdentity } from './toolsWindowIdentity'
 import { acquirePresentationCaptureSession } from './presentationCaptureSession'
 import { requestIdleMemoryReclaim } from './idleMemoryReclaimer'
+import { resolveWindowOpenBounds } from '../utils/windowPlacement'
+import { getToolWindowConfig } from './toolWindowConfig'
 import { uIOhook, UiohookKey } from 'uiohook-napi'
 
 import { createPresentationRuntimeTimers } from './presentationRuntimeTimers'
@@ -237,17 +239,13 @@ export async function openPresentation(
       if (window.webContents.isLoadingMainFrame())
         window.webContents.once('did-finish-load', updateTitle)
       if (!editorShown) {
-        // 首次显示按当前显示器工作区布局，预留时间轴并避免沿用其他工具的窄窗口。
+        // 首次显示跟随光标打开，预留时间轴并避免沿用其他工具的窄窗口。
         const area = electron.screen.getDisplayMatching(window.getBounds()).workArea
-        const width = Math.min(1180, area.width - 32)
-        const height = Math.min(820, area.height - 32)
+        const config = getToolWindowConfig('presentation-editor')
+        const width = Math.min(config.width ?? 1180, area.width - 32)
+        const height = Math.min(config.height ?? 820, area.height - 32)
         window.setMinimumSize(Math.min(960, width), Math.min(560, height))
-        window.setBounds({
-          x: area.x + Math.round((area.width - width) / 2),
-          y: area.y + Math.round((area.height - height) / 2),
-          width,
-          height
-        })
+        window.setBounds(resolveWindowOpenBounds(config.position, { width, height }, area))
         editorShown = true
       }
       if (window.isMinimized()) window.restore()

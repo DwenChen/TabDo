@@ -155,7 +155,7 @@
           <path d="M 0 5 L 10 5" stroke="currentColor" stroke-width="1" />
         </svg>
       </button>
-      <button class="window-btn maximize-btn" @click="maximize">
+      <button v-if="resizable" class="window-btn maximize-btn" @click="maximize">
         <svg width="10" height="10" viewBox="0 0 10 10">
           <rect
             width="9"
@@ -191,14 +191,15 @@ import { CommonKeyboardModifier, readModifiers } from '@renderer/utils/convertKe
 import type { AiRequestStatus, AiRequestStatusChange } from '@shared/aiRequestStatus'
 
 const platform = ref<'darwin' | 'win32'>('darwin')
-const pluginName = ref('Plugin')
+const pluginName = ref('') // 初始化事件到达前不显示占位名称，避免标题栏首帧闪出错误身份
 const pluginId = ref('') // 插件的实际 name（用于数据库操作，与未分离状态保持一致）
 const isBuiltinPlugin = computed(() => ['system', 'setting'].includes(pluginId.value))
 const pluginPath = ref('')
 const pluginLogo = ref<string | undefined>(undefined)
 const searchQuery = ref('')
 const searchPlaceholder = ref('搜索...')
-const subInputVisible = ref(true) // 子输入框是否可见
+// 默认隐藏，初始化事件回填后再显示；子组件窗口不能先亮出本应移除的搜索条。
+const subInputVisible = ref(false)
 const isPinned = ref(false)
 const showDevTools = ref(false)
 const isTemporaryResident = ref(false)
@@ -209,6 +210,7 @@ const aiRequestStatus = ref<AiRequestStatus>('idle') // AI 请求状态
 const primaryColor = ref('green')
 const customColor = ref('#db2777')
 const compactWindowHeader = ref(false)
+const resizable = ref(true)
 const escShortcutEnabled = ref(false)
 
 type PluginUpdateStatus = 'idle' | 'available' | 'upgrading' | 'error'
@@ -562,6 +564,7 @@ onMounted(() => {
     pluginLogo.value = data.pluginLogo
     showDevTools.value = data.showDevTools === true
     aiRequestStatus.value = data.aiRequestStatus || 'idle'
+    resizable.value = data.resizable !== false
     compactWindowHeader.value = data.compactWindowHeader === true
 
     // 初始化信息到达后再检查版本，确保请求携带真实插件名和路径。

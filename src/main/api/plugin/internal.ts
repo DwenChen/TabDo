@@ -2,6 +2,7 @@ import { app, dialog, IpcMainInvokeEvent, ipcMain } from 'electron'
 import type { PluginManager } from '../../managers/pluginManager'
 import windowManager from '../../managers/windowManager.js'
 import dndManager from '../../core/dndManager.js'
+import alwaysOnTopService, { type AlwaysOnTopConfig } from '../../core/alwaysOnTopService.js'
 import clipboardManager from '../../managers/clipboardManager.js'
 import detachedWindowManager from '../../core/detachedWindowManager.js'
 import httpServer from '../../core/httpServer.js'
@@ -1088,6 +1089,13 @@ export class InternalPluginAPI {
       return await settingsAPI.startHotkeyRecording()
     })
 
+    ipcMain.handle('internal:stop-hotkey-recording', async (event) => {
+      if (!requireInternalPlugin(this.pluginManager, event)) {
+        throw new PermissionDeniedError('internal:stop-hotkey-recording')
+      }
+      settingsAPI.stopHotkeyRecording()
+    })
+
     ipcMain.handle('internal:get-current-shortcut', async (event) => {
       if (!requireInternalPlugin(this.pluginManager, event)) {
         throw new PermissionDeniedError('internal:get-current-shortcut')
@@ -1140,13 +1148,6 @@ export class InternalPluginAPI {
         throw new PermissionDeniedError('internal:set-window-opacity')
       }
       return await windowAPI.setWindowOpacity(opacity)
-    })
-
-    ipcMain.handle('internal:set-window-default-height', async (event, height: number) => {
-      if (!requireInternalPlugin(this.pluginManager, event)) {
-        throw new PermissionDeniedError('internal:set-window-default-height')
-      }
-      return await settingsAPI.setWindowDefaultHeight(height)
     })
 
     ipcMain.handle('internal:set-compact-main-window-header', async (event, enabled: boolean) => {
@@ -1587,6 +1588,24 @@ export class InternalPluginAPI {
       }
       dndManager.setIgnoreOnFullscreen(v)
       return { success: true }
+    })
+
+    ipcMain.handle('internal:set-awake-enabled', async (event, enabled: boolean) => {
+      if (!requireInternalPlugin(this.pluginManager, event)) {
+        throw new PermissionDeniedError('internal:set-awake-enabled')
+      }
+      if (typeof enabled !== 'boolean') return { success: false, error: '参数无效' }
+      return windowManager.setAwakeEnabled(enabled)
+    })
+
+    ipcMain.handle('internal:update-always-on-top-config', async (event, patch: unknown) => {
+      if (!requireInternalPlugin(this.pluginManager, event)) {
+        throw new PermissionDeniedError('internal:update-always-on-top-config')
+      }
+      if (!patch || typeof patch !== 'object' || Array.isArray(patch)) {
+        return { success: false, error: '参数无效' }
+      }
+      return alwaysOnTopService.updateConfig(patch as Partial<AlwaysOnTopConfig>)
     })
 
     ipcMain.handle('internal:get-current-window-info', async (event) => {

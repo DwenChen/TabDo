@@ -1,0 +1,29 @@
+{
+  "id": "awake-menu-and-folder-locks",
+  "date": "2026-11-19",
+  "summary": "收窄唤醒托盘二级菜单留白，并修复文件占用对多层文件夹查询失败与性能问题",
+  "changes": [
+    "唤醒托盘二级菜单改用普通菜单项和文字 ✓ 表示启用状态，持续时间子项同样不再使用原生 checkbox/radio，避免 Windows 菜单为勾选列预留左侧空白。",
+    "文件占用不再把文件夹路径直接交给 Restart Manager；文件夹使用 .NET 目录枚举递归展开子目录并跳过重解析点，最多检查 20000 个文件。",
+    "文件夹内文件按 1024 个一批注册查询；批次遇到拒绝访问时二分拆批定位单个受保护文件，记录有限错误后继续其他批次。直接文件仍逐项查询以保留文件映射。",
+    "查询结果新增已检查文件数和截断状态；有错误时不再显示绿色的“没有进程占用”成功空态，改为提示部分项目无法检查并保留可读项目的结果。",
+    "前端显示的 E2E 使用隔离快捷键，避免与用户正在运行的预览实例争用 Win+Ctrl+T；生产快捷键不变。",
+    "同步 Bug 台账、回归分组、工具清单和模块文档。"
+  ],
+  "checks": [
+    "node tsconfig.node、tsconfig.web 与设置在 internal-plugins/setting/tsconfig.web 下的 vue-tsc 检查通过。",
+    "system 工具插件与 Electron 主程序重新构建通过。",
+    "完整单测 137 个文件、925 项通过，归档 .artifacts/runs/2026-11-19T02-02-59-692Z-unit。",
+    "file-locksmith 源码 Electron 专项通过：同时传入直接文件和包含该文件的两层子文件夹，列出 PowerShell 占用进程、无错误提示，结束进程后回到空态；截图已人工检查，归档 .artifacts/runs/2026-11-19T02-01-02-670Z-e2e。",
+    "host-services 源码 Electron 专项通过：唤醒二级菜单不含 checkbox/radio，启用后显示“启用唤醒 ✓”；前端显示使用 E2E 隔离快捷键完成连续置顶切换，归档 .artifacts/runs/2026-11-19T02-00-39-190Z-e2e。",
+    "PowerShell 辅助脚本手工验证：递归文件夹能发现锁进程；2000 个嵌套文件查询返回 scannedFiles=2000，含进程启动约 1.28 秒。",
+    "node scripts/sync-portable-preview.cjs 最终同步到 .local/portable-preview，保留既有 data/legacy 179 个文件，核验 2139 个程序文件；收据 .artifacts/backups/preview-sync/update-1795054195490/preservation.json。node scripts/verify-portable-preview.cjs 通过：2138 个程序文件、359 个内置插件文件、11842 个媒体依赖。",
+    "清理更旧的预览回退载荷 update-1795014938900 与 update-1795053828310，保留各自 preservation.json 及最新完整回退 update-1795054195490。",
+    "文件占用前台扫描超时放宽为 120 秒，用户关闭工具时仍通过会话信号立即取消并结束辅助进程。"
+  ],
+  "pending": [
+    "跨用户权限、被系统保护的文件以及超过 20000 个文件的真实大目录仍需设备验收。",
+    "原生托盘菜单在不同 Windows 版本、DPI 和缩放下仍需人工复核实际观感。",
+    "真实睡眠与显示器休眠效果继续按上一轮记录保留人工验收。"
+  ]
+}

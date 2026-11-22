@@ -209,6 +209,7 @@ onMounted(async () => {
       launchSource?: 'search' | 'global-shortcut' | 'super-panel'
       clipboardContent?: any
       windowInfo?: any
+      cursorPoint?: { x: number; y: number }
     }) => {
       console.log(
         '[超级面板启动] 收到启动事件:',
@@ -255,6 +256,7 @@ onMounted(async () => {
           name: cmd.name,
           cmdType: cmd.cmdType || type,
           launchSource: data.launchSource || 'super-panel',
+          cursorPoint: data.cursorPoint,
           param: {
             payload,
             type,

@@ -912,6 +912,26 @@ test('呼叫AI使用提供商、内置解释器、审批和提问，关闭后清
     }))
     expect(Math.abs(size.width - 650)).toBeLessThan(8)
     expect(Math.abs(size.height - 440)).toBeLessThan(8)
+    // 呼叫AI固定居中，不跟随触发光标。
+    const centered = await app.evaluate(({ app, screen }) => {
+      const manager = process.mainModule!.require(
+        app.getAppPath() + '/src/main/core/detachedWindowManager.ts'
+      ).default
+      const entry = [...manager.detachedWindowMap.values()].find(
+        (item: any) => item.toolFeatureCode === 'call-ai'
+      ) as any
+      const bounds = entry.window.getBounds()
+      const area = screen.getDisplayNearestPoint({
+        x: bounds.x + Math.round(bounds.width / 2),
+        y: bounds.y + Math.round(bounds.height / 2)
+      }).workArea
+      return {
+        dx: bounds.x + bounds.width / 2 - (area.x + area.width / 2),
+        dy: bounds.y + bounds.height / 2 - (area.y + area.height / 2)
+      }
+    })
+    expect(Math.abs(centered.dx)).toBeLessThan(8)
+    expect(Math.abs(centered.dy)).toBeLessThan(8)
     await expect(page.getByText('一次性对话', { exact: true })).toHaveCount(0)
     await expect(page.getByText('临时常驻 · 关闭后销毁', { exact: true })).toHaveCount(0)
     await expect(page.getByLabel('权限模式')).toHaveValue('approve')

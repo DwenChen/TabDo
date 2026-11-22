@@ -357,8 +357,8 @@ declare global {
 
         // 快捷键相关
         startHotkeyRecording: () => Promise<{ success: boolean; error?: string }>
+        stopHotkeyRecording: () => Promise<void>
         updateShortcut: (shortcut: string) => Promise<{ success: boolean; error?: string }>
-        updateBuiltinShortcuts: (config: Record<string, boolean>) => Promise<{ success: boolean }>
         dataLocationGet: () => Promise<{
           root: string
           result: { success: boolean; previousRoot?: string; error?: string } | null
@@ -392,7 +392,6 @@ declare global {
 
         // 窗口和设置
         setWindowOpacity: (opacity: number) => Promise<void>
-        setWindowDefaultHeight: (height: number) => Promise<void>
         setCompactMainWindowHeader: (
           enabled: boolean
         ) => Promise<{ success: boolean; error?: string }>
@@ -443,6 +442,37 @@ declare global {
         setTrayIconVisible: (visible: boolean) => Promise<void>
         setGameMode: (v: boolean) => Promise<void>
         setIgnoreHotkeysOnFullscreen: (v: boolean) => Promise<void>
+        setAwakeEnabled: (enabled: boolean) => Promise<{
+          success: boolean
+          error?: string
+          state?: {
+            enabled: boolean
+            keepDisplayOn: boolean
+            durationMinutes: number
+            expiresAt: number | null
+            remainingMs: number | null
+          }
+        }>
+        onAwakeStateChanged?: (
+          callback: (state: {
+            enabled: boolean
+            keepDisplayOn: boolean
+            durationMinutes: number
+            expiresAt: number | null
+            remainingMs: number | null
+          }) => void
+        ) => () => void
+        updateAlwaysOnTopConfig: (patch: {
+          enabled?: boolean
+          shortcut?: string
+          borderEnabled?: boolean
+          colorMode?: 'accent' | 'custom'
+          borderColor?: string
+          opacity?: number
+          thickness?: number
+          roundedCorners?: boolean
+          playSound?: boolean
+        }) => Promise<{ success: boolean; error?: string }>
         setLaunchAtLogin: (enable: boolean) => Promise<void>
         getLaunchAtLogin: () => Promise<boolean>
         setProxyConfig: (config: { enabled: boolean; url: string }) => Promise<{

@@ -1,5 +1,5 @@
 <template>
-  <div class="hotkey-input" :class="{ recording: isRecording }" @click="startRecording">
+  <div class="hotkey-input" :class="{ recording: isRecording }" @click="toggleRecording">
     {{ displayHotkey }}
   </div>
 </template>
@@ -138,12 +138,31 @@ const displayHotkey = computed(() => {
   return props.modelValue || props.placeholder
 })
 
+/**
+ * 切换录制状态：再次点击正在等待输入的输入框即可取消录制。
+ * @returns 录制启动或取消后的 Promise。
+ */
+async function toggleRecording(): Promise<void> {
+  if (isRecording.value) {
+    stopRecording()
+    return
+  }
+  await startRecording()
+}
+
+/**
+ * 开始录制快捷键，先接管键盘事件再请求宿主注册临时组合键。
+ * @returns 录制启动后的 Promise。
+ */
 async function startRecording(): Promise<void> {
   isRecording.value = true
   recordedKeys.value = []
   mainKeyPressed.value = false
   lastModifierOnlyTap.value = null
   clearDoubleTapTimer()
+  // 先接管本页键盘，避免取消等待时仍残留上一轮的监听。
+  document.addEventListener('keydown', handleKeyDown)
+  document.addEventListener('keyup', handleKeyUp)
 
   try {
     const result = await window.tabdo.internal.startHotkeyRecording()
@@ -155,18 +174,21 @@ async function startRecording(): Promise<void> {
   } catch (error) {
     console.error('启动后端快捷键监听异常，使用前端监听:', error)
   }
-
-  document.addEventListener('keydown', handleKeyDown)
-  document.addEventListener('keyup', handleKeyUp)
 }
 
+/**
+ * 结束录制并释放前端监听；真正处于录制时同步清理宿主临时组合键。
+ * @returns 无返回值。
+ */
 function stopRecording(): void {
+  const wasRecording = isRecording.value
   isRecording.value = false
   mainKeyPressed.value = false
   lastModifierOnlyTap.value = null
   clearDoubleTapTimer()
   document.removeEventListener('keydown', handleKeyDown)
   document.removeEventListener('keyup', handleKeyUp)
+  if (wasRecording) void window.tabdo.internal.stopHotkeyRecording?.()
 }
 
 /**

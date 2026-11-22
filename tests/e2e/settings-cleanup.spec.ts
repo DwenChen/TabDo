@@ -42,7 +42,7 @@ test('初始设置、快捷键、托盘和指令符合精简版约定，目录�
       main = await app.firstWindow()
     app.process().stdout?.on('data', (chunk) => logs.push(String(chunk)))
     app.process().stderr?.on('data', (chunk) => logs.push(String(chunk)))
-    await expect(main.locator('.plugin-host')).toBeAttached()
+    await expect(main.locator('.plugin-host')).toBeAttached({ timeout: 15000 })
     await expect
       .poll(() =>
         app
@@ -55,17 +55,54 @@ test('初始设置、快捷键、托盘和指令符合精简版约定，目录�
       .context()
       .pages()
       .find((page) => page.url().startsWith('http://127.0.0.1:15177'))!
-    await expect(settings.locator('.setting-group-title').first()).toHaveText('超级面板')
+    // 首次运行 Vite 需要编译设置页路由，冷启动时放宽等待时间。
+    await expect(settings.locator('.setting-group-title').first()).toHaveText('超级面板', {
+      timeout: 15000
+    })
+    // 设置页始终使用独立窗口，其可调整状态直接决定边缘拖动是否可用。
+    // 独立窗口的主 WebContents 是标题栏，设置正文是 15177 的 WebContentsView，需按窗口身份查找。
+    const settingsWindow = await app.evaluate(({ app }) => {
+      const manager = process.mainModule!.require(
+        app.getAppPath() + '/src/main/core/detachedWindowManager.ts'
+      ).default
+      const info = [...manager.detachedWindowMap.values()].find(
+        (item: any) => item.pluginName === 'setting'
+      ) as any
+      if (!info) return null
+      const win: Electron.BrowserWindow = info.window
+      return {
+        titlebarUrl: win.webContents.getURL(),
+        resizable: win.isResizable(),
+        maximizable: win.isMaximizable(),
+        visible: win.isVisible()
+      }
+    })
+    expect(settingsWindow).toMatchObject({
+      titlebarUrl: expect.stringContaining('detached-titlebar.html'),
+      resizable: true,
+      maximizable: true,
+      visible: true
+    })
     await expect(settings.getByText('鼠标按键弹出', { exact: true })).toBeVisible()
+    await expect(settings.getByText('触发⌈打开终端⌋指令时使用的终端')).toBeVisible()
     await expect(settings.getByLabel('当前数据与缓存目录')).toHaveText(data)
     await expect(settings.getByText('唤醒黑名单', { exact: true })).toHaveCount(0)
     await expect(settings.getByText('呼出快捷键', { exact: true })).toHaveCount(0)
     await expect(settings.getByRole('button', { name: '调试日志', exact: true })).toHaveCount(0)
     await expect(settings.locator('.developer-settings')).not.toHaveAttribute('open')
-    await expect(settings.getByText('内部 API 授权插件', { exact: true })).not.toBeVisible()
+    await expect(settings.getByText('内部 API 授权插件', { exact: true })).toHaveCount(0)
+    await expect(settings.getByText('工具窗口位置', { exact: true })).toHaveCount(0)
+    await expect(settings.getByText('开发者工具位置', { exact: true })).toHaveCount(0)
+    await expect(settings.getByText('插件默认高度', { exact: true })).toHaveCount(0)
+    await expect(settings.getByText('记住子组件窗口大小', { exact: true })).toBeVisible()
+    await expect(
+      settings.getByText('可调整的子组件和插件窗口按上次大小打开', { exact: true })
+    ).toBeVisible()
     await settings.locator('.developer-settings summary').click()
-    await expect(settings.getByText('内部 API 授权插件', { exact: true })).toBeVisible()
+    await expect(settings.getByText('关闭 GPU 加速', { exact: true })).toBeVisible()
     await settings.locator('.developer-settings summary').click()
+    await settings.getByText('打开终端应用', { exact: true }).scrollIntoViewIfNeeded()
+    await capture('terminal-and-behavior-settings.png')
 
     const initial = await app.evaluate(({ app, globalShortcut, Menu }) => {
       const db = process.mainModule!.require(
@@ -96,7 +133,8 @@ test('初始设置、快捷键、托盘和指令符合精简版约定，目录�
       '便签',
       '文件搜索',
       '录屏',
-      '演示录屏'
+      '演示录屏',
+      '呼叫AI'
     ])
     expect(initial.disabled).toContain('setting:function.plugin-market-search:插件市场搜索:over')
     expect(initial.disabled).toContain(
@@ -161,14 +199,16 @@ test('初始设置、快捷键、托盘和指令符合精简版约定，目录�
     await capture('general-settings.png')
     await settings.getByRole('button', { name: '快捷键', exact: true }).click()
     await expect(settings.getByText('设置页呼出快捷键', { exact: true })).toBeVisible()
-    await expect(settings.locator('.built-in input[type="checkbox"]')).toHaveCount(8)
-    expect(
-      await settings
-        .locator('.built-in input[type="checkbox"]')
-        .evaluateAll((inputs) => inputs.every((input) => !(input as HTMLInputElement).checked))
-    ).toBe(true)
+    // 指令别名与旧内置快捷键条目已移除，三项设置按呼出、置顶、全屏暂停排列。
+    await expect(settings.getByRole('button', { name: '指令别名', exact: true })).toHaveCount(0)
+    await expect(settings.locator('.built-in input[type="checkbox"]')).toHaveCount(0)
+    await expect(settings.locator('.builtin-settings .shortcut-item strong')).toHaveText([
+      '设置页呼出快捷键',
+      '窗口置顶',
+      '全屏时暂停快捷键'
+    ])
     await expect(settings.getByLabel('全屏时暂停快捷键')).not.toBeChecked()
-    await expect(settings.locator('.hotkey-input')).toHaveText('默认关闭，点击录制')
+    await expect(settings.locator('.hotkey-input').first()).toHaveText('默认关闭，点击录制')
     await capture('builtin-shortcuts.png')
 
     const plugin = await main.evaluate(async () =>
@@ -241,9 +281,18 @@ test('初始设置、快捷键、托盘和指令符合精简版约定，目录�
           ].filter((item: any) => item.pluginName === 'system').length
       )
     ).toBe(0)
-    const detach = settings.getByLabel('分离插件到独立窗口', { exact: true })
-    await detach.locator('..').click()
-    await expect(detach).toBeChecked()
+    // 设置页不再展示已弃用的内置快捷键条目，但宿主仍读取历史配置控制分离快捷键。
+    await expect(settings.getByLabel('分离插件到独立窗口', { exact: true })).toHaveCount(0)
+    await app.evaluate(({ app }) => {
+      const db = process.mainModule!.require(
+        app.getAppPath() + '/src/main/api/shared/database.ts'
+      ).default
+      const settings = db.dbGet('settings-general') || {}
+      db.dbPut('settings-general', {
+        ...settings,
+        builtinAppShortcutsEnabled: { ...settings.builtinAppShortcutsEnabled, detach: true }
+      })
+    })
     await expect
       .poll(() =>
         app.evaluate(
@@ -282,8 +331,26 @@ test('初始设置、快捷键、托盘和指令符合精简版约定，目录�
         if (item.pluginName === 'system') item.window.close()
     })
     await expect.poll(() => tools.isClosed()).toBe(true)
-    await detach.locator('..').click()
-    await expect(detach).not.toBeChecked()
+    await app.evaluate(({ app }) => {
+      const db = process.mainModule!.require(
+        app.getAppPath() + '/src/main/api/shared/database.ts'
+      ).default
+      const settings = db.dbGet('settings-general') || {}
+      db.dbPut('settings-general', {
+        ...settings,
+        builtinAppShortcutsEnabled: { ...settings.builtinAppShortcutsEnabled, detach: false }
+      })
+    })
+    await expect
+      .poll(() =>
+        app.evaluate(
+          ({ app }) =>
+            process
+              .mainModule!.require(app.getAppPath() + '/src/main/api/shared/database.ts')
+              .default.dbGet('settings-general')?.builtinAppShortcutsEnabled?.detach
+        )
+      )
+      .toBe(false)
 
     // 调试日志不留可进入路由和旧服务入口，应用文件日志仍可用。
     await settings.evaluate(() => {

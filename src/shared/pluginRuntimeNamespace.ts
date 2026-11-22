@@ -77,11 +77,11 @@ export function getPluginZBrowserPartition(pluginName: string): string {
 }
 
 /**
- * 分离窗口尺寸按插件有效名称持久化，呼叫AI单独保存。
+ * 窗口尺寸按插件有效名称持久化；内置工具再按功能代码区分，避免不同子组件互相覆盖。
  * @param pluginName 插件有效名称。
  * @param toolFeatureCode 内置工具功能码。
  * @returns 尺寸设置键。
  */
 export function getDetachedWindowSizeKey(pluginName: string, toolFeatureCode?: string): string {
-  return toolFeatureCode === 'call-ai' ? `${pluginName}:call-ai` : pluginName
+  return toolFeatureCode ? `${pluginName}:${toolFeatureCode}` : pluginName
 }

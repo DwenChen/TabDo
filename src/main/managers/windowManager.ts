@@ -7,16 +7,19 @@ import {
   nativeImage,
   // nativeTheme,
   screen,
-  Tray
+  Tray,
+  webContents
 } from 'electron'
 import { getPreloadPath, getRendererPath } from '../utils/appBundlePath'
 // import trayIconLight from '../../../resources/icons/trayTemplate@2x-light.png?asset'
 import trayIcon from '../../../resources/icons/trayTemplate@2x.png?asset'
 import windowsIcon from '../../../resources/icons/windows-icon.png?asset'
+import windowsTrayIcon from '../../../resources/icons/tray.ico?asset'
 
 import api from '../api'
 import databaseAPI from '../api/shared/database'
 import dndManager, { isFullscreenWindow } from '../core/dndManager.js'
+import awakeService from '../core/awakeService.js'
 import doubleTapManager from '../core/doubleTapManager.js'
 import globalInputManager from '../core/globalInputManager.js'
 import { WindowManager as NativeWindowManager } from '../core/native/index.js'
@@ -97,6 +100,12 @@ class WindowManager {
   private autoBackToSearchTimer: NodeJS.Timeout | null = null // 自动返回搜索定时器
   private autoBackToSearchConfig: string = 'never' // 自动返回搜索配置
   private windowPositionStrategy: string = 'remember' // 窗口呼出位置策略
+  /** 工具正文显示期间是否允许用户调整主窗口，搜索状态保持固定尺寸。 */
+  private toolWindowResizable = false
+  /** 工具模式下由用户拖出的主窗口宽度，避免 DPI 读取舍入造成逐次漂移。 */
+  private toolWindowWidth = WINDOW_WIDTH
+  /** 用户拖动边缘的意图截止时间；原生 will-resize 只对用户操作发出。 */
+  private userResizeUntil = 0
   private lastFocusTarget: 'mainWindow' | 'plugin' | null = null // 窗口隐藏前的焦点状态
   private isRestoringFocus: boolean = false // 是否正在恢复焦点状态（防止 focus 事件监听器干扰）
   private suppressBlurHide: boolean = false // 临时抑制 blur 事件隐藏窗口（文件关联打开等场景）
@@ -124,6 +133,79 @@ class WindowManager {
     pastedImage: null,
     pastedFiles: null,
     pastedText: null
+  }
+
+  constructor() {
+    // 唤醒计时到期或托盘操作改变状态时，统一刷新菜单并通知设置页。
+    awakeService.setStateHandler((state) => this.handleAwakeStateChanged(state))
+  }
+
+  /**
+   * 同步唤醒状态到托盘菜单和所有渲染进程。
+   * @param state 当前唤醒状态。
+   * @returns 无返回值。
+   */
+  private handleAwakeStateChanged(state: ReturnType<typeof awakeService.getState>): void {
+    this.refreshTrayMenu()
+    for (const contents of webContents.getAllWebContents()) {
+      if (!contents.isDestroyed()) contents.send('awake-state-changed', state)
+    }
+  }
+
+  /**
+   * 开启或关闭唤醒；开启前确保托盘图标可见。
+   * @param enabled 是否保持系统唤醒。
+   * @returns 操作结果与最新状态。
+   */
+  public setAwakeEnabled(enabled: boolean): {
+    success: boolean
+    state: ReturnType<typeof awakeService.getState>
+    error?: string
+  } {
+    if (enabled) {
+      // 唤醒菜单只在托盘提供，因此开启时必须同时显示托盘图标。
+      const settings = databaseAPI.dbGet('settings-general') || {}
+      if (settings.showTrayIcon !== true) {
+        databaseAPI.dbPut('settings-general', { ...settings, showTrayIcon: true })
+      }
+      this.setTrayIconVisible(true)
+    }
+    const state = awakeService.setEnabled(enabled)
+    return { success: true, state }
+  }
+
+  /**
+   * 设置唤醒时是否保持屏幕点亮。
+   * @param value 是否保持屏幕点亮。
+   * @returns 最新唤醒状态。
+   */
+  public setAwakeKeepDisplayOn(value: boolean): ReturnType<typeof awakeService.getState> {
+    return awakeService.setKeepDisplayOn(value)
+  }
+
+  /**
+   * 设置唤醒持续时间，0 表示无限期。
+   * @param minutes 持续时间（分钟）。
+   * @returns 最新唤醒状态。
+   */
+  public setAwakeDuration(minutes: number): ReturnType<typeof awakeService.getState> {
+    return awakeService.setDuration(minutes)
+  }
+
+  /**
+   * 按持久化设置恢复唤醒服务，并修正缺失的托盘可见性。
+   * @returns 无返回值。
+   */
+  public initializeAwakeService(): void {
+    const settings = databaseAPI.dbGet('settings-general') || {}
+    if (settings.awakeEnabled === true) {
+      if (settings.showTrayIcon !== true) {
+        databaseAPI.dbPut('settings-general', { ...settings, showTrayIcon: true })
+      }
+      this.setTrayIconVisible(true)
+    }
+    awakeService.syncFromSettings(settings)
+    this.refreshTrayMenu()
   }
 
   /**
@@ -179,6 +261,57 @@ class WindowManager {
    */
   public getMainWindowHeaderHeight(): number {
     return resolveMainWindowHeaderHeight(this.compactMainWindowHeader)
+  }
+
+  /**
+   * 查询主窗口当前是否处于工具正文的可调整模式。
+   * @returns 工具正文显示期间返回 true。
+   */
+  public isToolWindowResizable(): boolean {
+    return this.toolWindowResizable
+  }
+
+  /**
+   * 读取工具模式下由用户调整后的主窗口宽度。
+   * @returns 当前工具窗口宽度；搜索状态返回标准宽度。
+   */
+  public getToolWindowWidth(): number {
+    return this.toolWindowResizable ? this.toolWindowWidth : WINDOW_WIDTH
+  }
+
+  /**
+   * 在工具正文首次布局前恢复用户上次选择的宽度。
+   * @param width 历史窗口宽度。
+   * @returns 无返回值。
+   */
+  public setToolWindowWidth(width: number): void {
+    if (!this.toolWindowResizable || !Number.isFinite(width)) return
+    this.toolWindowWidth = Math.max(360, Math.round(width))
+  }
+
+  /**
+   * 切换主窗口的可调整状态。工具正文允许拖动边缘，搜索界面保持固定尺寸。
+   * @param enabled 是否允许用户调整主窗口。
+   * @returns 无返回值。
+   */
+  public setToolWindowResizable(enabled: boolean): void {
+    if (!this.mainWindow || this.mainWindow.isDestroyed() || this.toolWindowResizable === enabled)
+      return
+    this.toolWindowResizable = enabled
+    if (enabled) {
+      // 进入工具正文后再开放边缘缩放，避免搜索界面被拖出非标准尺寸。
+      this.toolWindowWidth = WINDOW_WIDTH
+      // 只限制宽度，高度由工具正文按内容或用户拖动决定，避免加载首帧被抬高。
+      this.mainWindow.setMinimumSize(360, this.getMainWindowHeaderHeight())
+      this.mainWindow.setResizable(true)
+      return
+    }
+    // 返回搜索时先撤销缩放能力，再恢复固定宽度；高度由既有收尾流程收紧。
+    this.mainWindow.setResizable(false)
+    this.mainWindow.setMinimumSize(0, 0)
+    const [, height] = this.mainWindow.getSize()
+    this.mainWindow.setSize(WINDOW_WIDTH, height)
+    this.toolWindowWidth = WINDOW_WIDTH
   }
 
   private isLeftMouseButton(button: unknown): boolean {
@@ -428,6 +561,23 @@ class WindowManager {
 
     this.mainWindow = new BrowserWindow(windowConfig)
 
+    // 原生 will-resize 只对用户拖动发出，用它区分用户尺寸与插件请求的自动高度。
+    this.mainWindow.on('will-resize', () => {
+      this.userResizeUntil = Date.now() + 600
+    })
+
+    // 工具正文期间允许拖动边缘；同一监听负责让插件视图跟随用户尺寸。
+    this.mainWindow.on('resize', () => {
+      if (!this.mainWindow || this.mainWindow.isDestroyed() || !this.toolWindowResizable) return
+      const bounds = this.mainWindow.getContentBounds()
+      this.toolWindowWidth = bounds.width
+      pluginManager.updatePluginViewBounds(
+        bounds.width,
+        bounds.height,
+        Date.now() < this.userResizeUntil
+      )
+    })
+
     // 强化置顶层级并允许在所有桌面和全屏应用上显示。
     // 跳过进程类型变换（skipTransformProcessType）：本应用以 LSUIElement + app.dock.hide()
     // 自行维持 accessory 状态，而该变换是异步的，会在窗口显示后异步隐藏/重排窗口，是面板
@@ -612,10 +762,13 @@ class WindowManager {
       icon = nativeImage.createFromPath(trayIcon)
       // 设置为模板图标（适配明暗模式）
       icon.setTemplateImage(true)
+    } else if (platform.isWindows) {
+      // Windows 托盘由 Electron 按系统小图标尺寸从 ICO 读取对应帧；
+      // 直接传入大尺寸 PNG 会在运行时缩放，导致小图标边缘发虚。
+      icon = nativeImage.createFromPath(windowsTrayIcon)
+      icon.setTemplateImage(false)
     } else {
-      // Windows/Linux - 根据系统主题选择图标
-      // 暗色模式用 light（白色图标），亮色模式用 dark（黑色图标）
-      // const iconPath = nativeTheme.shouldUseDarkColors ? trayIconLight : trayIcon
+      // Linux 托盘交给桌面环境缩放，保持原有 PNG 资源。
       icon = nativeImage.createFromPath(windowsIcon)
       icon.setTemplateImage(false)
     }
@@ -664,6 +817,10 @@ class WindowManager {
         }
       },
       {
+        label: this.buildAwakeMenuLabel(),
+        submenu: this.buildAwakeSubmenu()
+      },
+      {
         type: 'separator'
       },
       {
@@ -682,6 +839,63 @@ class WindowManager {
         }
       }
     ])
+  }
+
+  /**
+   * 生成托盘一级“唤醒”菜单文字，开启时附带勾选标记。
+   * @returns 菜单显示文字。
+   */
+  private buildAwakeMenuLabel(): string {
+    return awakeService.getState().enabled ? '唤醒 ✓' : '唤醒'
+  }
+
+  /**
+   * 生成“唤醒”二级菜单，集中持续时间、屏幕点亮和当前状态。
+   * @returns 原生菜单项模板。
+   */
+  private buildAwakeSubmenu(): Electron.MenuItemConstructorOptions[] {
+    const state = awakeService.getState()
+    const durations = [
+      { label: '无限期', minutes: 0 },
+      { label: '30 分钟', minutes: 30 },
+      { label: '1 小时', minutes: 60 },
+      { label: '2 小时', minutes: 120 },
+      { label: '4 小时', minutes: 240 },
+      { label: '8 小时', minutes: 480 }
+    ]
+    const remaining =
+      state.remainingMs === null
+        ? ''
+        : `剩余 ${Math.max(1, Math.ceil(state.remainingMs / 60_000))} 分钟`
+    const status = state.enabled
+      ? state.durationMinutes > 0
+        ? `当前：${remaining}`
+        : '当前：无限期保持唤醒'
+      : '当前：已关闭'
+
+    // 使用普通菜单项和文字勾选，避免原生 checkbox/radio 为整列预留空白。
+    return [
+      {
+        label: state.enabled ? '启用唤醒 ✓' : '启用唤醒',
+        click: () => this.setAwakeEnabled(!state.enabled)
+      },
+      {
+        label: state.keepDisplayOn ? '保持屏幕点亮 ✓' : '保持屏幕点亮',
+        enabled: state.enabled,
+        click: () => this.setAwakeKeepDisplayOn(!state.keepDisplayOn)
+      },
+      { type: 'separator' },
+      {
+        label: '持续时间',
+        submenu: durations.map((option) => ({
+          label:
+            state.durationMinutes === option.minutes ? `${option.label} ✓` : option.label,
+          click: () => this.setAwakeDuration(option.minutes)
+        }))
+      },
+      { type: 'separator' },
+      { label: status, enabled: false }
+    ]
   }
 
   public refreshTrayMenu(): void {
@@ -1084,6 +1298,9 @@ class WindowManager {
     // 取消自动返回搜索定时器
     this.cancelAutoBackToSearchTimer()
 
+    // 搜索界面保持固定尺寸；工具正文重新打开时会再次开放缩放。
+    if (pluginManager.getCurrentPluginPath() === null) this.setToolWindowResizable(false)
+
     // 记录打开窗口前的激活窗口
     const currentWindow = clipboardManager.getCurrentWindow()
     if (currentWindow) {
@@ -1321,6 +1538,7 @@ class WindowManager {
    */
   public unregisterAllShortcuts(): void {
     globalShortcut.unregisterAll()
+    awakeService.stop()
     doubleTapManager.unregisterAll()
     globalInputManager.release(WINDOW_BLUR_DRAG_INPUT_CONSUMER)
     this.mouseStateTrackingStarted = false

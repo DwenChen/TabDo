@@ -1,4 +1,4 @@
-import { app, globalShortcut, ipcMain, nativeTheme, webContents } from 'electron'
+import { app, globalShortcut, ipcMain, nativeTheme } from 'electron'
 import fs from 'fs'
 import type { PluginManager } from '../../managers/pluginManager'
 
@@ -19,8 +19,7 @@ import api from '../index'
 import databaseAPI from '../shared/database'
 import { normalizeCompactMainWindowHeader } from '../../../shared/mainWindowLayout'
 import detachedWindowManager from '../../core/detachedWindowManager'
-import devToolsShortcut from '../../utils/devToolsShortcut'
-import { readBuiltinShortcuts } from '../../../shared/shortcutSettings'
+import alwaysOnTopService from '../../core/alwaysOnTopService'
 
 /**
  * 快捷键触发时携带的文件输入
@@ -64,6 +63,7 @@ export class SettingsAPI {
     if (process.platform === 'win32') {
       OptimizedShortcutManager.stopListener()
     }
+    alwaysOnTopService.stop()
     this.nativeOptimizedShortcutSet.clear()
   }
 
@@ -225,16 +225,6 @@ export class SettingsAPI {
     // 快捷键
     ipcMain.handle('update-shortcut', (_event, shortcut: string) => this.updateShortcut(shortcut))
     ipcMain.handle('get-current-shortcut', () => this.getCurrentShortcutValue())
-    ipcMain.handle('update-builtin-shortcuts', (_event, config) => {
-      const settings = databaseAPI.dbGet('settings-general') || {}
-      const next = readBuiltinShortcuts({ builtinAppShortcutsEnabled: config })
-      databaseAPI.dbPut('settings-general', { ...settings, builtinAppShortcutsEnabled: next })
-      // 广播给宿主及独立标题栏，原生插件按键处理直接读取同一配置。
-      for (const contents of webContents.getAllWebContents())
-        contents.send('builtin-shortcuts-changed', next)
-      devToolsShortcut.refresh()
-      return { success: true }
-    })
     ipcMain.handle(
       'register-global-shortcut',
       (
@@ -273,6 +263,7 @@ export class SettingsAPI {
 
     // 临时快捷键录制
     ipcMain.handle('start-hotkey-recording', () => this.startHotkeyRecording())
+    ipcMain.handle('stop-hotkey-recording', () => this.stopHotkeyRecording())
   }
 
   /**
@@ -291,6 +282,13 @@ export class SettingsAPI {
       // 应用托盘图标显示设置（默认显示，在 if(data) 块外确保首次启动也能创建托盘）
       windowManager.setTrayIconVisible(data?.showTrayIcon ?? true)
       console.log('[Settings] 启动时应用托盘图标显示设置:', data?.showTrayIcon ?? true)
+      // 唤醒依赖托盘菜单；启用时恢复电源阻塞并在必要时重新显示托盘图标。
+      windowManager.initializeAwakeService()
+      // 窗口置顶快捷键只在用户明确启用后注册，被占用时保留设置并记录原因。
+      const alwaysOnTop = alwaysOnTopService.syncFromSettings(data)
+      if (!alwaysOnTop.success) {
+        console.warn('[Settings] 窗口置顶快捷键注册失败:', alwaysOnTop.error)
+      }
       dndManager.loadConfig()
 
       // 顶部栏密度在缺少历史字段时保持标准模式，并同步给宿主渲染层。
@@ -333,11 +331,6 @@ export class SettingsAPI {
             enabled: data.proxyEnabled,
             url: data.proxyUrl
           })
-        }
-        // 应用窗口默认高度设置
-        if (data.windowDefaultHeight !== undefined) {
-          this.pluginManager?.setPluginDefaultHeight(data.windowDefaultHeight)
-          console.log('[Settings] 启动时应用插件默认高度设置:', data.windowDefaultHeight)
         }
       }
 
@@ -875,6 +868,14 @@ export class SettingsAPI {
     }
   }
 
+  /**
+   * 取消快捷键录制，立即释放临时注册的组合键。
+   * @returns 无返回值。
+   */
+  public stopHotkeyRecording(): void {
+    this.cleanupRecordingShortcuts()
+  }
+
   // 清理临时快捷键（内部方法）
   private cleanupRecordingShortcuts(): void {
     for (const shortcut of this.recordingShortcuts) {
@@ -906,18 +907,6 @@ export class SettingsAPI {
       return { success: true }
     } catch (error: unknown) {
       console.error('[Settings] 设置代理配置失败:', error)
-      return { success: false, error: error instanceof Error ? error.message : '未知错误' }
-    }
-  }
-
-  // 设置窗口默认高度
-  public setWindowDefaultHeight(height: number): { success: boolean; error?: string } {
-    try {
-      this.pluginManager?.setPluginDefaultHeight(height)
-      console.log('[Settings] 插件默认高度已更新:', height)
-      return { success: true }
-    } catch (error: unknown) {
-      console.error('[Settings] 设置插件默认高度失败:', error)
       return { success: false, error: error instanceof Error ? error.message : '未知错误' }
     }
   }

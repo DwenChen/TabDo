@@ -46,7 +46,7 @@
 1. 查看分支、Git 状态与已有差异，明确修改范围，保留未提交内容。
 2. 新增或更新 `docs/history/entries/YYYY-MM-DD-序号-主题.json`。至少包含 `id`、`date`、`summary`、`changes`、`checks`；根据任务记录版本、原因、测试、未验收项和预览状态。
 3. Bug 修复同步 `docs/history/bugs.json`，记录原因、处理、回归位置与未覆盖边界。用 `pnpm test:regressions <分组> --list` 确认相关验证。
-4. 通过 `pnpm test` 和 `pnpm test:e2e` 执行验证。入口自动归档输出、参数、时间、真实退出码；失败也保留。E2E 截图另存到当次运行目录，避免后续覆盖。
+4. 运行与改动直接相关的单测和受影响 E2E；未获得明确许可且没有 push、云端构建或 Release 需求时，不得运行全量 E2E。用户明确要求或推送前才执行完整 `pnpm test` 与 `pnpm test:e2e`。入口自动归档输出、参数、时间、真实退出码；失败也保留。E2E 截图另存到当次运行目录，避免后续覆盖。
 5. 将实际命令、结果、失败修正、跳过及人工项写回记录，执行 `pnpm maintain`、`pnpm maintain:check` 和差异检查。
 6. 按任务交付程序资源，执行 `pnpm preview:sync` 与 `pnpm test:preview:resources`，确认数据逐文件保留，更新记录并再次维护校验。
 7. 按空间规范完成本轮暂存及旧程序回退收尾，记录清理量与保留边界，核对当前预览和既有未提交内容仍保留；不能只把临时文件移入 `.artifacts/` 就视为已释放空间。

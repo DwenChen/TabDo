@@ -1,0 +1,23 @@
+{
+  "id": "always-on-top-border-persistence",
+  "date": "2026-11-19",
+  "summary": "修复置顶边框只显示片刻以及左右边缘不贴合实际窗口的问题",
+  "changes": [
+    "修复覆盖层隐藏原因：追踪进程输出扁平的 x/y/width/height，覆盖层却按 snapshot.rect 判断有效矩形，首帧后 rect 恒为空，边框随即被隐藏。现在把扁平字段转换为内部矩形，边框在整个置顶期间持续可见。",
+    "追踪进程启动时声明 Per-Monitor V2 DPI 感知（失败时回退系统 DPI 感知），确保 GetWindowRect 返回物理像素，再由 Electron 转换为 DIP，避免缩放屏幕上左右错位。",
+    "普通窗口改用 GetWindowRect 贴合左右可见边缘，避免 DWM 可见边界在标准窗口上左右各内缩约 7px；最大化窗口仍回退到 DWM 可见边界，防止不可见缩放边框落到屏幕外。",
+    "host-services 源码 E2E 直接固定宿主主窗口，等待 2.5 秒后断言覆盖层仍可见，并校验覆盖层相对窗口边界偏差不超过 3 DIP；截图前统一释放覆盖层，避免顶层透明窗口影响页面截图。",
+    "同步工具开发规范、Bug 台账与回归说明，并重新构建、同步和核验免安装预览。"
+  ],
+  "checks": [
+    "node tsconfig.node 类型检查通过；alwaysOnTopService 单测 7 项通过；完整单测 137 个文件、929 项通过，归档 .artifacts/runs/2026-11-19T05-44-55-363Z-unit。",
+    "host-services 源码 Electron 专项通过：覆盖层固定主窗口后等待 2.5 秒仍可见，坐标与窗口边界偏差不超过 3 DIP；快捷键注册、连续置顶切换、覆盖层登记与释放继续通过。归档 .artifacts/runs/2026-11-19T05-38-59-985Z-e2e。",
+    "用真实记事本窗口核对了可见边缘与 GetWindowRect/DWM 边界的差异：可见左边缘约 690px，与 GetWindowRect 的 691px 一致，DWM 为 698px，确认普通窗口应使用 GetWindowRect。",
+    "node scripts/sync-portable-preview.cjs 同步到 .local/portable-preview，保留既有 180 个文件，核验 2139 个程序文件，版本 1.5.8，回退批次 update-1795066796942；node scripts/verify-portable-preview.cjs 通过：2138 个程序文件、360 个内置插件文件、11842 个媒体依赖。已清理更旧的预览回退载荷，保留最新完整回退及各轮 preservation.json 审计收据。",
+    "node scripts/check-docs.mjs、node scripts/project-maintenance.cjs prepare 与 check 通过。"
+  ],
+  "pending": [
+    "原生标题栏窗口、最大化窗口、混合 DPI 与多显示器下的边框贴合观感需在免安装预览中人工复核。",
+    "Shift+T 作为全局组合键仍可能与用户输入大写 T 冲突，实际使用体验需在预览中确认。"
+  ]
+}

@@ -36,7 +36,7 @@ test('悬浮中转混合内容、排序追加、关闭销毁与宿主临时常�
     ...process.env,
     TABDO_E2E: '1',
     TABDO_SOURCE_PREVIEW: '1',
-    TABDO_PREVIEW_OPEN_SETTINGS: '1',
+    TABDO_PREVIEW_OPEN_SETTINGS: '0',
     TABDO_DATA_ROOT: path.join(temporary, 'data'),
     TABDO_LEGACY_USER_DATA_PATH: path.join(temporary, 'legacy'),
     ELECTRON_RENDERER_URL: 'http://127.0.0.1:5174',

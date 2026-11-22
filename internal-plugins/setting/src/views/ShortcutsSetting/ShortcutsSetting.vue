@@ -1,12 +1,10 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue'
-import { useToast, ShortcutEditor, AdaptiveIcon } from '@/components'
+import { computed, onMounted, ref } from 'vue'
+import { useToast, ShortcutEditor } from '@/components'
 import { weightedSearch } from '@/utils'
 import { useJumpFunction, useTabDoSubInput } from '@/composables'
 import type {
-  ShortcutsSettingAliasCommandOption,
-  ShortcutsSettingAliasDialogState,
-  ShortcutsSettingAliasDraftTarget,
+  ShortcutsSettingCommandTargetOptionBase,
   ShortcutsSettingCommandCmdType,
   ShortcutsSettingJumpFunction,
   ShortcutsSettingShortcutTargetOption,
@@ -14,24 +12,16 @@ import type {
 } from '@/views/ShortcutsSetting/ShortcutsSetting'
 import { buildShortcutTargetValue } from '@/views/ShortcutsSetting/ShortcutsSetting'
 import {
-  COMMAND_ALIASES_KEY,
   DIRECT_APP_ALIAS_GROUP_KEY,
   DIRECT_APP_ALIAS_GROUP_TITLE,
   LOCAL_SHORTCUT_ALIAS_GROUP_KEY,
   LOCAL_SHORTCUT_ALIAS_GROUP_TITLE,
-  getCommandId as _getCommandId,
-  normalizeCommandAliases
+  getCommandId as _getCommandId
 } from '@shared/commandShared'
-import type { CommandAliasEntry, CommandAliasStore } from '@shared/commandShared'
-import AliasMappingDialog from './components/AliasMappingDialog.vue'
 import BuiltinWakeupSetting from './BuiltinWakeupSetting.vue'
+import BuiltinFullscreenSetting from './BuiltinFullscreenSetting.vue'
+import BuiltinAlwaysOnTopSetting from './BuiltinAlwaysOnTopSetting.vue'
 import PresentationShortcuts from './PresentationShortcuts.vue'
-import {
-  BUILTIN_SHORTCUT_DEFAULTS,
-  readBuiltinShortcuts,
-  type BuiltinShortcutKey,
-  type BuiltinShortcutConfig
-} from '@shared/shortcutSettings'
 
 const { success, error, warning, confirm } = useToast()
 
@@ -40,142 +30,27 @@ interface GlobalShortcut {
   shortcut: string
   target: string
   enabled: boolean
-  configurable?: boolean
-  configKey?: BuiltInShortcutKey
   autoCopy?: boolean
   preScreenshotOptimization?: boolean
 }
-
-type BuiltInShortcutKey = BuiltinShortcutKey
-
-type BuiltInShortcutConfig = BuiltinShortcutConfig
-
-interface AliasRow {
-  id: string
-  commandId: string
-  alias: string
-  icon?: string
-  target: ShortcutsSettingAliasCommandOption | null
-  targetLabel: string
-  missingTarget: boolean
-}
-
-const DEFAULT_BUILTIN_SHORTCUTS_ENABLED: BuiltInShortcutConfig = { ...BUILTIN_SHORTCUT_DEFAULTS }
-
-// 获取平台信息
-const isMac = ref(false)
-const isWindows = ref(false)
-
-// 基础内置快捷键配置（使用 MOD 占位符表示 Cmd/Ctrl）
-const baseBuiltInShortcuts: GlobalShortcut[] = [
-  {
-    id: 'builtin-search',
-    shortcut: 'MOD+F',
-    target: '聚焦插件搜索框',
-    enabled: false,
-    configurable: true,
-    configKey: 'search'
-  },
-  {
-    id: 'builtin-recorder-stop',
-    shortcut: 'F10',
-    target: '停止录屏并保存',
-    enabled: false,
-    configurable: true,
-    configKey: 'recorderStop'
-  },
-  {
-    id: 'builtin-detach',
-    shortcut: 'MOD+D',
-    target: '分离插件到独立窗口',
-    enabled: false,
-    configurable: true,
-    configKey: 'detach'
-  },
-  {
-    id: 'builtin-settings',
-    shortcut: 'MOD+,',
-    target: '打开设置',
-    enabled: false,
-    configurable: true,
-    configKey: 'settings'
-  },
-  {
-    id: 'builtin-kill-plugin',
-    shortcut: 'MOD+Q',
-    target: '终止当前插件运行',
-    enabled: false,
-    configurable: true,
-    configKey: 'killPlugin'
-  },
-  {
-    id: 'builtin-close-plugin',
-    shortcut: 'MOD+W',
-    target: '关闭插件/隐藏窗口',
-    enabled: false,
-    configurable: true,
-    configKey: 'closePlugin'
-  },
-  {
-    id: 'builtin-esc',
-    shortcut: 'ESC',
-    target: '清空输入/退出插件/隐藏窗口',
-    enabled: false,
-    configurable: true,
-    configKey: 'esc'
-  },
-  {
-    id: 'builtin-devtools',
-    shortcut: 'DEVTOOLS',
-    target: '打开/关闭开发者工具',
-    enabled: false,
-    configurable: true,
-    configKey: 'devTools'
-  }
-]
-
-// 根据平台转换快捷键修饰符
-const builtInAppShortcuts = computed<GlobalShortcut[]>(() => {
-  const modifier = isMac.value ? 'Command' : isWindows.value ? 'Ctrl' : ''
-  if (!modifier) return []
-
-  return baseBuiltInShortcuts
-    .filter((item) => isWindows.value || item.configKey !== 'recorderStop')
-    .map((item) => {
-      if (item.shortcut === 'DEVTOOLS') {
-        return {
-          ...item,
-          shortcut: isMac.value ? 'Option+Command+I' : 'Ctrl+Shift+I'
-        }
-      }
-
-      return {
-        ...item,
-        shortcut: item.shortcut.replace('MOD', modifier)
-      }
-    })
-})
 
 const activeTab = ref<ShortcutsSettingTab>('builtin')
 const globalShortcuts = ref<GlobalShortcut[]>([])
 const appShortcuts = ref<GlobalShortcut[]>([])
 const isDeleting = ref(false)
 const loading = ref(true)
-const builtInShortcutsEnabled = ref<BuiltInShortcutConfig>({ ...DEFAULT_BUILTIN_SHORTCUTS_ENABLED })
+const showEditor = ref(false)
+const editingShortcut = ref<GlobalShortcut | null>(null)
+const prefillTarget = ref('')
 
-const aliasMappings = ref<CommandAliasStore>({})
-// alias 目标列表来自主进程整理后的 canonical commands，仅包含允许直接触发的插件指令和系统应用。
-const aliasTargetOptions = ref<ShortcutsSettingAliasCommandOption[]>([])
+// 快捷键目标列表来自主进程整理后的 canonical commands，仅包含允许直接触发的插件指令和系统应用。
+const commandTargetOptions = ref<ShortcutsSettingCommandTargetOptionBase[]>([])
 const shortcutTargetOptions = computed<ShortcutsSettingShortcutTargetOption[]>(() =>
-  aliasTargetOptions.value.map((target) => ({
+  commandTargetOptions.value.map((target) => ({
     ...target,
     value: buildShortcutTargetValue(target)
   }))
 )
-const aliasDialogVisible = ref(false)
-const aliasDialogRef = ref<InstanceType<typeof AliasMappingDialog> | null>(null)
-const aliasDialogState = ref<ShortcutsSettingAliasDialogState | null>(null)
-const aliasSaving = ref(false)
 
 const currentShortcuts = computed(() => {
   if (activeTab.value === 'global') return globalShortcuts.value
@@ -183,7 +58,7 @@ const currentShortcuts = computed(() => {
   return []
 })
 
-const { value: searchQuery } = useTabDoSubInput('', '搜索快捷键或别名...')
+const { value: searchQuery } = useTabDoSubInput('', '搜索快捷键...')
 
 const filteredShortcuts = computed(() =>
   weightedSearch(currentShortcuts.value, searchQuery.value || '', [
@@ -192,59 +67,8 @@ const filteredShortcuts = computed(() =>
   ])
 )
 
-const aliasTargetMap = computed(
-  () => new Map(aliasTargetOptions.value.map((target) => [target.commandId, target]))
-)
-
-const aliasRows = computed<AliasRow[]>(() => {
-  const rows: AliasRow[] = []
-
-  // 持久化结构按 commandId 分桶，这里扁平化成表格行，方便展示和编辑。
-  // 目标指令缺失时保留映射并标记 missingTarget，避免用户无感丢失历史配置。
-  for (const [commandId, entries] of Object.entries(aliasMappings.value)) {
-    for (const entry of entries || []) {
-      const normalizedAlias = entry.alias.trim()
-      if (!normalizedAlias) continue
-
-      const target = aliasTargetMap.value.get(commandId) || null
-      rows.push({
-        id: `${commandId}::${normalizedAlias}`,
-        commandId,
-        alias: normalizedAlias,
-        icon: entry.icon,
-        target,
-        targetLabel: getAliasTargetLabel(target),
-        missingTarget: !target
-      })
-    }
-  }
-
-  return rows
-})
-
-const filteredAliasRows = computed(() =>
-  weightedSearch(aliasRows.value, searchQuery.value || '', [
-    { value: (row) => row.alias || '', weight: 10 },
-    { value: (row) => row.targetLabel || '', weight: 6 },
-    { value: (row) => row.commandId || '', weight: 2 }
-  ])
-)
-
-const addButtonLabel = computed(() => (activeTab.value === 'alias' ? '添加映射' : '添加快捷键'))
-
-const showAliasEmptyState = computed(() => !loading.value && aliasRows.value.length === 0)
-
-const showAliasSearchEmptyState = computed(
-  () => !loading.value && aliasRows.value.length > 0 && filteredAliasRows.value.length === 0
-)
-
-const showShortcutEditor = computed(() => showEditor.value && activeTab.value !== 'alias')
-const showAliasEditor = computed(() => aliasDialogVisible.value && activeTab.value === 'alias')
-const showDetailPanel = computed(() => showShortcutEditor.value || showAliasEditor.value)
-
-const showEditor = ref(false)
-const editingShortcut = ref<GlobalShortcut | null>(null)
-const prefillTarget = ref('')
+const addButtonLabel = computed(() => '添加快捷键')
+const showShortcutEditor = computed(() => showEditor.value)
 
 function getCommandId(command: {
   name: string
@@ -264,96 +88,6 @@ function getCommandId(command: {
     name: command.name,
     cmdType: command.cmdType
   })
-}
-
-function getAliasTargetLabel(target: ShortcutsSettingAliasCommandOption | null): string {
-  if (!target) return '目标已失效'
-  return target.label
-}
-
-function cloneAliasStore(): CommandAliasStore {
-  // 先转成普通对象，避免直接修改响应式引用，也避免后续 IPC 传输时混入 Vue 代理对象
-  return JSON.parse(JSON.stringify(aliasMappings.value || {}))
-}
-
-function focusAliasInput(select = true): void {
-  aliasDialogRef.value?.focusAliasInput(select)
-}
-
-function handleAliasDialogAfterEnter(): void {
-  focusAliasInput(false)
-}
-
-function getAliasDisplayIcon(row: AliasRow): string | undefined {
-  return row.icon || row.target?.icon
-}
-
-function resolveAliasTarget(
-  target: ShortcutsSettingAliasDraftTarget
-): ShortcutsSettingAliasCommandOption {
-  return (
-    // 优先复用当前最新的目标指令数据；若目标已经不在候选列表中，则退回路由里带过来的草稿信息
-    aliasTargetMap.value.get(target.commandId) || {
-      ...target,
-      label: `${target.groupTitle} / ${target.cmdName}`
-    }
-  )
-}
-
-function openAliasDialog(state: ShortcutsSettingAliasDialogState): void {
-  closeEditor()
-  aliasDialogState.value = {
-    ...state,
-    target: state.target ? { ...state.target } : null
-  }
-  aliasDialogVisible.value = true
-}
-
-function closeAliasDialog(): void {
-  aliasDialogVisible.value = false
-  aliasDialogState.value = null
-}
-
-function openCreateAliasDialog(target?: ShortcutsSettingAliasDraftTarget): void {
-  activeTab.value = 'alias'
-  openAliasDialog({
-    mode: 'create',
-    alias: '',
-    icon: undefined,
-    target: target ? resolveAliasTarget(target) : null
-  })
-}
-
-function openEditAliasDialog(row: AliasRow): void {
-  openAliasDialog({
-    mode: 'edit',
-    originalCommandId: row.commandId,
-    originalAlias: row.alias,
-    alias: row.alias,
-    icon: row.icon,
-    target: row.target
-  })
-}
-
-function buildAliasEntry(alias: string, icon?: string): CommandAliasEntry {
-  return {
-    alias: alias.trim(),
-    icon: icon || undefined
-  }
-}
-
-async function saveAliasMappings(nextStore: CommandAliasStore): Promise<boolean> {
-  try {
-    const normalized = normalizeCommandAliases(nextStore)
-    // 保存前再次做一次归一化，并转成普通对象，避免把 Vue 响应式代理直接发给 IPC
-    await window.tabdo.internal.updateCommandAliases(JSON.parse(JSON.stringify(normalized)))
-    aliasMappings.value = normalized
-    return true
-  } catch (err: any) {
-    console.error('保存指令别名失败:', err)
-    error(`保存指令别名失败: ${err?.message || '未知错误'}`)
-    return false
-  }
 }
 
 async function loadGlobalShortcuts(): Promise<void> {
@@ -379,35 +113,16 @@ async function loadAppShortcuts(): Promise<void> {
 }
 
 /**
- * 读取内置快捷键开关，未显式启用的项目保持关闭。
- * @returns 开关加载完成后的 Promise。
+ * 读取可绑定的插件指令、系统应用和本地启动项。
+ * @returns 目标加载完成后的 Promise。
  */
-async function loadBuiltInShortcutSettings(): Promise<void> {
-  try {
-    const settings = (await window.tabdo.internal.dbGet('settings-general')) || {}
-    builtInShortcutsEnabled.value = readBuiltinShortcuts(settings)
-  } catch (err) {
-    console.error('加载内置快捷键开关失败:', err)
-  }
-}
-
-async function loadAliasMappings(): Promise<void> {
-  try {
-    const data = await window.tabdo.internal.dbGet(COMMAND_ALIASES_KEY)
-    // 设置页统一读取归一化后的 alias store，兼容旧版 string[] 结构
-    aliasMappings.value = normalizeCommandAliases(data)
-  } catch (err) {
-    console.error('加载指令别名失败:', err)
-  }
-}
-
-async function loadAliasTargets(): Promise<void> {
+async function loadCommandTargets(): Promise<void> {
   try {
     const result = await window.tabdo.internal.getCommands()
     const pluginMap = new Map((result.plugins || []).map((plugin: any) => [plugin.name, plugin]))
-    const targetMap = new Map<string, ShortcutsSettingAliasCommandOption>()
+    const targetMap = new Map<string, ShortcutsSettingCommandTargetOptionBase>()
 
-    const addTarget = (target: ShortcutsSettingAliasCommandOption): void => {
+    const addTarget = (target: ShortcutsSettingCommandTargetOptionBase): void => {
       targetMap.set(target.commandId, target)
     }
 
@@ -543,7 +258,7 @@ async function loadAliasTargets(): Promise<void> {
       }
     }
 
-    aliasTargetOptions.value = Array.from(targetMap.values()).sort((a, b) =>
+    commandTargetOptions.value = Array.from(targetMap.values()).sort((a, b) =>
       a.label.localeCompare(b.label, 'zh-CN')
     )
   } catch (err) {
@@ -554,13 +269,7 @@ async function loadAliasTargets(): Promise<void> {
 async function loadShortcuts(): Promise<void> {
   loading.value = true
   try {
-    await Promise.all([
-      loadGlobalShortcuts(),
-      loadAppShortcuts(),
-      loadBuiltInShortcutSettings(),
-      loadAliasMappings(),
-      loadAliasTargets()
-    ])
+    await Promise.all([loadGlobalShortcuts(), loadAppShortcuts(), loadCommandTargets()])
   } finally {
     loading.value = false
   }
@@ -568,52 +277,6 @@ async function loadShortcuts(): Promise<void> {
 
 function switchToTab(tab: ShortcutsSettingTab): void {
   activeTab.value = tab
-
-  // alias 编辑器与快捷键编辑器共用详情面板，切换 tab 时需要互斥清理另一侧状态
-  if (tab === 'alias') {
-    closeEditor()
-    return
-  }
-
-  closeAliasDialog()
-}
-
-/**
- * 持久化单项开关并立即通知宿主和已有窗口。
- * @param key 内置快捷键的稳定标识。
- * @param enabled 是否启用该项。
- * @returns 更新完成后的 Promise。
- */
-async function handleToggleBuiltInShortcut(
-  key: BuiltInShortcutKey,
-  enabled: boolean
-): Promise<void> {
-  try {
-    const settings = (await window.tabdo.internal.dbGet('settings-general')) || {}
-    const nextConfig = {
-      ...readBuiltinShortcuts(settings),
-      [key]: enabled
-    }
-    settings.builtinAppShortcutsEnabled = nextConfig
-    await window.tabdo.internal.updateBuiltinShortcuts(nextConfig)
-    builtInShortcutsEnabled.value = nextConfig
-    success(enabled ? '已启用内置快捷键' : '已禁用内置快捷键')
-  } catch (err: any) {
-    console.error('更新内置快捷键开关失败:', err)
-    error(`更新失败: ${err?.message || '未知错误'}`)
-  }
-}
-
-/**
- * 将开关事件转换为明确的布尔配置。
- * @param key 内置快捷键标识。
- * @param event 复选框变化事件。
- * @returns 无返回值。
- */
-function handleBuiltInToggleChange(key: BuiltInShortcutKey, event: Event): void {
-  const target = event.target as HTMLInputElement | null
-  if (!target) return
-  void handleToggleBuiltInShortcut(key, target.checked)
 }
 
 async function saveGlobalShortcuts(): Promise<void> {
@@ -638,92 +301,7 @@ async function saveAppShortcuts(): Promise<void> {
   }
 }
 
-async function handleSaveAliasDialog(state: ShortcutsSettingAliasDialogState): Promise<void> {
-  if (aliasSaving.value) return
-
-  const nextAlias = state.alias.trim()
-  if (!nextAlias) {
-    warning('别名不能为空')
-    focusAliasInput(false)
-    return
-  }
-
-  if (!state.target) {
-    warning('请先选择目标指令')
-    return
-  }
-
-  const nextStore = cloneAliasStore()
-
-  // 编辑态采用“先删旧映射，再写新映射”的策略，因此允许同时修改 alias 文本和目标指令
-  if (state.mode === 'edit' && state.originalCommandId && state.originalAlias) {
-    const originalEntries = [...(nextStore[state.originalCommandId] || [])]
-    const filteredOriginalEntries = originalEntries.filter(
-      (entry) => entry.alias !== state.originalAlias
-    )
-
-    if (filteredOriginalEntries.length > 0) {
-      nextStore[state.originalCommandId] = filteredOriginalEntries
-    } else {
-      delete nextStore[state.originalCommandId]
-    }
-  }
-
-  const targetEntries = [...(nextStore[state.target.commandId] || [])]
-  // 重复校验只限制同一目标指令下的 alias，避免影响其它指令使用同名 alias
-  if (targetEntries.some((entry) => entry.alias === nextAlias)) {
-    warning('该目标已存在相同别名')
-    focusAliasInput()
-    return
-  }
-
-  nextStore[state.target.commandId] = [...targetEntries, buildAliasEntry(nextAlias, state.icon)]
-
-  aliasSaving.value = true
-  const saved = await saveAliasMappings(nextStore)
-  aliasSaving.value = false
-
-  if (saved) {
-    success(state.mode === 'edit' ? '别名已更新' : '别名已添加')
-    closeAliasDialog()
-  }
-}
-
-async function deleteAliasRow(row: AliasRow): Promise<void> {
-  const confirmed = await confirm({
-    title: '删除别名映射',
-    message: `确定要删除别名“${row.alias}”吗？`,
-    type: 'danger',
-    confirmText: '删除',
-    cancelText: '取消'
-  })
-  if (!confirmed) return
-
-  const nextStore = cloneAliasStore()
-  // 删除维度是 commandId + alias；如果某个 bucket 被删空，就直接移除该 commandId
-  const entries = (nextStore[row.commandId] || []).filter((entry) => entry.alias !== row.alias)
-
-  if (entries.length > 0) {
-    nextStore[row.commandId] = entries
-  } else {
-    delete nextStore[row.commandId]
-  }
-
-  aliasSaving.value = true
-  const saved = await saveAliasMappings(nextStore)
-  aliasSaving.value = false
-
-  if (saved) {
-    success('别名已删除')
-  }
-}
-
 function showAddEditor(): void {
-  if (activeTab.value === 'alias') {
-    openCreateAliasDialog()
-    return
-  }
-
   editingShortcut.value = null
   prefillTarget.value = ''
   showEditor.value = true
@@ -1028,9 +606,7 @@ async function handleAutoCopyToggle(shortcut: any, event: Event): Promise<void> 
       target: s.target,
       enabled: s.enabled,
       autoCopy: s.autoCopy,
-      preScreenshotOptimization: s.preScreenshotOptimization,
-      ...(s.configurable !== undefined && { configurable: s.configurable }),
-      ...(s.configKey !== undefined && { configKey: s.configKey })
+      preScreenshotOptimization: s.preScreenshotOptimization
     }))
     await window.tabdo.internal.dbPut('global-shortcuts', dataToSave)
     console.log('[AutoCopy] 数据库保存成功')
@@ -1065,45 +641,24 @@ async function handleAutoCopyToggle(shortcut: any, event: Event): Promise<void> 
 }
 
 onMounted(() => {
-  const userAgent = navigator.userAgent.toLowerCase()
-  const platform = navigator.platform.toLowerCase()
-
-  isMac.value = platform.includes('mac') || userAgent.includes('mac')
-  isWindows.value = platform.includes('win') || userAgent.includes('windows')
-
   void loadShortcuts()
 
   // 监听本地启动项变化，实时更新可选目标列表
   if (window.tabdo.internal.onLocalShortcutsChanged) {
     window.tabdo.internal.onLocalShortcutsChanged(() => {
-      void loadAliasTargets()
+      void loadCommandTargets()
     })
   }
 
   // 监听系统应用变化，实时更新可选目标列表
   if (window.tabdo.internal.onAppsChanged) {
     window.tabdo.internal.onAppsChanged(() => {
-      void loadAliasTargets()
-    })
-  }
-
-  // 监听指令别名变化，实时更新别名列表
-  if (window.tabdo.internal.onCommandAliasesChanged) {
-    window.tabdo.internal.onCommandAliasesChanged(() => {
-      void loadAliasMappings()
+      void loadCommandTargets()
     })
   }
 })
 
-useJumpFunction<ShortcutsSettingJumpFunction>(async (state) => {
-  // 支持从“所有指令”页带着 draftTarget 跳转过来，进入 alias tab 后直接打开创建对话框
-  if (state.tab === 'alias' && state.draftTarget) {
-    switchToTab('alias')
-    await nextTick()
-    openCreateAliasDialog(state.draftTarget)
-    return
-  }
-
+useJumpFunction<ShortcutsSettingJumpFunction>((state) => {
   if (state.tab) {
     switchToTab(state.tab)
     return
@@ -1111,7 +666,6 @@ useJumpFunction<ShortcutsSettingJumpFunction>(async (state) => {
 
   if (state.payload && !state.type) {
     activeTab.value = 'global'
-    closeAliasDialog()
     prefillTarget.value = state.payload
     editingShortcut.value = null
     showEditor.value = true
@@ -1121,7 +675,7 @@ useJumpFunction<ShortcutsSettingJumpFunction>(async (state) => {
 <template>
   <div class="h-full content-panel">
     <Transition name="list-slide">
-      <div v-show="!showDetailPanel" class="shortcuts-list-panel">
+      <div v-show="!showShortcutEditor" class="shortcuts-list-panel">
         <!-- tab 切换区 -->
         <div class="tabs-container">
           <div class="tab-group">
@@ -1143,12 +697,6 @@ useJumpFunction<ShortcutsSettingJumpFunction>(async (state) => {
             >
               应用快捷键
             </button>
-            <button
-              :class="['tab-btn', { active: activeTab === 'alias' }]"
-              @click="switchToTab('alias')"
-            >
-              指令别名
-            </button>
           </div>
         </div>
 
@@ -1158,205 +706,111 @@ useJumpFunction<ShortcutsSettingJumpFunction>(async (state) => {
             <button class="btn" @click="showAddEditor">{{ addButtonLabel }}</button>
           </div>
 
-          <!-- alias 列表区 -->
-          <div v-if="activeTab === 'alias'" class="shortcut-list">
-            <div v-if="filteredAliasRows.length > 0" class="alias-table">
-              <div v-for="row in filteredAliasRows" :key="row.id" class="card alias-table-row">
-                <div class="alias-icon-cell">
-                  <AdaptiveIcon
-                    v-if="getAliasDisplayIcon(row)"
-                    :src="getAliasDisplayIcon(row)!"
-                    class="alias-command-icon"
-                    alt="指令图标"
-                    draggable="false"
-                  />
-                  <div v-else class="alias-icon-placeholder">
-                    <div class="i-z-command font-size-18px" />
-                  </div>
-                </div>
-
-                <div class="alias-value-cell">
-                  <div class="alias-display-text">{{ row.alias }}</div>
-                </div>
-
-                <div class="alias-target-cell">
-                  <div :class="['alias-target-title', { invalid: row.missingTarget }]">
-                    {{ row.targetLabel }}
-                  </div>
-                  <div class="alias-target-subtitle">
-                    {{ row.missingTarget ? row.commandId : row.target?.subtitle }}
-                  </div>
-                </div>
-
-                <div class="alias-actions-cell">
-                  <button
-                    class="icon-btn edit-btn"
-                    title="编辑"
-                    @click.stop="openEditAliasDialog(row)"
-                  >
-                    <div class="i-z-settings font-size-14px" />
-                  </button>
-                  <button
-                    class="icon-btn delete-btn"
-                    title="删除"
-                    @click.stop="deleteAliasRow(row)"
-                  >
-                    <div class="i-z-trash font-size-14px" />
-                  </button>
-                </div>
-              </div>
+          <div v-if="activeTab === 'builtin'" class="shortcut-list">
+            <div class="builtin-settings">
+              <BuiltinWakeupSetting />
+              <BuiltinAlwaysOnTopSetting />
+              <BuiltinFullscreenSetting />
             </div>
-
-            <div v-else-if="showAliasEmptyState" class="empty-state alias-empty-state">
-              <div class="i-z-command empty-icon" style="font-size: 64px" />
-              <div class="empty-text">暂无指令别名</div>
-              <div class="empty-hint">点击右上角“添加映射”，或从所有指令中直接创建</div>
-            </div>
-
-            <!-- alias 空态区 -->
-            <div v-else-if="showAliasSearchEmptyState" class="empty-state alias-empty-state">
-              <div class="i-z-search empty-icon" style="font-size: 64px" />
-              <div class="empty-text">未找到匹配映射</div>
-              <div class="empty-hint">换个关键词试试</div>
-            </div>
+            <PresentationShortcuts />
           </div>
 
-          <div v-else class="shortcut-list">
-            <template v-if="activeTab === 'app' || activeTab === 'builtin'">
-              <div v-if="activeTab === 'app'" class="shortcut-section">
-                <div class="category-label">自定义快捷键</div>
-                <!-- 有自定义快捷键时显示列表 -->
-                <div v-if="filteredShortcuts.length > 0">
-                  <div
-                    v-for="shortcut in filteredShortcuts"
-                    :key="shortcut.id"
-                    class="card shortcut-item"
-                  >
-                    <div class="shortcut-info">
-                      <div class="shortcut-key-display">{{ shortcut.shortcut }}</div>
-                      <div class="shortcut-desc">{{ shortcut.target }}</div>
-                    </div>
-
-                    <div class="shortcut-meta">
-                      <button
-                        class="icon-btn edit-btn"
-                        title="编辑"
-                        :disabled="isDeleting"
-                        @click="handleEdit(shortcut)"
-                      >
-                        <div class="i-z-settings font-size-14px" />
-                      </button>
-                      <button
-                        class="icon-btn delete-btn"
-                        title="删除"
-                        :disabled="isDeleting"
-                        @click="handleDelete(shortcut.id)"
-                      >
-                        <div class="i-z-trash font-size-14px" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                <div v-else-if="!loading" class="empty-state-inline">
-                  <div class="i-z-keyboard empty-icon" style="font-size: 48px" />
-                  <div class="empty-text-inline">暂无自定义快捷键</div>
-                  <div class="empty-hint-inline">点击上方“添加快捷键”按钮创建</div>
-                </div>
-              </div>
-
-              <div
-                v-if="activeTab === 'builtin' && builtInAppShortcuts.length > 0"
-                class="shortcut-section"
-              >
-                <BuiltinWakeupSetting />
-                <PresentationShortcuts />
-                <div class="category-label">内置快捷键</div>
+          <div v-else-if="activeTab === 'app'" class="shortcut-list">
+            <div class="shortcut-section">
+              <div class="category-label">自定义快捷键</div>
+              <!-- 有自定义快捷键时显示列表 -->
+              <div v-if="filteredShortcuts.length > 0">
                 <div
-                  v-for="shortcut in builtInAppShortcuts"
+                  v-for="shortcut in filteredShortcuts"
                   :key="shortcut.id"
-                  class="card shortcut-item built-in"
+                  class="card shortcut-item"
                 >
                   <div class="shortcut-info">
                     <div class="shortcut-key-display">{{ shortcut.shortcut }}</div>
                     <div class="shortcut-desc">{{ shortcut.target }}</div>
                   </div>
+
                   <div class="shortcut-meta">
-                    <label
-                      v-if="shortcut.configurable && shortcut.configKey"
-                      class="toggle built-in-toggle"
-                      :title="
-                        builtInShortcutsEnabled[shortcut.configKey]
-                          ? '点击禁用该内置快捷键'
-                          : '点击启用该内置快捷键'
-                      "
+                    <button
+                      class="icon-btn edit-btn"
+                      title="编辑"
+                      :disabled="isDeleting"
+                      @click="handleEdit(shortcut)"
                     >
-                      <input
-                        :checked="builtInShortcutsEnabled[shortcut.configKey]"
-                        :aria-label="shortcut.target"
-                        type="checkbox"
-                        @change="handleBuiltInToggleChange(shortcut.configKey, $event)"
-                      />
-                      <span class="toggle-slider"></span>
-                    </label>
+                      <div class="i-z-settings font-size-14px" />
+                    </button>
+                    <button
+                      class="icon-btn delete-btn"
+                      title="删除"
+                      :disabled="isDeleting"
+                      @click="handleDelete(shortcut.id)"
+                    >
+                      <div class="i-z-trash font-size-14px" />
+                    </button>
                   </div>
                 </div>
               </div>
-            </template>
+              <div v-else-if="!loading" class="empty-state-inline">
+                <div class="i-z-keyboard empty-icon" style="font-size: 48px" />
+                <div class="empty-text-inline">暂无自定义快捷键</div>
+                <div class="empty-hint-inline">点击上方“添加快捷键”按钮创建</div>
+              </div>
+            </div>
+          </div>
 
-            <template v-else>
-              <div
-                v-for="shortcut in filteredShortcuts"
-                :key="shortcut.id"
-                class="card shortcut-item"
-              >
-                <div class="shortcut-info">
-                  <div class="shortcut-key-display">{{ shortcut.shortcut }}</div>
-                  <div class="shortcut-desc">{{ shortcut.target }}</div>
-                </div>
-
-                <div class="shortcut-meta">
-                  <!-- 自动复制开关（仅全局快捷键） -->
-                  <div
-                    v-if="activeTab === 'global'"
-                    class="auto-copy-control"
-                    :title="(shortcut.autoCopy ?? false) ? '已启用自动复制' : '已禁用自动复制'"
-                  >
-                    <span class="auto-copy-label">自动复制</span>
-                    <label class="toggle auto-copy-toggle">
-                      <input
-                        type="checkbox"
-                        :checked="shortcut.autoCopy ?? false"
-                        @change="handleAutoCopyToggle(shortcut, $event)"
-                      />
-                      <span class="toggle-slider"></span>
-                    </label>
-                  </div>
-
-                  <button
-                    class="icon-btn edit-btn"
-                    title="编辑"
-                    :disabled="isDeleting"
-                    @click="handleEdit(shortcut)"
-                  >
-                    <div class="i-z-settings font-size-14px" />
-                  </button>
-                  <button
-                    class="icon-btn delete-btn"
-                    title="删除"
-                    :disabled="isDeleting"
-                    @click="handleDelete(shortcut.id)"
-                  >
-                    <div class="i-z-trash font-size-14px" />
-                  </button>
-                </div>
+          <div v-else class="shortcut-list">
+            <div
+              v-for="shortcut in filteredShortcuts"
+              :key="shortcut.id"
+              class="card shortcut-item"
+            >
+              <div class="shortcut-info">
+                <div class="shortcut-key-display">{{ shortcut.shortcut }}</div>
+                <div class="shortcut-desc">{{ shortcut.target }}</div>
               </div>
 
-              <div v-if="!loading && currentShortcuts.length === 0" class="empty-state">
-                <div class="i-z-keyboard empty-icon" style="font-size: 64px" />
-                <div class="empty-text">暂无全局快捷键</div>
-                <div class="empty-hint">点击“添加快捷键”来创建你的第一个全局快捷键</div>
+              <div class="shortcut-meta">
+                <!-- 自动复制开关（仅全局快捷键） -->
+                <div
+                  v-if="activeTab === 'global'"
+                  class="auto-copy-control"
+                  :title="(shortcut.autoCopy ?? false) ? '已启用自动复制' : '已禁用自动复制'"
+                >
+                  <span class="auto-copy-label">自动复制</span>
+                  <label class="toggle auto-copy-toggle">
+                    <input
+                      type="checkbox"
+                      :checked="shortcut.autoCopy ?? false"
+                      @change="handleAutoCopyToggle(shortcut, $event)"
+                    />
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+
+                <button
+                  class="icon-btn edit-btn"
+                  title="编辑"
+                  :disabled="isDeleting"
+                  @click="handleEdit(shortcut)"
+                >
+                  <div class="i-z-settings font-size-14px" />
+                </button>
+                <button
+                  class="icon-btn delete-btn"
+                  title="删除"
+                  :disabled="isDeleting"
+                  @click="handleDelete(shortcut.id)"
+                >
+                  <div class="i-z-trash font-size-14px" />
+                </button>
               </div>
-            </template>
+            </div>
+
+            <div v-if="!loading && currentShortcuts.length === 0" class="empty-state">
+              <div class="i-z-keyboard empty-icon" style="font-size: 64px" />
+              <div class="empty-text">暂无全局快捷键</div>
+              <div class="empty-hint">点击“添加快捷键”来创建你的第一个全局快捷键</div>
+            </div>
           </div>
         </div>
       </div>
@@ -1374,56 +828,10 @@ useJumpFunction<ShortcutsSettingJumpFunction>(async (state) => {
         @save="handleSave"
       />
     </Transition>
-
-    <Transition name="alias-slide" @after-enter="handleAliasDialogAfterEnter">
-      <!-- alias 编辑面板 -->
-      <AliasMappingDialog
-        v-if="showAliasEditor"
-        ref="aliasDialogRef"
-        v-model:visible="aliasDialogVisible"
-        :initial-state="aliasDialogState"
-        :target-options="aliasTargetOptions"
-        :saving="aliasSaving"
-        @save="handleSaveAliasDialog"
-        @cancel="closeAliasDialog"
-      />
-    </Transition>
   </div>
 </template>
 
 <style lang="less" scoped>
-.alias-slide-enter-active {
-  transition:
-    transform 0.2s ease-out,
-    opacity 0.15s ease;
-}
-
-.alias-slide-leave-active {
-  transition:
-    transform 0.2s ease-in,
-    opacity 0.15s ease;
-}
-
-.alias-slide-enter-from {
-  transform: translateX(100%);
-  opacity: 0;
-}
-
-.alias-slide-enter-to {
-  transform: translateX(0);
-  opacity: 1;
-}
-
-.alias-slide-leave-from {
-  transform: translateX(0);
-  opacity: 1;
-}
-
-.alias-slide-leave-to {
-  transform: translateX(100%);
-  opacity: 1;
-}
-
 .content-panel {
   position: relative;
   height: 100%;
@@ -1431,6 +839,13 @@ useJumpFunction<ShortcutsSettingJumpFunction>(async (state) => {
   flex-direction: column;
   overflow: hidden;
   background: var(--bg-color);
+}
+
+/* 设置页呼出、窗口置顶与全屏暂停使用同一间距。 */
+.builtin-settings {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
 }
 
 .shortcuts-list-panel {
@@ -1614,198 +1029,6 @@ useJumpFunction<ShortcutsSettingJumpFunction>(async (state) => {
   white-space: nowrap;
 }
 
-.built-in-toggle {
-  transform: scale(0.85);
-  transform-origin: center;
-}
-
-.alias-table {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.alias-table-header,
-.alias-table-row {
-  display: grid;
-  grid-template-columns: 56px minmax(180px, 1.2fr) minmax(180px, 2fr) 56px;
-  gap: 12px;
-  align-items: center;
-  padding: 12px 14px;
-}
-
-.alias-table-header {
-  background: var(--control-bg);
-  color: var(--text-secondary);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.alias-header-cell {
-  white-space: nowrap;
-}
-
-.alias-table-row {
-  transition: all 0.2s;
-}
-
-.alias-table-row:hover {
-  background: var(--hover-bg);
-  transform: translateX(2px);
-}
-
-.alias-icon-cell {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.alias-command-icon,
-.alias-icon-placeholder,
-.alias-target-option-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  flex-shrink: 0;
-}
-
-.alias-command-icon,
-.alias-target-option-icon {
-  object-fit: contain;
-}
-
-.alias-icon-placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--active-bg);
-  color: var(--text-secondary);
-}
-
-.alias-value-cell,
-.alias-target-cell {
-  min-width: 0;
-}
-
-.alias-display-text {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text-color);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.alias-input,
-.alias-target-search {
-  width: 100%;
-}
-
-.alias-target-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-color);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.alias-target-title.invalid {
-  color: var(--danger-color);
-}
-
-.alias-target-subtitle {
-  margin-top: 4px;
-  font-size: 12px;
-  color: var(--text-secondary);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.alias-target-change-btn {
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--primary-color);
-  cursor: pointer;
-  font-size: 12px;
-}
-
-.alias-target-change-btn:hover {
-  text-decoration: underline;
-}
-
-.alias-target-options {
-  margin-top: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-height: 220px;
-  overflow-y: auto;
-}
-
-.alias-target-option {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 8px 10px;
-  border: 1px solid var(--divider-color);
-  border-radius: 8px;
-  background: var(--card-bg);
-  cursor: pointer;
-  text-align: left;
-  transition: all 0.2s;
-}
-
-.alias-target-option:hover {
-  border-color: var(--primary-color);
-  background: var(--primary-light-bg);
-}
-
-.alias-target-option-texts {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.alias-target-option-name {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-color);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.alias-target-option-plugin {
-  font-size: 12px;
-  color: var(--text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.alias-target-empty {
-  padding: 8px 10px;
-  font-size: 12px;
-  color: var(--text-secondary);
-  text-align: center;
-  background: var(--card-bg);
-  border-radius: 8px;
-}
-
-.alias-actions-cell {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
 .auto-copy-toggle {
   margin-right: 8px;
   transform: scale(0.85);
@@ -1835,12 +1058,6 @@ useJumpFunction<ShortcutsSettingJumpFunction>(async (state) => {
   justify-content: center;
   padding: 60px 20px;
   text-align: center;
-}
-
-.alias-empty-state {
-  border: 2px dashed var(--divider-color);
-  border-radius: 12px;
-  background: var(--card-bg);
 }
 
 .empty-icon {

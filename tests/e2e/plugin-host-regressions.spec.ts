@@ -156,6 +156,11 @@ test('cold plugin launch, singleton reuse, screenshot restore and detached body 
       .pages()
       .find((p) => p.url().includes('detached-titlebar.html'))!
     await expect(titlebar.locator('input')).toHaveAttribute('placeholder', '搜索剪贴板内容...')
+    await expect(titlebar.locator('.plugin-name')).toHaveText('剪贴板')
+    await fs.writeFile(
+      testInfo.outputPath('detached-titlebar-tool.png'),
+      await titlebar.screenshot()
+    )
     await expect(titlebar.getByRole('button', { name: '插件设置', exact: true })).toHaveCount(0)
     await app.evaluate(({ app }) => {
       const windows = process.mainModule!.require(
@@ -223,6 +228,13 @@ test('cold plugin launch, singleton reuse, screenshot restore and detached body 
     await expect(
       fixtureTitlebar.getByRole('button', { name: '插件设置', exact: true })
     ).toBeVisible()
+    // 未调用 setSubInput 的插件分离后不得出现搜索条，标题栏也不能先亮出占位名称。
+    await expect(fixtureTitlebar.locator('input')).toHaveCount(0)
+    await expect(fixtureTitlebar.locator('.plugin-name')).toHaveText('Host Fixture')
+    await fs.writeFile(
+      testInfo.outputPath('detached-titlebar.png'),
+      await fixtureTitlebar.screenshot()
+    )
     await fs.writeFile(
       testInfo.outputPath('detached-plugin-body.png'),
       Buffer.from(

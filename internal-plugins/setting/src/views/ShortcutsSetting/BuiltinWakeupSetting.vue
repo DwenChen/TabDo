@@ -3,7 +3,6 @@ import { onMounted, ref } from 'vue'
 import { HotkeyInput, useToast } from '@/components'
 const { error } = useToast()
 const hotkey = ref(''),
-  fullscreen = ref(false),
   busy = ref(false)
 const platform = ref<'win32' | 'darwin' | 'linux'>('win32')
 let registered = ''
@@ -17,9 +16,7 @@ async function load(): Promise<void> {
     : navigator.platform.toLowerCase().includes('win')
       ? 'win32'
       : 'linux'
-  const settings = (await window.tabdo.internal.dbGet('settings-general')) || {}
   hotkey.value = registered = (await window.tabdo.internal.getCurrentShortcut()) || ''
-  fullscreen.value = settings.ignoreHotkeysOnFullscreen === true
 }
 /**
  * 注册或关闭设置页呼出快捷键，保存失败时恢复之前的注册。
@@ -42,18 +39,6 @@ async function saveHotkey(value: string): Promise<void> {
     busy.value = false
   }
 }
-/**
- * 保存全屏时暂停热键的策略，不改变其他通用设置。
- * @returns 保存与运行时切换完成后的 Promise。
- */
-async function saveFullscreen(): Promise<void> {
-  const settings = (await window.tabdo.internal.dbGet('settings-general')) || {}
-  await window.tabdo.internal.dbPut('settings-general', {
-    ...settings,
-    ignoreHotkeysOnFullscreen: fullscreen.value
-  })
-  await window.tabdo.internal.setIgnoreHotkeysOnFullscreen(fullscreen.value)
-}
 onMounted(load)
 </script>
 <template>
@@ -71,24 +56,10 @@ onMounted(load)
       />
       <button v-if="hotkey" class="btn" :disabled="busy" @click="saveHotkey('')">关闭</button>
     </div>
-    <div class="card shortcut-item">
-      <div>
-        <strong>全屏时暂停快捷键</strong>
-        <p>全屏应用激活时暂停全局快捷键和超级面板触发。托盘“游戏模式”可手动暂停。</p>
-      </div>
-      <label class="toggle"
-        ><input
-          v-model="fullscreen"
-          type="checkbox"
-          aria-label="全屏时暂停快捷键"
-          @change="saveFullscreen" /><span class="toggle-slider"></span
-      ></label>
-    </div>
   </div>
 </template>
 <style scoped>
 .builtin-wakeup {
-  margin: 12px 0;
   display: grid;
   gap: 8px;
 }

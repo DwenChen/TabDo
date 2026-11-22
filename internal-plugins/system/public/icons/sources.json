@@ -131,6 +131,13 @@
       "color": "#ba8323"
     },
     {
+      "code": "file-locksmith",
+      "name": "文件占用",
+      "group": "文件操作",
+      "icon": "file-lock",
+      "color": "#ba8323"
+    },
+    {
       "code": "qrcode-scan",
       "name": "扫码",
       "group": "图片识别",

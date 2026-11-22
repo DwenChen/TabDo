@@ -251,6 +251,16 @@ test('media tools preserve the reference layout, process actual files, themes an
     await tools.getByLabel('高度', { exact: true }).fill('')
     await tools.getByLabel('缩放方式', { exact: true }).selectOption('inside')
     await tools.getByRole('button', { name: '裁剪', exact: true }).click()
+    // 自由比例默认铺满画面，框内拖动应重新框选而不是被无位移的“移动”吞掉。
+    const freeCrop = (await tools.locator('.manual-crop').boundingBox())!
+    await tools.mouse.move(freeCrop.x + freeCrop.width * 0.2, freeCrop.y + freeCrop.height * 0.2)
+    await tools.mouse.down()
+    await tools.mouse.move(freeCrop.x + freeCrop.width * 0.6, freeCrop.y + freeCrop.height * 0.6, {
+      steps: 6
+    })
+    await tools.mouse.up()
+    const redrawn = await tools.locator('.crop-box').boundingBox()
+    expect(redrawn!.width).toBeLessThan(freeCrop.width * 0.8)
     await tools.getByRole('button', { name: '1:1', exact: true }).click()
     await expect(tools.locator('.preview-caption')).toHaveText('输出 64 × 64', { timeout: 15000 })
     const crop = (await tools.locator('.manual-crop').boundingBox())!

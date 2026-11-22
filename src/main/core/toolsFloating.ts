@@ -14,6 +14,8 @@ import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import { applyToolsWindowIdentity, getToolsWindowIcon } from './toolsWindowIdentity'
 import { layoutDockTabs } from '../../shared/noteDockLayout'
+import { resolveWindowOpenBounds } from '../utils/windowPlacement'
+import { getToolWindowConfig } from './toolWindowConfig'
 
 // 便签贴靠开关只作用于本次运行的所有便签窗口：独立窗口不持有历史，也不读写用户配置。
 let dockPreference = true
@@ -659,7 +661,13 @@ async function operate(sender: WebContents, action: string, value: any): Promise
           width: Math.max(1, Math.round(value.width * scale)),
           height: Math.max(1, Math.round(value.height * scale))
         }
-    window.setSize(entry.normalSize.width, entry.normalSize.height)
+    // 非可调整原生窗口在部分 Windows 缩放设置下忽略 setSize，统一用 setBounds 一次提交位置与尺寸。
+    window.setBounds({
+      x: window.getBounds().x,
+      y: window.getBounds().y,
+      width: entry.normalSize.width,
+      height: entry.normalSize.height
+    })
     const bounds = window.getBounds()
     window.setPosition(
       Math.max(area.x, Math.min(bounds.x, area.x + area.width - bounds.width)),
@@ -761,36 +769,52 @@ export async function openFloating(input: FloatingContent): Promise<number> {
     const colors = ['#f3f0bd', '#c1f3bd', '#bdd7f3', '#f3cbbd', '#d3bdf3']
     content.color ||= colors[(noteSequence - 1) % colors.length]
   }
-  const resource = path.join(app.getAppPath(), 'resources')
-  // 主动新建时稍微错开位置，让上一张便签的标题栏仍可点选；保持在原显示器工作区内。
-  const anchor = content.type === 'text' ? recentNote()?.window.getBounds() : undefined
-  const workArea = anchor ? screen.getDisplayMatching(anchor).workArea : undefined
-  const position =
-    anchor && workArea
-      ? {
-          x: Math.max(workArea.x, Math.min(anchor.x + 28, workArea.x + workArea.width - 300)),
-          y: Math.max(workArea.y, Math.min(anchor.y + 28, workArea.y + workArea.height - 280))
-        }
-      : {}
   const isNote = content.type === 'text'
   const featureCode = isNote ? 'sticky-note' : content.edit ? 'image-annotate' : 'float-content'
+  const windowConfig = getToolWindowConfig(featureCode)
+  const windowWidth =
+    windowConfig.width ??
+    (content.type === 'text'
+      ? 300
+      : Math.max(
+          content.edit ? 320 : 96,
+          Math.min(
+            imageWidth,
+            screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea.width - 48
+          )
+        ))
+  const windowHeight = windowConfig.height ?? (content.type === 'text' ? 280 : 400)
+  const area = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea
+  const openBounds = resolveWindowOpenBounds(
+    windowConfig.position,
+    { width: windowWidth, height: windowHeight },
+    area
+  )
+  const position = { x: openBounds.x, y: openBounds.y }
+  // 新便签跟随光标；与上一张便签重叠时错开，保留可点选的标题栏。
+  const previousNote = isNote ? recentNote()?.window.getBounds() : undefined
+  if (
+    previousNote &&
+    position.x < previousNote.x + previousNote.width &&
+    position.x + openBounds.width > previousNote.x &&
+    position.y < previousNote.y + previousNote.height &&
+    position.y + openBounds.height > previousNote.y
+  ) {
+    position.x = Math.max(area.x, Math.min(position.x + 28, area.x + area.width - openBounds.width))
+    position.y = Math.max(
+      area.y,
+      Math.min(position.y + 28, area.y + area.height - openBounds.height)
+    )
+  }
+  const resource = path.join(app.getAppPath(), 'resources')
   // 便签只呈现桌面纸张，首次显示前即应用任务栏隐藏策略。
   const window = new BrowserWindow({
     ...position,
     title: content.type === 'text' ? content.label : content.edit ? '图片标记' : '图片悬浮',
     icon: getToolsWindowIcon(featureCode),
     skipTaskbar: isNote,
-    width:
-      content.type === 'text'
-        ? 300
-        : Math.max(
-            content.edit ? 320 : 96,
-            Math.min(
-              imageWidth,
-              screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea.width - 48
-            )
-          ),
-    height: content.type === 'text' ? 280 : 400,
+    width: openBounds.width,
+    height: openBounds.height,
     // 便签最小纸张尺寸由受限 resize 入口保证，原生窗口同时允许缩为边缘小标签。
     minWidth: content.type === 'text' ? 12 : content.edit ? 320 : 1,
     minHeight: content.type === 'text' ? 12 : content.edit ? 180 : 1,
@@ -822,7 +846,8 @@ export async function openFloating(input: FloatingContent): Promise<number> {
     dockEnabled: readDockPreference(),
     dockArmed: true
   }
-  if (content.type === 'text') entry.normalSize = { width: 300, height: 280 }
+  if (content.type === 'text')
+    entry.normalSize = { width: openBounds.width, height: openBounds.height }
   if (imageSize) entry.imageSize = imageSize
   windows.set(window.webContents.id, entry)
   window.on('focus', () => {

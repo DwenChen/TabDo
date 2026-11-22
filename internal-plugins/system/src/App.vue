@@ -7,6 +7,7 @@ const ProviderTools = defineAsyncComponent(() => import('./components/ProviderTo
 const CallAi = defineAsyncComponent(() => import('./components/CallAi.vue'))
 const FileRenamer = defineAsyncComponent(() => import('./components/FileRenamer.vue'))
 const BreakFolder = defineAsyncComponent(() => import('./components/BreakFolder.vue'))
+const FileLocksmith = defineAsyncComponent(() => import('./components/FileLocksmith.vue'))
 const QrScanner = defineAsyncComponent(() => import('./components/QrScanner.vue'))
 const FloatingLauncher = defineAsyncComponent(() => import('./components/FloatingLauncher.vue'))
 const LocalSearch = defineAsyncComponent(() => import('./components/LocalSearch.vue'))
@@ -42,6 +43,7 @@ onUnmounted(() => window.tabdo.onPluginEnter(null))
   />
   <FileRenamer v-else-if="action?.code === 'file-renamer'" :key="revision" :action="action" />
   <BreakFolder v-else-if="action?.code === 'folder-break'" :key="revision" :action="action" />
+  <FileLocksmith v-else-if="action?.code === 'file-locksmith'" :key="revision" :action="action" />
   <QrScanner v-else-if="action?.code === 'qrcode-scan'" :key="revision" :action="action" />
   <FloatingLauncher
     v-else-if="

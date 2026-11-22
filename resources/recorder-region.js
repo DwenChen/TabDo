@@ -1,24 +1,14 @@
 const selection = document.getElementById('selection'),
   toolbar = document.getElementById('toolbar'),
   sizes = document.getElementById('sizes'),
+  hint = document.getElementById('hint'),
+  startButton = document.getElementById('start'),
   widthInput = document.getElementById('width'),
   heightInput = document.getElementById('height')
-let rect = {
-    x: Math.round((innerWidth - Math.min(800, innerWidth - 40)) / 2),
-    y: Math.max(48, Math.round((innerHeight - 800) / 2)),
-    width: Math.min(800, innerWidth - 40),
-    height: Math.min(600, innerHeight - 180)
-  },
-  drag = null
-try {
-  const saved = JSON.parse(
-    localStorage.getItem('recorder-region-' + innerWidth + 'x' + innerHeight)
-  )
-  if (saved && ['x', 'y', 'width', 'height'].every((key) => Number.isFinite(saved[key])))
-    rect = saved
-} catch {
-  /* 无历史选区时使用原版默认尺寸。 */
-}
+// 打开时保持待选状态，由用户拖出录制区域，不再预置 800×600 选区。
+let rect = null,
+  drag = null,
+  audioPending = 0
 /**
  * 将矩形约束到当前显示器，允许任意边缘拖动但不产生越界区域。
  * @param {object} value 待约束矩形。
@@ -35,10 +25,31 @@ function bounded(value) {
   }
 }
 /**
+ * 同步“开始录制”按钮，仅在已有合法选区且没有声音检查任务时可用。
+ * @returns {void} 无返回值。
+ */
+function syncStartButton() {
+  startButton.disabled = !rect || audioPending > 0
+}
+/**
  * 更新选区及原版上下工具栏，靠近屏幕边缘时将控件翻转到可见位置。
+ * 没有选区时只显示待选提示，并把工具栏居中放在屏幕底部。
  * @returns {void} 无返回值。
  */
 function render() {
+  selection.hidden = !rect
+  sizes.hidden = !rect
+  hint.textContent = rect
+    ? '拖动调整录制区域 · Enter 开始 · Esc 取消'
+    : '拖动鼠标选择录制区域 · Esc 取消'
+  syncStartButton()
+  if (!rect) {
+    Object.assign(toolbar.style, {
+      left: Math.max(10, Math.round((innerWidth - toolbar.offsetWidth) / 2)) + 'px',
+      top: Math.max(10, innerHeight - toolbar.offsetHeight - 24) + 'px'
+    })
+    return
+  }
   rect = bounded(rect)
   Object.assign(selection.style, {
     left: rect.x + 'px',
@@ -72,27 +83,34 @@ function render() {
  * @returns {void} 无返回值。
  */
 function confirm() {
-  if (document.getElementById('start').disabled) return
+  if (!rect || startButton.disabled) return
   const preferences = Object.fromEntries(
     ['systemAudio', 'microphone', 'cursor', 'clicks', 'keys'].map((key) => [
       key,
       document.getElementById(key).checked
     ])
   )
-  try {
-    localStorage.setItem('recorder-region-' + innerWidth + 'x' + innerHeight, JSON.stringify(rect))
-  } catch {
-    /* 存储受限不影响本次录制。 */
-  }
   window.recorder.select({ ...rect, preferences })
 }
 document.addEventListener('pointerdown', (event) => {
   if (event.button !== 0 || event.target.closest('#toolbar, #sizes')) return
+  // 阻止原生图片/文本选择，确保选区拖动始终由本页面接管。
+  event.preventDefault()
   drag = {
     x: event.clientX,
     y: event.clientY,
-    rect: { ...rect },
-    edge: event.target.dataset.edge || (event.target.closest('#selection') ? 'move' : 'draw')
+    rect: rect ? { ...rect } : null,
+    edge:
+      event.target.dataset.edge || (rect && event.target.closest('#selection') ? 'move' : 'draw')
+  }
+  if (drag.edge === 'draw') {
+    rect = {
+      x: Math.round(event.clientX),
+      y: Math.round(event.clientY),
+      width: 16,
+      height: 16
+    }
+    render()
   }
   document.body.setPointerCapture(event.pointerId)
 })
@@ -102,8 +120,8 @@ document.addEventListener('pointermove', (event) => {
     dy = event.clientY - drag.y,
     source = drag.rect,
     edge = drag.edge
-  if (edge === 'move') rect = { ...source, x: source.x + dx, y: source.y + dy }
-  else if (edge === 'draw')
+  if (edge === 'move' && source) rect = { ...source, x: source.x + dx, y: source.y + dy }
+  else if (edge === 'draw' || !source)
     rect = {
       x: Math.min(drag.x, event.clientX),
       y: Math.min(drag.y, event.clientY),
@@ -146,7 +164,7 @@ document.addEventListener('keydown', (event) => {
     return
   }
   if (event.key === 'Enter') confirm()
-  else if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
+  else if (rect && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
     event.preventDefault()
     rect.x += event.key === 'ArrowLeft' ? -1 : event.key === 'ArrowRight' ? 1 : 0
     rect.y += event.key === 'ArrowUp' ? -1 : event.key === 'ArrowDown' ? 1 : 0
@@ -154,16 +172,17 @@ document.addEventListener('keydown', (event) => {
   }
 })
 widthInput.addEventListener('change', () => {
+  if (!rect) return
   rect.width = Number(widthInput.value) || rect.width
   render()
 })
 heightInput.addEventListener('change', () => {
+  if (!rect) return
   rect.height = Number(heightInput.value) || rect.height
   render()
 })
 document.getElementById('start').addEventListener('click', confirm)
 document.getElementById('cancel').addEventListener('click', () => window.recorder.select(null))
-let audioPending = 0
 const audioVersions = { systemAudio: 0, microphone: 0 }
 /**
  * 对区域工具栏的声音勾选检查设备，不申请或保留录音流。
@@ -173,10 +192,9 @@ const audioVersions = { systemAudio: 0, microphone: 0 }
 async function checkAudio(event) {
   const request = ++audioVersions[event.target.id]
   if (!event.target.checked) return
-  const start = document.getElementById('start'),
-    error = document.getElementById('audio-error')
+  const error = document.getElementById('audio-error')
   audioPending++
-  start.disabled = true
+  syncStartButton()
   try {
     const devices = await navigator.mediaDevices.enumerateDevices()
     if (request !== audioVersions[event.target.id]) return
@@ -198,7 +216,7 @@ async function checkAudio(event) {
     }
   } finally {
     audioPending--
-    start.disabled = audioPending > 0
+    syncStartButton()
   }
 }
 document.getElementById('systemAudio').addEventListener('change', checkAudio)

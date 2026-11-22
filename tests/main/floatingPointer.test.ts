@@ -96,7 +96,7 @@ vi.mock('electron', () => ({
   screen: {
     getCursorScreenPoint: () => mocks.pointer,
     getDisplayMatching: () => ({ id: 1, workArea: { x: 0, y: 0, width: 1200, height: 900 } }),
-    getDisplayNearestPoint: () => ({ workArea: { width: 1200, height: 900 } })
+    getDisplayNearestPoint: () => ({ workArea: { x: 0, y: 0, width: 1200, height: 900 } })
   }
 }))
 
@@ -247,6 +247,9 @@ describe('floating native pointer observation', () => {
   it('keeps the floating image window locked to the image ratio while resizing and dragging', async () => {
     const win = await open('image')
     const send = mocks.handlers.get('tools-floating')!
+    // 固定起始位置，单独验证缩放比例与拖动锚点，不受光标打开位置影响。
+    win.bounds.x = 200
+    win.bounds.y = 200
     const resize = (value: any): Promise<unknown> =>
       send({ sender: win.webContents }, 'resize', value)
     // 原图 640×320：放大请求被限制在原图尺寸，窗口与图片始终重合。

@@ -115,7 +115,7 @@ export class PluginUIAPI {
     if (detachedWindow) {
       detachedWindowManager.setExpendHeight(event.sender.id, height)
     } else if (this.pluginManager) {
-      this.pluginManager.setExpendHeight(height)
+      this.pluginManager.applyPluginExpendHeight(event.sender.id, height)
     }
   }
 
@@ -141,6 +141,16 @@ export class PluginUIAPI {
       targetWindow.webContents.send('update-sub-input-placeholder', {
         placeholder: placeholder || '搜索'
       })
+
+      // 独立窗口标题栏可能晚于正文加载，宿主同步保存状态并在初始化后回填。
+      if (event && targetWindow !== this.mainWindow) {
+        detachedWindowManager.updateSubInputState(
+          event.sender.id,
+          true,
+          placeholder || '搜索',
+          isFocus === true
+        )
+      }
 
       // 如果插件在主窗口，更新 pluginManager 的状态
       if (targetWindow === this.mainWindow) {
@@ -182,6 +192,8 @@ export class PluginUIAPI {
 
       // 发送事件到目标窗口渲染进程，隐藏子输入框
       targetWindow.webContents.send('update-sub-input-visible', false)
+      if (event && targetWindow !== this.mainWindow)
+        detachedWindowManager.updateSubInputState(event.sender.id, false)
       console.log('[PluginUI] 隐藏子输入框')
 
       // 如果插件在主窗口，更新 pluginManager 的状态

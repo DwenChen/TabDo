@@ -15,6 +15,12 @@
       "explain": "呼叫AI",
       "icon": "icons/call-ai.png",
       "group": "呼叫AI",
+      "window": {
+        "position": "cursor",
+        "resizable": true,
+        "width": 650,
+        "height": 440
+      },
       "cmds": [
         "呼叫AI",
         {
@@ -252,6 +258,10 @@
       "code": "screenshot",
       "explain": "截图",
       "icon": "icons/screenshot.png",
+      "window": {
+        "position": "fixed",
+        "resizable": false
+      },
       "cmds": [
         "截图"
       ],
@@ -261,6 +271,10 @@
       "code": "clipboard",
       "explain": "剪贴板",
       "icon": "icons/clipboard.png",
+      "window": {
+        "position": "cursor",
+        "resizable": true
+      },
       "cmds": [
         "剪贴板"
       ],
@@ -270,6 +284,11 @@
       "code": "file-renamer",
       "explain": "重命名",
       "icon": "icons/file-renamer.png",
+      "window": {
+        "position": "cursor",
+        "resizable": true,
+        "height": 580
+      },
       "cmds": [
         "重命名",
         {
@@ -284,6 +303,11 @@
       "code": "folder-break",
       "explain": "解散文件夹",
       "icon": "icons/folder-break.png",
+      "window": {
+        "position": "cursor",
+        "resizable": true,
+        "height": 180
+      },
       "cmds": [
         "解散文件夹",
         {
@@ -297,9 +321,36 @@
       "group": "文件操作"
     },
     {
+      "code": "file-locksmith",
+      "explain": "文件占用",
+      "icon": "icons/file-locksmith.png",
+      "window": {
+        "position": "cursor",
+        "resizable": true,
+        "height": 540
+      },
+      "platform": [
+        "win32"
+      ],
+      "cmds": [
+        {
+          "type": "files",
+          "label": "文件占用",
+          "minLength": 1,
+          "maxLength": 20
+        }
+      ],
+      "group": "文件操作"
+    },
+    {
       "code": "qrcode-scan",
       "explain": "扫码",
       "icon": "icons/qrcode-scan.png",
+      "window": {
+        "position": "cursor",
+        "resizable": true,
+        "height": 620
+      },
       "cmds": [
         "扫码",
         {
@@ -327,6 +378,10 @@
       "code": "image-annotate",
       "explain": "图片标记",
       "icon": "icons/image-annotate.png",
+      "window": {
+        "position": "cursor",
+        "resizable": true
+      },
       "mainHide": true,
       "cmds": [
         "图片标记",
@@ -355,6 +410,10 @@
       "code": "float-content",
       "explain": "悬浮图片",
       "icon": "icons/float-content.png",
+      "window": {
+        "position": "cursor",
+        "resizable": true
+      },
       "mainHide": true,
       "cmds": [
         "悬浮图片",
@@ -383,6 +442,12 @@
       "code": "floating-relay",
       "explain": "悬浮中转",
       "icon": "icons/floating-relay.png",
+      "window": {
+        "position": "cursor",
+        "resizable": true,
+        "width": 380,
+        "height": 340
+      },
       "mainHide": true,
       "cmds": [
         "悬浮中转",
@@ -407,6 +472,12 @@
       "code": "sticky-note",
       "explain": "便签",
       "icon": "icons/sticky-note.png",
+      "window": {
+        "position": "cursor",
+        "resizable": true,
+        "width": 300,
+        "height": 280
+      },
       "mainHide": true,
       "cmds": [
         "便签"
@@ -417,6 +488,10 @@
       "code": "local-search",
       "explain": "文件搜索",
       "icon": "icons/local-search.png",
+      "window": {
+        "position": "cursor",
+        "resizable": true
+      },
       "platform": [
         "win32"
       ],
@@ -434,6 +509,11 @@
       "code": "screen-recorder",
       "explain": "录屏",
       "icon": "icons/screen-recorder.png",
+      "window": {
+        "position": "cursor",
+        "resizable": true,
+        "height": 440
+      },
       "platform": [
         "win32"
       ],
@@ -446,6 +526,10 @@
       "code": "screen-recorder-region",
       "explain": "区域录屏",
       "icon": "icons/screen-recorder-region.png",
+      "window": {
+        "position": "fixed",
+        "resizable": false
+      },
       "platform": [
         "win32"
       ],
@@ -459,6 +543,10 @@
       "code": "screen-recorder-stop",
       "explain": "停止录屏",
       "icon": "icons/screen-recorder-stop.png",
+      "window": {
+        "position": "fixed",
+        "resizable": false
+      },
       "platform": [
         "win32"
       ],
@@ -472,6 +560,11 @@
       "code": "image-batch",
       "explain": "图片处理",
       "icon": "icons/image-batch.png",
+      "window": {
+        "position": "cursor",
+        "resizable": true,
+        "height": 540
+      },
       "cmds": [
         "图片处理",
         {
@@ -503,6 +596,11 @@
       "code": "image-batch-folder",
       "explain": "读取图片文件夹",
       "icon": "icons/image-batch-folder.png",
+      "window": {
+        "position": "cursor",
+        "resizable": true,
+        "height": 540
+      },
       "cmds": [
         {
           "type": "files",
@@ -517,6 +615,11 @@
       "code": "image-manual-crop",
       "explain": "裁剪图片",
       "icon": "icons/image-manual-crop.png",
+      "window": {
+        "position": "cursor",
+        "resizable": true,
+        "height": 540
+      },
       "cmds": [
         "裁剪图片",
         {
@@ -544,6 +647,11 @@
       "code": "image-merge",
       "explain": "合并图片",
       "icon": "icons/image-merge.png",
+      "window": {
+        "position": "cursor",
+        "resizable": true,
+        "height": 540
+      },
       "cmds": [
         "合并图片",
         {
@@ -568,6 +676,11 @@
       "code": "video-batch",
       "explain": "视频处理",
       "icon": "icons/video-batch.png",
+      "window": {
+        "position": "cursor",
+        "resizable": true,
+        "height": 540
+      },
       "cmds": [
         "视频处理",
         {
@@ -595,6 +708,11 @@
       "code": "web-quick-open",
       "explain": "网页快开",
       "icon": "icons/web-quick-open.png",
+      "window": {
+        "position": "cursor",
+        "resizable": true,
+        "height": 480
+      },
       "cmds": [
         "网页快开"
       ],
@@ -646,6 +764,10 @@
       "code": "recognize",
       "explain": "文字识别",
       "icon": "icons/recognize.png",
+      "window": {
+        "position": "cursor",
+        "resizable": true
+      },
       "cmds": [
         "文字识别",
         {
@@ -672,6 +794,10 @@
       "code": "latex-recognize",
       "explain": "公式识别",
       "icon": "icons/latex-recognize.png",
+      "window": {
+        "position": "cursor",
+        "resizable": true
+      },
       "cmds": [
         "公式识别",
         {
@@ -699,6 +825,11 @@
       "mainHide": true,
       "explain": "演示录屏",
       "icon": "icons/presentation-recorder.png",
+      "window": {
+        "position": "cursor",
+        "resizable": true,
+        "height": 680
+      },
       "platform": [
         "win32"
       ],
@@ -711,6 +842,12 @@
       "code": "presentation-editor",
       "explain": "演示编辑器",
       "icon": "icons/presentation-editor.png",
+      "window": {
+        "position": "cursor",
+        "resizable": true,
+        "width": 1180,
+        "height": 820
+      },
       "platform": [
         "win32"
       ],

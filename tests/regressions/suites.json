@@ -296,6 +296,18 @@
       "tests/e2e/tools-recorder-web.spec.ts"
     ]
   },
+  "host-services": {
+    "unit": [
+      "tests/main/awakeService.test.ts",
+      "tests/main/alwaysOnTopService.test.ts",
+      "tests/main/localEditionDefaults.test.ts"
+    ],
+    "e2e": ["tests/e2e/host-services.spec.ts", "tests/e2e/settings-cleanup.spec.ts"]
+  },
+  "file-locksmith": {
+    "unit": ["tests/main/toolsFiles.test.ts"],
+    "e2e": ["tests/e2e/file-locksmith.spec.ts", "tests/e2e/tools-catalog.spec.ts"]
+  },
   "tools-catalog": {
     "unit": [
       "tests/renderer/toolFeatureGroups.test.ts",
@@ -317,7 +329,7 @@
     "e2e": ["tests/e2e/overlay-surfaces.spec.ts"]
   },
   "branding": {
-    "unit": [],
+    "unit": ["tests/main/windowManagerTrayIcon.test.ts"],
     "e2e": ["tests/e2e/plugin-cleanup-tray.spec.ts"]
   },
   "tabdo-release": {

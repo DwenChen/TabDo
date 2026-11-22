@@ -1,0 +1,20 @@
+{
+  "id": "always-on-top-border-dwm-frame",
+  "date": "2026-11-19",
+  "summary": "修正高亮边框按不可见窗口边框定位导致左右和底部偏移的问题",
+  "changes": [
+    "原生边框辅助进程的 GetTargetRect 统一使用 DwmGetWindowAttribute(DWMWA_EXTENDED_FRAME_BOUNDS) 获取窗口可见帧边界，排除左右和底部约 7–8px 的不可见缩放边框；DWM 调用失败时回退 GetWindowRect。",
+    "host-services 源码 E2E 的目标矩形同步改用 DWM 可见边界，确保几何断言检查的是用户实际看到的窗口边缘，而不是包含不可见边框的窗口矩形。",
+    "同步工具开发规范和 Bug 台账；仅替换随包资源脚本并重新同步免安装预览，无需重新编译主程序。"
+  ],
+  "checks": [
+    "真实记事本窗口对比：GetWindowRect 为 691,205,1534,976，DWM 可见边界为 698,205,1527,969，左右各差 7px、底部差 7px、顶部一致，与用户截图中的偏移量吻合。",
+    "host-services 源码 Electron 专项通过：以 DWM 目标边界为准，原生边框窗口等待 2.5 秒后仍可见，物理边界偏差不超过 2px，取消置顶后销毁。归档 .artifacts/runs/2026-11-19T06-56-16-827Z-e2e。",
+    "node scripts/sync-portable-preview.cjs 同步到 .local/portable-preview，保留既有 182 个文件，核验 2140 个程序文件，版本 1.5.8，回退批次 update-1795071471097；node scripts/verify-portable-preview.cjs 通过：2139 个程序文件、360 个内置插件文件、11842 个媒体依赖。已清理更旧的预览回退载荷。",
+    "node scripts/check-docs.mjs、node scripts/project-maintenance.cjs prepare 与 check 通过。"
+  ],
+  "pending": [
+    "不同 DPI、多显示器、最大化窗口和自定义窗口边框应用下的贴合观感需在免安装预览中人工复核。",
+    "首次置顶启动并编译原生辅助进程的延迟仍需人工确认。"
+  ]
+}

@@ -1,19 +1,18 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { useRouter, onBeforeRouteLeave } from 'vue-router'
 import {
   type MouseButtonType,
   type PrimaryColor,
   type TerminalType,
-  type ThemeType,
-  type WindowPositionStrategy
+  type ThemeType
 } from '@/constants'
 import { Dropdown, Slider, useToast } from '@/components'
 import { applyCustomColor, applyPrimaryColor } from '@/utils'
-import { DEFAULT_PLUGIN_HEIGHT } from '@shared/mainWindowLayout'
+import { jumpFunctionShortcutsSetting } from '@/views/ShortcutsSetting/ShortcutsSetting'
 import DataLocationSetting from './DataLocationSetting.vue'
 
-const { success, error, info, confirm } = useToast()
+const { error, info } = useToast()
 
 // Dropdown 选项数据
 const themeOptions = [
@@ -26,20 +25,6 @@ const windowMaterialOptions = [
   { label: 'Mica（云母）', value: 'mica' },
   { label: 'Acrylic（亚克力）', value: 'acrylic' },
   { label: '无', value: 'none' }
-]
-
-const windowPositionStrategyOptions = [
-  { label: '记住上次位置', value: 'remember' },
-  { label: '鼠标屏居中', value: 'cursor' },
-  { label: '主屏居中', value: 'primary' },
-  { label: '上次活动屏居中', value: 'lastActive' }
-]
-
-const devToolsModeOptions = [
-  { label: '独立窗口', value: 'detach' },
-  { label: '靠右', value: 'right' },
-  { label: '靠下', value: 'bottom' },
-  { label: '独立窗口（可停靠）', value: 'undocked' }
 ]
 
 const superPanelMouseButtonOptions = [
@@ -92,7 +77,6 @@ const settingsLoaded = ref(false)
 // 本地状态（替代 windowStore）
 const theme = ref<ThemeType>('system')
 const primaryColor = ref<PrimaryColor>('green')
-const windowPositionStrategy = ref<WindowPositionStrategy>('remember')
 const clipboardRetentionDays = ref(180)
 const clipboardQuickMatchSeconds = ref(5)
 
@@ -145,44 +129,43 @@ const superPanelTriggerMode = computed({
   }
 })
 
-function normalizePluginNameList(value: unknown): string[] {
-  if (!Array.isArray(value)) {
-    return []
-  }
-
-  return Array.from(
-    new Set(
-      value
-        .map((name) => (typeof name === 'string' ? name.trim() : ''))
-        .filter((name) => name.length > 0)
-    )
-  )
-}
-
 // 不透明度设置
 const opacity = ref(1)
 
 // 主窗口紧凑顶部栏设置
 const compactMainWindowHeader = ref(false)
 
-// 插件默认高度设置
-const windowDefaultHeight = ref(DEFAULT_PLUGIN_HEIGHT)
+// 可调整的子组件与插件窗口是否记住上次尺寸
+const rememberToolWindowSize = ref(true)
 
 // 托盘图标显示设置
 const showTrayIcon = ref(true)
 
+// 宿主唤醒开关；持续时间与屏幕点亮在托盘“唤醒”二级菜单中调整
+const awakeEnabled = ref(false)
+let offAwakeState: (() => void) | null = null
+
+// 窗口置顶总开关与边框外观；展开面板在切页或滚出可视区域时自动收起
+const ALWAYS_ON_TOP_DEFAULT_SHORTCUT = 'Shift+T'
+const alwaysOnTopEnabled = ref(false)
+const alwaysOnTopExpanded = ref(false)
+const alwaysOnTopShortcut = ref(ALWAYS_ON_TOP_DEFAULT_SHORTCUT)
+const alwaysOnTopBorderEnabled = ref(true)
+const alwaysOnTopColorMode = ref<'accent' | 'custom'>('accent')
+const alwaysOnTopBorderColor = ref('#1A73E8')
+const alwaysOnTopOpacity = ref(100)
+const alwaysOnTopThickness = ref(3)
+const alwaysOnTopRoundedCorners = ref(true)
+const alwaysOnTopPlaySound = ref(true)
+const alwaysOnTopColorInput = ref<HTMLInputElement | null>(null)
+const pinOptionsRef = ref<HTMLElement | null>(null)
+let alwaysOnTopSaveTimer: ReturnType<typeof setTimeout> | null = null
+
 // 开机启动设置
 const launchAtLogin = ref(false)
 
-// 开发者工具位置
-const devToolsMode = ref<'right' | 'bottom' | 'undocked' | 'detach'>('detach')
-
 // 关闭 GPU 加速（兜底方案，修改后需重启生效）
 const disableGpuAcceleration = ref(false)
-
-// 用户自定义内部 API 授权插件名
-const customInternalApiPluginNameInput = ref('')
-const customInternalApiPluginNames = ref<string[]>([])
 
 // 代理设置
 const proxyEnabled = ref(false)
@@ -244,37 +227,15 @@ async function handleCompactMainWindowHeaderChange(): Promise<void> {
 }
 
 /**
- * 保存插件正文默认高度，无效输入恢复为统一默认值。
- * @returns 保存并同步宿主完成后的 Promise。
+ * 保存子组件与插件窗口是否记住上次尺寸。
+ * @returns 设置保存完成后的 Promise。
  */
-async function handleWindowDefaultHeightChange(): Promise<void> {
+async function handleRememberToolWindowSizeChange(): Promise<void> {
   try {
-    // 验证输入值
-    if (!windowDefaultHeight.value || windowDefaultHeight.value < 200) {
-      windowDefaultHeight.value = DEFAULT_PLUGIN_HEIGHT
-    }
+    // 只持久化用户选择，下一次打开窗口时由宿主读取。
     await saveSettings()
-    // 通知主进程更新
-    await window.tabdo.internal.setWindowDefaultHeight(windowDefaultHeight.value)
-    console.log('插件默认高度已更新:', windowDefaultHeight.value)
   } catch (error) {
-    console.error('设置插件默认高度失败:', error)
-  }
-}
-
-/**
- * 将插件正文高度恢复为默认的 540 像素并同步宿主。
- * @returns 默认高度保存完成后的 Promise。
- */
-async function resetWindowDefaultHeight(): Promise<void> {
-  try {
-    // 只在用户主动重置时替换已保存的自定义高度。
-    windowDefaultHeight.value = DEFAULT_PLUGIN_HEIGHT
-    await saveSettings()
-    await window.tabdo.internal.setWindowDefaultHeight(DEFAULT_PLUGIN_HEIGHT)
-    console.log('插件默认高度已重置')
-  } catch (error) {
-    console.error('重置插件默认高度失败:', error)
+    console.error('保存窗口尺寸记忆设置失败:', error)
   }
 }
 
@@ -302,17 +263,6 @@ async function resetClipboardRetentionDays(): Promise<void> {
     await handleClipboardRetentionDaysChange()
   } catch (error) {
     console.error('重置剪贴板历史保存天数失败:', error)
-  }
-}
-
-// 处理窗口呼出位置策略变化
-async function handleWindowPositionStrategyChange(): Promise<void> {
-  try {
-    await saveSettings()
-    await window.tabdo.internal.updateWindowPositionStrategy(windowPositionStrategy.value)
-    console.log('窗口呼出位置策略已更新:', windowPositionStrategy.value)
-  } catch (error) {
-    console.error('保存窗口呼出位置策略失败:', error)
   }
 }
 
@@ -503,6 +453,12 @@ async function handleCustomColorChange(event: Event): Promise<void> {
 // 处理托盘图标显示变化
 async function handleTrayIconChange(): Promise<void> {
   try {
+    // 唤醒菜单只存在于托盘，关闭托盘图标时必须同时关闭唤醒。
+    if (!showTrayIcon.value && awakeEnabled.value) {
+      await window.tabdo.internal.setAwakeEnabled(false)
+      awakeEnabled.value = false
+      info('已同时关闭唤醒：唤醒设置依赖托盘图标')
+    }
     await saveSettings()
     // 通知主进程更新托盘图标显示状态
     await window.tabdo.internal.setTrayIconVisible(showTrayIcon.value)
@@ -511,6 +467,188 @@ async function handleTrayIconChange(): Promise<void> {
     console.error('更新托盘图标显示状态失败:', error)
   }
 }
+
+/**
+ * 保存唤醒开关；开启时自动打开托盘图标，保证托盘二级菜单可用。
+ * @returns 保存和运行时更新完成后的 Promise。
+ */
+async function handleAwakeChange(): Promise<void> {
+  try {
+    const result = await window.tabdo.internal.setAwakeEnabled(awakeEnabled.value)
+    if (!result.success) throw new Error(result.error || '唤醒设置更新失败')
+    if (awakeEnabled.value) {
+      showTrayIcon.value = true
+      info('已开启唤醒，并自动显示托盘图标；可在托盘右键“唤醒”中调整时长')
+    }
+    await saveSettings()
+  } catch (error: any) {
+    awakeEnabled.value = false
+    error(error?.message || '唤醒设置更新失败')
+  }
+}
+
+/**
+ * 提交窗口置顶配置到宿主服务，避免界面与运行时状态不一致。
+ * @param patch 需要更新的置顶字段。
+ * @returns 是否更新成功。
+ */
+async function applyAlwaysOnTopConfig(
+  patch: Parameters<typeof window.tabdo.internal.updateAlwaysOnTopConfig>[0]
+): Promise<boolean> {
+  try {
+    const result = await window.tabdo.internal.updateAlwaysOnTopConfig(patch)
+    if (!result.success) throw new Error(result.error || '窗口置顶设置更新失败')
+    return true
+  } catch (reason: any) {
+    error(reason?.message || '窗口置顶设置更新失败')
+    return false
+  }
+}
+
+/**
+ * 切换窗口置顶总开关；启用失败时回退开关状态。
+ * @returns 切换完成后的 Promise。
+ */
+async function handleAlwaysOnTopToggle(): Promise<void> {
+  const next = alwaysOnTopEnabled.value
+  const applied = await applyAlwaysOnTopConfig({ enabled: next })
+  if (!applied) {
+    alwaysOnTopEnabled.value = !next
+    return
+  }
+  if (next) {
+    alwaysOnTopExpanded.value = true
+    const settings = (await window.tabdo.internal.dbGet('settings-general')) || {}
+    alwaysOnTopShortcut.value =
+      typeof settings.alwaysOnTopShortcut === 'string' && settings.alwaysOnTopShortcut
+        ? settings.alwaysOnTopShortcut
+        : ALWAYS_ON_TOP_DEFAULT_SHORTCUT
+    info(`窗口置顶已启用，默认快捷键 ${alwaysOnTopShortcut.value}，可在“快捷键”页修改`)
+  }
+}
+
+/**
+ * 合并连续的外观调整，减少拖动滑块时的写库与重绘次数。
+ * @param patch 需要更新的置顶字段。
+ * @returns 无返回值。
+ */
+function scheduleAlwaysOnTopSave(
+  patch: Parameters<typeof window.tabdo.internal.updateAlwaysOnTopConfig>[0]
+): void {
+  if (alwaysOnTopSaveTimer) clearTimeout(alwaysOnTopSaveTimer)
+  alwaysOnTopSaveTimer = setTimeout(() => {
+    alwaysOnTopSaveTimer = null
+    void applyAlwaysOnTopConfig(patch)
+  }, 150)
+}
+
+/**
+ * 切换是否绘制置顶高亮边框。
+ * @returns 更新完成后的 Promise。
+ */
+async function handleAlwaysOnTopBorderChange(): Promise<void> {
+  const applied = await applyAlwaysOnTopConfig({
+    borderEnabled: alwaysOnTopBorderEnabled.value
+  })
+  if (!applied) alwaysOnTopBorderEnabled.value = !alwaysOnTopBorderEnabled.value
+}
+
+/**
+ * 切换边框颜色模式并立即应用。
+ * @returns 更新完成后的 Promise。
+ */
+async function handleAlwaysOnTopColorModeChange(): Promise<void> {
+  await applyAlwaysOnTopConfig({
+    colorMode: alwaysOnTopColorMode.value,
+    borderColor: alwaysOnTopBorderColor.value
+  })
+}
+
+/**
+ * 打开系统颜色选择器。
+ * @returns 无返回值。
+ */
+function openAlwaysOnTopColorPicker(): void {
+  alwaysOnTopColorInput.value?.click()
+}
+
+/**
+ * 保存自定义边框颜色并切换为自定义模式。
+ * @param event 颜色输入事件。
+ * @returns 更新完成后的 Promise。
+ */
+async function handleAlwaysOnTopColorChange(event: Event): Promise<void> {
+  const target = event.target as HTMLInputElement
+  alwaysOnTopBorderColor.value = target.value
+  alwaysOnTopColorMode.value = 'custom'
+  await applyAlwaysOnTopConfig({
+    colorMode: 'custom',
+    borderColor: alwaysOnTopBorderColor.value
+  })
+}
+
+/**
+ * 保存边框不透明度。
+ * @returns 无返回值。
+ */
+function handleAlwaysOnTopOpacityChange(): void {
+  scheduleAlwaysOnTopSave({ opacity: alwaysOnTopOpacity.value })
+}
+
+/**
+ * 保存边框粗细。
+ * @returns 无返回值。
+ */
+function handleAlwaysOnTopThicknessChange(): void {
+  scheduleAlwaysOnTopSave({ thickness: alwaysOnTopThickness.value })
+}
+
+/**
+ * 保存是否启用圆角边框。
+ * @returns 更新完成后的 Promise。
+ */
+async function handleAlwaysOnTopRoundedChange(): Promise<void> {
+  await applyAlwaysOnTopConfig({ roundedCorners: alwaysOnTopRoundedCorners.value })
+}
+
+/**
+ * 保存置顶时是否播放提示音。
+ * @returns 更新完成后的 Promise。
+ */
+async function handleAlwaysOnTopSoundChange(): Promise<void> {
+  await applyAlwaysOnTopConfig({ playSound: alwaysOnTopPlaySound.value })
+}
+
+/**
+ * 跳转到快捷键设置页，由用户统一修改置顶组合键。
+ * @returns 无返回值。
+ */
+function goToAlwaysOnTopShortcutSettings(): void {
+  jumpFunctionShortcutsSetting({ tab: 'builtin' })
+}
+
+/**
+ * 设置页滚动时检查置顶面板是否仍可见；完全滚出可视区域后自动收起。
+ * @param event 设置页容器的滚动事件。
+ * @returns 无返回值。
+ */
+function handleGeneralSettingScroll(event: Event): void {
+  if (!alwaysOnTopExpanded.value) return
+  const panel = pinOptionsRef.value
+  const container = event.target as HTMLElement | null
+  // 只响应设置页纵向滚动容器，忽略面板内滑块的横向或局部滚动。
+  if (!panel || !container || !container.classList.contains('content-panel')) return
+  const rect = panel.getBoundingClientRect()
+  const viewport = container.getBoundingClientRect()
+  if (rect.bottom <= viewport.top || rect.top >= viewport.bottom) {
+    alwaysOnTopExpanded.value = false
+  }
+}
+
+// 离开通用设置页时立即收紧展开面板，返回本页时保持收起。
+onBeforeRouteLeave(() => {
+  alwaysOnTopExpanded.value = false
+})
 
 // 处理窗口材质变化
 async function handleWindowMaterialChange(): Promise<void> {
@@ -562,16 +700,6 @@ async function handleLaunchAtLoginChange(): Promise<void> {
     console.error('更新开机启动设置失败:', error)
     // 恢复状态
     launchAtLogin.value = !launchAtLogin.value
-  }
-}
-
-// 处理开发者工具位置变化
-async function handleDevToolsModeChange(): Promise<void> {
-  try {
-    await saveSettings()
-    console.log('开发者工具位置已更新:', devToolsMode.value)
-  } catch (err) {
-    console.error('保存开发者工具位置失败:', err)
   }
 }
 
@@ -627,46 +755,6 @@ async function handleProxyUrlChange(): Promise<void> {
   }
 }
 
-async function handleAddCustomInternalApiPluginName(): Promise<void> {
-  const pluginName = customInternalApiPluginNameInput.value.trim()
-  if (!pluginName) {
-    error('请输入插件名称')
-    return
-  }
-
-  if (customInternalApiPluginNames.value.includes(pluginName)) {
-    info('该插件已在授权列表中')
-    return
-  }
-
-  const confirmed = await confirm({
-    title: '授权内部 API 风险提示',
-    message: `即将允许插件 "${pluginName}" 调用内部 API。\n\n内部 API 可以读写 TabDo 设置、管理插件、注册快捷键、访问窗口信息并执行其他高权限操作。请仅授权你完全信任的插件；恶意插件可能造成隐私泄露、数据损坏或执行非预期操作。`,
-    type: 'danger',
-    confirmText: '已知风险，继续授权',
-    cancelText: '取消'
-  })
-  if (!confirmed) {
-    return
-  }
-
-  customInternalApiPluginNames.value = [...customInternalApiPluginNames.value, pluginName]
-  customInternalApiPluginNameInput.value = ''
-  await saveSettings()
-  success('内部 API 授权已添加')
-}
-
-async function handleRemoveCustomInternalApiPluginName(index: number): Promise<void> {
-  try {
-    customInternalApiPluginNames.value.splice(index, 1)
-    await saveSettings()
-    success('内部 API 授权已删除')
-  } catch (err) {
-    console.error('删除内部 API 授权失败:', err)
-    error('删除内部 API 授权失败')
-  }
-}
-
 // 验证代理 URL 格式
 function isValidProxyUrl(url: string): boolean {
   try {
@@ -709,9 +797,28 @@ async function loadSettings(): Promise<void> {
     if (data) {
       opacity.value = data.opacity ?? 1
       compactMainWindowHeader.value = data.compactMainWindowHeader === true
-      windowDefaultHeight.value = data.windowDefaultHeight ?? DEFAULT_PLUGIN_HEIGHT
+      rememberToolWindowSize.value = data.rememberToolWindowSize !== false
       showTrayIcon.value = data.showTrayIcon ?? true
-      windowPositionStrategy.value = data.windowPositionStrategy ?? 'remember'
+      awakeEnabled.value = data.awakeEnabled === true
+      alwaysOnTopEnabled.value = data.alwaysOnTopEnabled === true
+      alwaysOnTopShortcut.value =
+        typeof data.alwaysOnTopShortcut === 'string' && data.alwaysOnTopShortcut
+          ? data.alwaysOnTopShortcut
+          : ALWAYS_ON_TOP_DEFAULT_SHORTCUT
+      alwaysOnTopBorderEnabled.value = data.alwaysOnTopBorderEnabled !== false
+      alwaysOnTopColorMode.value =
+        data.alwaysOnTopBorderColorMode === 'custom' ? 'custom' : 'accent'
+      alwaysOnTopBorderColor.value =
+        typeof data.alwaysOnTopBorderColor === 'string' &&
+        /^#[0-9a-fA-F]{6}$/.test(data.alwaysOnTopBorderColor)
+          ? data.alwaysOnTopBorderColor
+          : '#1A73E8'
+      alwaysOnTopOpacity.value =
+        typeof data.alwaysOnTopBorderOpacity === 'number' ? data.alwaysOnTopBorderOpacity : 100
+      alwaysOnTopThickness.value =
+        typeof data.alwaysOnTopBorderThickness === 'number' ? data.alwaysOnTopBorderThickness : 3
+      alwaysOnTopRoundedCorners.value = data.alwaysOnTopRoundedCorners !== false
+      alwaysOnTopPlaySound.value = data.alwaysOnTopPlaySound !== false
       theme.value = data.theme ?? 'system'
       primaryColor.value = data.primaryColor ?? 'green'
       autoCheckUpdate.value = data.autoCheckUpdate ?? true
@@ -730,13 +837,8 @@ async function loadSettings(): Promise<void> {
         data.windowMaterial ?? (await window.tabdo.internal.getWindowMaterial())
       acrylicLightOpacity.value = data.acrylicLightOpacity ?? 78
       acrylicDarkOpacity.value = data.acrylicDarkOpacity ?? 50
-      // 开发者工具位置
-      devToolsMode.value = data.devToolsMode ?? 'detach'
       // GPU 加速控制
       disableGpuAcceleration.value = data.disableGpuAcceleration ?? false
-      customInternalApiPluginNames.value = normalizePluginNameList(
-        data.customInternalApiPluginNames
-      )
 
       // 代理配置
       proxyEnabled.value = data.proxyEnabled ?? false
@@ -777,8 +879,7 @@ async function saveSettings(): Promise<void> {
       ...existing,
       opacity: opacity.value,
       compactMainWindowHeader: compactMainWindowHeader.value,
-      windowDefaultHeight: windowDefaultHeight.value,
-      windowPositionStrategy: windowPositionStrategy.value,
+      rememberToolWindowSize: rememberToolWindowSize.value,
       superPanelEnabled: superPanelEnabled.value,
       superPanelMouseButton: superPanelMouseButton.value,
       superPanelLongPressMs: superPanelLongPressMs.value,
@@ -789,12 +890,11 @@ async function saveSettings(): Promise<void> {
       primaryColor: primaryColor.value,
       customColor: customColor.value,
       showTrayIcon: showTrayIcon.value,
+      awakeEnabled: awakeEnabled.value,
       windowMaterial: windowMaterial.value,
       acrylicLightOpacity: acrylicLightOpacity.value,
       acrylicDarkOpacity: acrylicDarkOpacity.value,
-      devToolsMode: devToolsMode.value,
       disableGpuAcceleration: disableGpuAcceleration.value,
-      customInternalApiPluginNames: [...customInternalApiPluginNames.value],
       proxyEnabled: proxyEnabled.value,
       proxyUrl: proxyUrl.value,
       autoCheckUpdate: autoCheckUpdate.value,
@@ -825,6 +925,23 @@ async function initializeSettings(): Promise<void> {
 // 初始化时加载设置
 onMounted(() => {
   void initializeSettings()
+  // 设置页滚动到置顶面板之外时自动收起，避免展开状态留在屏幕外。
+  document.addEventListener('scroll', handleGeneralSettingScroll, true)
+  // 托盘修改唤醒后同步设置页开关，避免两个入口显示不同状态。
+  offAwakeState =
+    window.tabdo.internal.onAwakeStateChanged?.((state) => {
+      awakeEnabled.value = state?.enabled === true
+    }) || null
+})
+
+onUnmounted(() => {
+  document.removeEventListener('scroll', handleGeneralSettingScroll, true)
+  offAwakeState?.()
+  offAwakeState = null
+  if (alwaysOnTopSaveTimer) {
+    clearTimeout(alwaysOnTopSaveTimer)
+    alwaysOnTopSaveTimer = null
+  }
 })
 </script>
 
@@ -965,6 +1082,206 @@ onMounted(() => {
             <input v-model="showTrayIcon" type="checkbox" @change="handleTrayIconChange" />
             <span class="toggle-slider"></span>
           </label>
+        </div>
+      </div>
+
+      <div class="setting-item">
+        <div class="setting-label">
+          <span>唤醒</span>
+          <span class="setting-desc"
+            >保持系统唤醒；启用时自动显示托盘图标，可在托盘右键“唤醒”中调整持续时间与屏幕点亮</span
+          >
+        </div>
+        <div class="setting-control">
+          <label class="toggle">
+            <input
+              v-model="awakeEnabled"
+              type="checkbox"
+              aria-label="唤醒"
+              @change="handleAwakeChange"
+            />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div v-if="platform === 'win32'" class="setting-item">
+        <div class="setting-label">
+          <span>窗口置顶</span>
+          <span class="setting-desc">按快捷键把当前窗口固定在最前，并显示可自定义的高亮边框</span>
+        </div>
+        <div class="setting-control">
+          <label class="toggle">
+            <input
+              v-model="alwaysOnTopEnabled"
+              type="checkbox"
+              aria-label="窗口置顶"
+              @change="handleAlwaysOnTopToggle"
+            />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div
+        v-if="platform === 'win32' && alwaysOnTopEnabled"
+        ref="pinOptionsRef"
+        class="pin-options"
+      >
+        <button
+          type="button"
+          class="pin-options-header"
+          :aria-expanded="alwaysOnTopExpanded"
+          @click="alwaysOnTopExpanded = !alwaysOnTopExpanded"
+        >
+          <span>置顶样式与快捷键</span>
+          <span class="pin-options-chevron" :class="{ expanded: alwaysOnTopExpanded }"></span>
+        </button>
+
+        <div v-show="alwaysOnTopExpanded" class="pin-options-body">
+          <div class="setting-item">
+            <div class="setting-label">
+              <span>显示高亮边框</span>
+              <span class="setting-desc">关闭后仍可置顶，但不绘制边框</span>
+            </div>
+            <div class="setting-control">
+              <label class="toggle">
+                <input
+                  v-model="alwaysOnTopBorderEnabled"
+                  type="checkbox"
+                  aria-label="显示高亮边框"
+                  @change="handleAlwaysOnTopBorderChange"
+                />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <template v-if="alwaysOnTopBorderEnabled">
+            <div class="setting-item">
+              <div class="setting-label">
+                <span>边框颜色</span>
+                <span class="setting-desc">跟随系统强调色，或指定固定颜色</span>
+              </div>
+              <div class="setting-control">
+                <Dropdown
+                  v-model="alwaysOnTopColorMode"
+                  :options="[
+                    { label: '系统强调色', value: 'accent' },
+                    { label: '自定义颜色', value: 'custom' }
+                  ]"
+                  @change="handleAlwaysOnTopColorModeChange"
+                />
+              </div>
+            </div>
+
+            <div v-if="alwaysOnTopColorMode === 'custom'" class="setting-item">
+              <div class="setting-label">
+                <span>自定义颜色</span>
+                <span class="setting-desc">点击色块选择边框颜色</span>
+              </div>
+              <div class="setting-control pin-color-control">
+                <button
+                  type="button"
+                  class="pin-color-swatch"
+                  :style="{ backgroundColor: alwaysOnTopBorderColor }"
+                  title="选择边框颜色"
+                  @click="openAlwaysOnTopColorPicker"
+                ></button>
+                <span class="pin-color-value">{{ alwaysOnTopBorderColor.toUpperCase() }}</span>
+                <input
+                  ref="alwaysOnTopColorInput"
+                  type="color"
+                  class="color-picker-hidden"
+                  :value="alwaysOnTopBorderColor"
+                  @change="handleAlwaysOnTopColorChange"
+                />
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-label">
+                <span>不透明度</span>
+                <span class="setting-desc">调整边框颜色的透明程度</span>
+              </div>
+              <div class="setting-control opacity-control">
+                <Slider
+                  v-model="alwaysOnTopOpacity"
+                  :min="0"
+                  :max="100"
+                  :step="1"
+                  :formatter="(value) => `${Math.round(value)}%`"
+                  @change="handleAlwaysOnTopOpacityChange"
+                />
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-label">
+                <span>边框粗细</span>
+                <span class="setting-desc">设置高亮边框的线条宽度</span>
+              </div>
+              <div class="setting-control opacity-control">
+                <Slider
+                  v-model="alwaysOnTopThickness"
+                  :min="1"
+                  :max="10"
+                  :step="1"
+                  :formatter="(value) => `${Math.round(value)} px`"
+                  @change="handleAlwaysOnTopThicknessChange"
+                />
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-label">
+                <span>启用圆角</span>
+                <span class="setting-desc">边框四角使用圆角，贴合 Windows 11 窗口外观</span>
+              </div>
+              <div class="setting-control">
+                <label class="toggle">
+                  <input
+                    v-model="alwaysOnTopRoundedCorners"
+                    type="checkbox"
+                    aria-label="启用圆角"
+                    @change="handleAlwaysOnTopRoundedChange"
+                  />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+            </div>
+          </template>
+
+          <div class="setting-item">
+            <div class="setting-label">
+              <span>置顶时播放声音</span>
+              <span class="setting-desc">固定窗口时播放系统提示音</span>
+            </div>
+            <div class="setting-control">
+              <label class="toggle">
+                <input
+                  v-model="alwaysOnTopPlaySound"
+                  type="checkbox"
+                  aria-label="置顶时播放声音"
+                  @change="handleAlwaysOnTopSoundChange"
+                />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-label">
+              <span>快捷键</span>
+              <span class="setting-desc">当前窗口置顶的触发快捷键</span>
+            </div>
+            <div class="setting-control">
+              <kbd class="pin-shortcut">{{ alwaysOnTopShortcut }}</kbd>
+              <button class="btn btn-sm" @click="goToAlwaysOnTopShortcutSettings">
+                前往快捷键设置
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1109,7 +1426,7 @@ onMounted(() => {
       <div class="setting-item">
         <div class="setting-label">
           <span>打开终端应用</span>
-          <span class="setting-desc">从 Finder 唤出「在终端打开」时使用的终端</span>
+          <span class="setting-desc">触发⌈打开终端⌋指令时使用的终端</span>
         </div>
         <div class="setting-control">
           <Dropdown v-model="terminal" :options="terminalOptions" @change="saveSettings" />
@@ -1142,42 +1459,18 @@ onMounted(() => {
 
       <div class="setting-item">
         <div class="setting-label">
-          <span>工具窗口位置</span>
-          <span class="setting-desc">打开工具窗口时的位置策略</span>
+          <span>记住子组件窗口大小</span>
+          <span class="setting-desc">可调整的子组件和插件窗口按上次大小打开</span>
         </div>
         <div class="setting-control">
-          <Dropdown
-            v-model="windowPositionStrategy"
-            :options="windowPositionStrategyOptions"
-            @change="handleWindowPositionStrategyChange"
-          />
-        </div>
-      </div>
-
-      <div class="setting-item">
-        <div class="setting-label">
-          <label for="plugin-default-height">插件默认高度</label>
-          <span class="setting-desc">设置进入插件时的默认高度（像素）</span>
-        </div>
-        <div class="setting-control">
-          <input
-            id="plugin-default-height"
-            v-model.number="windowDefaultHeight"
-            type="number"
-            class="input"
-            :placeholder="String(DEFAULT_PLUGIN_HEIGHT)"
-            min="200"
-            @blur="handleWindowDefaultHeightChange"
-            @keyup.enter="handleWindowDefaultHeightChange"
-          />
-          <button
-            v-if="windowDefaultHeight !== DEFAULT_PLUGIN_HEIGHT"
-            class="btn btn-icon"
-            title="重置"
-            @click="resetWindowDefaultHeight"
-          >
-            <div class="i-z-refresh font-size-20px" />
-          </button>
+          <label class="toggle">
+            <input
+              v-model="rememberToolWindowSize"
+              type="checkbox"
+              @change="handleRememberToolWindowSizeChange"
+            />
+            <span class="toggle-slider"></span>
+          </label>
         </div>
       </div>
 
@@ -1247,63 +1540,6 @@ onMounted(() => {
     <!-- ==================== 开发者 ==================== -->
     <details class="setting-group developer-settings">
       <summary class="setting-group-title">开发者</summary>
-
-      <div class="setting-item">
-        <div class="setting-label">
-          <span>开发者工具位置</span>
-          <span class="setting-desc">设置插件开发者工具的默认打开位置</span>
-        </div>
-        <div class="setting-control">
-          <Dropdown
-            v-model="devToolsMode"
-            :options="devToolsModeOptions"
-            style="min-width: 200px"
-            @change="handleDevToolsModeChange"
-          />
-        </div>
-      </div>
-
-      <div class="setting-item internal-api-setting">
-        <div class="internal-api-content">
-          <div class="internal-api-header">
-            <div class="setting-label">
-              <span>内部 API 授权插件</span>
-              <span class="setting-desc">允许指定插件名称调用高权限内部 API</span>
-            </div>
-            <div class="setting-control internal-api-control">
-              <input
-                v-model="customInternalApiPluginNameInput"
-                type="text"
-                class="input internal-api-input"
-                placeholder="输入插件 name"
-                @keyup.enter="handleAddCustomInternalApiPluginName"
-              />
-              <button
-                class="btn btn-sm internal-api-add-btn"
-                @click="handleAddCustomInternalApiPluginName"
-              >
-                添加
-              </button>
-            </div>
-          </div>
-          <div v-if="customInternalApiPluginNames.length > 0" class="blocked-apps-tags">
-            <span
-              v-for="(pluginName, index) in customInternalApiPluginNames"
-              :key="pluginName"
-              class="blocked-app-tag"
-            >
-              {{ pluginName }}
-              <button
-                class="blocked-app-remove"
-                title="删除授权"
-                @click="handleRemoveCustomInternalApiPluginName(index)"
-              >
-                &times;
-              </button>
-            </span>
-          </div>
-        </div>
-      </div>
 
       <div class="setting-item">
         <div class="setting-label">
@@ -1392,6 +1628,84 @@ onMounted(() => {
   flex-shrink: 0;
   align-items: center;
   gap: 10px;
+}
+
+/* 窗口置顶外观：启用后才出现的可折叠子项 */
+.pin-options {
+  border-bottom: 1px solid var(--divider-color);
+}
+
+.setting-group .pin-options:last-child {
+  border-bottom: none;
+}
+
+.pin-options-header {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 0;
+  border: none;
+  background: transparent;
+  color: var(--text-color);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.pin-options-header:hover {
+  color: var(--primary-color);
+}
+
+.pin-options-chevron {
+  width: 8px;
+  height: 8px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 0.2s;
+}
+
+.pin-options-chevron.expanded {
+  transform: rotate(-135deg);
+}
+
+.pin-options-body .setting-item {
+  padding: 14px 0;
+}
+
+.pin-color-control {
+  gap: 10px;
+}
+
+.pin-color-swatch {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--control-border);
+  border-radius: 6px;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.08),
+    0 1px 3px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+}
+
+.pin-color-value {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+.pin-shortcut {
+  padding: 5px 10px;
+  border: 1px solid var(--control-border);
+  border-radius: 6px;
+  background: var(--control-bg);
+  color: var(--text-color);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .translation-settings-btn {
@@ -1719,34 +2033,9 @@ onMounted(() => {
   gap: 8px;
 }
 
-.internal-api-content {
-  width: 100%;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
 .blocked-apps-header {
   display: flex;
   justify-content: space-between;
-}
-
-.internal-api-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.internal-api-input {
-  min-width: 180px;
-  width: 220px;
-}
-
-.internal-api-add-btn {
-  min-width: 56px;
-  white-space: nowrap;
-  flex-shrink: 0;
 }
 
 .blocked-apps-tags {

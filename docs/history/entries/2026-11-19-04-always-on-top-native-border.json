@@ -1,0 +1,25 @@
+{
+  "id": "always-on-top-native-border",
+  "date": "2026-11-19",
+  "summary": "将置顶高亮边框改为原生辅助进程事件驱动绘制，并新增边框开关",
+  "changes": [
+    "新增随包的 resources/always-on-top-border.ps1：通过 Add-Type 编译原生辅助类，使用 SetWinEventHook 监听目标窗口位置、最小化、销毁和前台事件，使用 UpdateLayeredWindow 分层层窗口绘制圆角边框；移动和缩放由事件同步驱动，不再轮询，消除拖动拖尾。",
+    "辅助进程按物理像素定位，普通窗口使用 GetWindowRect 贴合左右可见边缘，最大化窗口使用 DWM 可见边界；按目标窗口 DPI 换算边框粗细，支持多显示器与不同缩放比例。",
+    "重写 alwaysOnTopBorder.ts：按需启动单个辅助进程，通过 stdin 发送 pin/style/unpin/quit；最后一个窗口取消置顶时立即退出进程并释放分层窗口，宿主异常退出由 stdin EOF 触发自清理。",
+    "新增 alwaysOnTopBorderEnabled 配置与“显示高亮边框”开关：关闭后仍可置顶并播放提示音，只是不绘制边框；重新开启时为仍置顶的窗口补画边框。提示音改由宿主 shell.beep 播放，与边框解耦。",
+    "同步设置页、preload/类型声明、工具开发规范、设置规范、使用指南、应用内教程、Bug 台账、回归说明和本轮维护记录；重新构建并同步免安装预览。"
+  ],
+  "checks": [
+    "node tsconfig.node 与 internal-plugins/setting/tsconfig.web.json 类型检查通过。",
+    "完整单测 137 个文件、930 项通过，归档 .artifacts/runs/2026-11-19T06-13-41-568Z-unit；新增边框开关默认值、关闭释放辅助进程和持久化断言。",
+    "host-services 源码 Electron 专项通过：设置页出现“显示高亮边框”开关，关闭后外观子项隐藏、重新开启恢复；直接固定宿主主窗口，等待 2.5 秒后通过 Win32 枚举原生边框窗口，确认可见且物理边界相对目标窗口偏差不超过 2px，取消置顶后边框窗口销毁。归档 .artifacts/runs/2026-11-19T06-19-07-047Z-e2e。",
+    "独立验证原生辅助脚本：记事本窗口置顶后边框窗口可见，目标 rect 400,300,1300,1000 时边框 rect 为 396,296,1304,1004；屏幕截图确认绿色圆角边框实际绘制。",
+    "node scripts/sync-portable-preview.cjs 同步到 .local/portable-preview，保留既有 180 个文件，核验 2140 个程序文件，版本 1.5.8，回退批次 update-1795069251539；确认 app.asar.unpacked/resources/always-on-top-border.ps1 物理存在且 19843 字节、保留 UTF-8 BOM。node scripts/verify-portable-preview.cjs 通过：2139 个程序文件、360 个内置插件文件、11842 个媒体依赖。已清理更旧的预览回退载荷。",
+    "node scripts/check-docs.mjs、node scripts/project-maintenance.cjs prepare 与 check 通过。"
+  ],
+  "pending": [
+    "不同 DPI、多显示器、最大化窗口和混合缩放下的边框跟随观感需在免安装预览中人工复核。",
+    "首次置顶需启动并编译原生辅助进程，可能有短暂延迟；冷启动耗时和多次置顶的进程复用体验需人工确认。",
+    "Shift+T 作为全局组合键仍可能与用户输入大写 T 冲突，实际使用体验需在预览中确认。"
+  ]
+}

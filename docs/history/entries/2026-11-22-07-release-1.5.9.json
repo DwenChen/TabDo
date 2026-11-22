@@ -1,0 +1,31 @@
+{
+  "id": "release-1.5.9",
+  "date": "2026-11-22",
+  "version": "1.5.9",
+  "summary": "发布并核验 TabDo 1.5.9",
+  "changes": [
+    "整合唤醒服务、窗口置顶与高亮边框、File Locksmith 文件占用、子组件窗口位置与尺寸记忆、独立窗口首帧、录屏待选状态、快捷键精简和托盘多尺寸 ICO。",
+    "更新 package.json、README 与 changelog.md 到 1.5.9，补正使用指南和应用内教程中置顶样式面板的折叠时机，并在 README 文件整理分类补充“文件占用”。",
+    "修复悬浮图片贴合：非可调整原生窗口在非整数 DPI 下会忽略 setSize，改用 setBounds 一次提交位置与尺寸。",
+    "稳定源码 E2E：悬浮中转不再额外启动设置窗口；指令固定用例为设置页冷启动保留 30 秒；便签尺寸断言按 Windows 非整数 DPI 的 1–3px 不可见边框留出误差。"
+  ],
+  "checks": [
+    "pnpm typecheck、pnpm typecheck:setting 通过；本机未安装全局 pnpm，构建与检查通过 .artifacts/shims 下的 corepack pnpm 执行。",
+    "完整单测 140 个文件、945 项通过，归档 .artifacts/runs/2026-11-22T09-30-12-953Z-unit。",
+    "全量源码 Electron E2E 归档 .artifacts/runs/2026-11-22T08-18-32-196Z-e2e：57 项通过、1 项跳过、8 项失败；随后逐项复跑并归档 .artifacts/runs/2026-11-22T08-50-26-103Z-e2e。",
+    "受本轮改动影响的 all-commands-pinning、clipboard-interactions、file-locksmith、floating-relay、tools-polish 复跑全部通过，归档 .artifacts/runs/2026-11-22T09-23-25-036Z-e2e。",
+    "用 1.5.8 提交 acac664b 的独立 worktree 复跑同一组 8 项，确认 performance-budget、presentation-recorder、presentation-synchronization、tools-expanded 在发布前即失败；对比后定位并修复 floating-relay、all-commands-pinning、tools-polish 与 clipboard-interactions 受本轮影响的失败。",
+    "presentation-recorder 复跑到编辑器后因缺少音频轨失败；presentation-synchronization 的 DIAGNOSTIC_TONE 返回 correlation=0、sample=-1，本机音频回环不可用。两项依赖真实音频设备，保留人工验收。",
+    "tools-expanded 在 1.5.8 基线即失败（本轮停在同一用例的既有颜色断言），performance-budget 在基线同样等待 quick-menu 超时；均非本轮引入，保留后续单独处理。",
+    "pnpm build 通过；pnpm preview:sync 同步 1.5.9，保留 224 个既有资料与插件文件，核验 2141 个程序文件。收据 .artifacts/backups/preview-sync/update-1795339944490/preservation.json。pnpm test:preview:resources 核验 2140 个程序文件、360 个内置插件文件和 11842 个媒体依赖。",
+    "查看 tools-image-float.png：悬浮图片窗口为 600×240 原图比例，画面无纵向拉伸或透明留白，右上角复制与关闭按钮完整可见。",
+    "pnpm maintain、pnpm maintain:check、pnpm docs:check 通过（38 个文档、261 个本地链接、41 个功能、16 章教程、76 个步骤）。",
+    "自动化辅助验证完成后删除 1.5.8 基线 worktree，未改动正式依赖与用户资料。",
+    "空间收尾：删除根目录临时 HTML 分享包（约 3MB），清理更早一次预览回退载荷（约 1.4GB），保留最新完整回退 update-1795339944490 与全部 preservation.json 收据。"
+  ],
+  "pending": [
+    "在具备可用音频回环与摄像头设备的环境中复验 presentation-recorder 双音频轨和 presentation-synchronization 脉冲对齐。",
+    "单独处理 tools-expanded 的既有颜色断言与 performance-budget 的前台窗口焦点依赖；本轮不以改测试掩盖失败。",
+    "通过 PreviewPortable.cmd 使用预览数据人工验收唤醒、窗口置顶边框、文件占用、窗口尺寸记忆和非整数 DPI 下的悬浮窗口。"
+  ]
+}

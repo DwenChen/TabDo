@@ -4,10 +4,7 @@ import {
   type SelectedMatchCommand
 } from '@/components/common/MatchCommandDetailDialog/MatchCommandDetailDialog'
 import type { TagDropdownMenuItem } from '@/components'
-import {
-  jumpFunctionShortcutsSetting,
-  type ShortcutsSettingAliasDraftTarget
-} from '@/views/ShortcutsSetting/ShortcutsSetting'
+import { jumpFunctionShortcutsSetting } from '@/views/ShortcutsSetting/ShortcutsSetting'
 import { getCommandId as _getCommandId } from '@shared/commandShared'
 
 export type CommandCmdType = 'text' | 'regex' | 'over' | 'img' | 'files' | 'window'
@@ -289,49 +286,6 @@ export function usePluginCommandActions(options: UsePluginCommandActionsOptions)
     }
   }
 
-  // ============ 自定义别名 ============
-
-  function buildPluginAliasDraftTarget(
-    pluginName: string,
-    featureCode: string,
-    cmdName: string,
-    cmdType: 'text' | 'window' | 'regex' | 'over' | 'img' | 'files'
-  ): ShortcutsSettingAliasDraftTarget {
-    const pluginTitle = getPluginTitle() || pluginName
-    const commandIcon = findPluginCommand(featureCode, cmdName)?.icon
-
-    return {
-      commandId: getPluginCommandId(pluginName, featureCode, cmdName, cmdType),
-      type: 'plugin',
-      path: getPluginPath(),
-      groupKey: pluginName,
-      groupTitle: pluginTitle,
-      featureCode,
-      subtitle: featureCode,
-      pluginName,
-      pluginTitle,
-      cmdName,
-      cmdType,
-      icon: commandIcon
-    }
-  }
-
-  function openAliasShortcut(
-    pluginName: string,
-    featureCode: string,
-    cmdName: string,
-    cmdType: 'text' | 'window' | 'regex' | 'over' | 'img' | 'files'
-  ): void {
-    jumpFunctionShortcutsSetting({
-      tab: 'alias',
-      draftTarget: buildPluginAliasDraftTarget(pluginName, featureCode, cmdName, cmdType)
-    })
-  }
-
-  function isAliasableCmdType(cmdType?: string): cmdType is 'text' | 'window' {
-    return cmdType === 'text' || cmdType === 'window'
-  }
-
   // ============ 菜单项 ============
 
   function getMenuItems(
@@ -342,8 +296,6 @@ export function usePluginCommandActions(options: UsePluginCommandActionsOptions)
     cmdName?: string
   ): TagDropdownMenuItem[] {
     const items: TagDropdownMenuItem[] = []
-
-    const canAddAlias = isAliasableCmdType(cmdType) && pluginName && featureCode && cmdName
 
     if (cmdType && cmdType !== 'text') {
       items.push({
@@ -374,14 +326,6 @@ export function usePluginCommandActions(options: UsePluginCommandActionsOptions)
           icon: 'i-z-keyboard'
         })
       }
-    }
-
-    if (canAddAlias) {
-      items.push({
-        key: 'custom-alias',
-        label: '自定义别名',
-        icon: 'i-z-alias'
-      })
     }
 
     items.push({
@@ -444,9 +388,6 @@ export function usePluginCommandActions(options: UsePluginCommandActionsOptions)
       jumpFunctionShortcutsSetting({
         payload: `${pluginTitle}/${cmdName}`
       })
-    } else if (key === 'custom-alias') {
-      if (!isAliasableCmdType(cmdType)) return
-      openAliasShortcut(pluginName, featureCode, cmdName, cmdType)
     }
   }
 
@@ -512,7 +453,6 @@ export function usePluginCommandActions(options: UsePluginCommandActionsOptions)
     toggleSearchPin,
     // 操作
     openCommand,
-    openAliasShortcut,
     // 菜单
     getMenuItems,
     handleMenuSelect,

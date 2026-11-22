@@ -9,6 +9,8 @@ import { readClipboardFilePaths, writeClipboardFiles } from '../utils/clipboardF
 import { applyToolsWindowIdentity, getToolsWindowIcon } from './toolsWindowIdentity'
 import { buildPluginThemeCSS, getCurrentPluginThemeState } from './pluginTheme'
 import { getClipboardTransferError } from '../../shared/clipboardTransfer'
+import { resolveWindowOpenBounds } from '../utils/windowPlacement'
+import { getToolWindowConfig } from './toolWindowConfig'
 
 export interface RelayInput {
   type: 'text' | 'image' | 'file'
@@ -347,10 +349,15 @@ export async function openRelay(inputs: RelayInput[] = []): Promise<number> {
   const directory = mkdtempSync(path.join(os.tmpdir(), 'tabdo-relay-'))
   let window: BrowserWindow
   try {
+    // 中转窗口按开发者配置跟随触发光标打开，并限制在光标所在显示器工作区内。
+    const windowConfig = getToolWindowConfig('floating-relay')
+    const openBounds = resolveWindowOpenBounds(windowConfig.position, {
+      width: windowConfig.width ?? 380,
+      height: windowConfig.height ?? 340
+    })
     window = new BrowserWindow({
+      ...openBounds,
       title: '悬浮中转',
-      width: 380,
-      height: 340,
       minWidth: 320,
       minHeight: 200,
       icon: getToolsWindowIcon('floating-relay'),

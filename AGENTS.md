@@ -50,7 +50,8 @@
 
 ## Electron E2E
 
-- 使用 `pnpm test:e2e`，通过 `scripts/preview-main.cjs` 直接加载源码。不得为 E2E 执行 `electron-builder`、`pnpm build:unpack` 或使用 `dist/*.app`。
+- 未获得用户明确许可、且当前没有 push、云端构建或 Release 需求时，禁止运行全量 E2E；只运行与本次改动相关的单测和受影响 E2E 文件。全量 `pnpm test:e2e` 仅用于用户明确要求或推送前的完整验证。
+- 使用 `pnpm test:e2e <受影响测试文件>`，通过 `scripts/preview-main.cjs` 直接加载源码。不得为 E2E 执行 `electron-builder`、`pnpm build:unpack` 或使用 `dist/*.app`。
 - 测试入口自动启动源码服务器、设置插件开发服务（`127.0.0.1:15177`）和隔离 Electron 实例，不生成 `out/dist`。专项测试同样传入源码项目，并通过 `TABDO_SETTING_DEV_SERVER_URL=http://127.0.0.1:15177` 加载设置页。
 - 显式隔离数据与旧数据目录，不读写真实 `~/.tabdo`。Electron 自带 Chromium，无需执行 `playwright install chromium`。
 - 排查插件界面直接截取插件 WebContentsView，禁止与宿主截图拼接。默认只截当前可见区域，测试明确要求时才增加全页面或滚动截图。

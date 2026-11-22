@@ -28,11 +28,14 @@ test('所有指令搜索自动切换来源后可固定与取消固定，保留�
       env
     })
     await expect
-      .poll(() =>
-        app!
-          .context()
-          .pages()
-          .some((page) => page.url().startsWith('http://127.0.0.1:15177'))
+      .poll(
+        () =>
+          app!
+            .context()
+            .pages()
+            .some((page) => page.url().startsWith('http://127.0.0.1:15177')),
+        // 首次冷启动时设置页需要等待开发服务器编译，不能用默认的 5 秒上限。
+        { timeout: 30000 }
       )
       .toBe(true)
     const settings = app

@@ -1,0 +1,30 @@
+{
+  "id": "power-toys-host-services",
+  "date": "2026-11-18",
+  "summary": "将 PowerToys 的唤醒、前端显示和 File Locksmith 分别接入宿主服务与文件占用工具",
+  "changes": [
+    "新增宿主级唤醒服务，使用 Electron powerSaveBlocker 保持系统或屏幕唤醒；通用设置“基础”提供开关，托盘右键“唤醒”一级菜单悬停展开启用、保持屏幕点亮和持续时间二级设置。唤醒状态持久化到 settings-general，开启时自动打开托盘图标，关闭托盘图标时同时关闭唤醒。",
+    "新增宿主级“前端显示”服务，在“快捷键 → 内置快捷键”提供默认关闭的开关；Windows 使用全局 Win+Ctrl+T 切换当前前台窗口置顶，注册失败时保留原设置并回告设置页，不注入窗口标题栏菜单。",
+    "新增 file-locksmith“文件占用”子组件，接收 1–20 个文件或文件夹匹配；通过独立 PowerShell 辅助进程调用 Restart Manager 列出占用进程，二次确认后结束选中进程，完成后自动重新检查。未采用资源管理器右键菜单集成。",
+    "同步工具清单、功能分组、首帧高度、插件路由、宿主视图白名单、任务栏图标、来源清单、本地教程、设置说明和维护记录。",
+    "补充唤醒/前端显示单测、File Locksmith 真实文件锁 E2E 与宿主服务 E2E，并登记 host-services、file-locksmith 回归分组。"
+  ],
+  "checks": [
+    "node tsconfig.node、tsconfig.web 与设置在 internal-plugins/setting/tsconfig.web 下的 vue-tsc 检查通过。",
+    "node_modules/.bin/vite build internal-plugins/system --config internal-plugins/system/vite.config.mjs 通过，产物包含 file-locksmith.cjs、file-locksmith.ps1、preload.js 与 128×128 PNG 图标。",
+    "完整单测 137 个文件、925 项通过，归档 .artifacts/runs/2026-11-18T15-20-25-692Z-unit；新增 awakeService 4 项与 alwaysOnTopService 3 项。",
+    "源码 Electron tools-catalog 通过，覆盖文件占用空态正文、任务栏图标与原页面释放，归档 .artifacts/runs/2026-11-18T15-01-39-360Z-e2e。",
+    "源码 Electron file-locksmith 与 host-services 在清理未使用 IPC 后复跑通过；真实文件锁被列出，二次确认结束后进程退出并回到“没有进程占用”空态；唤醒托盘二级菜单、托盘图标联动及前端显示真实置顶/取消置顶均通过。归档 .artifacts/runs/2026-11-18T15-15-01-196Z-e2e；截图 file-locksmith-result.png、file-locksmith-empty.png、host-services-settings.png 已人工检查。",
+    "首次专项归档分别为 .artifacts/runs/2026-11-18T15-04-39-816Z-e2e 与 .artifacts/runs/2026-11-18T15-05-31-060Z-e2e。",
+    "node scripts/check-docs.mjs 通过：41 个功能码、15 个分类、31 个普通文字指令，16 章教程、76 步，链接与锚点无错误。",
+    "已人工查看 File Locksmith 结果/空态截图与设置基础分组截图，确认没有明显横向溢出，唤醒描述与开关对齐。",
+    "node scripts/sync-portable-preview.cjs 最终同步到 .local/portable-preview，保留既有 data/legacy 176 个文件，核验 2139 个程序文件，版本 1.5.8；收据 .artifacts/backups/preview-sync/update-1795014938900/preservation.json。node scripts/verify-portable-preview.cjs 通过：2138 个程序文件、359 个内置插件文件、11842 个媒体依赖。",
+    "node scripts/project-maintenance.cjs prepare 与 check 通过。",
+    "清理三份更旧的预览程序回退载荷（update-1794829824863、update-1794833828739、update-1795014497924），保留各自 preservation.json 审计收据及最新完整回退 update-1795014938900。"
+  ],
+  "pending": [
+    "真实睡眠/显示器休眠、不同电源计划下的唤醒效果需要实体设备长时观察。",
+    "其他用户权限下的文件锁、目录句柄以及被杀进程的系统保护边界保留人工验收。",
+    "不同 DPI、多显示器下托盘菜单文字和前端显示置顶观感需在免安装预览中人工复核。"
+  ]
+}

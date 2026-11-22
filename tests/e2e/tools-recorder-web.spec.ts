@@ -234,6 +234,14 @@ test('web quick open config, matched text/image, native recorder output and clea
     tools = await launch('screen-recorder')
     await expect(tools.locator('.source').first()).toBeVisible({ timeout: 20000 })
     await expect(tools.getByLabel('显示鼠标')).toBeChecked()
+    // 子组件按当前标签页正文高度收紧，窗口页不再沿用全屏倒计时的固定高度。
+    const screenHeight = await tools.evaluate(() => innerHeight)
+    expect(screenHeight).toBeGreaterThan(300)
+    expect(screenHeight).toBeLessThan(420)
+    await tools.getByRole('tab', { name: '窗口录制', exact: true }).click()
+    await expect.poll(() => tools.evaluate(() => innerHeight)).toBeLessThan(screenHeight - 40)
+    await tools.getByRole('tab', { name: '全屏录制', exact: true }).click()
+    await expect(tools.locator('.source').first()).toBeVisible({ timeout: 20000 })
     await capture(tools, 'screen-recorder.png')
     const output = path.join(temporary, 'fixture-recording.mp4')
     // 捕获本测试创建的纯色窗口，避免录入用户桌面；真实走原生录制和 MP4 封装。
@@ -399,7 +407,9 @@ test('web quick open config, matched text/image, native recorder output and clea
       .context()
       .pages()
       .find((page) => page.url().includes('recorder-region.html'))!
-    await expect(selection.getByText('拖动调整录制区域 · Enter 开始 · Esc 取消')).toBeVisible()
+    // 区域入口先保持待选，不预置默认选区；Esc 直接取消。
+    await expect(selection.getByText('拖动鼠标选择录制区域 · Esc 取消')).toBeVisible()
+    await expect(selection.getByRole('button', { name: '开始录制', exact: true })).toBeDisabled()
     await selection.keyboard.press('Escape').catch((error) => {
       if (!selection.isClosed()) throw error
     })

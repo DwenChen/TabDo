@@ -1,0 +1,26 @@
+{
+  "id": "general-settings-cleanup",
+  "date": "2026-11-19",
+  "summary": "精简通用设置说明与入口，并让置顶样式面板在点击外部时自动收起",
+  "changes": [
+    "“打开终端应用”说明改为“触发⌈打开终端⌋指令时使用的终端”，与内置指令名称一致。",
+    "“置顶样式与快捷键”面板支持点击面板外部自动收起；点击标题仍可手动展开或收起，面板内部操作不受影响。",
+    "“置顶时播放声音”说明删去“不再弹出 TabDo 通知”，改为“固定窗口时播放系统提示音”。",
+    "置顶“快捷键”说明改为“当前窗口置顶的触发快捷键”。",
+    "移除“行为”中的工具窗口位置，以及“开发者”中的开发者工具位置和内部 API 授权插件入口；宿主继续按既有持久化值或默认值运行，不清空历史数据。",
+    "同步设置开发规范、使用指南和应用内教程；更新 settings-cleanup 与 host-services 源码 E2E 断言，并修正该用例既有的固定项数量、快捷键输入选择器和设置页冷启动等待。"
+  ],
+  "checks": [
+    "internal-plugins/setting tsconfig.web.json 的 vue-tsc 类型检查通过，修改文件 ESLint 与 Prettier 检查通过。",
+    "完整单测 137 个文件、930 项通过，归档 .artifacts/runs/2026-11-19T08-01-30-351Z-unit。",
+    "host-services 源码 Electron 专项通过：置顶面板展开/手动收起后点击面板外部自动收起，提示音与快捷键说明文字可见，原生边框与快捷键流程不受影响。归档 .artifacts/runs/2026-11-19T08-00-46-083Z-e2e。",
+    "settings-cleanup 源码 Electron 专项通过：内部 API 授权插件、工具窗口位置、开发者工具位置均不存在，终端说明更新，开发者组仅保留关闭 GPU 加速，目录迁移与重启资料保留通过。归档 .artifacts/runs/2026-11-19T07-59-35-754Z-e2e。",
+    "人工检查 always-on-top-settings.png 与 terminal-and-behavior-settings.png：提示音、快捷键说明换行正常，终端说明与行为分组无溢出，开发者组默认闭合。",
+    "node scripts/check-docs.mjs、node scripts/project-maintenance.cjs prepare 与 check 通过。",
+    "重新构建设置插件并 node scripts/sync-portable-preview.cjs 同步到 .local/portable-preview，保留既有 182 个文件，核验 2140 个程序文件，版本 1.5.8，回退批次 update-1795075372494；node scripts/verify-portable-preview.cjs 通过：2139 个程序文件、360 个内置插件文件、11842 个媒体依赖。已清理更旧的预览回退载荷。"
+  ],
+  "pending": [
+    "置顶面板在免安装预览中以鼠标点击面板外部自动收起的实际手感需人工复核。",
+    "移除入口后，仍依赖历史工具窗口位置或开发者工具位置的用户将固定使用上次保存值或默认值，需要在预览中确认符合预期。"
+  ]
+}

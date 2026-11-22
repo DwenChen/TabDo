@@ -7,6 +7,10 @@
   "version": "1.0.0",
   "main": "index.html",
   "logo": "logo.png",
+  "window": {
+    "position": "cursor",
+    "resizable": true
+  },
   "development": {
     "main": "http://localhost:5177"
   },

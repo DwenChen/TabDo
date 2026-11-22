@@ -1,0 +1,27 @@
+{
+  "id": "tray-icon-crispness",
+  "date": "2026-11-22",
+  "summary": "Windows 托盘改用多尺寸 ICO 并按系统小图标尺寸读取对应帧，改善小尺寸图标边缘模糊",
+  "changes": [
+    "新增 resources/icons/tray.ico，包含 16/20/24/32/40/48 六种 PNG 帧；Windows 托盘不再把 512px PNG 交给运行时缩放。",
+    "16px 与 20px 帧按小尺寸单独加粗轮廓、放宽滚轮并去掉顶部连线与滚轮高光等过细细节；24px 及以上帧保持现有品牌图形。",
+    "windowManager.createTray 在 Windows 分支改用 tray.ico：Electron 通过 GetHICON(SM_CXSMICON) 从 ICO 读取与当前 DPI 匹配的帧；Linux 继续使用原 windows-icon.png，macOS 模板图标不变。",
+    "新增 tests/main/windowManagerTrayIcon.test.ts 并纳入 branding 回归组，校验 Windows 选择 ICO、其他平台保留 PNG；同步更新回归说明中的品牌图标条目。"
+  ],
+  "checks": [
+    "开始前查看 Git 状态并保留既有未提交内容；已阅读维护流程、改动索引、Bug 台账、设置与工具规范及现有品牌图标记录。",
+    "确认根因：Electron 的 Tray 在 Windows 调用 nativeImage.GetHICON(GetSystemMetrics(SM_CXSMICON))；非 ICO 的 NativeImage 直接按原图创建 HICON，512px PNG 由系统缩放，导致托盘小图标发虚。ICO 路径会调用 ReadICOFromPath 按请求尺寸读取帧。",
+    "资产核验：tray.ico 共 6 帧；PowerShell LoadImage 分别请求 16/20/24/32/40/48 像素，GetIconInfo 返回的位图尺寸逐项一致，说明 PNG 压缩帧可用且按尺寸命中。",
+    "目视对照：生成旧 ICO 20px 帧与新 tray.ico 20px 帧的 12 倍对照图，新帧轮廓更均匀、滚轮可辨识；当前桌面为 1920x1080、125% 缩放，对应托盘 20px 帧。",
+    "源码预览实测：启动隔离源码预览后打开任务栏“显示隐藏的图标”面板，TabDo 鼠标图标清晰、轮廓与滚轮可辨；截图保存 .artifacts/work/tray-icon/tray-overflow-zoom.png。预览进程随后全部结束。",
+    "pnpm typecheck:node 通过；新增单测 2 项与既有 windowManagerMacActivation 7 项共 9 项通过。",
+    "pnpm test:e2e tests/e2e/plugin-cleanup-tray.spec.ts 通过 1 项，使用源码 Electron 与隔离数据，未为 E2E 打包；归档 .artifacts/runs/2026-11-22T07-40-55-644Z-e2e。",
+    "pnpm build 完成类型检查、设置与工具构建及 electron-vite build；构建产物将 tray.ico 解析为相对 resources 目录的运行时路径。pnpm preview:sync 更新免安装预览，识别 2141 个程序文件并保留 224 个既有资料/插件文件，回退批次 update-1795334259782。",
+    "pnpm test:preview:resources 通过 2140 个程序文件、360 个内置插件文件、11842 个媒体依赖；预览内 app.asar.unpacked/resources/icons/tray.ico 与源文件 SHA-256 一致，app.asar 内包含该路径引用。未启动预览写入新资料。",
+    "空间收尾：保留最新回退 update-1795334259782 与各批次 preservation.json 收据，清理更早批次的程序载荷和本轮已消费的渲染脚本/日志，释放约 1.39 GiB；仅保留对照图 compare-20.png 与实际托盘截图 tray-overflow-zoom.png。"
+  ],
+  "pending": [
+    "内联托盘位（非溢出面板）在其他 DPI、多显示器及 Windows 外壳图标缓存下的最终观感需人工复核。"
+  ],
+  "preview": "已同步 1.5.8 新托盘 ICO，224 个既有资料与插件文件保持不变；未启动预览写入新数据。"
+}

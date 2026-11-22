@@ -387,8 +387,10 @@ test('native dragging docks notes and OS pointer entry exposes a clickable image
       await note.locator('#note-dock-tab').click()
       await expect(note.locator('body')).toHaveAttribute('data-edge', '')
       await expect(note.getByLabel('便签内容')).toBeVisible()
-      // 等解除贴靠的过渡结束，纸张尺寸完整恢复。
-      await expect.poll(() => note.evaluate(() => innerWidth)).toBe(originalPaper.width)
+      // 等解除贴靠的过渡结束，纸张尺寸完整恢复；非整数 DPI 下允许 2px 舍入差。
+      await expect
+        .poll(async () => Math.abs((await note.evaluate(() => innerWidth)) - originalPaper.width))
+        .toBeLessThanOrEqual(2)
     }
     await app.evaluate(({ BrowserWindow, screen }, id) => {
       const win = BrowserWindow.fromId(id)!,

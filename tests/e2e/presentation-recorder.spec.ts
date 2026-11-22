@@ -20,6 +20,7 @@ test('演示录屏直接显示原生控制条，编辑入口和录制交接正�
       ...process.env,
       TABDO_E2E: '1',
       TABDO_SOURCE_PREVIEW: '1',
+      TABDO_PREVIEW_OPEN_SETTINGS: '0',
       TABDO_E2E_NATIVE_CAMERA_REFERENCE: '1',
       TABDO_E2E_CAPTURE_MIC_LOOPBACK: '1',
       TABDO_DATA_ROOT: path.join(temporary, 'data'),

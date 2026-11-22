@@ -2,6 +2,305 @@
 
 > 自动生成；原始记录在 [entries](../history/entries/)。
 
+## 2026-11-22 · 发布并核验 TabDo 1.5.9
+
+记录：[release-1.5.9](../../docs/history/entries/2026-11-22-07-release-1.5.9.json)；版本：1.5.9。
+
+- 整合唤醒服务、窗口置顶与高亮边框、File Locksmith 文件占用、子组件窗口位置与尺寸记忆、独立窗口首帧、录屏待选状态、快捷键精简和托盘多尺寸 ICO。
+- 更新 package.json、README 与 changelog.md 到 1.5.9，补正使用指南和应用内教程中置顶样式面板的折叠时机，并在 README 文件整理分类补充“文件占用”。
+- 修复悬浮图片贴合：非可调整原生窗口在非整数 DPI 下会忽略 setSize，改用 setBounds 一次提交位置与尺寸。
+- 稳定源码 E2E：悬浮中转不再额外启动设置窗口；指令固定用例为设置页冷启动保留 30 秒；便签尺寸断言按 Windows 非整数 DPI 的 1–3px 不可见边框留出误差。
+
+- 验证：pnpm typecheck、pnpm typecheck:setting 通过；本机未安装全局 pnpm，构建与检查通过 .artifacts/shims 下的 corepack pnpm 执行。
+- 验证：完整单测 140 个文件、945 项通过，归档 .artifacts/runs/2026-11-22T09-30-12-953Z-unit。
+- 验证：全量源码 Electron E2E 归档 .artifacts/runs/2026-11-22T08-18-32-196Z-e2e：57 项通过、1 项跳过、8 项失败；随后逐项复跑并归档 .artifacts/runs/2026-11-22T08-50-26-103Z-e2e。
+- 验证：受本轮改动影响的 all-commands-pinning、clipboard-interactions、file-locksmith、floating-relay、tools-polish 复跑全部通过，归档 .artifacts/runs/2026-11-22T09-23-25-036Z-e2e。
+- 验证：用 1.5.8 提交 acac664b 的独立 worktree 复跑同一组 8 项，确认 performance-budget、presentation-recorder、presentation-synchronization、tools-expanded 在发布前即失败；对比后定位并修复 floating-relay、all-commands-pinning、tools-polish 与 clipboard-interactions 受本轮影响的失败。
+- 验证：presentation-recorder 复跑到编辑器后因缺少音频轨失败；presentation-synchronization 的 DIAGNOSTIC_TONE 返回 correlation=0、sample=-1，本机音频回环不可用。两项依赖真实音频设备，保留人工验收。
+- 验证：tools-expanded 在 1.5.8 基线即失败（本轮停在同一用例的既有颜色断言），performance-budget 在基线同样等待 quick-menu 超时；均非本轮引入，保留后续单独处理。
+- 验证：pnpm build 通过；pnpm preview:sync 同步 1.5.9，保留 224 个既有资料与插件文件，核验 2141 个程序文件。收据 .artifacts/backups/preview-sync/update-1795339944490/preservation.json。pnpm test:preview:resources 核验 2140 个程序文件、360 个内置插件文件和 11842 个媒体依赖。
+- 验证：查看 tools-image-float.png：悬浮图片窗口为 600×240 原图比例，画面无纵向拉伸或透明留白，右上角复制与关闭按钮完整可见。
+- 验证：pnpm maintain、pnpm maintain:check、pnpm docs:check 通过（38 个文档、261 个本地链接、41 个功能、16 章教程、76 个步骤）。
+- 验证：自动化辅助验证完成后删除 1.5.8 基线 worktree，未改动正式依赖与用户资料。
+- 验证：空间收尾：删除根目录临时 HTML 分享包（约 3MB），清理更早一次预览回退载荷（约 1.4GB），保留最新完整回退 update-1795339944490 与全部 preservation.json 收据。
+
+## 2026-11-22 · Windows 托盘改用多尺寸 ICO 并按系统小图标尺寸读取对应帧，改善小尺寸图标边缘模糊
+
+记录：[tray-icon-crispness](../../docs/history/entries/2026-11-22-06-tray-icon-crispness.json)；版本：未发布。
+
+- 新增 resources/icons/tray.ico，包含 16/20/24/32/40/48 六种 PNG 帧；Windows 托盘不再把 512px PNG 交给运行时缩放。
+- 16px 与 20px 帧按小尺寸单独加粗轮廓、放宽滚轮并去掉顶部连线与滚轮高光等过细细节；24px 及以上帧保持现有品牌图形。
+- windowManager.createTray 在 Windows 分支改用 tray.ico：Electron 通过 GetHICON(SM_CXSMICON) 从 ICO 读取与当前 DPI 匹配的帧；Linux 继续使用原 windows-icon.png，macOS 模板图标不变。
+- 新增 tests/main/windowManagerTrayIcon.test.ts 并纳入 branding 回归组，校验 Windows 选择 ICO、其他平台保留 PNG；同步更新回归说明中的品牌图标条目。
+
+- 验证：开始前查看 Git 状态并保留既有未提交内容；已阅读维护流程、改动索引、Bug 台账、设置与工具规范及现有品牌图标记录。
+- 验证：确认根因：Electron 的 Tray 在 Windows 调用 nativeImage.GetHICON(GetSystemMetrics(SM_CXSMICON))；非 ICO 的 NativeImage 直接按原图创建 HICON，512px PNG 由系统缩放，导致托盘小图标发虚。ICO 路径会调用 ReadICOFromPath 按请求尺寸读取帧。
+- 验证：资产核验：tray.ico 共 6 帧；PowerShell LoadImage 分别请求 16/20/24/32/40/48 像素，GetIconInfo 返回的位图尺寸逐项一致，说明 PNG 压缩帧可用且按尺寸命中。
+- 验证：目视对照：生成旧 ICO 20px 帧与新 tray.ico 20px 帧的 12 倍对照图，新帧轮廓更均匀、滚轮可辨识；当前桌面为 1920x1080、125% 缩放，对应托盘 20px 帧。
+- 验证：源码预览实测：启动隔离源码预览后打开任务栏“显示隐藏的图标”面板，TabDo 鼠标图标清晰、轮廓与滚轮可辨；截图保存 .artifacts/work/tray-icon/tray-overflow-zoom.png。预览进程随后全部结束。
+- 验证：pnpm typecheck:node 通过；新增单测 2 项与既有 windowManagerMacActivation 7 项共 9 项通过。
+- 验证：pnpm test:e2e tests/e2e/plugin-cleanup-tray.spec.ts 通过 1 项，使用源码 Electron 与隔离数据，未为 E2E 打包；归档 .artifacts/runs/2026-11-22T07-40-55-644Z-e2e。
+- 验证：pnpm build 完成类型检查、设置与工具构建及 electron-vite build；构建产物将 tray.ico 解析为相对 resources 目录的运行时路径。pnpm preview:sync 更新免安装预览，识别 2141 个程序文件并保留 224 个既有资料/插件文件，回退批次 update-1795334259782。
+- 验证：pnpm test:preview:resources 通过 2140 个程序文件、360 个内置插件文件、11842 个媒体依赖；预览内 app.asar.unpacked/resources/icons/tray.ico 与源文件 SHA-256 一致，app.asar 内包含该路径引用。未启动预览写入新资料。
+- 验证：空间收尾：保留最新回退 update-1795334259782 与各批次 preservation.json 收据，清理更早批次的程序载荷和本轮已消费的渲染脚本/日志，释放约 1.39 GiB；仅保留对照图 compare-20.png 与实际托盘截图 tray-overflow-zoom.png。
+
+## 2026-11-22 · 精简快捷键页并支持取消录制，移除裁剪放大视图，呼叫AI改为居中，文件占用成功提示左对齐
+
+记录：[shortcuts-crop-callai-cleanup](../../docs/history/entries/2026-11-22-05-shortcuts-crop-callai-cleanup.json)；版本：未发布。
+
+- 图片裁剪移除圆形局部放大视图及其样式，保留自由比例框内重新框选、松开结束拖动和空拖入不误报的修复。
+- 呼叫AI在直接分离与手动分离两条创建路径都固定为当前显示器居中打开，不再传入触发光标，保留独立尺寸记忆。
+- 文件占用成功空态改为左对齐：绿勾与“没有进程占用这些文件”同行，说明文字缩进到标题文字开头。
+- 快捷键页移除指令别名页签、映射表格、编辑弹窗和“自定义别名”右键入口，删除对应子组件与类型。
+- 快捷键页移除八项旧内置快捷键条目及 updateBuiltinShortcuts 写入接口；宿主继续读取历史 builtinAppShortcutsEnabled 值，已有行为不突变。
+- “设置页呼出快捷键”“窗口置顶”“全屏时暂停快捷键”按此顺序排列并统一卡片间距；全屏暂停说明改为暂停所有快捷键。
+- HotkeyInput 在录制等待状态再次点击即可取消录制，并新增 stopHotkeyRecording 宿主接口立即清理临时组合键；先接管键盘监听再请求宿主，避免取消后残留前台监听。
+- 同步更新使用教程、设置规范、呼叫AI说明、媒体工具说明、回归说明与 Bug 台账。
+
+- 验证：typecheck:node 与 typecheck:setting 通过。
+- 验证：改动的源码与 E2E 文件 ESLint 通过；src/main/api/plugin/internal.ts 既有 no-control-regex 报错未由本轮引入。
+- 验证：完整单测 139 个文件、943 项通过，归档 .artifacts/runs/2026-11-22T06-50-33-327Z-unit。
+- 验证：受影响 E2E 6 项全部通过：call-ai 两项、file-locksmith、host-services、media-batch、settings-cleanup，归档 .artifacts/runs/2026-11-22T06-52-21-984Z-e2e。
+- 验证：视觉核对：快捷键页只剩三个页签，三项设置顺序与间距一致且说明为暂停所有快捷键；文件占用成功空态绿勾位于文本行首并与说明对齐；裁剪拖动不再出现圆形放大层。
+- 验证：call-ai 专项断言窗口在所属显示器工作区水平、垂直居中，误差小于 8px；settings-cleanup 断言别名和旧内置条目不存在，并通过历史配置继续验证分离快捷键。
+- 验证：pnpm build 完成 typecheck、设置与工具构建及 electron-vite build；按用户要求去掉全屏暂停说明中的双引号后重建设置页并再次同步免安装预览，保留 224 个既有资料与插件文件，核验 2140 个程序文件，版本 1.5.8，最新回退批次 update-1795331217116；test:preview:resources 通过 2139 个程序文件、360 个内置插件文件、11842 个媒体依赖。
+- 验证：docs:check、pnpm maintain 与 maintain:check 通过；清理本轮前两次预览回退 update-1795326416138 与 update-1795330636142 的程序载荷约 2.72 GiB，保留各自审计收据与最新回退 update-1795331217116。
+
+## 2026-11-22 · 明确 E2E 验证范围：日常只运行受影响的测试，未获许可或无 push 需求时禁止运行全量 E2E
+
+记录：[e2e-scope-rule](../../docs/history/entries/2026-11-22-04-e2e-scope-rule.json)；版本：未发布。
+
+- AGENTS.md 的 Electron E2E 规范新增首条约束：未获得用户明确许可、且当前没有 push、云端构建或 Release 需求时，禁止运行全量 E2E，只运行与本次改动相关的单测和受影响 E2E 文件。
+- 开发指南的验证说明同步区分日常改动与发行候选：日常只跑相关测试，推送前才执行完整单测与受影响的源码 E2E。
+- 维护流程第 4 步改为按改动范围运行测试，并明确全量 pnpm test / pnpm test:e2e 仅在用户明确要求或推送前执行。
+
+- 验证：docs:check 通过，链接、锚点、工具与教程计数无变化。
+- 验证：pnpm maintain 与 maintain:check 通过。
+- 验证：本轮只修改仓库规范与维护文档，未改代码、构建产物或随应用分发的教程，无需重建或同步免安装预览。
+
+## 2026-11-22 · 优化区域录制待选状态与录屏窗口高度，修复图片裁剪拖动并增加边沿放大视图，调整置顶样式面板的自动收起时机
+
+记录：[recorder-crop-and-pin-panel](../../docs/history/entries/2026-11-22-03-recorder-crop-and-pin-panel.json)；版本：未发布。
+
+- 区域录制打开时不再预置或恢复 800×600 选区：选择框与宽高输入保持隐藏，工具栏居中在屏幕底部，“开始录制”禁用并显示待选提示；用户拖动后才生成选区并启用确认。
+- 录屏子组件首帧高度由 440px 调整为 380px，并在挂载和切换全屏/窗口/区域模式后按头部、参数区实际内容与底部操作栏测量 setExpendHeight，窗口页自动收紧，去除下方留白。
+- 图片裁剪在自由/原图比例铺满画面时，框内拖动改为重新框选；指针已在窗口外松开时立即结束拖动，pointerdown 阻止原生图片拖拽，空拖入不再误报“未找到支持的媒体文件”。
+- 裁剪框选和四角调整期间在指针处显示圆形局部放大视图，带十字定位线，松开或取消后关闭。
+- 通用设置“置顶样式与快捷键”默认收起；点击页面其他设置项不再收起，只在离开通用设置页或滚动到面板完全离开可视区域时折叠，返回本页保持收起。
+- 同步更新使用教程、媒体工具说明、设置规范、录屏开发规范、回归说明与 Bug 台账。
+
+- 验证：typecheck:node 与 typecheck:setting 通过。
+- 验证：改动的源码与 E2E 文件 ESLint 通过，无新增错误。
+- 验证：完整单测 139 个文件、943 项通过，归档 .artifacts/runs/2026-11-22T05-27-45-681Z-unit。
+- 验证：tools-recorder-web 源码 E2E 通过：断言全屏页正文高度在 300–420px，切换到窗口录制后继续缩小 40px 以上，并完成真实窗口录制与清理，归档 .artifacts/runs/2026-11-22T05-32-24-662Z-e2e。
+- 验证：media-batch 与 recorder-overlay 源码 E2E 通过：自由比例框内重画、放大视图出现与松开关闭、真实裁剪输出、区域待选状态与 420×260 选区录制均正常，归档 .artifacts/runs/2026-11-22T05-33-41-709Z-e2e。
+- 验证：host-services 源码 E2E 通过：点击置顶面板外部保持展开，滚动出可视区域自动收起，切换快捷键页后返回仍收起，宿主置顶与边框流程正常，归档 .artifacts/runs/2026-11-22T05-28-33-058Z-e2e。
+- 验证：全量 E2E 共 66 项，本轮运行到第 38 项后停止以控制会话时长；期间出现的 clipboard-interactions、floating-pointer、overlay-surfaces 便签选项等失败经单独复跑已通过，归档 .artifacts/runs/2026-11-22T06-03-37-751Z-e2e。floating-relay 与 performance-budget 两次复跑仍失败，分别停在主窗口“临时常驻”按钮缺失和悬浮菜单未出现，均位于本轮未改动的悬浮中转、标题栏与性能模块，属工作区其他未提交改动范围，本轮未处理。
+- 验证：视觉核对：录屏截图无右侧底部空白，区域待选截图为无选区且“开始录制”呈禁用外观，裁剪拖动截图中放大视图位于指针处，置顶面板展开截图布局正常。
+- 验证：docs:check 通过：38 个文档、261 个本地链接、16 章 76 步，0 错误；pnpm maintain 与 maintain:check 通过。
+- 验证：pnpm build 完成 typecheck、设置与工具构建及 electron-vite build；同步免安装预览保留 221 个既有资料与插件文件，核验 2140 个程序文件，版本 1.5.8，回退批次 update-1795326416138；test:preview:resources 通过 2139 个程序文件、360 个内置插件文件、11842 个媒体依赖。
+- 验证：清理旧预览回退 update-1795321390543 与 update-1795325922533 的程序载荷约 2.72 GiB，保留各自 preservation.json 审计收据与最新回退 update-1795326416138。
+
+## 2026-11-22 · 从超级面板打开窗口改用面板触发光标，修复内嵌与独立子组件尺寸记忆，并让呼叫AI直接以记住尺寸打开独立窗口
+
+记录：[window-cursor-and-size-memory](../../docs/history/entries/2026-11-22-02-window-cursor-and-size-memory.json)；版本：未发布。
+
+- 超级面板在显示和预装载时记录触发光标，并随启动负载传给主进程；子组件与插件独立窗口首次显示前优先使用该点定位，选择指令后移动指针不再改变打开位置。全局快捷键等其他入口继续使用实时指针。
+- 内嵌正文与独立窗口统一按插件名称加功能代码记忆宽度和正文高度；用户拖动主窗口或独立窗口边缘结束后防抖写入，下次打开先按历史尺寸布局。此前所有内置工具共用 system 一个尺寸键，不同子组件会互相覆盖。
+- 使用历史尺寸恢复的会话忽略插件挂载时按内容请求的高度，避免录屏等页面的默认高度覆盖用户选择；用户再次拖动边缘后解除保护并更新尺寸。
+- 呼叫AI改为宿主直接按独立窗口启动，与设置相同；不再先在内嵌主窗口展开再分离，消除默认大窗口后切换为记住尺寸的闪烁。超级面板和快捷键入口不再为该功能亮出搜索界面，独立窗口创建失败时回退到主窗口模式。
+- 独立窗口在等待会话和页面加载前快照本次启动参数，不再在页面加载完成时读取可能被后续启动覆盖的全局参数；修复呼叫AI直接分离时收到设置页功能码而显示空白的问题。
+- 同步工具开发规范、插件规范、回归说明 TX-165 与 Bug 台账；补充窗口尺寸记忆单测和尺寸键断言。
+
+- 验证：tsc --noEmit -p tsconfig.node.json 与 tsconfig.web.json 通过。
+- 验证：windowSizeMemory、pluginRuntimeNamespace、pluginWindowConfig 与 detachedWindowUpgrade 单测通过；完整单测 139 个文件、943 项通过，归档 .artifacts/runs/2026-11-22T04-16-25-576Z-unit。
+- 验证：call-ai、plugin-host-regressions 与 tools-catalog 源码 Electron 专项同时通过：呼叫AI直接独立启动并收到正确功能码，自动分离、手动分离、内嵌工具正文和任务栏图标保持正常，归档 .artifacts/runs/2026-11-22T04-14-39-491Z-e2e。
+- 验证：相关源码与用例 ESLint 通过；detachedWindowManager 既有 prettier 警告和 call-ai 用例既有未改调用未改动。
+- 验证：docs:check 通过：38 个文档、261 个本地链接、41 个功能、15 个分类、16 章 76 步。
+- 验证：生产构建与预览同步通过：保留既有 214 个资料与插件文件，核验 2140 个程序文件，版本 1.5.8，回退批次 update-1795321390543；资源核验通过 2139 个程序文件、360 个内置插件文件、11842 个媒体依赖。
+- 验证：人工检查归档截图 call-ai-first-reply.png：呼叫AI独立窗口按默认 650×440 显示，首条消息与回复正常，无空白正文。
+- 验证：清理旧预览回退 update-1795316954655 的程序载荷（app、new-resources、previous-resources）约 1.36 GiB，保留其 preservation.json 审计收据与最新回退 update-1795321390543。
+
+## 2026-11-22 · 优化工具子组件与呼叫AI独立窗口的首帧打开逻辑，消除搜索横条和占位标题栏闪烁，并提前并行加载正文
+
+记录：[subcomponent-window-first-frame](../../docs/history/entries/2026-11-22-01-subcomponent-window-first-frame.json)；版本：未发布。
+
+- 分离窗口改为始终隐藏创建，不再沿用 Electron 默认 show=true；标题栏初始化完成后再首次显示，避免先亮出未初始化的搜索条和占位名称。
+- 独立标题栏默认隐藏子输入框并清空占位插件名，只在 init-titlebar 初始化事件到达后按宿主状态回填；未显式调用 setSubInput 的插件手动分离后不再凭空出现搜索条。
+- 新正文会话在创建窗口前即开始加载插件页面，与标题栏并行；等待标题栏完成且正文首次加载完成后再显示窗口，加载失败或超时使用兜底显示，避免会话长期隐藏。
+- 来源窗口在目标独立窗口完成可见交接后再隐藏，覆盖自动分离、手动分离、呼叫AI特权窗口与第三方插件窗口，避免切换过程出现桌面空白间隙。
+- 补充 window-detached 可见交接单测，并同步工具开发规范、插件规范和回归说明 TX-164。
+
+- 验证：tsc --noEmit -p tsconfig.node.json 与 tsconfig.web.json 通过。
+- 验证：相关源文件与 E2E 用例 ESLint 通过，无新增错误；detachedWindowManager 既有 prettier 警告未改动。
+- 验证：完整单测 138 个文件、939 项通过，归档 .artifacts/runs/2026-11-22T03-02-20-803Z-unit。
+- 验证：plugin-host-regressions 源码 Electron 专项通过：自动分离、手动分离和第三方插件分离后正文可见，工具搜索占位保留，未调用 setSubInput 的插件标题栏无搜索条且名称为 Host Fixture；直接截取分离标题栏确认无占位名称，归档 .artifacts/runs/2026-11-22T03-07-48-566Z-e2e。
+- 验证：call-ai 源码 Electron 两个专项通过，呼叫AI特权窗口首条消息与大流程正常，归档 .artifacts/runs/2026-11-22T03-04-10-754Z-e2e。
+- 验证：temporary-residency-switch 源码 Electron 专项通过：常驻工具在其他子组件打开、退出与再次进入后保留原页面和内容，归档 .artifacts/runs/2026-11-22T03-15-56-852Z-e2e。
+- 验证：docs:check 通过：38 个文档、261 个本地链接，指令与教程计数一致。
+- 验证：electron-vite build 成功后同步免安装预览：保留既有 214 个资料与插件文件，核验 2140 个程序文件，版本 1.5.8，回退批次 update-1795316954655；资源核验通过 2139 个程序文件、360 个内置插件文件、11842 个媒体依赖。
+- 验证：清理旧预览回退 update-1795103596568 的程序载荷（app、new-resources、previous-resources）约 1.36 GiB，保留其 preservation.json 审计收据与最新回退 update-1795316954655。
+
+## 2026-11-19 · 让内嵌子组件显示时主窗口可拖动调整大小，并让子组件独立窗口使用自身图标身份
+
+记录：[embedded-window-resize-and-tool-icon](../../docs/history/entries/2026-11-19-08-embedded-window-resize-and-tool-icon.json)；版本：未发布。
+
+- 主窗口新增工具正文可调整模式：显示工具正文时开放边缘缩放，插件视图随窗口宽高重排；返回搜索、刷新或分离正文时恢复标准宽度和固定尺寸。
+- 工具调用 setExpendHeight 或宿主调整高度时，保留用户已拖出的宽度，不再强制回到 800。
+- 内置子组件分离窗口的标题栏图标改为功能自身图标，与原生窗口图标及 TabDo.Tool.<featureCode> 任务栏身份保持一致，不再显示“工具”插件总图标。
+- 工具开发规范补充内嵌子组件缩放规则，以及“分类只用于搜索归类、不得改变窗口标题/图标/任务栏身份”的约束；同步使用指南与应用内教程。
+- tools-catalog 源码 E2E 增加主窗口工具模式可调整与分离窗口标题栏功能图标断言。
+
+- 验证：tsc --noEmit -p tsconfig.node.json 与相关文件 ESLint --quiet 通过。
+- 验证：完整单测 138 个文件、937 项通过，归档 .artifacts/runs/2026-11-19T13-14-18-530Z-unit。
+- 验证：tools-catalog 源码 Electron 专项通过：剪贴板等内嵌正文显示时主窗口 isResizable=true 且可扩宽，所有可见子组件保留功能任务栏图标，分离窗口标题栏图片为功能图标 data URL；归档 .artifacts/runs/2026-11-19T13-14-59-123Z-e2e。
+- 验证：重新构建设置插件与 Electron 生产资源后同步免安装预览：保留既有 208 个文件，核验 2140 个程序文件，版本 1.5.8，回退批次 update-1795094180709；资源核验通过 2139 个程序文件、360 个内置插件文件、11842 个媒体依赖。
+
+## 2026-11-19 · 规范子组件与插件窗口的打开位置和大小，并移除全局插件默认高度入口
+
+记录：[window-placement-and-size](../../docs/history/entries/2026-11-19-07-window-placement-and-size.json)；版本：未发布。
+
+- 新增 plugin.json 窗口配置约定：position（cursor/fixed）、resizable、width、height；功能级配置覆盖插件级默认值，缺省为跟随光标且可调整。
+- 分离窗口在首次显示前按配置定位：跟随光标时贴近触发位置并在空间不足时翻到左侧或上方，固定窗口在当前显示器居中；不可调整窗口同时禁用标题栏最大化。
+- 便签、悬浮图片、图片标记和悬浮中转改为跟随触发光标打开；新便签与上一张重叠时错开。演示编辑器首次显示跟随光标，录屏控制条与截图保持原有固定位置。
+- 通用设置“行为”新增“记住子组件窗口大小”，默认开启，仅对可调整窗口生效；内置工具与插件按功能声明默认宽高，关闭记忆后始终使用开发者默认尺寸。
+- 移除“行为”中的“插件默认高度”及其内部写入接口；应用不再用全局高度覆盖清单默认值。历史 windowDefaultHeight 数据保留但不应用。
+- 内置 system 插件为呼叫AI、剪贴板、识别、重命名、扫码、本地搜索、录屏、批量媒体、网页快开、悬浮与便签等可见功能登记窗口配置；设置插件在插件级声明跟随光标。
+- 同步工具开发规范、插件规范、设置规范、悬浮内容规范、使用指南和应用内教程。
+
+- 验证：node typecheck、web vue-tsc 与 internal-plugins/setting vue-tsc 均退出 0。
+- 验证：新增 tests/main/pluginWindowConfig.test.ts 覆盖配置归一化、功能级覆盖与光标/居中定位；完整单测 138 个文件、937 项通过，归档 .artifacts/runs/2026-11-19T12-19-54-982Z-unit。
+- 验证：settings-cleanup 源码 Electron 专项通过：确认“插件默认高度”已移除、“记住子组件窗口大小”及说明可见，目录迁移与重启保留资料通过；归档 .artifacts/runs/2026-11-19T12-21-08-280Z-e2e。
+- 验证：人工检查 terminal-and-behavior-settings.png：行为组仅保留新的窗口大小开关和剪贴板保留天数，开关与标题对齐，说明单行显示，无溢出。
+- 验证：floating-pointer 专项首次运行已走通真实鼠标拖动、贴靠收起与解除；解除贴靠后的非整数 DPI 宽度精确断言已改为与相邻检查一致的 2px 舍入容差。后续重跑未稳定命中的原因是测试期间用户正在操作鼠标，原生输入被人工输入抢占，经用户确认不属于代码问题，无需复验。
+- 验证：node scripts/check-docs.mjs 通过：38 个文档、261 个本地链接、41 个功能、15 个分类、16 章 76 步。
+- 验证：node scripts/project-maintenance.cjs prepare 与 check 均退出 0。
+- 验证：重新构建设置插件、工具插件与 Electron 生产资源后，node scripts/sync-portable-preview.cjs 同步到 .local/portable-preview：保留既有 208 个文件，核验 2140 个程序文件，版本 1.5.8，回退批次 update-1795092505049；node scripts/verify-portable-preview.cjs 通过：2139 个程序文件、360 个内置插件文件、11842 个媒体依赖。
+
+## 2026-11-19 · 精简通用设置说明与入口，并让置顶样式面板在点击外部时自动收起
+
+记录：[general-settings-cleanup](../../docs/history/entries/2026-11-19-06-general-settings-cleanup.json)；版本：未发布。
+
+- “打开终端应用”说明改为“触发⌈打开终端⌋指令时使用的终端”，与内置指令名称一致。
+- “置顶样式与快捷键”面板支持点击面板外部自动收起；点击标题仍可手动展开或收起，面板内部操作不受影响。
+- “置顶时播放声音”说明删去“不再弹出 TabDo 通知”，改为“固定窗口时播放系统提示音”。
+- 置顶“快捷键”说明改为“当前窗口置顶的触发快捷键”。
+- 移除“行为”中的工具窗口位置，以及“开发者”中的开发者工具位置和内部 API 授权插件入口；宿主继续按既有持久化值或默认值运行，不清空历史数据。
+- 同步设置开发规范、使用指南和应用内教程；更新 settings-cleanup 与 host-services 源码 E2E 断言，并修正该用例既有的固定项数量、快捷键输入选择器和设置页冷启动等待。
+
+- 验证：internal-plugins/setting tsconfig.web.json 的 vue-tsc 类型检查通过，修改文件 ESLint 与 Prettier 检查通过。
+- 验证：完整单测 137 个文件、930 项通过，归档 .artifacts/runs/2026-11-19T08-01-30-351Z-unit。
+- 验证：host-services 源码 Electron 专项通过：置顶面板展开/手动收起后点击面板外部自动收起，提示音与快捷键说明文字可见，原生边框与快捷键流程不受影响。归档 .artifacts/runs/2026-11-19T08-00-46-083Z-e2e。
+- 验证：settings-cleanup 源码 Electron 专项通过：内部 API 授权插件、工具窗口位置、开发者工具位置均不存在，终端说明更新，开发者组仅保留关闭 GPU 加速，目录迁移与重启资料保留通过。归档 .artifacts/runs/2026-11-19T07-59-35-754Z-e2e。
+- 验证：人工检查 always-on-top-settings.png 与 terminal-and-behavior-settings.png：提示音、快捷键说明换行正常，终端说明与行为分组无溢出，开发者组默认闭合。
+- 验证：node scripts/check-docs.mjs、node scripts/project-maintenance.cjs prepare 与 check 通过。
+- 验证：重新构建设置插件并 node scripts/sync-portable-preview.cjs 同步到 .local/portable-preview，保留既有 182 个文件，核验 2140 个程序文件，版本 1.5.8，回退批次 update-1795075372494；node scripts/verify-portable-preview.cjs 通过：2139 个程序文件、360 个内置插件文件、11842 个媒体依赖。已清理更旧的预览回退载荷。
+
+## 2026-11-19 · 修正高亮边框按不可见窗口边框定位导致左右和底部偏移的问题
+
+记录：[always-on-top-border-dwm-frame](../../docs/history/entries/2026-11-19-05-always-on-top-border-dwm-frame.json)；版本：未发布。
+
+- 原生边框辅助进程的 GetTargetRect 统一使用 DwmGetWindowAttribute(DWMWA_EXTENDED_FRAME_BOUNDS) 获取窗口可见帧边界，排除左右和底部约 7–8px 的不可见缩放边框；DWM 调用失败时回退 GetWindowRect。
+- host-services 源码 E2E 的目标矩形同步改用 DWM 可见边界，确保几何断言检查的是用户实际看到的窗口边缘，而不是包含不可见边框的窗口矩形。
+- 同步工具开发规范和 Bug 台账；仅替换随包资源脚本并重新同步免安装预览，无需重新编译主程序。
+
+- 验证：真实记事本窗口对比：GetWindowRect 为 691,205,1534,976，DWM 可见边界为 698,205,1527,969，左右各差 7px、底部差 7px、顶部一致，与用户截图中的偏移量吻合。
+- 验证：host-services 源码 Electron 专项通过：以 DWM 目标边界为准，原生边框窗口等待 2.5 秒后仍可见，物理边界偏差不超过 2px，取消置顶后销毁。归档 .artifacts/runs/2026-11-19T06-56-16-827Z-e2e。
+- 验证：node scripts/sync-portable-preview.cjs 同步到 .local/portable-preview，保留既有 182 个文件，核验 2140 个程序文件，版本 1.5.8，回退批次 update-1795071471097；node scripts/verify-portable-preview.cjs 通过：2139 个程序文件、360 个内置插件文件、11842 个媒体依赖。已清理更旧的预览回退载荷。
+- 验证：node scripts/check-docs.mjs、node scripts/project-maintenance.cjs prepare 与 check 通过。
+
+## 2026-11-19 · 将置顶高亮边框改为原生辅助进程事件驱动绘制，并新增边框开关
+
+记录：[always-on-top-native-border](../../docs/history/entries/2026-11-19-04-always-on-top-native-border.json)；版本：未发布。
+
+- 新增随包的 resources/always-on-top-border.ps1：通过 Add-Type 编译原生辅助类，使用 SetWinEventHook 监听目标窗口位置、最小化、销毁和前台事件，使用 UpdateLayeredWindow 分层层窗口绘制圆角边框；移动和缩放由事件同步驱动，不再轮询，消除拖动拖尾。
+- 辅助进程按物理像素定位，普通窗口使用 GetWindowRect 贴合左右可见边缘，最大化窗口使用 DWM 可见边界；按目标窗口 DPI 换算边框粗细，支持多显示器与不同缩放比例。
+- 重写 alwaysOnTopBorder.ts：按需启动单个辅助进程，通过 stdin 发送 pin/style/unpin/quit；最后一个窗口取消置顶时立即退出进程并释放分层窗口，宿主异常退出由 stdin EOF 触发自清理。
+- 新增 alwaysOnTopBorderEnabled 配置与“显示高亮边框”开关：关闭后仍可置顶并播放提示音，只是不绘制边框；重新开启时为仍置顶的窗口补画边框。提示音改由宿主 shell.beep 播放，与边框解耦。
+- 同步设置页、preload/类型声明、工具开发规范、设置规范、使用指南、应用内教程、Bug 台账、回归说明和本轮维护记录；重新构建并同步免安装预览。
+
+- 验证：node tsconfig.node 与 internal-plugins/setting/tsconfig.web.json 类型检查通过。
+- 验证：完整单测 137 个文件、930 项通过，归档 .artifacts/runs/2026-11-19T06-13-41-568Z-unit；新增边框开关默认值、关闭释放辅助进程和持久化断言。
+- 验证：host-services 源码 Electron 专项通过：设置页出现“显示高亮边框”开关，关闭后外观子项隐藏、重新开启恢复；直接固定宿主主窗口，等待 2.5 秒后通过 Win32 枚举原生边框窗口，确认可见且物理边界相对目标窗口偏差不超过 2px，取消置顶后边框窗口销毁。归档 .artifacts/runs/2026-11-19T06-19-07-047Z-e2e。
+- 验证：独立验证原生辅助脚本：记事本窗口置顶后边框窗口可见，目标 rect 400,300,1300,1000 时边框 rect 为 396,296,1304,1004；屏幕截图确认绿色圆角边框实际绘制。
+- 验证：node scripts/sync-portable-preview.cjs 同步到 .local/portable-preview，保留既有 180 个文件，核验 2140 个程序文件，版本 1.5.8，回退批次 update-1795069251539；确认 app.asar.unpacked/resources/always-on-top-border.ps1 物理存在且 19843 字节、保留 UTF-8 BOM。node scripts/verify-portable-preview.cjs 通过：2139 个程序文件、360 个内置插件文件、11842 个媒体依赖。已清理更旧的预览回退载荷。
+- 验证：node scripts/check-docs.mjs、node scripts/project-maintenance.cjs prepare 与 check 通过。
+
+## 2026-11-19 · 修复置顶边框只显示片刻以及左右边缘不贴合实际窗口的问题
+
+记录：[always-on-top-border-persistence](../../docs/history/entries/2026-11-19-03-always-on-top-border-persistence.json)；版本：未发布。
+
+- 修复覆盖层隐藏原因：追踪进程输出扁平的 x/y/width/height，覆盖层却按 snapshot.rect 判断有效矩形，首帧后 rect 恒为空，边框随即被隐藏。现在把扁平字段转换为内部矩形，边框在整个置顶期间持续可见。
+- 追踪进程启动时声明 Per-Monitor V2 DPI 感知（失败时回退系统 DPI 感知），确保 GetWindowRect 返回物理像素，再由 Electron 转换为 DIP，避免缩放屏幕上左右错位。
+- 普通窗口改用 GetWindowRect 贴合左右可见边缘，避免 DWM 可见边界在标准窗口上左右各内缩约 7px；最大化窗口仍回退到 DWM 可见边界，防止不可见缩放边框落到屏幕外。
+- host-services 源码 E2E 直接固定宿主主窗口，等待 2.5 秒后断言覆盖层仍可见，并校验覆盖层相对窗口边界偏差不超过 3 DIP；截图前统一释放覆盖层，避免顶层透明窗口影响页面截图。
+- 同步工具开发规范、Bug 台账与回归说明，并重新构建、同步和核验免安装预览。
+
+- 验证：node tsconfig.node 类型检查通过；alwaysOnTopService 单测 7 项通过；完整单测 137 个文件、929 项通过，归档 .artifacts/runs/2026-11-19T05-44-55-363Z-unit。
+- 验证：host-services 源码 Electron 专项通过：覆盖层固定主窗口后等待 2.5 秒仍可见，坐标与窗口边界偏差不超过 3 DIP；快捷键注册、连续置顶切换、覆盖层登记与释放继续通过。归档 .artifacts/runs/2026-11-19T05-38-59-985Z-e2e。
+- 验证：用真实记事本窗口核对了可见边缘与 GetWindowRect/DWM 边界的差异：可见左边缘约 690px，与 GetWindowRect 的 691px 一致，DWM 为 698px，确认普通窗口应使用 GetWindowRect。
+- 验证：node scripts/sync-portable-preview.cjs 同步到 .local/portable-preview，保留既有 180 个文件，核验 2139 个程序文件，版本 1.5.8，回退批次 update-1795066796942；node scripts/verify-portable-preview.cjs 通过：2138 个程序文件、360 个内置插件文件、11842 个媒体依赖。已清理更旧的预览回退载荷，保留最新完整回退及各轮 preservation.json 审计收据。
+- 验证：node scripts/check-docs.mjs、node scripts/project-maintenance.cjs prepare 与 check 通过。
+
+## 2026-11-19 · 窗口置顶改为可启用总开关，并为置顶窗口增加可配置的外置高亮边框与置顶提示音
+
+记录：[always-on-top-border](../../docs/history/entries/2026-11-19-02-always-on-top-border.json)；版本：未发布。
+
+- 新增 alwaysOnTopBorder 宿主模块：为每个置顶窗口创建透明、点击穿透、置顶的覆盖层，并通过按需启动的 PowerShell 追踪进程同步窗口位置、最小化和关闭状态；边框画在目标窗口外侧，支持系统强调色或自定义颜色、不透明度、粗细与圆角，跟踪进程随取消置顶立即回收。
+- 重写 alwaysOnTopService：通用设置 alwaysOnTopEnabled 成为唯一总开关，默认快捷键改为 Shift+T 并支持在快捷键页修改；外观配置与快捷键统一写入 settings-general 的 alwaysOnTop* 字段，注册失败时恢复原组合并回告设置页。取消置顶不再弹出 TabDo 通知，固定窗口时按开关播放系统提示音。
+- 通用设置“基础”在“唤醒”之后新增窗口置顶总开关（仅 Windows 显示）；启用后才显示可折叠的边框颜色模式、自定义颜色、不透明度、粗细、圆角、置顶声音和快捷键引导，点击“前往快捷键设置”跳转到快捷键页。
+- 快捷键页移除固定 Win+Ctrl+T 的内置项，新增窗口置顶专用卡片，使用 HotkeyInput 修改组合键并显示启用状态；内置快捷键默认值表格不再包含 alwaysOnTop。
+- 同步宿主 IPC、preload、设置页类型声明、应用内教程、使用指南、工具开发规范、设置规范、回归说明与本轮维护记录。
+
+- 验证：node tsconfig.node 类型检查通过；internal-plugins/setting/tsconfig.web.json 的 vue-tsc 检查通过。
+- 验证：完整单测 137 个文件、929 项通过，归档 .artifacts/runs/2026-11-19T04-54-17-278Z-unit；alwaysOnTopService 7 项覆盖默认 Shift+T、注册占用、关闭注销、快捷键重注册与回退、外观持久化和非法值回退。
+- 验证：host-services 源码 Electron 专项通过：设置页“基础”出现窗口置顶总开关，启用后显示并折叠/展开外观子项；快捷键注册、真实前台窗口连续置顶切换、覆盖层登记与释放均通过。归档 .artifacts/runs/2026-11-19T05-04-00-281Z-e2e；截图 always-on-top-settings.png 与 host-services-settings.png 已人工检查，滑块、开关、快捷键行无横向溢出。
+- 验证：E2E 曾捕获透明覆盖层页面，确认圆角高亮边框实际绘制；随后将边框改为绘制在目标窗口外侧，避免覆盖层遮挡被置顶窗口的渲染区域。追踪进程额外检查宿主 PID，宿主异常退出后自动结束。
+- 验证：源码 Electron、设置插件与 system 插件构建完成；node scripts/sync-portable-preview.cjs 同步到 .local/portable-preview，保留既有 180 个文件，核验 2139 个程序文件，版本 1.5.8，回退批次 update-1795064689622；node scripts/verify-portable-preview.cjs 通过：2138 个程序文件、360 个内置插件文件、11842 个媒体依赖。随后清理更旧的预览回退载荷，保留最新完整回退及各轮 preservation.json 审计收据。
+
+## 2026-11-19 · 收窄唤醒托盘二级菜单留白，并修复文件占用对多层文件夹查询失败与性能问题
+
+记录：[awake-menu-and-folder-locks](../../docs/history/entries/2026-11-19-01-awake-menu-and-folder-locks.json)；版本：未发布。
+
+- 唤醒托盘二级菜单改用普通菜单项和文字 ✓ 表示启用状态，持续时间子项同样不再使用原生 checkbox/radio，避免 Windows 菜单为勾选列预留左侧空白。
+- 文件占用不再把文件夹路径直接交给 Restart Manager；文件夹使用 .NET 目录枚举递归展开子目录并跳过重解析点，最多检查 20000 个文件。
+- 文件夹内文件按 1024 个一批注册查询；批次遇到拒绝访问时二分拆批定位单个受保护文件，记录有限错误后继续其他批次。直接文件仍逐项查询以保留文件映射。
+- 查询结果新增已检查文件数和截断状态；有错误时不再显示绿色的“没有进程占用”成功空态，改为提示部分项目无法检查并保留可读项目的结果。
+- 前端显示的 E2E 使用隔离快捷键，避免与用户正在运行的预览实例争用 Win+Ctrl+T；生产快捷键不变。
+- 同步 Bug 台账、回归分组、工具清单和模块文档。
+
+- 验证：node tsconfig.node、tsconfig.web 与设置在 internal-plugins/setting/tsconfig.web 下的 vue-tsc 检查通过。
+- 验证：system 工具插件与 Electron 主程序重新构建通过。
+- 验证：完整单测 137 个文件、925 项通过，归档 .artifacts/runs/2026-11-19T02-02-59-692Z-unit。
+- 验证：file-locksmith 源码 Electron 专项通过：同时传入直接文件和包含该文件的两层子文件夹，列出 PowerShell 占用进程、无错误提示，结束进程后回到空态；截图已人工检查，归档 .artifacts/runs/2026-11-19T02-01-02-670Z-e2e。
+- 验证：host-services 源码 Electron 专项通过：唤醒二级菜单不含 checkbox/radio，启用后显示“启用唤醒 ✓”；前端显示使用 E2E 隔离快捷键完成连续置顶切换，归档 .artifacts/runs/2026-11-19T02-00-39-190Z-e2e。
+- 验证：PowerShell 辅助脚本手工验证：递归文件夹能发现锁进程；2000 个嵌套文件查询返回 scannedFiles=2000，含进程启动约 1.28 秒。
+- 验证：node scripts/sync-portable-preview.cjs 最终同步到 .local/portable-preview，保留既有 data/legacy 179 个文件，核验 2139 个程序文件；收据 .artifacts/backups/preview-sync/update-1795054195490/preservation.json。node scripts/verify-portable-preview.cjs 通过：2138 个程序文件、359 个内置插件文件、11842 个媒体依赖。
+- 验证：清理更旧的预览回退载荷 update-1795014938900 与 update-1795053828310，保留各自 preservation.json 及最新完整回退 update-1795054195490。
+- 验证：文件占用前台扫描超时放宽为 120 秒，用户关闭工具时仍通过会话信号立即取消并结束辅助进程。
+
+## 2026-11-18 · 将 PowerToys 的唤醒、前端显示和 File Locksmith 分别接入宿主服务与文件占用工具
+
+记录：[power-toys-host-services](../../docs/history/entries/2026-11-18-01-power-toys-host-services.json)；版本：未发布。
+
+- 新增宿主级唤醒服务，使用 Electron powerSaveBlocker 保持系统或屏幕唤醒；通用设置“基础”提供开关，托盘右键“唤醒”一级菜单悬停展开启用、保持屏幕点亮和持续时间二级设置。唤醒状态持久化到 settings-general，开启时自动打开托盘图标，关闭托盘图标时同时关闭唤醒。
+- 新增宿主级“前端显示”服务，在“快捷键 → 内置快捷键”提供默认关闭的开关；Windows 使用全局 Win+Ctrl+T 切换当前前台窗口置顶，注册失败时保留原设置并回告设置页，不注入窗口标题栏菜单。
+- 新增 file-locksmith“文件占用”子组件，接收 1–20 个文件或文件夹匹配；通过独立 PowerShell 辅助进程调用 Restart Manager 列出占用进程，二次确认后结束选中进程，完成后自动重新检查。未采用资源管理器右键菜单集成。
+- 同步工具清单、功能分组、首帧高度、插件路由、宿主视图白名单、任务栏图标、来源清单、本地教程、设置说明和维护记录。
+- 补充唤醒/前端显示单测、File Locksmith 真实文件锁 E2E 与宿主服务 E2E，并登记 host-services、file-locksmith 回归分组。
+
+- 验证：node tsconfig.node、tsconfig.web 与设置在 internal-plugins/setting/tsconfig.web 下的 vue-tsc 检查通过。
+- 验证：node_modules/.bin/vite build internal-plugins/system --config internal-plugins/system/vite.config.mjs 通过，产物包含 file-locksmith.cjs、file-locksmith.ps1、preload.js 与 128×128 PNG 图标。
+- 验证：完整单测 137 个文件、925 项通过，归档 .artifacts/runs/2026-11-18T15-20-25-692Z-unit；新增 awakeService 4 项与 alwaysOnTopService 3 项。
+- 验证：源码 Electron tools-catalog 通过，覆盖文件占用空态正文、任务栏图标与原页面释放，归档 .artifacts/runs/2026-11-18T15-01-39-360Z-e2e。
+- 验证：源码 Electron file-locksmith 与 host-services 在清理未使用 IPC 后复跑通过；真实文件锁被列出，二次确认结束后进程退出并回到“没有进程占用”空态；唤醒托盘二级菜单、托盘图标联动及前端显示真实置顶/取消置顶均通过。归档 .artifacts/runs/2026-11-18T15-15-01-196Z-e2e；截图 file-locksmith-result.png、file-locksmith-empty.png、host-services-settings.png 已人工检查。
+- 验证：首次专项归档分别为 .artifacts/runs/2026-11-18T15-04-39-816Z-e2e 与 .artifacts/runs/2026-11-18T15-05-31-060Z-e2e。
+- 验证：node scripts/check-docs.mjs 通过：41 个功能码、15 个分类、31 个普通文字指令，16 章教程、76 步，链接与锚点无错误。
+- 验证：已人工查看 File Locksmith 结果/空态截图与设置基础分组截图，确认没有明显横向溢出，唤醒描述与开关对齐。
+- 验证：node scripts/sync-portable-preview.cjs 最终同步到 .local/portable-preview，保留既有 data/legacy 176 个文件，核验 2139 个程序文件，版本 1.5.8；收据 .artifacts/backups/preview-sync/update-1795014938900/preservation.json。node scripts/verify-portable-preview.cjs 通过：2138 个程序文件、359 个内置插件文件、11842 个媒体依赖。
+- 验证：node scripts/project-maintenance.cjs prepare 与 check 通过。
+- 验证：清理三份更旧的预览程序回退载荷（update-1794829824863、update-1794833828739、update-1795014497924），保留各自 preservation.json 审计收据及最新完整回退 update-1795014938900。
+
 ## 2026-11-16 · 发布并核验 TabDo 1.5.8
 
 记录：[release-1.5.8](../../docs/history/entries/2026-11-16-03-release-1.5.8.json)；版本：1.5.8。

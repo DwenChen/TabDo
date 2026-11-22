@@ -1,0 +1,26 @@
+{
+  "id": "subcomponent-window-first-frame",
+  "date": "2026-11-22",
+  "summary": "优化工具子组件与呼叫AI独立窗口的首帧打开逻辑，消除搜索横条和占位标题栏闪烁，并提前并行加载正文",
+  "changes": [
+    "分离窗口改为始终隐藏创建，不再沿用 Electron 默认 show=true；标题栏初始化完成后再首次显示，避免先亮出未初始化的搜索条和占位名称。",
+    "独立标题栏默认隐藏子输入框并清空占位插件名，只在 init-titlebar 初始化事件到达后按宿主状态回填；未显式调用 setSubInput 的插件手动分离后不再凭空出现搜索条。",
+    "新正文会话在创建窗口前即开始加载插件页面，与标题栏并行；等待标题栏完成且正文首次加载完成后再显示窗口，加载失败或超时使用兜底显示，避免会话长期隐藏。",
+    "来源窗口在目标独立窗口完成可见交接后再隐藏，覆盖自动分离、手动分离、呼叫AI特权窗口与第三方插件窗口，避免切换过程出现桌面空白间隙。",
+    "补充 window-detached 可见交接单测，并同步工具开发规范、插件规范和回归说明 TX-164。"
+  ],
+  "checks": [
+    "tsc --noEmit -p tsconfig.node.json 与 tsconfig.web.json 通过。",
+    "相关源文件与 E2E 用例 ESLint 通过，无新增错误；detachedWindowManager 既有 prettier 警告未改动。",
+    "完整单测 138 个文件、939 项通过，归档 .artifacts/runs/2026-11-22T03-02-20-803Z-unit。",
+    "plugin-host-regressions 源码 Electron 专项通过：自动分离、手动分离和第三方插件分离后正文可见，工具搜索占位保留，未调用 setSubInput 的插件标题栏无搜索条且名称为 Host Fixture；直接截取分离标题栏确认无占位名称，归档 .artifacts/runs/2026-11-22T03-07-48-566Z-e2e。",
+    "call-ai 源码 Electron 两个专项通过，呼叫AI特权窗口首条消息与大流程正常，归档 .artifacts/runs/2026-11-22T03-04-10-754Z-e2e。",
+    "temporary-residency-switch 源码 Electron 专项通过：常驻工具在其他子组件打开、退出与再次进入后保留原页面和内容，归档 .artifacts/runs/2026-11-22T03-15-56-852Z-e2e。",
+    "docs:check 通过：38 个文档、261 个本地链接，指令与教程计数一致。",
+    "electron-vite build 成功后同步免安装预览：保留既有 214 个资料与插件文件，核验 2140 个程序文件，版本 1.5.8，回退批次 update-1795316954655；资源核验通过 2139 个程序文件、360 个内置插件文件、11842 个媒体依赖。",
+    "清理旧预览回退 update-1795103596568 的程序载荷（app、new-resources、previous-resources）约 1.36 GiB，保留其 preservation.json 审计收据与最新回退 update-1795316954655。"
+  ],
+  "pending": [
+    "免安装预览同步后的实际打开速度、首帧观感和多显示器/DPI 表现需人工复核。"
+  ]
+}

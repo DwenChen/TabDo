@@ -20,6 +20,10 @@ import {
   normalizeCompactMainWindowHeader,
   resolveDetachedWindowTitlebarHeight
 } from '../../shared/mainWindowLayout'
+import type { PluginWindowPosition } from '../../shared/pluginWindowConfig'
+import type { CursorPoint } from '../../shared/windowPlacement'
+import { placeWindowForOpen } from '../utils/windowPlacement'
+import { writeRememberedWindowSize } from './windowSizeMemory'
 
 export const DETACHED_TITLEBAR_HEIGHT = STANDARD_DETACHED_WINDOW_TITLEBAR_HEIGHT
 const MIN_WINDOW_WIDTH = 400
@@ -49,6 +53,13 @@ interface DetachedWindowInfo {
   keepsHiddenSession: boolean
   releaseHiddenTools?: (force?: boolean) => void
   previewFullscreen?: boolean
+  /** 标题栏子输入框的当前可见性与占位文字，标题栏晚加载时按此恢复。 */
+  subInputVisible?: boolean
+  subInputPlaceholder?: string
+  /** 标题栏尚未加载时收到的聚焦请求，初始化完成后执行一次。 */
+  subInputFocusPending?: boolean
+  /** 标题栏是否已完成首次加载，未完成时只保存状态等待初始化回填。 */
+  titlebarReady?: boolean
 }
 
 export interface DetachedPluginUpgradeSnapshot {
@@ -67,6 +78,8 @@ class DetachedWindowManager {
   private resizeSaveTimers: Map<string, NodeJS.Timeout> = new Map()
   private lastSavedSizeByPlugin: Map<string, { width: number; height: number }> = new Map()
   private suppressedSizePersistenceWindows = new Set<string>()
+  // 使用历史尺寸恢复的会话语义：首次显示后忽略插件按内容请求的高度，保留用户选择。
+  private restoredSizeViews = new Set<number>()
   private compactWindowHeader = false
 
   /**
@@ -150,15 +163,22 @@ class DetachedWindowManager {
 
   /**
    * 按分离窗口设置键持久化正文尺寸。
-   * @param sizeKey 插件或内置工具专用尺寸键。
+   * @param pluginName 插件有效名称。
+   * @param toolFeatureCode 内置工具功能码；第三方插件省略。
    * @param width 窗口宽度。
    * @param viewHeight 正文高度。
    * @returns 无返回值。
    */
-  private persistWindowSize(sizeKey: string, width: number, viewHeight: number): void {
+  private persistWindowSize(
+    pluginName: string,
+    toolFeatureCode: string | undefined,
+    width: number,
+    viewHeight: number
+  ): void {
     try {
       const normalizedWidth = Math.max(MIN_WINDOW_WIDTH, Math.round(width))
       const normalizedHeight = Math.max(MIN_VIEW_HEIGHT, Math.round(viewHeight))
+      const sizeKey = getDetachedWindowSizeKey(pluginName, toolFeatureCode)
       const lastSaved = this.lastSavedSizeByPlugin.get(sizeKey)
       if (
         lastSaved &&
@@ -168,16 +188,7 @@ class DetachedWindowManager {
         return
       }
 
-      const existing = databaseAPI.dbGet('detached-window-sizes') || {}
-      const next = {
-        ...(typeof existing === 'object' && existing !== null ? existing : {}),
-        [sizeKey]: {
-          width: normalizedWidth,
-          height: normalizedHeight
-        }
-      }
-
-      databaseAPI.dbPut('detached-window-sizes', next)
+      writeRememberedWindowSize(pluginName, toolFeatureCode, normalizedWidth, normalizedHeight)
       this.lastSavedSizeByPlugin.set(sizeKey, {
         width: normalizedWidth,
         height: normalizedHeight
@@ -190,14 +201,16 @@ class DetachedWindowManager {
   /**
    * 防抖保存尺寸，避免频繁写入。
    * @param windowId 分离窗口标识。
-   * @param sizeKey 插件或工具的尺寸设置键。
+   * @param pluginName 插件有效名称。
+   * @param toolFeatureCode 内置工具功能码；第三方插件省略。
    * @param width 窗口宽度。
    * @param viewHeight 正文高度。
    * @returns 无返回值。
    */
   private schedulePersistWindowSize(
     windowId: string,
-    sizeKey: string,
+    pluginName: string,
+    toolFeatureCode: string | undefined,
     width: number,
     viewHeight: number
   ): void {
@@ -207,7 +220,7 @@ class DetachedWindowManager {
     }
 
     const timer = setTimeout(() => {
-      this.persistWindowSize(sizeKey, width, viewHeight)
+      this.persistWindowSize(pluginName, toolFeatureCode, width, viewHeight)
       this.resizeSaveTimers.delete(windowId)
     }, 300)
 
@@ -233,10 +246,22 @@ class DetachedWindowManager {
       title: string
       logo?: string
       toolFeatureCode?: string
+      /** 开发者声明的打开位置，默认跟随光标。 */
+      position?: PluginWindowPosition
+      /** 触发超级面板时的光标位置，优先于窗口创建时的实时指针。 */
+      cursorPoint?: CursorPoint
+      /** 开发者是否允许用户调整窗口大小。 */
+      resizable?: boolean
+      /** 用户是否允许记住可调整窗口的上次尺寸。 */
+      rememberSize?: boolean
+      /** 本次是否已按历史尺寸恢复，需要忽略插件首次请求的自动高度。 */
+      restoredSize?: boolean
       searchQuery?: string // 搜索框当前值
       searchPlaceholder?: string // 搜索框占位符
       subInputVisible?: boolean // 子输入框是否可见
       autoFocusSubInput?: boolean // 是否自动聚焦子输入框
+      /** 等待插件正文完成首次加载后再显示窗口，避免首帧亮出空白正文。 */
+      awaitContentReady?: boolean
       aiRequestStatus?: AiRequestStatus // 分离前该插件已有的 AI 请求状态
       toggleDevTools?: (
         webContents: Electron.WebContents,
@@ -259,16 +284,22 @@ class DetachedWindowManager {
       // 创建窗口（macOS 和 Windows 都使用无边框，macOS 保留交通灯）
       const isMac = process.platform === 'darwin'
       const isWindows = process.platform === 'win32'
+      const isCallAi = options.toolFeatureCode === 'call-ai'
+      const resizable = options.resizable !== false
+      // 不可调整的窗口不写入用户尺寸，避免下一次打开继承本次自动尺寸。
+      const rememberSize = resizable && options.rememberSize !== false
       const toolIcon = isToolsPluginPath(pluginPath) ? getToolsWindowIcon(options.toolFeatureCode) : undefined
-      // 呼叫AI 的可见标题栏和原生任务栏使用同一专属图标。
-      const pluginLogo = options.toolFeatureCode === 'call-ai' && toolIcon && !toolIcon.isEmpty()
-        ? toolIcon.toDataURL()
-        : options.logo
+      // 内置子组件在标题栏、原生窗口和任务栏统一使用功能自身图标，不继承工具插件总图标。
+      const pluginLogo =
+        isToolsPluginPath(pluginPath) && toolIcon && !toolIcon.isEmpty()
+          ? toolIcon.toDataURL()
+          : options.logo
 
       const windowConfig: Electron.BrowserWindowConstructorOptions = {
         width: options.width,
         height: options.height + titlebarHeight,
-        show: options.show,
+        // 始终先隐藏创建，避免标题栏或正文尚未就绪时先亮出搜索条和空白区域。
+        show: false,
         title: options.title,
         ...(toolIcon && {
           icon: toolIcon,
@@ -279,8 +310,9 @@ class DetachedWindowManager {
         ...(isMac && {
           trafficLightPosition: this.resolveTrafficLightPosition(titlebarHeight)
         }),
-        resizable: true,
-        minWidth: options.toolFeatureCode === 'call-ai' ? CALL_AI_MIN_WINDOW_WIDTH : WINDOW_WIDTH,
+        resizable: resizable,
+        maximizable: resizable,
+        minWidth: isCallAi ? CALL_AI_MIN_WINDOW_WIDTH : WINDOW_WIDTH,
         minHeight: titlebarHeight,
         hasShadow: true, // 启用窗口阴影（可调整为 false 来移除阴影）
         webPreferences: {
@@ -327,6 +359,14 @@ class DetachedWindowManager {
         }
       }
 
+      // 首次显示前完成定位：跟随光标时贴近触发位置，固定窗口在当前显示器居中。
+      placeWindowForOpen(win, options.position ?? 'cursor', options.cursorPoint)
+
+      // 历史尺寸已恢复到首次显示，后续插件按内容请求的高度不能覆盖用户选择。
+      const restoredSize = rememberSize && options.restoredSize === true
+      const pluginContentsId = pluginView.webContents.id
+      if (restoredSize) this.restoredSizeViews.add(pluginContentsId)
+
       // 正文迁移独立于标题栏加载；标题栏初始化较慢时也不能出现整个空白窗口。
       const initialBounds = win.getContentBounds()
       pluginView.setBounds({
@@ -343,12 +383,73 @@ class DetachedWindowManager {
           ? new URL('detached-titlebar.html', process.env.ELECTRON_RENDERER_URL).href
           : pathToFileURL(getRendererPath('detached-titlebar.html')).href
 
-      win.loadURL(titlebarUrl)
-
       // 延迟焦点只属于这份正文；关闭窗口后取消，不能读取 Electron 已清空的 view 属性。
       const contents = pluginView.webContents
       let focusTimer: ReturnType<typeof setTimeout> | undefined
-      win.once('closed', () => clearTimeout(focusTimer))
+      let revealFallbackTimer: ReturnType<typeof setTimeout> | undefined
+      let titlebarReady = false
+      let contentReady = options.awaitContentReady !== true
+
+      /**
+       * 在窗口实际显示后恢复焦点，隐藏期间的初始化焦点请求保留到显示时执行。
+       * @returns 无返回值。
+       */
+      const focusAfterShown = (): void => {
+        if (options.show === false) return
+        clearTimeout(focusTimer)
+        focusTimer = setTimeout(() => {
+          // 隐藏、最小化或退役后的页面不抢焦点，也不再访问原视图。
+          if (win.isDestroyed() || contents.isDestroyed() || !win.isVisible() || win.isMinimized())
+            return
+          const currentInfo = this.detachedWindowMap.get(windowId)
+          const pendingFocus = currentInfo?.subInputFocusPending === true
+          if (currentInfo) currentInfo.subInputFocusPending = false
+          if (pendingFocus || options.autoFocusSubInput === true) {
+            win.webContents.focus()
+            win.webContents.send('focus-sub-input')
+          } else contents.focus()
+        }, 100)
+      }
+
+      /**
+       * 标题栏和所需正文就绪后再显示，避免首帧先亮出搜索条或空白正文。
+       * @param force 加载失败或超时兜底时忽略尚未完成的就绪条件。
+       * @returns 无返回值。
+       */
+      const revealWindow = (force = false): void => {
+        if (options.show === false || win.isDestroyed() || win.isVisible()) return
+        if (!force && (!titlebarReady || !contentReady)) return
+        if (revealFallbackTimer) {
+          clearTimeout(revealFallbackTimer)
+          revealFallbackTimer = undefined
+        }
+        win.show()
+        focusAfterShown()
+      }
+
+      win.once('closed', () => {
+        clearTimeout(focusTimer)
+        if (revealFallbackTimer) clearTimeout(revealFallbackTimer)
+      })
+
+      // 正文可能由调用方提前开始加载；先判定是否已结束，避免错过就绪事件。
+      const markContentReady = (): void => {
+        if (contentReady) return
+        contentReady = true
+        revealWindow()
+      }
+      if (options.awaitContentReady && options.show !== false) {
+        if (!contents.isLoading() && contents.getURL()) markContentReady()
+        else contents.once('did-finish-load', markContentReady)
+        contents.once('did-fail-load', (_event, _code, _description, _url, isMainFrame) => {
+          if (isMainFrame) revealWindow(true)
+        })
+      }
+
+      win.webContents.once('did-fail-load', (_event, _code, _description, _url, isMainFrame) => {
+        if (isMainFrame) revealWindow(true)
+      })
+
       // 标题栏加载完成后发送插件信息，并添加插件视图
       win.webContents.on('did-finish-load', () => {
         if (win.isDestroyed() || contents.isDestroyed()) return
@@ -356,6 +457,9 @@ class DetachedWindowManager {
           pluginName,
           options
         })
+        const currentInfo = this.detachedWindowMap.get(windowId)
+        if (currentInfo) currentInfo.titlebarReady = true
+        titlebarReady = true
         win.webContents.send('init-titlebar', {
           pluginName,
           pluginPath,
@@ -364,9 +468,10 @@ class DetachedWindowManager {
           platform: process.platform,
           title: options.title, // 窗口标题
           searchQuery: options.searchQuery || '', // 搜索框初始值
-          searchPlaceholder: options.searchPlaceholder || '搜索...', // 搜索框占位符
-          subInputVisible: options.subInputVisible !== undefined ? options.subInputVisible : true, // 子输入框可见性
+          searchPlaceholder: currentInfo?.subInputPlaceholder || options.searchPlaceholder || '搜索...', // 搜索框占位符
+          subInputVisible: currentInfo?.subInputVisible === true, // 子输入框可见性
           aiRequestStatus: options.aiRequestStatus ?? 'idle',
+          resizable,
           compactWindowHeader: this.compactWindowHeader
         })
 
@@ -383,18 +488,20 @@ class DetachedWindowManager {
           height: bounds.height - currentTitlebarHeight
         })
 
-        // 如果需要自动聚焦子输入框，延迟聚焦搜索框（等待 DOM 渲染完成）
-        if (options.show === false) return
-        clearTimeout(focusTimer)
-        focusTimer = setTimeout(() => {
-          // 隐藏、最小化或退役后的页面不抢焦点，也不再访问原视图。
-          if (win.isDestroyed() || contents.isDestroyed() || !win.isVisible() || win.isMinimized())
-            return
-          if (options.autoFocusSubInput === true) {
-            win.webContents.focus()
-            win.webContents.send('focus-sub-input')
-          } else contents.focus()
-        }, 100)
+        revealWindow()
+      })
+
+      if (options.show !== false) {
+        // 兜底：标题栏或正文加载失败时仍显示窗口，不能把会话永久留在隐藏状态。
+        revealFallbackTimer = setTimeout(() => revealWindow(true), 1500)
+        revealFallbackTimer.unref?.()
+      }
+
+      win.loadURL(titlebarUrl)
+
+      // 用户拖动边缘后结束历史尺寸保护，后续尺寸即新的用户选择。
+      win.on('will-resize', () => {
+        this.restoredSizeViews.delete(pluginContentsId)
       })
 
       // 监听窗口大小变化
@@ -412,10 +519,16 @@ class DetachedWindowManager {
           })
 
           // 升级期间的 0 高度是临时状态，不得覆盖用户保存的窗口尺寸。
-          if (!previewFullscreen && !win.isFullScreen() && !this.suppressedSizePersistenceWindows.has(windowId)) {
+          if (
+            rememberSize &&
+            !previewFullscreen &&
+            !win.isFullScreen() &&
+            !this.suppressedSizePersistenceWindows.has(windowId)
+          ) {
             this.schedulePersistWindowSize(
               windowId,
-              getDetachedWindowSizeKey(pluginName, options.toolFeatureCode),
+              pluginName,
+              options.toolFeatureCode,
               newBounds.width,
               newBounds.height - currentTitlebarHeight
             )
@@ -435,7 +548,9 @@ class DetachedWindowManager {
         toggleDevTools: options.toggleDevTools,
         isAlwaysOnTop: false,
         lastFocusTarget: options.autoFocusSubInput ? 'titlebar' : 'plugin',
-        savedFocusTarget: options.autoFocusSubInput ? 'titlebar' : 'plugin'
+        savedFocusTarget: options.autoFocusSubInput ? 'titlebar' : 'plugin',
+        subInputVisible: options.subInputVisible === true,
+        subInputPlaceholder: options.searchPlaceholder || '搜索...'
       }
       this.detachedWindowMap.set(windowId, windowInfo)
 
@@ -484,6 +599,7 @@ class DetachedWindowManager {
       win.on('closed', () => {
         this.detachedWindowMap.delete(windowId)
         this.suppressedSizePersistenceWindows.delete(windowId)
+        this.restoredSizeViews.delete(pluginContentsId)
         const timer = this.resizeSaveTimers.get(windowId)
         if (timer) {
           clearTimeout(timer)
@@ -501,9 +617,7 @@ class DetachedWindowManager {
       // 设置 IPC 通信（标题栏控制窗口）
       this.setupTitlebarIPC(windowId)
 
-      // 显示窗口
-      // 控制条入口显式要求隐藏准备时，不在创建收尾重新显示编辑宿主。
-      if (options.show !== false) win.show()
+      // 首次显示统一交给标题栏和正文就绪回调，创建收尾不再无条件亮出半成品窗口。
 
       // 焦点跟踪：实时记录焦点在标题栏还是插件视图
       win.webContents.on('focus', () => {
@@ -562,6 +676,32 @@ class DetachedWindowManager {
       console.error('[DetachedWindow] 创建分离窗口失败:', error)
       return null
     }
+  }
+
+  /**
+   * 等待分离窗口完成首次显示，供宿主在隐藏来源窗口前完成可见交接。
+   * @param win 由本管理器创建的分离窗口。
+   * @param timeoutMs 兜底等待时长，超时后不再阻塞调用方。
+   * @returns 窗口已显示、已关闭或等待超时后结束的 Promise。
+   */
+  public waitForWindowVisible(win: BrowserWindow, timeoutMs = 1600): Promise<void> {
+    if (win.isDestroyed() || win.isVisible()) return Promise.resolve()
+    return new Promise((resolve) => {
+      /**
+       * 结束等待并撤销全部监听，避免同一窗口后续显示时重复回调。
+       * @returns 无返回值。
+       */
+      const finish = (): void => {
+        clearTimeout(timer)
+        win.removeListener('show', finish)
+        win.removeListener('closed', finish)
+        resolve()
+      }
+      win.once('show', finish)
+      win.once('closed', finish)
+      const timer = setTimeout(finish, timeoutMs)
+      timer.unref?.()
+    })
   }
 
   /**
@@ -648,6 +788,8 @@ class DetachedWindowManager {
           win.minimize()
           break
         case 'maximize':
+          // 非可调整窗口由开发者固定尺寸，标题栏双击和按钮都不能绕过。
+          if (!win.isMaximizable()) break
           if (win.isMaximized()) {
             win.unmaximize()
           } else {
@@ -694,6 +836,7 @@ class DetachedWindowManager {
     const handleTitlebarDblClick = (_event: Electron.IpcMainEvent): void => {
       // 验证事件来自这个窗口
       if (_event.sender.id !== win.webContents.id) return
+      if (!win.isMaximizable()) return
       if (win.isMaximized()) {
         win.unmaximize()
       } else {
@@ -1019,6 +1162,8 @@ class DetachedWindowManager {
    * 设置分离窗口中插件视图的高度
    */
   public setExpendHeight(webContentsId: number, height: number): void {
+    // 历史尺寸恢复期间，插件挂载时的默认高度请求不能覆盖用户上次选择。
+    if (this.restoredSizeViews.has(webContentsId)) return
     for (const info of this.detachedWindowMap.values()) {
       if (info.view.webContents.id === webContentsId) {
         if (info.window.isDestroyed()) return
@@ -1041,6 +1186,37 @@ class DetachedWindowManager {
         console.log('[DetachedWindow] 设置分离窗口插件高度:', height)
         return
       }
+    }
+  }
+
+  /**
+   * 更新独立窗口标题栏的子输入框状态；标题栏晚加载时先保存，初始化时回填。
+   * @param webContentsId 插件正文的 WebContents 标识。
+   * @param visible 子输入框是否显示。
+   * @param placeholder 可选的占位文字。
+   * @param focus 显示后是否聚焦子输入框。
+   * @returns 无返回值。
+   */
+  public updateSubInputState(
+    webContentsId: number,
+    visible: boolean,
+    placeholder?: string,
+    focus = false
+  ): void {
+    for (const info of this.detachedWindowMap.values()) {
+      if (info.view.webContents.id !== webContentsId || info.window.isDestroyed()) continue
+      info.subInputVisible = visible
+      if (placeholder) info.subInputPlaceholder = placeholder
+      if (focus && visible && !info.titlebarReady) info.subInputFocusPending = true
+      if (!info.titlebarReady || info.window.webContents.isDestroyed()) return
+      info.window.webContents.send('update-sub-input-visible', visible)
+      if (placeholder)
+        info.window.webContents.send('update-sub-input-placeholder', { placeholder })
+      if (focus && visible) {
+        info.window.webContents.focus()
+        info.window.webContents.send('focus-sub-input')
+      }
+      return
     }
   }
 

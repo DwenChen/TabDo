@@ -1042,8 +1042,6 @@ window.tabdo = {
     dataLocationChoose: async () => electron.ipcRenderer.invoke('internal:data-location-choose'),
     dataLocationMove: async (target) =>
       electron.ipcRenderer.invoke('internal:data-location-move', target),
-    updateBuiltinShortcuts: async (config) =>
-      electron.ipcRenderer.invoke('update-builtin-shortcuts', config),
     dbGet: async (key) => await electron.ipcRenderer.invoke('internal:db-get', key),
 
     // ==================== 应用启动 API ====================
@@ -1212,6 +1210,8 @@ window.tabdo = {
       await electron.ipcRenderer.invoke('internal:update-global-shortcut-config', shortcut, config),
     startHotkeyRecording: async () =>
       await electron.ipcRenderer.invoke('internal:start-hotkey-recording'),
+    stopHotkeyRecording: async () =>
+      await electron.ipcRenderer.invoke('internal:stop-hotkey-recording'),
     updateShortcut: async (shortcut) =>
       await electron.ipcRenderer.invoke('internal:update-shortcut', shortcut),
     getCurrentShortcut: async () =>
@@ -1232,8 +1232,6 @@ window.tabdo = {
     // ==================== 系统设置 API ====================
     setWindowOpacity: async (opacity) =>
       await electron.ipcRenderer.invoke('internal:set-window-opacity', opacity),
-    setWindowDefaultHeight: async (height) =>
-      await electron.ipcRenderer.invoke('internal:set-window-default-height', height),
     /**
      * 将主窗口顶部栏密度切换同步到宿主运行时。
      * @param {boolean} enabled 是否启用紧凑顶部栏
@@ -1417,6 +1415,24 @@ window.tabdo = {
 
     setIgnoreHotkeysOnFullscreen: async (v) =>
       await electron.ipcRenderer.invoke('internal:set-ignore-hotkeys-on-fullscreen', v),
+
+    // 宿主唤醒服务：设置页与托盘共享同一状态。
+    setAwakeEnabled: async (enabled) =>
+      await electron.ipcRenderer.invoke('internal:set-awake-enabled', enabled),
+    /**
+     * 订阅唤醒状态变化，退出时移除监听。
+     * @param {Function} callback 状态接收方。
+     * @returns {Function} 解除监听方法。
+     */
+    onAwakeStateChanged: (callback) => {
+      const listener = (_event, value) => callback(value)
+      electron.ipcRenderer.on('awake-state-changed', listener)
+      return () => electron.ipcRenderer.removeListener('awake-state-changed', listener)
+    },
+
+    // 窗口置顶服务：总开关、边框外观和快捷键共用同一份配置。
+    updateAlwaysOnTopConfig: async (patch) =>
+      await electron.ipcRenderer.invoke('internal:update-always-on-top-config', patch),
 
     // 超级面板翻译
     updateSuperPanelTranslate: async (enabled) =>

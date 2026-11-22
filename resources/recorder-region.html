@@ -19,6 +19,9 @@
       * {
         box-sizing: border-box;
       }
+      [hidden] {
+        display: none !important;
+      }
       html,
       body {
         margin: 0;
@@ -201,6 +204,10 @@
         height: 18px;
         fill: currentColor;
       }
+      #start:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
       #cancel {
         font-size: 20px;
         color: var(--secondary);
@@ -234,14 +241,14 @@
     </style>
   </head>
   <body>
-    <p class="hint">拖动调整录制区域 · Enter 开始 · Esc 取消</p>
-    <div id="selection" aria-label="录制选区">
+    <p class="hint" id="hint">拖动鼠标选择录制区域 · Esc 取消</p>
+    <div id="selection" aria-label="录制选区" hidden>
       <i class="handle" data-edge="nw"></i><i class="handle" data-edge="n"></i
       ><i class="handle" data-edge="ne"></i><i class="handle" data-edge="w"></i
       ><i class="handle" data-edge="e"></i><i class="handle" data-edge="sw"></i
       ><i class="handle" data-edge="s"></i><i class="handle" data-edge="se"></i>
     </div>
-    <div id="sizes" class="sizes">
+    <div id="sizes" class="sizes" hidden>
       <input id="width" type="number" min="16" aria-label="选区宽度" /><span>×</span
       ><input id="height" type="number" min="16" aria-label="选区高度" />
     </div>
@@ -272,7 +279,7 @@
           ><label><input id="keys" type="checkbox" checked />按键</label>
         </div>
       </fieldset>
-      <button id="start">
+      <button id="start" disabled>
         <svg viewBox="0 0 24 24"><path d="m8 5 11 7-11 7z" /></svg>开始录制</button
       ><button id="cancel" aria-label="取消区域录制">×</button>
     </div>

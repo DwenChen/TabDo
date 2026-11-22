@@ -71,6 +71,8 @@ class SuperPanelManager {
   private triggerRevision = 0
   private capturePending = false
   private requestedVisible = false
+  // 触发超级面板时的光标位置，后续子组件与插件窗口按该点打开。
+  private triggerPoint: { x: number; y: number } | null = null
   private panelHeight = SUPER_PANEL_HEIGHT
   private idleReleaseTimer: ReturnType<typeof setTimeout> | null = null
   private searchRequestId = 0
@@ -643,6 +645,8 @@ class SuperPanelManager {
    * @returns 无返回值。
    */
   private showWindow(x: number, y: number): void {
+    // 记录本次触发位置，之后选择指令不再改用当时的实时指针。
+    this.triggerPoint = { x, y }
     if (this.idleReleaseTimer) clearTimeout(this.idleReleaseTimer)
     this.idleReleaseTimer = null
     this.requestedVisible = true
@@ -671,6 +675,8 @@ class SuperPanelManager {
    * @returns 无返回值。
    */
   private prepareWindow(x: number, y: number): void {
+    // 提前装载期间也记录触发位置，复制等待结束后继续沿用同一点。
+    this.triggerPoint = { x, y }
     if (this.idleReleaseTimer) clearTimeout(this.idleReleaseTimer)
     this.idleReleaseTimer = null
     if (!this.superPanelWindow || this.superPanelWindow.isDestroyed())
@@ -937,6 +943,8 @@ class SuperPanelManager {
         // 启动负载归本次操作；面板隐藏可以立即释放自身持有的大对象。
         const clipboardContent = this.currentClipboardContent
         const windowInfo = this.currentWindowInfo
+        // 面板关闭前保存触发光标，后续窗口按触发点而不是选择指令时的指针打开。
+        const cursorPoint = this.triggerPoint
         // 隐藏超级面板
         this.hideWindow()
 
@@ -951,15 +959,18 @@ class SuperPanelManager {
         }
 
         // 在主窗口显示前读取 mainHide，避免匹配到隐藏型 feature 时出现搜索窗口闪烁。
+        // 始终使用独立窗口的功能（设置、呼叫AI）同样不亮出搜索界面。
         const shouldKeepMainWindowHidden =
           command.type === 'plugin' &&
           typeof command.path === 'string' &&
           typeof command.featureCode === 'string' &&
-          shouldKeepMainWindowHiddenForLaunch(
+          (shouldKeepMainWindowHiddenForLaunch(
             'super-panel',
             this.pluginManager?.shouldKeepMainWindowHidden(command.path, command.featureCode) ===
               true
-          )
+          ) ||
+            this.pluginManager?.shouldLaunchInDetachedWindow(command.path, command.featureCode) ===
+              true)
 
         // 先显示主窗口，确保普通插件命令的渲染进程能正常处理启动指令。
         if (windowInfo) {
@@ -975,7 +986,8 @@ class SuperPanelManager {
           command,
           launchSource: 'super-panel',
           clipboardContent,
-          windowInfo: command.windowInfo || windowInfo
+          windowInfo: command.windowInfo || windowInfo,
+          cursorPoint
         })
 
         return { success: true }

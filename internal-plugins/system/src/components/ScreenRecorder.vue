@@ -210,8 +210,32 @@ function dispose() {
   clearInterval(interval)
   sources.value = []
 }
+/**
+ * 按当前标签页正文的实际内容高度收紧窗口，避免下方留下大片空白。
+ * @returns {void} 无返回值。
+ */
+function syncWindowHeight() {
+  const header = page.value?.querySelector('.app-header')
+  const form = page.value?.querySelector('.recorder-form')
+  const actions = page.value?.querySelector('.app-action-bar')
+  if (!header || !form || !actions) return
+  // 表单在布局中会被拉伸到剩余高度，先恢复内容高度再测量。
+  const previous = form.style.cssText
+  form.style.flex = 'none'
+  form.style.height = 'auto'
+  form.style.overflow = 'visible'
+  const formHeight = form.getBoundingClientRect().height
+  form.style.cssText = previous
+  const height = Math.ceil(
+    header.getBoundingClientRect().height + formHeight + actions.getBoundingClientRect().height
+  )
+  window.tabdo.setExpendHeight(Math.max(280, Math.min(620, height + 2)))
+}
+watch(mode, async () => {
+  await nextTick()
+  if (!disposed) syncWindowHeight()
+})
 onMounted(async () => {
-  window.tabdo.setExpendHeight(440)
   window.toolsLifecycle.addCleanup(dispose)
   if (props.action.code === 'screen-recorder-stop') {
     await stop()
@@ -221,6 +245,8 @@ onMounted(async () => {
     await start('region')
     return
   }
+  await nextTick()
+  syncWindowHeight()
   await refresh()
 })
 onUnmounted(dispose)

@@ -52,6 +52,36 @@ import detachedWindowManager, {
   DETACHED_TITLEBAR_HEIGHT
 } from '../../src/main/core/detachedWindowManager'
 
+describe('DetachedWindowManager visibility handoff', () => {
+  /**
+   * 构造尚未显示的分离窗口替身，只实现可见交接所需的方法。
+   * @returns 可触发 show/closed 的窗口替身。
+   */
+  function hiddenWindow(): any {
+    return Object.assign(new EventEmitter(), {
+      isDestroyed: () => false,
+      isVisible: () => false
+    })
+  }
+
+  it('resolves after the detached window is shown', async () => {
+    const win = hiddenWindow()
+    const waiting = detachedWindowManager.waitForWindowVisible(win, 20)
+    win.emit('show')
+    await expect(waiting).resolves.toBeUndefined()
+    expect(win.listenerCount('show')).toBe(0)
+    expect(win.listenerCount('closed')).toBe(0)
+  })
+
+  it('resolves when the window closes before it becomes visible', async () => {
+    const win = hiddenWindow()
+    const waiting = detachedWindowManager.waitForWindowVisible(win, 20)
+    win.emit('closed')
+    await expect(waiting).resolves.toBeUndefined()
+    expect(win.listenerCount('show')).toBe(0)
+  })
+})
+
 describe('DetachedWindowManager plugin upgrade surface', () => {
   beforeEach(() => {
     vi.clearAllMocks()

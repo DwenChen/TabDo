@@ -55,8 +55,10 @@ describe('pluginRuntimeNamespace', () => {
     expect(getPluginZBrowserPartition('demo__dev')).toBe('demo__dev.zbrowser')
   })
 
-  it('getDetachedWindowSizeKey returns pluginName directly', () => {
+  it('getDetachedWindowSizeKey keeps tools apart by feature code', () => {
     expect(getDetachedWindowSizeKey('demo')).toBe('demo')
     expect(getDetachedWindowSizeKey('demo__dev')).toBe('demo__dev')
+    expect(getDetachedWindowSizeKey('system', 'clipboard')).toBe('system:clipboard')
+    expect(getDetachedWindowSizeKey('system', 'local-search')).toBe('system:local-search')
   })
 })

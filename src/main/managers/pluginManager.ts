@@ -9,7 +9,6 @@ import api from '../api'
 import { CALL_AI_VIEW_HEIGHT, CALL_AI_WINDOW_WIDTH, WINDOW_WIDTH } from '../common/constants'
 import { DEFAULT_PLUGIN_HEIGHT } from '../../shared/mainWindowLayout'
 import detachedWindowManager, {
-  DETACHED_TITLEBAR_HEIGHT,
   type DetachedPluginUpgradeSnapshot
 } from '../core/detachedWindowManager'
 import { GLOBAL_SCROLLBAR_CSS } from '../core/globalStyles'
@@ -35,11 +34,10 @@ import {
 } from './pluginAssemblyCoordinator'
 import devToolsShortcut, { getDevToolsMode } from '../utils/devToolsShortcut'
 import windowManager from './windowManager'
-import {
-  getDetachedWindowSizeKey,
-  getPluginDataPrefix,
-  getPluginSessionPartition
-} from '../../shared/pluginRuntimeNamespace'
+import { getPluginDataPrefix, getPluginSessionPartition } from '../../shared/pluginRuntimeNamespace'
+import { resolvePluginWindowConfig } from '../../shared/pluginWindowConfig'
+import type { CursorPoint } from '../../shared/windowPlacement'
+import { readRememberedWindowSize, writeRememberedWindowSize } from '../core/windowSizeMemory'
 import aiRequestStatusTracker from '../core/aiRequestStatusTracker'
 import {
   applyToolsWindowIdentity,
@@ -264,20 +262,53 @@ export class PluginManager {
   }
 
   /**
+   * 判断功能是否始终在独立窗口打开，用于启动前收起宿主搜索界面。
+   * @param pluginPath 插件物理路径。
+   * @param featureCode 要启动的功能代码。
+   * @returns 内置设置和呼叫AI返回 true。
+   */
+  public shouldLaunchInDetachedWindow(pluginPath: string, featureCode: string): boolean {
+    try {
+      const pluginConfig = this.readPluginConfig(pluginPath)
+      return (
+        pluginConfig?.name === 'setting' ||
+        (pluginConfig?.name === 'system' && featureCode === 'call-ai')
+      )
+    } catch {
+      return false
+    }
+  }
+
+  /**
+   * 读取清单声明的默认正文高度，作为内嵌视图的首帧高度。
+   * @param pluginPath 插件目录。
+   * @param featureCode 本次子组件指令。
+   * @returns 声明的正文高度，未声明或读取失败时返回 undefined。
+   */
+  private declaredViewHeight(pluginPath: string, featureCode: string): number | undefined {
+    try {
+      return resolvePluginWindowConfig(this.readPluginConfig(pluginPath), featureCode).height
+    } catch {
+      return undefined
+    }
+  }
+
+  /**
    * 给固定内容工具使用紧凑的首帧高度，避免进入后先展开默认大页面。
    * @param pluginPath 插件目录。
    * @param featureCode 本次子组件指令。
    * @returns 固定工具初始高度，其他插件返回 undefined 沿用缓存策略。
    */
   private initialToolsHeight(pluginPath: string, featureCode: string): number | undefined {
-    if (!isToolsPluginPath(pluginPath)) return undefined
+    if (!isToolsPluginPath(pluginPath)) return this.declaredViewHeight(pluginPath, featureCode)
     return (
       {
         'qrcode-scan': 620,
         'call-ai': CALL_AI_VIEW_HEIGHT,
         'folder-break': 180,
         'file-renamer': 580,
-        'screen-recorder': 440,
+        'file-locksmith': 540,
+        'screen-recorder': 380,
         'presentation-recorder': 0,
         'presentation-editor': 680,
         'screen-recorder-region': 0,
@@ -488,26 +519,16 @@ export class PluginManager {
   private assemblyCoordinator = new PluginAssemblyCoordinator()
   // 记录最近一次插件 ESC 触发的时间，用于短时间内抑制主窗口 hide
   private lastPluginEscTime: number | null = null
-  // 插件默认高度（可配置）
-  private pluginDefaultHeight: number = DEFAULT_PLUGIN_HEIGHT
-  // 跟踪每个插件上次进入的状态（用于单例重入判断）
+  // 插件正文默认高度（未在清单声明窗口高度时使用）
+  private readonly pluginDefaultHeight: number = DEFAULT_PLUGIN_HEIGHT
+  // 各插件正文独立的进入状态及按功能恢复的窗口尺寸。
   private pluginLastEnterState: Map<string, PluginLastEnterState> = new Map()
+  // 以历史尺寸恢复的正文：首次显示后忽略插件按内容请求的高度。
+  private restoredSizeViews = new Set<number>()
+  // 内嵌窗口尺寸只在用户拖动结束后写入一次。
+  private embeddedSizeSaveTimer: NodeJS.Timeout | null = null
   // 重入判断属于正文会话；同插件其他页面进入或退出不能覆盖常驻页面的状态。
   private readonly viewLastEnterState = new WeakMap<WebContents, PluginLastEnterState>()
-
-  /**
-   * 获取插件默认高度
-   */
-  public getPluginDefaultHeight(): number {
-    return this.pluginDefaultHeight
-  }
-
-  /**
-   * 设置插件默认高度
-   */
-  public setPluginDefaultHeight(height: number): void {
-    this.pluginDefaultHeight = Math.max(200, height) // 最小 200px
-  }
 
   /**
    * 判断指定正文是否为同一文本功能的无操作重入。
@@ -766,6 +787,8 @@ export class PluginManager {
     // 因 this.pluginView 仍为 null，守卫条件不通过，装配会话不会被误中断。
     const view = cached.view
     this.mainWindow.contentView.addChildView(view)
+    // 工具正文重新可见后恢复主窗口的可调整能力。
+    windowManager.setToolWindowResizable(true)
 
     // 恢复显示时关闭节流
     this.applyBackgroundThrottlingByPolicy(view, pluginPath, false)
@@ -776,6 +799,7 @@ export class PluginManager {
     if (assembly && !this.assemblyCoordinator.isActiveSession(assembly)) {
       console.log('[Plugin] 装配会话在 getPluginMode 期间被中断，跳过后续恢复:', pluginPath)
       this.mainWindow.contentView.removeChildView(view)
+      windowManager.setToolWindowResizable(false)
       return
     }
 
@@ -798,8 +822,11 @@ export class PluginManager {
       // mainHide 的 feature 不需要展示主界面，高度设为 0 避免闪烁
       this.setExpendHeight(0, false)
     } else {
+      // 有历史尺寸时优先恢复用户上次选择，否则使用开发者默认值。
+      const rememberedHeight = this.applyRememberedViewSize(view, pluginPath, featureCode)
       this.setExpendHeight(
-        this.initialToolsHeight(pluginPath, featureCode) ??
+        rememberedHeight ??
+          this.initialToolsHeight(pluginPath, featureCode) ??
           (cached.height || this.pluginDefaultHeight),
         false
       )
@@ -875,9 +902,11 @@ export class PluginManager {
       this.registerMainWindowPluginEvents(this.pluginView, pluginPath)
 
       this.mainWindow.contentView.addChildView(this.pluginView)
+      // 工具正文显示期间允许拖动窗口边缘调整大小。
+      windowManager.setToolWindowResizable(true)
 
-      // 设置初始布局（使用固定宽度常量，避免多显示器 DPI 缩放导致尺寸漂移）
-      const windowWidth = WINDOW_WIDTH
+      // 设置初始布局；工具模式沿用用户已拖出的宽度，搜索状态使用标准宽度。
+      const windowWidth = windowManager.getToolWindowWidth()
       // 设置初始高度为 1px，避免节流
       this.pluginView.setBounds({ x: 0, y: mainContentHeight, width: windowWidth, height: 1 })
 
@@ -1101,6 +1130,8 @@ export class PluginManager {
 
       // 先撤销可见性再移除，避免合成器短暂保留旧内容；工具随后从缓存退役。
       pluginView.setVisible(false)
+      // 会话结束后不再保留历史尺寸保护标记。
+      this.restoredSizeViews.delete(pluginView.webContents.id)
       if (isToolsPluginPath(currentPath)) resetToolsWindowIdentity(this.mainWindow)
       this.mainWindow.contentView.removeChildView(pluginView)
       // 隐藏时按策略决定是否启用节流
@@ -1115,6 +1146,8 @@ export class PluginManager {
 
       // 通知渲染进程插件已关闭
       this.mainWindow.webContents.send('plugin-closed', { switching })
+      // 直接切换工具时保留当前尺寸；回到搜索才恢复固定尺寸。
+      if (!switching) windowManager.setToolWindowResizable(false)
 
       // 所有插件退出后移出缓存，仅等待已登记的必要任务。
       if (currentPath) {
@@ -1148,6 +1181,8 @@ export class PluginManager {
     this.mainWindow.contentView.removeChildView(pluginView)
     this.pluginView = null
     this.currentPluginPath = null
+    // 渲染进程刷新后回到搜索界面，主窗口必须恢复固定尺寸。
+    windowManager.setToolWindowResizable(false)
     this.assemblyCoordinator.abortCurrentSession('renderer-refresh-abort-assembly')
     this.assemblyCoordinator.clearCurrentSession()
   }
@@ -1737,8 +1772,8 @@ export class PluginManager {
     // 计算总窗口高度
     const totalHeight = height + mainContentHeight
 
-    // 使用固定宽度常量，避免多显示器 DPI 缩放导致 getSize() 返回被缩放的值
-    const width = WINDOW_WIDTH
+    // 工具正文允许用户改宽；搜索状态继续使用固定宽度避免 DPI 漂移。
+    const width = windowManager.getToolWindowWidth()
 
     // 通过 api.resizeWindow 调整主窗口大小
     api.resizeWindow(totalHeight)
@@ -1795,9 +1830,10 @@ export class PluginManager {
    * 根据主窗口尺寸更新当前插件视图边界。
    * @param width 主窗口内容宽度，单位为像素。
    * @param height 主窗口内容高度，单位为像素。
+   * @param userInitiated 是否由用户拖动窗口边缘触发。
    * @returns 无返回值。
    */
-  public updatePluginViewBounds(width: number, height: number): void {
+  public updatePluginViewBounds(width: number, height: number, userInitiated = false): void {
     if (!this.pluginView) return
 
     const mainContentHeight = windowManager.getMainWindowHeaderHeight()
@@ -1815,6 +1851,12 @@ export class PluginManager {
       const cached = this.pluginViews.find((v) => v.view === this.pluginView)
       if (cached) {
         cached.height = viewHeight
+      }
+
+      // 用户拖动后解除历史尺寸保护，并记录本次选择。
+      if (userInitiated) {
+        this.restoredSizeViews.delete(this.pluginView.webContents.id)
+        this.rememberEmbeddedToolSize(width, viewHeight)
       }
     }
   }
@@ -1960,9 +2002,11 @@ export class PluginManager {
         this.setExpendHeight(0, false)
         console.log('[Plugin] mainHide feature, 设置高度为 0')
       } else {
-        // 恢复高度: 优先使用缓存的高度，如果没有则使用默认高度
+        // 恢复高度: 优先使用按功能记忆的用户尺寸，其次缓存高度，最后使用默认高度
         const cached = this.pluginViews.find((v) => v.path === pluginPath)
+        const rememberedHeight = this.applyRememberedViewSize(view, pluginPath, featureCode)
         targetHeight =
+          rememberedHeight ??
           this.initialToolsHeight(pluginPath, featureCode) ??
           (cached?.height || this.pluginDefaultHeight)
 
@@ -2192,6 +2236,15 @@ export class PluginManager {
   }
 
   /**
+   * 读取用户是否允许可调整的子组件和插件窗口记住上次尺寸。
+   * @returns 未明确关闭时返回 true，保持既有窗口体验。
+   */
+  private isToolWindowSizeRemembered(): boolean {
+    const settings = databaseAPI.dbGet('settings-general') || {}
+    return settings.rememberToolWindowSize !== false
+  }
+
+  /**
    * 读取分离窗口的上次尺寸。
    * @param pluginName 插件有效名称。
    * @param toolFeatureCode 内置工具功能码。
@@ -2201,27 +2254,96 @@ export class PluginManager {
     pluginName: string,
     toolFeatureCode?: string
   ): { width: number; height: number } | null {
+    return readRememberedWindowSize(pluginName, toolFeatureCode)
+  }
+
+  /**
+   * 读取内嵌正文按功能记忆的窗口尺寸。
+   * @param pluginPath 插件物理路径。
+   * @param featureCode 当前功能码。
+   * @returns 可用尺寸；关闭记忆、不可调整或缺失时返回 null。
+   */
+  private getRememberedViewSize(
+    pluginPath: string,
+    featureCode: string
+  ): { width: number; height: number } | null {
+    if (!this.isToolWindowSizeRemembered()) return null
     try {
-      const sizes = api.dbGet('detached-window-sizes')
-      const sizeKey = getDetachedWindowSizeKey(pluginName, toolFeatureCode)
-      if (sizes && typeof sizes === 'object' && !Array.isArray(sizes) && sizes[sizeKey]) {
-        const rawSize = sizes[sizeKey]
-        const width = Number(rawSize?.width)
-        const height = Number(rawSize?.height)
-
-        if (!Number.isFinite(width) || !Number.isFinite(height)) {
-          return null
-        }
-
-        const clampedWidth = Math.max(400, Math.round(width))
-        const clampedHeight = Math.max(300 - DETACHED_TITLEBAR_HEIGHT, Math.round(height))
-        return { width: clampedWidth, height: clampedHeight }
-      }
+      const pluginConfig = this.readPluginConfig(pluginPath)
+      const targetName = this.fetchPluginInfoFromDB(pluginPath)?.name || pluginConfig.name
+      if (!targetName) return null
+      if (!resolvePluginWindowConfig(pluginConfig, featureCode).resizable) return null
+      return readRememberedWindowSize(
+        targetName,
+        isToolsPluginPath(pluginPath) ? featureCode : undefined
+      )
     } catch (error) {
-      console.error('[Plugin] 读取分离窗口尺寸失败:', error)
+      console.error('[Plugin] 读取内嵌窗口尺寸失败:', error)
+      return null
+    }
+  }
+
+  /**
+   * 在首次布局前应用内嵌正文的历史尺寸，并标记本次会话保护。
+   * @param view 即将显示的正文视图。
+   * @param pluginPath 插件物理路径。
+   * @param featureCode 当前功能码。
+   * @returns 需要使用的正文高度；没有历史尺寸时返回 null。
+   */
+  private applyRememberedViewSize(
+    view: WebContentsView,
+    pluginPath: string,
+    featureCode: string
+  ): number | null {
+    const remembered = this.getRememberedViewSize(pluginPath, featureCode)
+    if (!remembered) return null
+    windowManager.setToolWindowWidth(remembered.width)
+    this.restoredSizeViews.add(view.webContents.id)
+    return remembered.height
+  }
+
+  /**
+   * 用户拖动主窗口后记录当前子组件或插件的尺寸。
+   * @param width 主窗口内容宽度。
+   * @param viewHeight 正文高度。
+   * @returns 无返回值。
+   */
+  private rememberEmbeddedToolSize(width: number, viewHeight: number): void {
+    if (!this.currentPluginPath || !this.pluginView) return
+    if (!this.isToolWindowSizeRemembered()) return
+    const cached = this.pluginViews.find((entry) => entry.view === this.pluginView)
+    const featureCode = this.pluginLastEnterState.get(this.currentPluginPath)?.featureCode
+    if (!cached?.name || !featureCode) return
+    try {
+      if (
+        !resolvePluginWindowConfig(this.readPluginConfig(this.currentPluginPath), featureCode)
+          .resizable
+      )
+        return
+    } catch {
+      return
     }
 
-    return null
+    const toolFeatureCode = isToolsPluginPath(this.currentPluginPath) ? featureCode : undefined
+    // 拖动过程会连续触发 resize，只在最后一次结束后写入。
+    if (this.embeddedSizeSaveTimer) clearTimeout(this.embeddedSizeSaveTimer)
+    this.embeddedSizeSaveTimer = setTimeout(() => {
+      this.embeddedSizeSaveTimer = null
+      writeRememberedWindowSize(cached.name, toolFeatureCode, width, viewHeight)
+    }, 300)
+    this.embeddedSizeSaveTimer.unref?.()
+  }
+
+  /**
+   * 应用插件页面请求的正文高度；使用历史尺寸恢复的会话忽略内容高度。
+   * @param webContentsId 发起请求的插件正文。
+   * @param height 插件请求的正文高度。
+   * @returns 无返回值。
+   */
+  public applyPluginExpendHeight(webContentsId: number, height: number): void {
+    if (this.pluginView?.webContents.id !== webContentsId) return
+    if (this.restoredSizeViews.has(webContentsId)) return
+    this.setExpendHeight(height)
   }
 
   /**
@@ -2229,15 +2351,19 @@ export class PluginManager {
    * @param pluginPath 插件路径
    * @param featureCode 功能代码
    * @param enterParam 插件进入参数；省略时读取当前全局启动参数
+   * @param options 可选的触发光标，用于按超级面板触发点定位
    * @returns 创建结果
    */
   public async createPluginInDetachedWindow(
     pluginPath: string,
     featureCode: string,
-    enterParam?: EnterPayload
+    enterParam?: EnterPayload,
+    options: { cursorPoint?: CursorPoint } = {}
   ): Promise<{ success: boolean; error?: string }> {
     try {
       console.log('[Plugin] 直接在独立窗口中创建插件:', { pluginPath, featureCode })
+      // 进入参数在等待会话和页面加载前快照，避免随后其他启动覆盖全局参数。
+      const launchPayload = enterParam ?? (api.getLaunchParam() as EnterPayload)
 
       if (await this.reuseDetachedSingletonIfExists(pluginPath, featureCode, 'detached-window')) {
         return { success: true }
@@ -2273,12 +2399,37 @@ export class PluginManager {
         })
       })
 
+      // 正文与标题栏并行加载：先登记完成处理并立即请求页面，窗口创建不再推迟正文首帧。
+      pluginView.webContents.on('did-finish-load', () => {
+        if (pluginView.webContents.isDestroyed()) return
+        // 独立插件窗口加载完成后注入与主视图一致的主题色变量。
+        void pluginView.webContents.insertCSS(GLOBAL_SCROLLBAR_CSS)
+        void pluginView.webContents.insertCSS(buildPluginThemeCSS(getCurrentPluginThemeState()))
+        // 使用启动前快照的进入参数，页面加载期间的其他启动不能改写功能代码。
+        const enterPayload = this.assemblyCoordinator.buildEnterPayload(launchPayload)
+        void this.assemblyCoordinator.dispatchLifecycleEvent(
+          pluginView,
+          'PluginEnter',
+          enterPayload
+        )
+        this.recordEnterState(pluginPath, featureCode, pluginView.webContents)
+      })
+      pluginView.webContents.loadURL(pluginUrl)
+
       // 呼叫AI首次使用专用尺寸，其他工具的历史尺寸不影响它。
       const toolFeatureCode = isToolsPluginPath(pluginPath) ? featureCode : undefined
       const isCallAi = toolFeatureCode === 'call-ai'
-      const storedSize = this.getStoredDetachedSize(effectiveName, toolFeatureCode)
-      const windowWidth = storedSize?.width ?? (isCallAi ? CALL_AI_WINDOW_WIDTH : WINDOW_WIDTH)
-      const viewHeight = storedSize?.height ?? (isCallAi ? CALL_AI_VIEW_HEIGHT : this.pluginDefaultHeight)
+      const windowConfig = resolvePluginWindowConfig(pluginConfig, featureCode)
+      const rememberSize = windowConfig.resizable && this.isToolWindowSizeRemembered()
+      const storedSize = rememberSize
+        ? this.getStoredDetachedSize(effectiveName, toolFeatureCode)
+        : null
+      const windowWidth =
+        storedSize?.width ?? windowConfig.width ?? (isCallAi ? CALL_AI_WINDOW_WIDTH : WINDOW_WIDTH)
+      const viewHeight =
+        storedSize?.height ??
+        windowConfig.height ??
+        (isCallAi ? CALL_AI_VIEW_HEIGHT : this.pluginDefaultHeight)
       const logoUrl = this.buildPluginLogoUrl(pluginPath, pluginConfig.logo)
 
       const detachedWindow = detachedWindowManager.createDetachedWindow(
@@ -2288,6 +2439,12 @@ export class PluginManager {
         {
           width: windowWidth,
           height: viewHeight,
+          // 呼叫AI固定在当前显示器居中打开，不跟随触发光标。
+          position: isCallAi ? 'fixed' : windowConfig.position,
+          cursorPoint: isCallAi ? undefined : options.cursorPoint,
+          resizable: windowConfig.resizable,
+          rememberSize,
+          restoredSize: storedSize !== null,
           title: isToolsPluginPath(pluginPath)
             ? getToolsWindowTitle(featureCode)
             : pluginConfig.title || pluginConfig.name,
@@ -2295,6 +2452,10 @@ export class PluginManager {
           logo: logoUrl,
           searchQuery: '',
           searchPlaceholder: '搜索...',
+          // 子组件需要子输入框时由插件在进入后主动显示，避免空搜索条先出现。
+          subInputVisible: false,
+          // 新正文会话等页面首帧再做首次显示，避免先亮出标题栏占位或空正文。
+          awaitContentReady: true,
           toggleDevTools: (webContents, currentPluginPath) =>
             this.togglePluginDevTools(webContents, currentPluginPath)
         }
@@ -2307,23 +2468,8 @@ export class PluginManager {
         return { success: false, error: '创建独立窗口失败' }
       }
 
-      pluginView.webContents.loadURL(pluginUrl)
-
-      pluginView.webContents.on('did-finish-load', () => {
-        // 独立插件窗口加载完成后注入与主视图一致的主题色变量。
-        void pluginView.webContents.insertCSS(GLOBAL_SCROLLBAR_CSS)
-        void pluginView.webContents.insertCSS(buildPluginThemeCSS(getCurrentPluginThemeState()))
-        // 升级重开时优先使用快照，避免其他启动动作覆盖插件原进入参数。
-        const enterPayload = this.assemblyCoordinator.buildEnterPayload(
-          enterParam ?? (api.getLaunchParam() as EnterPayload)
-        )
-        void this.assemblyCoordinator.dispatchLifecycleEvent(
-          pluginView,
-          'PluginEnter',
-          enterPayload
-        )
-        this.recordEnterState(pluginPath, featureCode, pluginView.webContents)
-      })
+      // 目标窗口完成首次显示后再结束启动流程，调用方随后隐藏来源窗口不会出现空白间隙。
+      await detachedWindowManager.waitForWindowVisible(detachedWindow)
 
       console.log('[Plugin] 插件已在独立窗口中创建:', {
         pluginName: effectiveName,
@@ -2366,15 +2512,22 @@ export class PluginManager {
         ? this.pluginLastEnterState.get(this.currentPluginPath)?.featureCode
         : undefined
       const isCallAi = toolFeatureCode === 'call-ai'
-      const storedSize = this.getStoredDetachedSize(cached.name, toolFeatureCode)
+      const windowConfig = resolvePluginWindowConfig(pluginConfig, toolFeatureCode)
+      const rememberSize = windowConfig.resizable && this.isToolWindowSizeRemembered()
+      const storedSize = rememberSize
+        ? this.getStoredDetachedSize(cached.name, toolFeatureCode)
+        : null
       const defaultViewHeight = this.pluginDefaultHeight
 
-      // 若存在历史尺寸则优先使用
-      const windowWidth = storedSize?.width ?? (isCallAi ? CALL_AI_WINDOW_WIDTH : WINDOW_WIDTH)
+      // 开发者默认尺寸优先，其次沿用分离前正文高度，最后回退宿主默认值。
+      const windowWidth =
+        storedSize?.width ?? windowConfig.width ?? (isCallAi ? CALL_AI_WINDOW_WIDTH : WINDOW_WIDTH)
       // 载入和隐藏过程中的零高度只是临时状态，不能成为分离窗口的正文尺寸。
       const viewHeight = Math.max(
         200,
-        storedSize?.height ?? (isCallAi ? CALL_AI_VIEW_HEIGHT : cached.height ?? defaultViewHeight)
+        storedSize?.height ??
+          windowConfig.height ??
+          (isCallAi ? CALL_AI_VIEW_HEIGHT : (cached.height ?? defaultViewHeight))
       )
 
       // 发送插件分离事件（在分离之前通知插件）
@@ -2403,6 +2556,8 @@ export class PluginManager {
       if (this.pluginView !== cached.view || this.currentPluginPath !== cached.path)
         return { success: false, error: '插件已切换，请重新分离当前插件' }
       this.mainWindow.contentView.removeChildView(cached.view)
+      // 正文迁移到独立窗口后，主窗口下次显示即为搜索界面。
+      windowManager.setToolWindowResizable(false)
 
       // 使用新的分离窗口管理器创建窗口（使用缓存的搜索框状态）
       const detachedWindow = detachedWindowManager.createDetachedWindow(
@@ -2413,6 +2568,11 @@ export class PluginManager {
           width: windowWidth,
           height: viewHeight,
           show: options.show,
+          // 呼叫AI保持在当前显示器居中，不因手动分离改变位置策略。
+          position: isCallAi ? 'fixed' : windowConfig.position,
+          resizable: windowConfig.resizable,
+          rememberSize,
+          restoredSize: storedSize !== null,
           title: isToolsPluginPath(this.currentPluginPath)
             ? getToolsWindowTitle(toolFeatureCode || '')
             : pluginConfig.title || pluginConfig.name,
@@ -2420,7 +2580,8 @@ export class PluginManager {
           logo: cached.logo,
           searchQuery: cached.subInputValue || '',
           searchPlaceholder: cached.subInputPlaceholder || '搜索...',
-          subInputVisible: cached.subInputVisible !== undefined ? cached.subInputVisible : true,
+          // 未显式显示过子输入框时保持隐藏，分离后不能凭空出现搜索条。
+          subInputVisible: cached.subInputVisible === true,
           autoFocusSubInput: shouldAutoFocusSubInput, // 只有主窗口输入框聚焦时才自动聚焦
           // 独立标题栏可能晚于请求开始加载，因此初始化时同步当前聚合状态。
           aiRequestStatus: aiRequestStatusTracker.get(cached.view.webContents.id),
@@ -2435,6 +2596,9 @@ export class PluginManager {
         this.forceRepaintView(cached.view)
         return { success: false, error: '创建独立窗口失败' }
       }
+
+      // 可见交接完成后再隐藏来源窗口；隐藏型入口由调用方自行显示目标窗口。
+      if (options.show !== false) await detachedWindowManager.waitForWindowVisible(detachedWindow)
 
       // 从缓存中移除
       if (isToolsPluginPath(this.currentPluginPath)) resetToolsWindowIdentity(this.mainWindow)

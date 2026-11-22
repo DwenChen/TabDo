@@ -122,7 +122,8 @@ test('剪贴板独立条目悬浮、多图悬浮、跨窗口拖放、临时常�
                 tag: element.tagName
               }))
           )
-        expect(controls.length).toBeGreaterThan(5)
+        // “插件默认高度”已移除，行为组改为开关，输入/按钮数量不再固定为六项。
+        expect(controls.length).toBeGreaterThanOrEqual(4)
         for (const control of controls) {
           expect(control.height).toBe(34)
           if (control.tag === 'INPUT' && material !== 'none')

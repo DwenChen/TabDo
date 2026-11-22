@@ -195,6 +195,7 @@ test('工具分类保留各指令操作，所有可见子组件提供任务栏�
       ['latex-recognize', '.result-empty'],
       ['file-renamer', '.rename-page input'],
       ['folder-break', '.break-page select'],
+      ['file-locksmith', '.lock-empty'],
       ['qrcode-scan', '.qr-empty'],
       ['local-search', '.search-empty'],
       ['screen-recorder', '.app-workspace input'],
