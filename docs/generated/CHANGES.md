@@ -18,6 +18,9 @@
 - 验证：构建呼叫AI产物、设置插件、工具插件与 electron-vite 主进程输出全部成功；随后 node scripts/sync-portable-preview.cjs 同步 1.5.10，保留 257 个既有资料与插件文件，逐文件核验 2146 个程序文件，回退副本 .artifacts/backups/preview-sync/update-1795425007092。
 - 验证：node scripts/verify-portable-preview.cjs 通过：2145 个程序文件、367 个内置插件文件、11842 个媒体依赖。
 - 验证：node scripts/check-docs.mjs 通过：38 个文档、262 个本地链接、43 个功能、16 个分类、32 个普通文字指令、16 章教程、77 个步骤，无错误。
+- 验证：通过提交及推送 hooks，原子推送 main 与 v1.5.10，提交 f7b37a60d2d539816c7b40e6d0387fdae1ceb178，远端 main 与标签指向同一提交。
+- 验证：云端 https://github.com/DwenChen/TabDo/actions/runs/45145283742 的 build 与 publish 均成功。https://github.com/DwenChen/TabDo/releases/tag/v1.5.10 非草稿、非预发布，目标提交为 f7b37a60，已成为最新正式版；发行 id 455203120，published_at 2026-11-23T09:22:16Z。
+- 验证：Release 已上传 latest.yml、TabDo-1.5.10-win-x64-setup.exe、对应的 blockmap 与 TabDo-1.5.10-win-x64.zip 四个附件，状态均为 uploaded。
 
 ## 2026-11-23 · 互联传输支持关闭系统通知与清空任务记录，并移除剪贴板设置中的全局立即同步入口
 
