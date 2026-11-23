@@ -1,0 +1,28 @@
+{
+  "id": "interconnect-notifications-clear-records",
+  "date": "2026-11-23",
+  "summary": "互联传输支持关闭系统通知与清空任务记录，并移除剪贴板设置中的全局立即同步入口",
+  "changes": [
+    "互联服务配置新增 notifications，默认开启；缺失或旧配置按开启处理，显式关闭写入 settings-interconnect。",
+    "服务内通知统一经过可关闭入口：接收完成、传输失败、配对请求、防火墙等待提示、重试失败和定位文件失败都受该开关控制；关闭后不再弹出系统通知，传输面板与设备状态仍正常更新。",
+    "“互联服务 → 文件传输”新增“系统通知”开关，说明覆盖接收完成、传输失败、配对请求和防火墙等待提示。",
+    "互联传输进度面板新增“清空记录”：只移除已完成和失败的任务记录，不删除已落盘文件，进行中的任务继续保留；IPC 校验发送者必须是当前面板。",
+    "剪贴板设置移除全局“立即同步一次”，需要时继续对单台已配对在线设备使用设备行的“同步剪贴板”。",
+    "同步设置规范、工具清单与历史回归说明，记录通知开关、清空记录和移除全局手动同步的行为。"
+  ],
+  "checks": [
+    "tests/main/interconnectProtocol.test.ts 11 项单测通过，新增显式关闭通知与缺失字段补齐断言；归档 .artifacts/runs/2026-11-23T08-40-59-216Z-unit。",
+    "tsc --noEmit -p tsconfig.node.json --composite false 与设置插件 vue-tsc --noEmit 通过。",
+    "源码 Electron E2E tests/e2e/interconnect.spec.ts 通过：设置页通知开关写入并保留关闭值，重新开启恢复；进度面板清空记录后任务数为 0、显示空态、源文件保留；归档 .artifacts/runs/2026-11-23T08-41-14-181Z-e2e。",
+    "已查看 interconnect-settings-transfer.png、interconnect-progress-done.png 与 interconnect-progress-cleared.png：文件传输卡片通知开关清晰，剪贴板区不再出现“立即同步一次”；清空记录按钮在已完成任务时可点击、清空后禁用，空态文案正常。",
+    "构建设置插件与 electron-vite 主进程输出后同步免安装预览：node scripts/sync-portable-preview.cjs 报告 2146 个程序文件、保留 257 个资料与插件文件，回退副本 .artifacts/backups/preview-sync/update-1795423720441，版本 1.5.9。",
+    "node scripts/verify-portable-preview.cjs 通过：2145 个程序文件、367 个内置插件文件、11842 个媒体依赖；预览设置包包含“系统通知”且不再包含“立即同步一次”，主进程包含 interconnect-clear-transfers。",
+    "node scripts/project-maintenance.cjs prepare/check 与 node scripts/check-docs.mjs 通过。",
+    "回收本次首次同步与上一轮的程序回退 update-1795423361041、update-1795421022342，仅保留最新一次回退与审计收据。"
+  ],
+  "pending": [
+    "需在免安装预览中关闭系统通知后完成一次接收与一次失败传输，确认不再出现系统弹窗且面板状态正常。",
+    "需人工确认真实多设备传输中清空记录不影响进行中的任务，且不会删除已接收文件。"
+  ],
+  "preview": "已同步 .local/portable-preview，保留既有 257 个资料与插件文件，2146 个程序文件逐文件核验通过，版本 1.5.9"
+}

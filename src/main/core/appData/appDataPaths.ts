@@ -8,6 +8,8 @@ export interface AppDataPathOptions {
   dataRoot?: string
   homeDir?: string
   legacyUserDataPath?: string
+  /** 测试或特殊启动时显式指定的稳定位置记录路径。 */
+  stableLocation?: string
 }
 
 export interface TabDoDataLayout {
@@ -46,20 +48,60 @@ export function getTabDoBootstrapRoot(options: AppDataPathOptions = {}): string 
  * 解析数据目录位置记录；显式隔离根同时作为位置记录锚点，不访问真实用户目录。
  * @param options 数据目录解析与测试隔离选项。
  * @returns 当前有效的数据根目录。
- * @throws 位置记录损坏或迁移目标丢失时抛错，避免误建空白资料。
+ * @throws 位置记录损坏、迁移目标丢失或一次性重启位置不可用时抛错，避免误建空白资料。
  */
 export function getTabDoRoot(options: AppDataPathOptions = {}): string {
+  // 迁移工作进程在重启宿主时注入一次性位置，确保首次启动即使用已发布目录，
+  // 不受锚点记录写入延迟或启动方式差异影响；测试显式锚点优先保持隔离。
+  const pinned = options.dataRoot ? '' : process.env.TABDO_DATA_LOCATION_ROOT || ''
+  if (pinned) {
+    if (!path.isAbsolute(pinned) || !fs.existsSync(pinned) || !fs.statSync(pinned).isDirectory())
+      throw new Error('迁移后的数据与缓存目录不可用，请恢复原目录或重新迁移')
+    return pinned
+  }
   const anchor = getTabDoBootstrapRoot(options)
   const configuration = path.join(anchor, '.data-location.json')
-  if (!fs.existsSync(configuration)) return anchor
-  const value = JSON.parse(fs.readFileSync(configuration, 'utf8'))
-  if (
-    typeof value.root !== 'string' ||
-    !path.isAbsolute(value.root) ||
-    !fs.statSync(value.root).isDirectory()
-  )
-    throw new Error('数据与缓存目录不可用，请恢复原目录或修复 .data-location.json')
-  return value.root
+  if (fs.existsSync(configuration)) {
+    const value = JSON.parse(fs.readFileSync(configuration, 'utf8'))
+    if (
+      typeof value.root !== 'string' ||
+      !path.isAbsolute(value.root) ||
+      !fs.existsSync(value.root) ||
+      !fs.statSync(value.root).isDirectory()
+    )
+      throw new Error('数据与缓存目录不可用，请恢复原目录或修复 .data-location.json')
+    return value.root
+  }
+  // 锚点记录丢失时回退到独立稳定记录，避免旧资料目录被移动或清理后再也找不到已迁移目标。
+  const stable = options.stableLocation ?? getStableLocationRecordPath(options)
+  if (stable && fs.existsSync(stable)) {
+    const value = JSON.parse(fs.readFileSync(stable, 'utf8'))
+    if (
+      typeof value.root !== 'string' ||
+      !path.isAbsolute(value.root) ||
+      !fs.existsSync(value.root) ||
+      !fs.statSync(value.root).isDirectory()
+    )
+      throw new Error('数据与缓存目录不可用，请恢复原目录或修复稳定位置记录')
+    return value.root
+  }
+  return anchor
+}
+
+/**
+ * 读取独立于资料根的稳定位置记录路径。
+ * @param options 数据目录解析选项。
+ * @returns 稳定记录绝对路径；显式隔离根或无系统目录时返回空字符串。
+ */
+export function getStableLocationRecordPath(options: AppDataPathOptions = {}): string {
+  if (options.stableLocation) return options.stableLocation
+  if (options.dataRoot || process.env.TABDO_DATA_ROOT || process.env.ZTOOLS_DATA_ROOT) return ''
+  try {
+    const appData = app?.getPath?.('appData')
+    return appData ? path.join(appData, 'TabDo', '.data-location.json') : ''
+  } catch {
+    return ''
+  }
 }
 
 export function getLmdbRoot(options: AppDataPathOptions = {}): string {

@@ -180,6 +180,30 @@ test('图片标记对齐截图箭头、连续马赛克及透明彩色文字框',
     await editor.getByRole('button', { name: '重做', exact: true }).click()
     expect(await png()).not.toBe(baseline)
     await editor.getByRole('button', { name: '清除所有标注', exact: true }).click()
+    // 橡皮擦必须完整覆盖荧光笔的四倍线宽，不能在擦除边缘留下半透明水印。
+    await editor.getByRole('button', { name: '荧光笔', exact: true }).click()
+    await editor.getByRole('button', { name: '笔触 12 像素', exact: true }).click()
+    await stroke([120, 80], [480, 80])
+    await editor.getByRole('button', { name: '橡皮擦', exact: true }).click()
+    await editor.getByRole('button', { name: '笔触 12 像素', exact: true }).click()
+    await stroke([100, 80], [500, 80])
+    const erased = await editor.locator('#canvas').evaluate((c: HTMLCanvasElement) => {
+      const data = c.getContext('2d')!.getImageData(120, 50, 360, 60).data
+      let maxDelta = 0
+      for (let index = 0; index < data.length; index += 4) {
+        maxDelta = Math.max(
+          maxDelta,
+          Math.abs(data[index] - 255),
+          Math.abs(data[index + 1] - 255),
+          Math.abs(data[index + 2] - 255)
+        )
+      }
+      return { maxDelta, alpha: data[3] }
+    })
+    // 整个擦除带内的原图是纯白；任何残留笔迹或扇贝缺口都会让颜色偏离 255。
+    expect(erased.alpha).toBe(255)
+    expect(erased.maxDelta).toBe(0)
+    await capture('eraser-without-watermark.png')
     // 先分别设置，再逐个返回，证明颜色、笔触和字号不是几个工具共享的最后值。
     const remembered = [
       { name: '矩形', color: '橙色', rgb: 'rgb(255, 149, 0)', size: 2 },
@@ -400,7 +424,7 @@ test('图片标记对齐截图箭头、连续马赛克及透明彩色文字框',
     })
     expect(inkRows).toBeGreaterThan(28)
     const committed = await png()
-    const cancel = await position(200, 55)
+    const cancel = await position(380, 55)
     await editor.mouse.click(cancel.x, cancel.y)
     await entry.fill('不提交')
     await entry.press('Escape')

@@ -1,0 +1,32 @@
+{
+  "id": "eraser-migration-sidebar",
+  "date": "2026-11-23",
+  "summary": "修复图片标记橡皮擦残留水印、目录迁移后仍显示旧目录与旧日志目录，并调整设置侧栏顺序",
+  "changes": [
+    "橡皮擦改在独立透明标记层上使用 destination-out 擦除，再合成回原图；擦除路径改为加宽圆头折线，半径覆盖荧光笔四倍线宽并留抗锯齿余量，消除边界半透明轮廓、扇贝缺口和虚线残影。",
+    "迁移成功后，工作进程向重启宿主注入一次性位置 TABDO_DATA_LOCATION_ROOT；启动解析优先使用该位置，首帧设置页、userData/sessionData 与 main.log 立即落到新目录。",
+    "迁移同时写入锚点位置记录和独立稳定记录 %APPDATA%/TabDo/.data-location.json；锚点记录被移动或清理后回退稳定记录，显式 TABDO_DATA_ROOT 环境保持隔离。失败时不注入一次性位置。",
+    "宿主启动首行日志记录实际数据与缓存目录、日志目录，迁移后可直接核对。",
+    "设置侧栏顺序调整：互联服务紧跟呼叫AI，我的数据移到关于之前。",
+    "数据目录单测补充一次性位置优先与失效报错场景；设置迁移 E2E 增加重启后日志目录断言；图片标记 E2E 增加整段擦除带像素检查与截图。"
+  ],
+  "checks": [
+    "resources/tools-floating.js 与 resources/data-location-worker.cjs 通过 node --check；typecheck:node、typecheck:setting 与变更文件 ESLint 通过。",
+    "dataLocation 单测 11 项通过；新增一次性位置优先、稳定记录回退与失效目录明确报错。",
+    "图片标记源码 E2E 通过：荧光笔笔触 12 像素绘制后用橡皮擦整段擦除，擦除带 360×60 区域全部为纯白且画布不透明，截图 eraser-without-watermark.png 人工复核无水印或虚线残影；归档 .artifacts/runs/2026-11-23T03-11-33-300Z-e2e。首次运行出现既有冷启动 .plugin-host 未及时挂载，复跑通过。",
+    "设置源码 E2E 通过：迁移重启后 userData、sessionData 与 getLogsPath 均指向新目录；general-settings.png 人工核对呼叫AI→互联服务、我的数据→关于的顺序；最终归档 .artifacts/runs/2026-11-23T03-24-18-483Z-e2e。",
+    "迁移成功路径由一次性位置保证首次启动使用新目录，稳定记录保证后续手动启动在锚点记录缺失时仍能恢复；真实安装版迁移、旧锚点记录缺失与删除原目录后的行为仍需在免安装预览中复核。",
+    "pnpm build 通过：类型检查、设置插件、工具插件与 electron-vite 主/预加载/渲染器均产出。",
+    "node scripts/sync-portable-preview.cjs 同步到 .local/portable-preview，保留既有 230 个资料与插件文件，逐文件核验 2142 个程序文件，版本 1.5.9；回滚副本 .artifacts/backups/preview-sync/update-1795404370678。",
+    "node scripts/verify-portable-preview.cjs 通过：2141 个程序文件、364 个内置插件文件、11842 个媒体依赖。",
+    "预览 app.asar.unpacked/resources/tools-floating.js 检出 destination-out 与扇贝注释，app.asar 检出 TABDO_DATA_LOCATION_ROOT，确认同步程序包含本轮修复。",
+    "清理上一轮回退载荷 update-1795403752502，释放约 1395MB；保留本轮回退与全部 preservation 审计收据。"
+  ],
+  "pending": [
+    "已丢失位置记录的现有安装需要重新选择一次迁移目标，或手动恢复锚点/稳定记录；本轮修复保证之后的迁移同时写入两处记录。",
+    "尚未在免安装预览中执行真实目录迁移并检查设置页、main.log 与 Chromium 分区是否全部落到新目录。",
+    "橡皮擦对其他标记（矩形、文字、马赛克）的部分擦除观感与高 DPI 下的抗锯齿表现需人工复核。",
+    "侧栏顺序调整未新增自动化排序断言，以当轮设置 E2E 截图人工确认。"
+  ],
+  "preview": "已同步 .local/portable-preview，保留既有 230 个资料与插件文件，2142 个程序文件逐文件核验通过，版本 1.5.9"
+}

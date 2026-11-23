@@ -32,6 +32,7 @@ const emit = defineEmits([
   'reorder-favorite',
   'float-image',
   'float-text',
+  'split-words',
   'relay',
   'transfer-error',
   'annotate-image'
@@ -403,6 +404,7 @@ onBeforeUnmount(resetDragState)
         @toggle-expand="emit('toggle-expand', item.id)"
         @delete-favorite="emit('delete-favorite', index)"
         @float-text="emit('float-text', item)"
+        @split-words="emit('split-words', item)"
       />
       <ImageItem
         v-else-if="item.type === 'image' || item.category === 'image'"

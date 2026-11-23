@@ -74,8 +74,13 @@ function main() {
         '    TB_Count\n};\n// 工具栏不再包含翻译；保留不可命中的内部值，避免改动其他标注和长截图逻辑。\nstatic constexpr int TB_Translate = -100;'
       )
   )
-  // 标注数据、输入和绘制必须来自同一固定版本，再一次性扩展新增工具。
-  for (const file of ['sc_annotations.h', 'capture_context.h']) {
+  // 标注数据、输入、绘制与确认态必须来自同一固定版本，再一次性扩展新增工具与交互。
+  for (const file of [
+    'sc_annotations.h',
+    'capture_context.h',
+    'wndproc_windows.cpp',
+    'overlay_paint_windows.cpp'
+  ]) {
     patch('src/screenshot/windows/' + file, (s) => s)
   }
   patch('src/screenshot/windows/overlay_input_windows.cpp', (s) =>

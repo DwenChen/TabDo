@@ -5,7 +5,11 @@ import os from 'node:os'
 import { randomUUID } from 'node:crypto'
 import { createRequire } from 'node:module'
 import { spawn } from 'node:child_process'
-import { getTabDoRoot, getTabDoBootstrapRoot } from './appData/appDataPaths'
+import {
+  getTabDoRoot,
+  getTabDoBootstrapRoot,
+  getStableLocationRecordPath
+} from './appData/appDataPaths'
 import { getAppBundlePath } from '../utils/appBundlePath'
 import { requireInternalPlugin } from '../api/plugin/internal'
 import type { PluginManager } from '../managers/pluginManager'
@@ -66,6 +70,7 @@ export function initDataLocationService(manager: PluginManager): void {
           source,
           target,
           anchor: getTabDoBootstrapRoot(),
+          stableLocation: getStableLocationRecordPath(),
           pid: process.pid,
           executable: process.execPath,
           cwd: process.cwd(),

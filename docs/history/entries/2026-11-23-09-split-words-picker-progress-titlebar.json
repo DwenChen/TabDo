@@ -1,0 +1,34 @@
+{
+  "id": "split-words-picker-progress-titlebar",
+  "date": "2026-11-23",
+  "summary": "新增“拆分选词”文本取词窗口与剪贴板、悬浮中转、匹配指令入口，并隐藏互联传输进度窗的原生标题栏",
+  "changes": [
+    "新增文本匹配指令“拆分选词”（功能码 split-words，匹配类型 over）：接收选中文字后隐藏宿主并打开独立选词窗口，不新增普通文字入口。",
+    "拆分选词使用 Intl.Segmenter 智能分词，按空白、标点和换行分开，中文按语义词、英文与数字按整词保留；最多渲染 3000 个词并在截断时提示。",
+    "选词窗口为无边框独立窗口，顶部标题行可拖动；点选词语后“复制选中”按原文顺序拼接写入剪贴板并登记文本历史（英文和数字之间保留空格，连续中文直接拼接），双击单个词直接复制，支持 Ctrl+A 全选、Enter 复制、Esc 关闭。三处入口复用同一窗口，重复触发时替换正文。",
+    "剪贴板文本条目在行内“悬浮中转”左侧和右键菜单新增“拆分选词”，只提交当前条目正文，不改动剪贴板历史与选择集。",
+    "悬浮中转文本条目在删除按钮左侧新增剪刀按钮，只读取所属条目正文；主进程校验发送者、条目标识和文本类型，非法调用明确反馈。",
+    "新增与 Lucide 线条风格一致的原创图标 split-words.svg / 128px PNG，并登记到 sources.json 与 tools-catalog。",
+    "互联传输进度窗改为无原生标题栏窗口：顶部标题行作为拖动区域，按钮和列表保持可交互，页面“关闭”按钮继续结束面板；保留专属图标与任务栏身份。",
+    "同步 README、工具清单、悬浮内容规范、使用教程与应用内教程，补充拆分选词入口、分词规则、快捷键和进度窗拖动说明。"
+  ],
+  "checks": [
+    "新增 tests/main/wordSegments.test.ts，4 项分词单测通过：英文整词与数字、中文顺序、上限截断、空文本；归档 .artifacts/runs/2026-11-23T07-59-20-078Z-unit。",
+    "node --check 通过 resources/word-picker.js、word-picker-preload.cjs 与 tools-text-float.js；plugin.json 与 sources.json 可正常解析。",
+    "tsc --noEmit -p tsconfig.node.json --composite false 通过。",
+    "源码 Electron E2E tests/e2e/split-words.spec.ts 通过：剪贴板行内入口、悬浮中转剪刀入口、文本匹配指令复用同一无边框窗口，点选复制得到 Hello world、连续中文复制得到“拆分”，双击复制得到单词；归档 .artifacts/runs/2026-11-23T08-03-06-993Z-e2e。",
+    "已查看 clipboard-split-entry.png、relay-split-entry.png 与 split-words-picker.png：两个按钮和剪刀图标可辨认，选中态、计数与复制按钮清晰，窗口无原生标题栏。",
+    "源码 Electron E2E tests/e2e/interconnect.spec.ts 继续通过；核对 interconnect-progress.png 与 interconnect-progress-done.png，进度窗已无原生标题栏，顶部标题与“关闭”按钮正常；归档 .artifacts/runs/2026-11-23T07-44-54-340Z-e2e。",
+    "tests/regressions/suites.json 的 floating-relay 分组加入分词单测与拆分选词 E2E，回归说明新增 TX-178。",
+    "tools-catalog 源码 E2E 首次冷启动等待设置页超过 5 秒失败，立即重跑通过（分类归属、任务栏图标与退出释放未见回归）；tests/renderer/toolFeatureGroups.test.ts 通过，归档 .artifacts/runs/2026-11-23T08-00-22-390Z-e2e 与 2026-11-23T08-00-06-909Z-unit。",
+    "构建工具插件、设置插件与 electron-vite 主进程输出后同步免安装预览：node scripts/sync-portable-preview.cjs 报告 2146 个程序文件、保留 257 个资料与插件文件，回退副本 .artifacts/backups/preview-sync/update-1795421022342，版本 1.5.9。",
+    "node scripts/verify-portable-preview.cjs 通过：2145 个程序文件、367 个内置插件文件、11842 个媒体依赖；预览内已检出 icons/split-words.png、split-words.svg、plugin.json 的 split-words 功能与 resources/word-picker.*。",
+    "node scripts/project-maintenance.cjs prepare/check 与 node scripts/check-docs.mjs 通过（43 个功能、16 个分类、32 个普通文字指令，16 章教程）。",
+    "回收本轮前两次同步产生的回退载荷 update-1795420045283 与 update-1795420406281，仅保留最新一次程序回退与审计收据。"
+  ],
+  "pending": [
+    "需在免安装预览中手动确认：点击并拖动进度窗顶部标题行可移动窗口，任务栏身份与关闭行为正常。",
+    "需在真实目标应用中核对拆分选词复制后的拼接效果（英文与数字之间保留空格、连续中文直接拼接）以及超长文本截断 3000 词的提示。"
+  ],
+  "preview": "已同步 .local/portable-preview，保留既有 257 个资料与插件文件，2146 个程序文件逐文件核验通过，版本 1.5.9"
+}

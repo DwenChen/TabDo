@@ -54,6 +54,8 @@ import zbrowserAPI from './plugin/zbrowser'
 import pluginFFmpegAPI from './plugin/ffmpeg'
 
 import httpServer from '../core/httpServer'
+import interconnectService from '../core/interconnect/service'
+import { registerInterconnectIpc } from './plugin/interconnectIpc'
 import providerManager from '../core/provider/providerManager'
 import { startProviderBridgeHost } from '../core/provider/providerBridgeHost'
 import { runStartupDataMigrations } from '../core/startupDataMigrations'
@@ -165,6 +167,12 @@ class APIManager {
 
     // 初始化内置插件专用API
     internalPluginAPI.init(mainWindow, pluginManager)
+
+    // 互联服务：局域网的剪贴板同步与文件传输，只在主进程持有证书和套接字。
+    registerInterconnectIpc(pluginManager)
+    interconnectService.init().catch((error) => {
+      console.error('[API] 互联服务初始化失败:', error)
+    })
 
     // 初始化软件更新API
     updaterAPI.init(mainWindow)

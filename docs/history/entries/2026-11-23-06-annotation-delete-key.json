@@ -1,0 +1,24 @@
+{
+  "id": "annotation-delete-key",
+  "date": "2026-11-23",
+  "summary": "图片标记中选中的非笔触标记支持 Delete/Backspace 删除并可撤销",
+  "changes": [
+    "选中标记后按 Delete 或 Backspace 删除当前标记：删除前写入整份历史快照，删除后退出选中态并重绘，可用撤销恢复。",
+    "拖动或缩放进行中不响应删除键，避免手势中的索引失效；没有选中项时删除键不改变画布。",
+    "快捷键守卫改为按文字输入框是否可见判断：文字提交后输入框隐藏，即使残留焦点，Delete 与工具快捷键仍作用于画布；输入中则保留原生编辑键。",
+    "图片标记源码 E2E 增加删除断言：选中文字后按 Delete 数量减一、选中框隐藏，再次按 Delete 不变，撤销恢复数量。",
+    "仓库教程与应用内教程补充“选中标记后按 Delete 或 Backspace 删除，可撤销”。"
+  ],
+  "checks": [
+    "resources/tools-floating.js 通过 node --check。",
+    "image-annotation-transform 源码 E2E 通过：文字拖动后按 Delete，标记数从 count 减到 count-1、选中框隐藏；无选中时再次 Delete 数量不变；撤销恢复为 count；归档 .artifacts/runs/2026-11-23T06-20-56-080Z-e2e。",
+    "同一 E2E 仍覆盖矩形拖动、手柄缩放、橡皮擦与聚光灯叠加、文字选中拖动，均通过。",
+    "check-docs 与 maintain:check 通过，generated 索引已刷新。",
+    "设置插件重新构建；sync-portable-preview 同步 2142 个程序文件并保留 249 个资料与插件文件，版本 1.5.9，回退副本 .artifacts/backups/preview-sync/update-1795414992263；verify-portable-preview 通过（2141 个程序文件、364 个内置插件文件、11842 个媒体依赖），预览中检出删除逻辑与新教程文案；回收旧预览程序载荷约 1394MB。"
+  ],
+  "pending": [
+    "需在免安装预览中复核：选中矩形/聚光灯/马赛克/文字后按 Delete 删除与撤销，以及输入法候选过程中快捷键不误删标记。",
+    "macOS 上 Backspace 兼作 Delete 的行为需在对应构建中人工确认。"
+  ],
+  "preview": "已同步 .local/portable-preview，保留既有 249 个资料与插件文件，2142 个程序文件逐文件核验通过，版本 1.5.9"
+}

@@ -22,7 +22,6 @@ test('演示录屏直接显示原生控制条，编辑入口和录制交接正�
       TABDO_SOURCE_PREVIEW: '1',
       TABDO_PREVIEW_OPEN_SETTINGS: '0',
       TABDO_E2E_NATIVE_CAMERA_REFERENCE: '1',
-      TABDO_E2E_CAPTURE_MIC_LOOPBACK: '1',
       TABDO_DATA_ROOT: path.join(temporary, 'data'),
       TABDO_LEGACY_USER_DATA_PATH: path.join(temporary, 'legacy'),
       ELECTRON_RENDERER_URL: 'http://127.0.0.1:5174',
@@ -422,16 +421,7 @@ test('演示录屏直接显示原生控制条，编辑入口和录制交接正�
       '窗口捕获验证'
     )
     const recordStarted = Date.now()
-    await hud.getByRole('button', { name: '启用系统音频', exact: true }).click()
-    await hud.getByRole('button', { name: '启用麦克风', exact: true }).click()
-    const micLabel = await hud.evaluate(
-      async () =>
-        (await navigator.mediaDevices.enumerateDevices()).find(
-          (device) => device.kind === 'audioinput'
-        )!.label
-    )
-    await hud.getByText(micLabel, { exact: true }).first().click()
-    await hud.keyboard.press('Escape')
+    // 本用例只验证屏幕、窗口、摄像头与键鼠链路，不启用系统音频或麦克风。
     await hud.getByRole('button', { name: '录制按键', exact: true }).click()
     await expect(hud.getByRole('button', { name: '录制按键', exact: true })).toHaveAttribute(
       'aria-pressed',
@@ -440,19 +430,6 @@ test('演示录屏直接显示原生控制条，编辑入口和录制交接正�
     await hud.getByRole('button', { name: '启用摄像头叠加', exact: true }).click()
     await hud.getByText('fake_device_0', { exact: true }).click()
     await hud.keyboard.press('Escape')
-    await hud.evaluate(() => {
-      ;(window as any).__recordBoundaries = []
-      for (const action of ['start', 'pause', 'resume', 'stop'] as const) {
-        const original = MediaRecorder.prototype[action]
-        MediaRecorder.prototype[action] = function (...args) {
-          ;(window as any).__nativeCaptureStartedAt = Date.now()
-          const boundary = { action, time: performance.now(), mime: this.mimeType }
-          ;(window as any).__recordBoundaries.push(boundary)
-          console.log('CAPTURE_BOUNDARY ' + JSON.stringify(boundary))
-          return original.apply(this, args)
-        }
-      }
-    })
     await hud.getByRole('button', { name: '录制', exact: true }).evaluate((button) => {
       button.addEventListener(
         'pointerdown',
@@ -473,10 +450,7 @@ test('演示录屏直接显示原生控制条，编辑入口和录制交接正�
     await expect(hud.getByRole('button', { name: '停止', exact: true })).toBeVisible({
       timeout: 30000
     })
-    const nativeCaptureStartedAt =
-      process.platform === 'win32'
-        ? await hud.evaluate(() => (window as any).__recordReady)
-        : await hud.evaluate(() => (window as any).__nativeCaptureStartedAt)
+    const nativeCaptureStartedAt = await hud.evaluate(() => (window as any).__recordReady)
     logs.push('PERF recording-start-ms ' + (Date.now() - recordStarted))
     logs.push(
       'PERF input-to-recording-visible-ms ' +
@@ -534,24 +508,12 @@ test('演示录屏直接显示原生控制条，编辑入口和录制交接正�
     await expect(
       frame.getByLabel('编辑工具').getByRole('button', { name: '设置', exact: true })
     ).toHaveCount(0)
+    // 本用例不启用系统音频或麦克风，时间轴不应出现音频轨。
     await expect(
       frame.locator('[data-timeline-row^="row-audio-"] [data-variant="audio"]')
-    ).toHaveCount(2)
+    ).toHaveCount(0)
     await expect(frame.getByTestId('webcam-track')).toHaveCount(1)
     await expect(frame.locator('[data-variant="webcam"]')).toHaveCount(1)
-    for (const action of ['start', 'pause', 'resume', 'stop']) {
-      const boundaries = logs
-        .filter((line) => line.includes('CAPTURE_BOUNDARY '))
-        .map((line) => JSON.parse(line.split('CAPTURE_BOUNDARY ')[1]))
-        .filter((boundary) => boundary.action === action)
-      // Windows相机使用显式PTS的WebCodecs，画面/系统声音使用WGC/WASAPI，MediaRecorder只处理麦克风。
-      expect(boundaries).toHaveLength(process.platform === 'win32' ? 0 : 4)
-      if (boundaries.length)
-        expect(
-          Math.max(...boundaries.map((boundary) => boundary.time)) -
-            Math.min(...boundaries.map((boundary) => boundary.time))
-        ).toBeLessThan(1000 / 60)
-    }
     const recorded = await tool.evaluate(async () => window.electronAPI.getCurrentVideoPath())
     const cursor = JSON.parse(await fs.readFile(recorded.path + '.cursor.json', 'utf8'))
     expect(cursor.samples.some((sample) => Boolean(sample.keyText))).toBe(true)
@@ -600,28 +562,6 @@ test('演示录屏直接显示原生控制条，编辑入口和录制交接正�
           captureDurationMs
       )
     ).toBeLessThan(1000 / 60)
-    const companions = await tool.evaluate(
-      async (videoPath) => window.electronAPI.getVideoAudioFallbackPaths(videoPath),
-      recorded.path!
-    )
-    expect(companions.paths).toHaveLength(2)
-    for (const audioPath of companions.paths!) {
-      const probe = JSON.parse(
-        execFileSync(ffprobe.path, ['-v', 'error', '-show_format', '-of', 'json', audioPath], {
-          encoding: 'utf8',
-          windowsHide: true
-        })
-      )
-      expect(Math.abs(Number(probe.format.duration) * 1000 - captureDurationMs)).toBeLessThan(
-        1000 / 60
-      )
-      logs.push(
-        'PERF aligned-audio-duration-ms ' +
-          path.basename(audioPath) +
-          ' ' +
-          Number(probe.format.duration) * 1000
-      )
-    }
     const videoFrames = JSON.parse(
       execFileSync(
         ffprobe.path,
@@ -991,7 +931,7 @@ test('演示录屏直接显示原生控制条，编辑入口和录制交接正�
       )
       .toBe(true)
     await imported.locator('body').press('Control+Shift+p')
-    // 临时常驻默认关闭，隐藏可保留；用户取消时立即回收当前独立会话。
+    // 演示编辑器使用独立窗口策略，标题栏不提供临时常驻开关。
     const reopenedOwner = await reopened.evaluate(() => window.tabdo.getWebContentsId())
     const detachedId = await app.evaluate(
       ({ app }, owner) =>
@@ -1012,15 +952,7 @@ test('演示录屏直接显示原生控制条，编辑入口和录制交接正�
         return !!titlebar
       })
       .toBe(true)
-    await expect(titlebar!.getByRole('button', { name: '临时常驻', exact: true })).toHaveAttribute(
-      'aria-pressed',
-      'false'
-    )
-    await titlebar!.getByRole('button', { name: '临时常驻', exact: true }).click()
-    await expect(titlebar!.getByRole('button', { name: '临时常驻', exact: true })).toHaveAttribute(
-      'aria-pressed',
-      'true'
-    )
+    await expect(titlebar!.getByRole('button', { name: '临时常驻', exact: true })).toHaveCount(0)
     await app.evaluate(
       ({ app }, owner) =>
         process
@@ -1035,10 +967,9 @@ test('演示录屏直接显示原生控制条，编辑入口和录制交接正�
         process
           .mainModule!.require(app.getAppPath() + '/src/main/core/detachedWindowManager.ts')
           .default.getWindowByPluginWebContents(owner)
-          .show(),
+          .close(),
       reopenedOwner
     )
-    await titlebar!.getByRole('button', { name: '临时常驻', exact: true }).click()
     await expect.poll(() => reopened.isClosed(), { timeout: 15000 }).toBe(true)
     expect(JSON.parse(await fs.readFile(projectPath, 'utf8')).videoPath).toEqual(saved.videoPath)
     // 空闲控制条同样遵守默认退出规则，不能把可见辅助窗口误当作永久后台常驻。

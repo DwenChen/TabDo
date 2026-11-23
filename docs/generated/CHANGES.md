@@ -2,6 +2,261 @@
 
 > 自动生成；原始记录在 [entries](../history/entries/)。
 
+## 2026-11-23 · 发布并核验 TabDo 1.5.10
+
+记录：[release-1.5.10](../../docs/history/entries/2026-11-23-11-release-1.5.10.json)；版本：1.5.10。
+
+- 整合互联服务与互联传输、拆分选词、截图与图片标记的选中拖动/删除/聚光灯笔触、数据目录迁移首帧修复，以及四个既有失败 E2E 的修正。
+- 更新 package.json 与 README 基准版本到 1.5.10，changelog.md 新增 1.5.10 条目，记录互联服务、互联传输、拆分选词和图片标记的变化。
+- README 补齐互联服务说明与工具分类行，指向设置规范的互联服务章节；其余 README、开发规范、两份教程与历史记录对照当前源码复核，无需其他改动。
+
+- 验证：与本轮未提交改动相关的 18 个单测文件、121 项通过：互联证书/链路/协议、分词、数据目录与启动迁移、窗口尺寸与托盘、临时常驻、内部 preload、工具宿主、悬浮指针、匹配器、内置插件、功能分组、文档与维护脚本；归档 .artifacts/runs/2026-11-23T09-00-25-717Z-unit。
+- 验证：tsc --noEmit -p tsconfig.node.json、vue-tsc --noEmit -p tsconfig.web.json 与设置插件 vue-tsc --noEmit 全部通过。
+- 验证：源码 Electron E2E 组 A：interconnect、split-words、image-annotation-transform、settings-cleanup、tools-catalog、tools-expanded 通过；image-annotation-interactions 首次冷启动等待 .plugin-host 超过 5 秒失败，单文件重跑通过；归档 .artifacts/runs/2026-11-23T09-01-07-990Z-e2e 与 2026-11-23T09-03-36-681Z-e2e。
+- 验证：源码 Electron E2E 组 B：presentation-recorder 与 presentation-synchronization 通过，均未启用本机音频或麦克风；performance-budget 首次冷启动等待网页快开页面超过 5 秒失败，单文件重跑通过，首轮耗时 5184ms 已贴近默认超时；归档 .artifacts/runs/2026-11-23T09-04-12-186Z-e2e 与 2026-11-23T09-07-36-626Z-e2e。
+- 验证：按要求未运行全量 E2E，也未运行本轮未涉及的其他 E2E 文件；两个冷启动失败均以单文件重跑确认非功能回归，未改动测试断言或超时掩盖。
+- 验证：构建呼叫AI产物、设置插件、工具插件与 electron-vite 主进程输出全部成功；随后 node scripts/sync-portable-preview.cjs 同步 1.5.10，保留 257 个既有资料与插件文件，逐文件核验 2146 个程序文件，回退副本 .artifacts/backups/preview-sync/update-1795425007092。
+- 验证：node scripts/verify-portable-preview.cjs 通过：2145 个程序文件、367 个内置插件文件、11842 个媒体依赖。
+- 验证：node scripts/check-docs.mjs 通过：38 个文档、262 个本地链接、43 个功能、16 个分类、32 个普通文字指令、16 章教程、77 个步骤，无错误。
+
+## 2026-11-23 · 互联传输支持关闭系统通知与清空任务记录，并移除剪贴板设置中的全局立即同步入口
+
+记录：[interconnect-notifications-clear-records](../../docs/history/entries/2026-11-23-10-interconnect-notifications-clear-records.json)；版本：未发布。
+
+- 互联服务配置新增 notifications，默认开启；缺失或旧配置按开启处理，显式关闭写入 settings-interconnect。
+- 服务内通知统一经过可关闭入口：接收完成、传输失败、配对请求、防火墙等待提示、重试失败和定位文件失败都受该开关控制；关闭后不再弹出系统通知，传输面板与设备状态仍正常更新。
+- “互联服务 → 文件传输”新增“系统通知”开关，说明覆盖接收完成、传输失败、配对请求和防火墙等待提示。
+- 互联传输进度面板新增“清空记录”：只移除已完成和失败的任务记录，不删除已落盘文件，进行中的任务继续保留；IPC 校验发送者必须是当前面板。
+- 剪贴板设置移除全局“立即同步一次”，需要时继续对单台已配对在线设备使用设备行的“同步剪贴板”。
+- 同步设置规范、工具清单与历史回归说明，记录通知开关、清空记录和移除全局手动同步的行为。
+
+- 验证：tests/main/interconnectProtocol.test.ts 11 项单测通过，新增显式关闭通知与缺失字段补齐断言；归档 .artifacts/runs/2026-11-23T08-40-59-216Z-unit。
+- 验证：tsc --noEmit -p tsconfig.node.json --composite false 与设置插件 vue-tsc --noEmit 通过。
+- 验证：源码 Electron E2E tests/e2e/interconnect.spec.ts 通过：设置页通知开关写入并保留关闭值，重新开启恢复；进度面板清空记录后任务数为 0、显示空态、源文件保留；归档 .artifacts/runs/2026-11-23T08-41-14-181Z-e2e。
+- 验证：已查看 interconnect-settings-transfer.png、interconnect-progress-done.png 与 interconnect-progress-cleared.png：文件传输卡片通知开关清晰，剪贴板区不再出现“立即同步一次”；清空记录按钮在已完成任务时可点击、清空后禁用，空态文案正常。
+- 验证：构建设置插件与 electron-vite 主进程输出后同步免安装预览：node scripts/sync-portable-preview.cjs 报告 2146 个程序文件、保留 257 个资料与插件文件，回退副本 .artifacts/backups/preview-sync/update-1795423720441，版本 1.5.9。
+- 验证：node scripts/verify-portable-preview.cjs 通过：2145 个程序文件、367 个内置插件文件、11842 个媒体依赖；预览设置包包含“系统通知”且不再包含“立即同步一次”，主进程包含 interconnect-clear-transfers。
+- 验证：node scripts/project-maintenance.cjs prepare/check 与 node scripts/check-docs.mjs 通过。
+- 验证：回收本次首次同步与上一轮的程序回退 update-1795423361041、update-1795421022342，仅保留最新一次回退与审计收据。
+
+## 2026-11-23 · 新增“拆分选词”文本取词窗口与剪贴板、悬浮中转、匹配指令入口，并隐藏互联传输进度窗的原生标题栏
+
+记录：[split-words-picker-progress-titlebar](../../docs/history/entries/2026-11-23-09-split-words-picker-progress-titlebar.json)；版本：未发布。
+
+- 新增文本匹配指令“拆分选词”（功能码 split-words，匹配类型 over）：接收选中文字后隐藏宿主并打开独立选词窗口，不新增普通文字入口。
+- 拆分选词使用 Intl.Segmenter 智能分词，按空白、标点和换行分开，中文按语义词、英文与数字按整词保留；最多渲染 3000 个词并在截断时提示。
+- 选词窗口为无边框独立窗口，顶部标题行可拖动；点选词语后“复制选中”按原文顺序拼接写入剪贴板并登记文本历史（英文和数字之间保留空格，连续中文直接拼接），双击单个词直接复制，支持 Ctrl+A 全选、Enter 复制、Esc 关闭。三处入口复用同一窗口，重复触发时替换正文。
+- 剪贴板文本条目在行内“悬浮中转”左侧和右键菜单新增“拆分选词”，只提交当前条目正文，不改动剪贴板历史与选择集。
+- 悬浮中转文本条目在删除按钮左侧新增剪刀按钮，只读取所属条目正文；主进程校验发送者、条目标识和文本类型，非法调用明确反馈。
+- 新增与 Lucide 线条风格一致的原创图标 split-words.svg / 128px PNG，并登记到 sources.json 与 tools-catalog。
+- 互联传输进度窗改为无原生标题栏窗口：顶部标题行作为拖动区域，按钮和列表保持可交互，页面“关闭”按钮继续结束面板；保留专属图标与任务栏身份。
+- 同步 README、工具清单、悬浮内容规范、使用教程与应用内教程，补充拆分选词入口、分词规则、快捷键和进度窗拖动说明。
+
+- 验证：新增 tests/main/wordSegments.test.ts，4 项分词单测通过：英文整词与数字、中文顺序、上限截断、空文本；归档 .artifacts/runs/2026-11-23T07-59-20-078Z-unit。
+- 验证：node --check 通过 resources/word-picker.js、word-picker-preload.cjs 与 tools-text-float.js；plugin.json 与 sources.json 可正常解析。
+- 验证：tsc --noEmit -p tsconfig.node.json --composite false 通过。
+- 验证：源码 Electron E2E tests/e2e/split-words.spec.ts 通过：剪贴板行内入口、悬浮中转剪刀入口、文本匹配指令复用同一无边框窗口，点选复制得到 Hello world、连续中文复制得到“拆分”，双击复制得到单词；归档 .artifacts/runs/2026-11-23T08-03-06-993Z-e2e。
+- 验证：已查看 clipboard-split-entry.png、relay-split-entry.png 与 split-words-picker.png：两个按钮和剪刀图标可辨认，选中态、计数与复制按钮清晰，窗口无原生标题栏。
+- 验证：源码 Electron E2E tests/e2e/interconnect.spec.ts 继续通过；核对 interconnect-progress.png 与 interconnect-progress-done.png，进度窗已无原生标题栏，顶部标题与“关闭”按钮正常；归档 .artifacts/runs/2026-11-23T07-44-54-340Z-e2e。
+- 验证：tests/regressions/suites.json 的 floating-relay 分组加入分词单测与拆分选词 E2E，回归说明新增 TX-178。
+- 验证：tools-catalog 源码 E2E 首次冷启动等待设置页超过 5 秒失败，立即重跑通过（分类归属、任务栏图标与退出释放未见回归）；tests/renderer/toolFeatureGroups.test.ts 通过，归档 .artifacts/runs/2026-11-23T08-00-22-390Z-e2e 与 2026-11-23T08-00-06-909Z-unit。
+- 验证：构建工具插件、设置插件与 electron-vite 主进程输出后同步免安装预览：node scripts/sync-portable-preview.cjs 报告 2146 个程序文件、保留 257 个资料与插件文件，回退副本 .artifacts/backups/preview-sync/update-1795421022342，版本 1.5.9。
+- 验证：node scripts/verify-portable-preview.cjs 通过：2145 个程序文件、367 个内置插件文件、11842 个媒体依赖；预览内已检出 icons/split-words.png、split-words.svg、plugin.json 的 split-words 功能与 resources/word-picker.*。
+- 验证：node scripts/project-maintenance.cjs prepare/check 与 node scripts/check-docs.mjs 通过（43 个功能、16 个分类、32 个普通文字指令，16 章教程）。
+- 验证：回收本轮前两次同步产生的回退载荷 update-1795420045283 与 update-1795420406281，仅保留最新一次程序回退与审计收据。
+
+## 2026-11-23 · 修复截图聚光灯笔触因 GDI+ 交替填充导致清晰区出现镂空的问题
+
+记录：[spotlight-brush-fill-mode](../../docs/history/entries/2026-11-23-08-spotlight-brush-fill-mode.json)；版本：未发布。
+
+- 截图原生的笔触聚光灯用 GraphicsPath 叠加每个采样点的圆与连接四边形；GraphicsPath 默认 FillModeAlternate，重叠胶囊会按奇偶互相抵消，压暗遮罩在笔触内部留下成片镂空。
+- 在构建路径前设置 Gdiplus::FillModeWinding，使所有顺时针圆与四边形按绕向求和，重叠区域稳定取并集，笔触内部保持完整清晰区。
+- 确认四边形顶点顺序始终为 A-n、B-n、B+n、A+n，与椭圆同向，不会在反向拖动时抵消。
+
+- 验证：截图原生模块重新编译成功（GCC 11.2 + Electron 42.1 头文件），node 可加载并返回 4 个导出；二进制 resources/lib/win/tabdo_screenshot.node 已更新。
+- 验证：图片标记的笔触聚光灯不受影响：其 Canvas Path2D 与非零填充保持一致，同一 E2E 继续通过。
+- 验证：sync-portable-preview 同步 2142 个程序文件并保留 253 个资料与插件文件，版本 1.5.9，回退副本 .artifacts/backups/preview-sync/update-1795418116714；verify-portable-preview 通过（2141 个程序文件、365 个内置插件文件、11842 个媒体依赖），预览内截图模块更新为 1660059 字节。
+- 验证：project-maintenance prepare/check 与 check-docs 通过；回收旧预览程序载荷约 1394MB。
+
+## 2026-11-23 · 修正互联传输窗口与任务栏误用工具图标，并为截图和图片标记的聚光灯增加笔触模式
+
+记录：[interconnect-icon-spotlight-brush](../../docs/history/entries/2026-11-23-07-interconnect-icon-spotlight-brush.json)；版本：未发布。
+
+- 补充 internal-plugins/system/public/icons/interconnect-transfer.png：窗口身份按功能码互联传输查找图标，此前缺少同名 PNG 而回退到工具总图标；进度窗与设备选择窗的标题栏、任务栏图标恢复为互联传输专属图标。
+- 图片标记的聚光灯新增框选/笔触模式与三档笔触大小，子菜单复用马赛克的像素布局与圆点样式；笔触沿路径生成胶囊并集，与框选聚光灯共同挖出清晰区域，重叠不重复压暗。
+- 图片标记重绘改为先在原图上叠加马赛克与聚光灯，再预留标记层；聚光灯挖孔使用不透明源，避免 destination-out 按半透明 alpha 擦除导致清晰区发灰。
+- 笔触聚光灯参与命中、拖动与包围盒：拖动整体平移路径，不提供缩放手柄；框选聚光灯保留八向手柄。颜色与笔触参数子菜单继续对聚光灯隐藏。
+- 截图原生模块新增聚光灯子菜单（笔触/框选 + 半径）、路径收集与松手校验、胶囊蒙版压暗、路径命中与整体拖动；涂抹半径复用马赛克预设与圆形光标，框选聚光灯保持八手柄，笔触仅整体拖动。
+- 原生聚光灯子菜单按工具栏拖动实时重排，选中元素时只为支持样式参数的标记打开子菜单。
+
+- 验证：resources/tools-floating.js 通过 node --check；图片标记源码 E2E image-annotation-transform 通过：聚光灯笔触沿路径形成清晰带、带外继续压暗，框选聚光灯清晰区保持纯白；归档 .artifacts/runs/2026-11-23T06-58-09-031Z-e2e。
+- 验证：同一 E2E 覆盖矩形拖动、八向缩放、橡皮擦与聚光灯叠加、文字选中拖动与 Delete 删除。
+- 验证：截图原生模块用 MinGW-w64 g++ 11.2.0 重编译成功，node 可加载并返回 4 个导出；补丁源码包含聚光灯笔触字段、子菜单、路径蒙版与命中分支。
+- 验证：新增聚光灯子菜单绘制与命中函数，编译通过；未在真实覆盖层中操作笔触子菜单。
+- 验证：build:tools 与设置插件构建通过，工具插件 dist 已包含 icons/interconnect-transfer.png（2187 字节）。
+- 验证：关闭预览后 sync-portable-preview 同步 2142 个程序文件并保留 250 个资料与插件文件，版本 1.5.9，回退副本 .artifacts/backups/preview-sync/update-1795417358433；verify-portable-preview 通过（2141 个程序文件、365 个内置插件文件、11842 个媒体依赖）。
+- 验证：预览中检出 icons/interconnect-transfer.png、tools-floating.js 的聚光灯笔触逻辑与更新后的截图模块；回收旧预览程序载荷约 1394MB。
+- 验证：check-docs 与 maintain:check 通过。
+
+## 2026-11-23 · 图片标记中选中的非笔触标记支持 Delete/Backspace 删除并可撤销
+
+记录：[annotation-delete-key](../../docs/history/entries/2026-11-23-06-annotation-delete-key.json)；版本：未发布。
+
+- 选中标记后按 Delete 或 Backspace 删除当前标记：删除前写入整份历史快照，删除后退出选中态并重绘，可用撤销恢复。
+- 拖动或缩放进行中不响应删除键，避免手势中的索引失效；没有选中项时删除键不改变画布。
+- 快捷键守卫改为按文字输入框是否可见判断：文字提交后输入框隐藏，即使残留焦点，Delete 与工具快捷键仍作用于画布；输入中则保留原生编辑键。
+- 图片标记源码 E2E 增加删除断言：选中文字后按 Delete 数量减一、选中框隐藏，再次按 Delete 不变，撤销恢复数量。
+- 仓库教程与应用内教程补充“选中标记后按 Delete 或 Backspace 删除，可撤销”。
+
+- 验证：resources/tools-floating.js 通过 node --check。
+- 验证：image-annotation-transform 源码 E2E 通过：文字拖动后按 Delete，标记数从 count 减到 count-1、选中框隐藏；无选中时再次 Delete 数量不变；撤销恢复为 count；归档 .artifacts/runs/2026-11-23T06-20-56-080Z-e2e。
+- 验证：同一 E2E 仍覆盖矩形拖动、手柄缩放、橡皮擦与聚光灯叠加、文字选中拖动，均通过。
+- 验证：check-docs 与 maintain:check 通过，generated 索引已刷新。
+- 验证：设置插件重新构建；sync-portable-preview 同步 2142 个程序文件并保留 249 个资料与插件文件，版本 1.5.9，回退副本 .artifacts/backups/preview-sync/update-1795414992263；verify-portable-preview 通过（2141 个程序文件、364 个内置插件文件、11842 个媒体依赖），预览中检出删除逻辑与新教程文案；回收旧预览程序载荷约 1394MB。
+
+## 2026-11-23 · 修复图片标记文本框选中与文字输入的竞态，以及橡皮擦路径打穿后续聚光灯/马赛克遮罩的问题
+
+记录：[text-race-eraser-spotlight](../../docs/history/entries/2026-11-23-05-text-race-eraser-spotlight.json)；版本：未发布。
+
+- 图片标记的指针按下顺序改为“已有标记命中 > 文字输入 > 新建标记”：文字工具点中已有文本框时先选中并可拖动，不再同时弹出新的输入框；点击空白才按文字工具新建输入框。
+- 重绘顺序改为先在马赛克与聚光灯效果落到原图，再合成标记层；橡皮擦只在标记层内按历史顺序擦除，不会擦掉之后才创建的压暗或马赛克遮罩，旧擦除路径不再出现在聚光灯中。
+- 新增回归断言：橡皮擦擦除后叠加聚光灯，擦除路径与相邻压暗区域亮度一致；文字工具点击已提交文本框保持输入框隐藏、只显示选中框，并可拖动选中框。
+- 同步更新仓库教程与应用内教程：文本框先选中后新建、橡皮擦只作用于标记层。
+
+- 验证：resources/tools-floating.js 通过 node --check。
+- 验证：image-annotation-transform 源码 E2E 通过：画笔与橡皮擦后创建聚光灯，擦除路径像素小于 160 且与相邻压暗区域差值小于 8，清晰区域保持纯白；文字工具点击已提交文本框后输入框隐藏、选中框可拖动且标记数不变；归档 .artifacts/runs/2026-11-23T05-58-45-200Z-e2e。
+- 验证：image-annotation-interactions 源码 E2E 通过：原“取消文字输入”步骤改在文本框外点击，其余箭头、马赛克、文字与复制断言不变；归档 .artifacts/runs/2026-11-23T06-00-01-463Z-e2e。
+- 验证：同步更新 usage-guide 与应用内教程文案，`check-docs` 通过。
+- 验证：typecheck:setting 与设置插件 build 通过；sync-portable-preview 同步 2142 个程序文件并保留 247 个资料与插件文件，版本 1.5.9，回退副本 .artifacts/backups/preview-sync/update-1795413846549；verify-portable-preview 通过（2141 个程序文件、364 个内置插件文件、11842 个媒体依赖），预览中检出本轮文字/橡皮擦修复与新教程文案。
+- 验证：project-maintenance prepare/check 与 check-docs 均通过；回收旧预览程序载荷约 1395MB，保留最近一次程序回退及各轮 preservation.json 审计收据。
+- 验证：首次同步因免安装预览仍在运行被拒绝，未替换任何文件；用户关闭预览后重新同步并核验通过。
+
+## 2026-11-23 · 图片标记的非笔触标记支持选中拖动与手柄缩放，截图聚光灯/框选马赛克可拖动缩放，并恢复未选中工具的选择态
+
+记录：[annotation-transform-select-state](../../docs/history/entries/2026-11-23-04-annotation-transform-select-state.json)；版本：未发布。
+
+- 图片标记为非笔触标记（矩形、椭圆、箭头、马赛克、文字、序号圆圈、聚光灯）增加命中测试：轮廓类只认线条，区域类允许整块命中；按下已命中标记优先进入整体拖动，空白处才新建，减少拖动与放置互相抢占。
+- 新增独立选中浮层 #annotation-selection，显示虚框与圆形手柄；矩形、椭圆、聚光灯、框选马赛克和序号提供八向缩放，箭头提供起止端点，文字与涂抹马赛克仅整体拖动，浮层不进入导出画布。
+- 图片标记的撤销/重做改为整份历史快照（深度 50），覆盖新增、拖动、缩放与清空；新放置的非笔触标记自动选中，便于立即拖动或缩放。
+- 截图原生模块移除马赛克整体跳过命中、按工具禁用聚光灯/序号/荧光笔命中的分支；框选马赛克与聚光灯提供八向手柄，涂抹马赛克/画笔/荧光笔只整体拖动，文字只平移。
+- 确认选区后不再强制切换到“拖拽”工具：默认未选中任何绘制工具，处于可拖动、缩放元素和选区的选择态；再次点击当前工具按钮回到该状态。
+- 为消除竞争，聚光灯/马赛克工具激活时其内部点击仍用于新建（只认边框）；选择态或其他工具下可整块点选区域标记。选中元素时只为支持样式参数的标记打开子菜单。
+- 新增源码 E2E image-annotation-transform 覆盖图片标记的命中、拖动、撤销和手柄缩放，并加入 annotations 回归分组。
+
+- 验证：resources/tools-floating.js 通过 node --check；图片标记源码 E2E image-annotation-interactions.spec.ts 通过（首次运行既有冷启动 flake，复跑通过，归档 .artifacts/runs/2026-11-23T04-28-43-781Z-e2e）。
+- 验证：新增图片标记源码 E2E image-annotation-transform.spec.ts 通过：矩形绘制后边线拖动不新增标记，撤销恢复原位，右中手柄放大后边线随之移动；归档 .artifacts/runs/2026-11-23T04-46-13-294Z-e2e。
+- 验证：截图原生模块用 MinGW-w64 g++ 11.2.0 与 Electron 42.1.0 头文件重编译成功，node 可加载并返回 startRegionCapture/primeScreenshotFrame/startRegionCaptureWithPrimedFrame/abortLongCapture；二进制 resources/lib/win/tabdo_screenshot.node 已更新。
+- 验证：源码覆盖层人工操作：确认选区后工具栏无高亮，处于选择态；矩形工具绘制后可在边线拖动并显示八个圆形手柄；再次点击矩形按钮回到选择态。证据 .artifacts/native/step3-smaller.png、step4-rect-drawn.png、step5-rect-dragged.png。
+- 验证：ps1 坐标换算只能精确驱动部分按钮，聚光灯/框选马赛克的拖动缩放未在覆盖层自动化中完成，列为待人工复核项。
+- 验证：corepack pnpm build 通过：typecheck、build:call-ai、build:setting、build:tools 与 electron-vite build 均完成，out/ 与设置插件 dist 更新。
+- 验证：project-maintenance prepare 生成 3 个索引文件，check 为 0；check-docs 通过：38 个文件、261 个本地链接、42 个功能码/16 个分类/32 个普通入口、16 章 76 步、无错误。
+- 验证：sync-portable-preview 同步 2142 个程序文件并保留 238 个资料与插件文件，版本 1.5.9，回退副本 .artifacts/backups/preview-sync/update-1795409674582；verify-portable-preview 通过（2141 个程序文件、364 个内置插件文件、11842 个媒体依赖），预览中检出 annotation-selection 与新教程文案。
+- 验证：回收旧预览程序载荷约 1395MB，仅保留最近一次程序回退及各轮 preservation.json 审计收据；清理本轮临时驱动脚本与失败截图，保留 3 张人工复核截图。
+
+## 2026-11-23 · 修复图片标记橡皮擦残留水印、目录迁移后仍显示旧目录与旧日志目录，并调整设置侧栏顺序
+
+记录：[eraser-migration-sidebar](../../docs/history/entries/2026-11-23-03-eraser-migration-sidebar.json)；版本：未发布。
+
+- 橡皮擦改在独立透明标记层上使用 destination-out 擦除，再合成回原图；擦除路径改为加宽圆头折线，半径覆盖荧光笔四倍线宽并留抗锯齿余量，消除边界半透明轮廓、扇贝缺口和虚线残影。
+- 迁移成功后，工作进程向重启宿主注入一次性位置 TABDO_DATA_LOCATION_ROOT；启动解析优先使用该位置，首帧设置页、userData/sessionData 与 main.log 立即落到新目录。
+- 迁移同时写入锚点位置记录和独立稳定记录 %APPDATA%/TabDo/.data-location.json；锚点记录被移动或清理后回退稳定记录，显式 TABDO_DATA_ROOT 环境保持隔离。失败时不注入一次性位置。
+- 宿主启动首行日志记录实际数据与缓存目录、日志目录，迁移后可直接核对。
+- 设置侧栏顺序调整：互联服务紧跟呼叫AI，我的数据移到关于之前。
+- 数据目录单测补充一次性位置优先与失效报错场景；设置迁移 E2E 增加重启后日志目录断言；图片标记 E2E 增加整段擦除带像素检查与截图。
+
+- 验证：resources/tools-floating.js 与 resources/data-location-worker.cjs 通过 node --check；typecheck:node、typecheck:setting 与变更文件 ESLint 通过。
+- 验证：dataLocation 单测 11 项通过；新增一次性位置优先、稳定记录回退与失效目录明确报错。
+- 验证：图片标记源码 E2E 通过：荧光笔笔触 12 像素绘制后用橡皮擦整段擦除，擦除带 360×60 区域全部为纯白且画布不透明，截图 eraser-without-watermark.png 人工复核无水印或虚线残影；归档 .artifacts/runs/2026-11-23T03-11-33-300Z-e2e。首次运行出现既有冷启动 .plugin-host 未及时挂载，复跑通过。
+- 验证：设置源码 E2E 通过：迁移重启后 userData、sessionData 与 getLogsPath 均指向新目录；general-settings.png 人工核对呼叫AI→互联服务、我的数据→关于的顺序；最终归档 .artifacts/runs/2026-11-23T03-24-18-483Z-e2e。
+- 验证：迁移成功路径由一次性位置保证首次启动使用新目录，稳定记录保证后续手动启动在锚点记录缺失时仍能恢复；真实安装版迁移、旧锚点记录缺失与删除原目录后的行为仍需在免安装预览中复核。
+- 验证：pnpm build 通过：类型检查、设置插件、工具插件与 electron-vite 主/预加载/渲染器均产出。
+- 验证：node scripts/sync-portable-preview.cjs 同步到 .local/portable-preview，保留既有 230 个资料与插件文件，逐文件核验 2142 个程序文件，版本 1.5.9；回滚副本 .artifacts/backups/preview-sync/update-1795404370678。
+- 验证：node scripts/verify-portable-preview.cjs 通过：2141 个程序文件、364 个内置插件文件、11842 个媒体依赖。
+- 验证：预览 app.asar.unpacked/resources/tools-floating.js 检出 destination-out 与扇贝注释，app.asar 检出 TABDO_DATA_LOCATION_ROOT，确认同步程序包含本轮修复。
+- 验证：清理上一轮回退载荷 update-1795403752502，释放约 1395MB；保留本轮回退与全部 preservation 审计收据。
+
+## 2026-11-23 · 修复互联传输正常进行时仍弹出防火墙等待提示，并让 KDE Connect 等非 TabDo 接收端也按接收时间落盘
+
+记录：[interconnect-transfer-followup](../../docs/history/entries/2026-11-23-02-interconnect-transfer-followup.json)；版本：未发布。
+
+- 发送文件时，接收方连入载荷端口后立即取消防火墙等待提示；提示计时器回调也会检查接收方是否已连入，避免传输已开始仍误报。
+- kdeconnect.share.request 不再声明 creationTime 与 lastModified。KDE Connect 等接收端不会据此还原原文件日期，而是按自身接收时间落盘；TabDo 接收端继续强制使用当前时间。
+- 设置规范与工具清单同步说明发送端不再声明原文件时间，以及防火墙提示只在接收方尚未连入时出现。
+
+- 验证：pnpm typecheck:node 通过。
+- 验证：源码 Electron E2E tests/e2e/interconnect.spec.ts 通过：新增断言确认 share.request 不含 lastModified 与 creationTime，其余配对、多设备选择、双向传输与面板操作继续通过；归档 .artifacts/runs/2026-11-23T02-46-37-577Z-e2e。
+- 验证：防火墙提示时序未纳入自动化：接收方连入后取消计时器、回调内再次检查 accepted，需在免安装预览中观察大文件传输时不再弹出该通知。
+- 验证：pnpm build 通过：类型检查、设置插件、工具插件与 electron-vite 主/预加载/渲染器均产出。
+- 验证：node scripts/sync-portable-preview.cjs 同步到 .local/portable-preview，保留既有 230 个资料与插件文件，逐文件核验 2142 个程序文件，版本 1.5.9；回滚副本 .artifacts/backups/preview-sync/update-1795402107108。
+- 验证：node scripts/verify-portable-preview.cjs 通过：2141 个程序文件、364 个内置插件文件、11842 个媒体依赖。
+- 验证：清理上一轮回退载荷 update-1795400463694，释放约 1395MB，保留本轮回退与全部 preservation 审计收据；预览 data/legacy、程序与插件不变。
+
+## 2026-11-23 · 优化互联传输的接收时间、目标设备选择、首次连接稳定性、托盘入口与任务面板操作，并把发送与接收记录从设置页移出
+
+记录：[interconnect-transfer-polish](../../docs/history/entries/2026-11-23-01-interconnect-transfer-polish.json)；版本：未发布。
+
+- 接收文件统一使用接收时间作为修改时间，不再沿用发送方通过 lastModified 声明的原文件时间；落点仍按默认文件夹去重避让。
+- 文件与图片入口在存在多台已配对且可接收文件的在线设备时弹出目标设备选择窗口；默认设备排在最前并标记，单台设备保持直接发送。选择窗口复用互联传输的图标、任务栏身份与预加载契约。
+- 发送前在限定时间内等待链路就绪；首次等待接收方连接超过 6 秒时提示检查 Windows 防火墙，等待上限由 30 秒延长到 60 秒。载荷服务改为等 TLS 套接字写完再结束任务，避免对端收到截断文件。
+- 链路层修复两处首次传输不稳定因素：write 返回 false 只代表背压，不再误判为协议包发送失败；双方同时互连时按设备 ID 约定保留同一条链路，避免反复互踢。
+- 托盘右键菜单新增“互联传输”，直接打开宿主级传输面板；通过窗口管理器注册回调，避免托盘模块直接依赖互联服务。
+- 互联传输面板支持失败的发件任务“重新发起”和已完成文件的“打开位置”；存在失败任务时不自动关闭，手动打开的面板不随任务完成自动关闭。
+- 设置页“文件传输”只保留默认接收文件夹与说明，删除发送/接收记录列表及相关样式与格式化函数。
+- 新增设备选择窗口、任务重发与文件定位的内部 IPC 与 preload 方法，路径、设备在线状态和文件存在性仍由主进程校验。
+
+- 验证：pnpm typecheck:node 通过；pnpm typecheck:setting（vue-tsc）通过。
+- 验证：互联链路、协议与证书单测 3 个文件 15 项通过。
+- 验证：源码 Electron E2E tests/e2e/interconnect.spec.ts 通过：覆盖两个真实 TLS 对端、多设备选择窗口点击、发送完成后的“打开位置”、构造 2001 年 lastModified 后确认接收 mtime 为当前时间，以及设置页不再出现传输记录；最终归档 .artifacts/runs/2026-11-23T02-18-53-223Z-e2e。
+- 验证：已人工查看 interconnect-progress-done.png：完成态显示方向徽标、设备、文件名、满进度条与“打开位置”，无横向溢出；interconnect-settings.png 与 interconnect-settings-transfer.png 核对文件传输卡片只保留默认接收文件夹和说明。
+- 验证：面板截图中的 0 B/s、0% 属于下载载荷前的中间状态，另以完成态截图确认最终样式。
+- 验证：pnpm build 通过：类型检查、CallAI 运行时、设置插件、工具插件与 electron-vite 主/预加载/渲染器均产出。
+- 验证：node scripts/sync-portable-preview.cjs 同步到 .local/portable-preview，保留既有 228 个资料与插件文件，逐文件核验 2142 个程序文件，版本 1.5.9；回滚副本 .artifacts/backups/preview-sync/update-1795400463694。
+- 验证：node scripts/verify-portable-preview.cjs 通过：2141 个程序文件、364 个内置插件文件、11842 个媒体依赖。
+- 验证：按空间规范清理 14 份更早的纯程序回退载荷，释放约 8369MB；保留最近一次程序回退 update-1795400463694 与全部 preservation 审计收据，预览 data/legacy、程序与插件不变。
+- 验证：在预览 resources/app.asar 中检出“选择接收设备”“打开位置”“重新发起”，确认同步程序包含本轮面板与设备选择实现。
+
+## 2026-11-22 · 将 KDE Connect 的剪贴板同步与文件传输能力接入 TabDo 宿主服务，新增“互联服务”设置页与“互联传输”匹配指令
+
+记录：[interconnect-service](../../docs/history/entries/2026-11-22-09-interconnect-service.json)；版本：未发布。
+
+- 新增宿主级互联服务 src/main/core/interconnect：按 KDE Connect 协议版本 8 实现 UDP 1716 发现、TCP 1716–1764 链路、连接发起方作为 TLS 服务端的反向握手、配对与设备信任持久化。只声明剪贴板与文件共享能力，不加载音乐、通知、遥控、短信或 SFTP 插件，不启动桌面守护进程。
+- 首次启用时生成 EC 自签名证书，CN 为 32 位设备 ID，私钥与证书保存在资料根 interconnect/；证书重建会清空旧信任。已配对设备保存证书与指纹，后续连接核对 CN 与指纹。
+- 剪贴板同步支持文本和图片：本机复制后同步到已配对在线设备，收到远端文本写入宿主剪贴板并登记历史；远端写入期间抑制回声。链路建立时发送 clipboard.connect，设置页提供一次主动同步。
+- 文件传输支持发送与接收：接收落盘到可更改的默认文件夹并按同名自动避让，发送与接收通过独立 TLS 载荷连接串行完成；新增独立“互联传输”进度窗与设置页任务列表，显示文件级进度、速度与失败原因。
+- 设置侧栏新增“互联服务”页，包含服务开关、设备名称、本机 ID 与证书指纹、默认接收文件夹、自动同步、自动接受配对、设备刷新、配对/取消配对/接受/拒绝、默认设备与最近传输任务。服务默认关闭，由用户主动启用。
+- 新增功能码 interconnect-transfer“互联传输”，接收文件、图片、文本匹配与普通入口：文件和图片走文件传输，文本匹配把选中文本登记到剪贴板后主动同步；触发时先广播刷新设备列表，优先使用默认设备或首个已配对在线设备。
+- 新增原创“节点与双向箭头”128×128 PNG 图标与 SVG 源文件，更新图标来源清单、工具清单、设置规范和第三方来源说明。
+- 新增内部 IPC 与 preload 接口：互联状态读写、保存配置、刷新设备、配对、接受配对、主动同步、选择/打开接收文件夹与状态订阅；状态广播遍历 WebContents，覆盖嵌入与独立设置正文。
+- 补充证书、协议、工具函数与反向 TLS 链路单测，以及使用真实 TLS 对端完成配对、剪贴板、双向文件传输和进度窗校验的源码 Electron E2E。
+
+- 验证：tsconfig.node、设置在 internal-plugins/setting/tsconfig.web 下的 vue-tsc 检查通过。
+- 验证：完整单测 143 个文件、960 项通过，归档 .artifacts/runs/2026-11-22T13-00-03-320Z-unit；新增证书 3 项、协议与工具 10 项、链路 2 项。
+- 验证：修正证书 PEM 在 DER 长度恰好整除 64 时产生空行、导致部分 TLS 栈报“illegal padding”的问题；证书与链路单测连续 5 轮通过。
+- 验证：源码 Electron E2E 同批通过 interconnect 与 tools-catalog：真实 TLS 对端完成连接、配对接受、剪贴板同步、服务发送文件、手机发送文件落盘、进度窗与设置页任务列表；归档 .artifacts/runs/2026-11-22T12-58-47-359Z-e2e。进度窗补充功能图标与 Windows 任务栏身份后单独复跑通过，归档 .artifacts/runs/2026-11-22T13-07-36-457Z-e2e。补充“互联传输”文本匹配入口的真实调用与主动刷新后再次通过，归档 .artifacts/runs/2026-11-22T13-14-39-965Z-e2e。
+- 验证：已人工查看 interconnect-progress.png 与 interconnect-settings.png：进度窗显示方向、设备、文件名与进度条；设置页设备行、默认设备、同步、取消配对按钮对齐，窄宽度无横向溢出。
+- 验证：node scripts/check-docs.mjs 通过：38 个文档、261 个本地链接、42 个功能码、16 个分类、32 个普通文字指令、16 章 76 步。
+- 验证：工具清单计数与新增分类同步为 42 个功能码、16 个分类、32 个普通文字指令；tools-catalog E2E 增加 32 条计数与“互联服务”分组断言并通过。
+- 验证：连续复跑时出现测试夹具启动失败（主窗口 .plugin-host 未及时挂载、设置开发服务器冷启动）与一次 Vitest worker 异常退出；预热源码服务后最终单测 960 项、E2E 2 项均通过，失败证据保留在 .artifacts/runs/2026-11-22T12-35-44-678Z-e2e、12-32-51-498Z-e2e 与 12-57-13-929Z-unit。
+- 验证：完整构建通过：CallAI 运行时、设置插件、工具插件与 electron-vite 主/预加载/渲染器均产出；预加载 Python 资源准备与 presentation 构建无错误。
+- 验证：node scripts/sync-portable-preview.cjs 同步到 .local/portable-preview，保留既有 data/legacy 224 个文件，核验 2142 个程序文件，版本 1.5.9；最终回滚副本与收据位于 .artifacts/backups/preview-sync/update-1795352971969（前四次 update-1795351192693、update-1795351535094、update-1795351912855、update-1795352559791）。
+- 验证：node scripts/verify-portable-preview.cjs 通过：2141 个程序文件、364 个内置插件文件、11842 个媒体依赖；预览内已包含 InterconnectSetting 构建产物、interconnect.png/svg 与 interconnect-progress-preload.cjs。
+
+## 2026-11-22 · 修复四个既有失败 E2E：性能菜单配置、演示音频范围和工具颜色与撤销竞态
+
+记录：[e2e-four-existing-failures](../../docs/history/entries/2026-11-22-08-e2e-four-existing-failures.json)；版本：未发布。
+
+- performance-budget 的根因是 1.5.8 起文字网站默认只启用 Bing，二级菜单在只有一项时不会创建；同时外部桌面焦点切换会让宿主在菜单出现前隐藏。测试在隔离配置中补齐两个启用网站，菜单测量前抑制失焦隐藏并把宿主带回前台，保持原计时和资源断言不变。
+- presentation-recorder 取消系统音频与麦克风启用、麦克风选择、音频轨和音频伴随文件断言；保留窗口来源、相机、按键、光标轨迹、暂停恢复、编辑器交接和资源回收。编辑器标题栏按当前独立窗口规范断言没有临时常驻开关，并通过显式关闭验证会话回收。
+- presentation-synchronization 取消系统音频、麦克风、WASAPI 脉冲和三路音频对齐，保留真实 WGC 屏幕与相机时间码、物理键鼠事件及暂停恢复映射。测试名称同步去掉双音频描述。
+- tools-expanded 修正矩形工具颜色断言：各标记工具独立记忆颜色，矩形未改色时使用默认红色；补充切回画笔后仍为蓝色的校验。手动无效名称校验前等待撤销重新检查落地，避免迟到的列表刷新覆盖输入。
+- 同步 tests/regressions/README.md 的 TX-63 与新增 TX-166，说明菜单双网站前提、失焦抑制和演示音频范围调整。
+- 本轮只改测试与回归说明，FileRenamer 的临时诊断日志已全部移除，没有遗留产品代码差异。
+
+- 验证：四个修改文件通过 eslint。
+- 验证：performance-budget、presentation-recorder、presentation-synchronization、tools-expanded 同批源码 Electron E2E 4 项全部通过，归档 .artifacts/runs/2026-11-22T10-47-57-248Z-e2e。
+- 验证：performance-budget 记录 registrations 全为 1、cachedViews 为 0，菜单/面板计时为真实同机对照；presentation-synchronization 的屏幕与相机时间码在 5 个采样点完全一致；presentation-recorder 的 systemAudioPath 与 microphonePath 均为 null。
+- 验证：本轮未修改产品行为，不需要重建或同步免安装预览。
+
 ## 2026-11-22 · 发布并核验 TabDo 1.5.9
 
 记录：[release-1.5.9](../../docs/history/entries/2026-11-22-07-release-1.5.9.json)；版本：1.5.9。

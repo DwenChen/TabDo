@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:"
+    />
+    <title>拆分选词</title>
+    <link rel="stylesheet" href="word-picker.css" />
+  </head>
+  <body>
+    <header>
+      <span class="title">拆分选词</span><span id="count" role="status"></span
+      ><button id="close" aria-label="关闭">×</button>
+    </header>
+    <p id="hint">点选词语，双击直接复制；Esc 关闭</p>
+    <main id="words" role="group" aria-label="可拆分词语"></main>
+    <p id="empty" hidden>没有可拆分的词语</p>
+    <footer>
+      <span id="status" role="status"></span><button id="copy" disabled>复制选中</button>
+    </footer>
+    <script src="word-picker.js"></script>
+  </body>
+</html>

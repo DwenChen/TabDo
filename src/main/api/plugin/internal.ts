@@ -9,6 +9,7 @@ import httpServer from '../../core/httpServer.js'
 import superPanelManager from '../../core/superPanelManager.js'
 import translationManager from '../../core/translationManager.js'
 import { openFloating } from '../../core/toolsFloating'
+import { openWordPicker } from '../../core/wordPicker'
 import { isToolsPluginPath } from '../../core/toolsLifecycle'
 import { launchWebQuickOpen, cancelWebQuickOpen } from '../../core/webQuickOpen'
 import {
@@ -335,6 +336,13 @@ export class InternalPluginAPI {
       if (!requireInternalPlugin(this.pluginManager, event))
         throw new PermissionDeniedError('internal:tools-float')
       return openFloating(content)
+    })
+    // 剪贴板等内置页面只提交文本，选词窗口与复制登记由宿主完成。
+    ipcMain.handle('internal:tools-word-picker', (event, request) => {
+      if (!requireInternalPlugin(this.pluginManager, event))
+        throw new PermissionDeniedError('internal:tools-word-picker')
+      const text = typeof request?.text === 'string' ? request.text : ''
+      return openWordPicker(text)
     })
     // ==================== 数据库 API (ZTOOLS/ 命名空间) ====================
     ipcMain.handle('internal:db-put', (event, key: string, value: any) => {

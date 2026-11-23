@@ -1,0 +1,20 @@
+{
+  "id": "spotlight-brush-fill-mode",
+  "date": "2026-11-23",
+  "summary": "修复截图聚光灯笔触因 GDI+ 交替填充导致清晰区出现镂空的问题",
+  "changes": [
+    "截图原生的笔触聚光灯用 GraphicsPath 叠加每个采样点的圆与连接四边形；GraphicsPath 默认 FillModeAlternate，重叠胶囊会按奇偶互相抵消，压暗遮罩在笔触内部留下成片镂空。",
+    "在构建路径前设置 Gdiplus::FillModeWinding，使所有顺时针圆与四边形按绕向求和，重叠区域稳定取并集，笔触内部保持完整清晰区。",
+    "确认四边形顶点顺序始终为 A-n、B-n、B+n、A+n，与椭圆同向，不会在反向拖动时抵消。"
+  ],
+  "checks": [
+    "截图原生模块重新编译成功（GCC 11.2 + Electron 42.1 头文件），node 可加载并返回 4 个导出；二进制 resources/lib/win/tabdo_screenshot.node 已更新。",
+    "图片标记的笔触聚光灯不受影响：其 Canvas Path2D 与非零填充保持一致，同一 E2E 继续通过。",
+    "sync-portable-preview 同步 2142 个程序文件并保留 253 个资料与插件文件，版本 1.5.9，回退副本 .artifacts/backups/preview-sync/update-1795418116714；verify-portable-preview 通过（2141 个程序文件、365 个内置插件文件、11842 个媒体依赖），预览内截图模块更新为 1660059 字节。",
+    "project-maintenance prepare/check 与 check-docs 通过；回收旧预览程序载荷约 1394MB。"
+  ],
+  "pending": [
+    "需在免安装预览或源码覆盖层中重新绘制笔触聚光灯，确认清晰区无镂空、与框选聚光灯重叠时仍只压暗一次；高 DPI、快速拖动与最终 PNG 合成同样需要复核。"
+  ],
+  "preview": "已同步 .local/portable-preview，保留既有 253 个资料与插件文件，2142 个程序文件逐文件核验通过，版本 1.5.9"
+}

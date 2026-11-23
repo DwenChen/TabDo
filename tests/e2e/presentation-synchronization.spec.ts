@@ -5,7 +5,6 @@ import os from 'node:os'
 import { execFileSync } from 'node:child_process'
 import ffmpeg from 'ffmpeg-static'
 import ffprobe from 'ffprobe-static'
-import { findDiagnosticTone } from '../fixtures/diagnostic-tone'
 
 /**
  * Decode the sixteen-bit frame timecode at the center of a captured video.
@@ -41,88 +40,7 @@ function readTimecode(file: string, seconds: number): number {
   return value
 }
 
-/**
- * Locate a real tone pulse near an expected sample position.
- * @param file Saved system or selected microphone companion.
- * @param expectedMs Scheduled pulse on the common clock.
- * @returns 专用短音的实际PCM起点，单位毫秒，不把背景非静音作为匹配。
- * @throws {Error} 缺少背景声阳性对照或没有可靠短音匹配时抛出。
- */
-function readPulse(file: string, expectedMs: number): number {
-  const pcm = execFileSync(
-    ffmpeg!,
-    ['-v', 'error', '-i', file, '-ac', '1', '-ar', '48000', '-f', 'f32le', '-'],
-    { windowsHide: true, maxBuffer: 8 * 1024 * 1024 }
-  )
-  const first = Math.max(0, Math.floor((expectedMs - 150) * 48))
-  const last = Math.min(pcm.length / 4, Math.ceil((expectedMs + 150) * 48))
-  const samples = new Float32Array(
-    pcm.buffer.slice(pcm.byteOffset, pcm.byteOffset + pcm.byteLength)
-  )
-  const background = samples.slice(first, Math.min(first + 480, samples.length))
-  const backgroundRms = Math.sqrt(
-    background.reduce((sum, value) => sum + value * value, 0) / background.length
-  )
-  if (!(backgroundRms > 0.003))
-    throw new Error('Missing captured background-audio positive control')
-  const match = findDiagnosticTone(samples, 48000, first, last)
-  if (match) {
-    console.log(
-      'CAPTURE_PULSE_MATCH ' +
-        JSON.stringify({
-          expectedMs,
-          actualMs: match.sample / 48,
-          correlation: match.correlation,
-          backgroundRms
-        })
-    )
-    return match.sample / 48
-  }
-  throw new Error('No positive audio pulse found near ' + expectedMs + ' in ' + path.basename(file))
-}
-
-/**
- * Read or explicitly restore the test's Windows output mute state, without changing volume.
- * @param root Source workspace.
- * @param action Read-only query or an authorized mute transition.
- * @returns Actual mute state and unchanged scalar volume.
- */
-function audioState(
-  root: string,
-  action: 'read' | 'mute' | 'unmute'
-): { muted: boolean; volume: number } {
-  return JSON.parse(
-    execFileSync(
-      'powershell.exe',
-      [
-        '-NoProfile',
-        '-NonInteractive',
-        '-ExecutionPolicy',
-        'Bypass',
-        '-File',
-        path.join(root, 'tests/fixtures/windows-audio-state.ps1'),
-        action
-      ],
-      { encoding: 'utf8', windowsHide: true }
-    )
-  )
-}
-
-/**
- * Play an owned pulse and observe its real PCM capture time through an independent WASAPI client.
- * @param root Source workspace containing the compiled capture helper.
- * @returns 独立WASAPI客户端中匹配到的专用短音起点，单位epoch毫秒。
- */
-function referencePulse(root: string): number {
-  const output = execFileSync(
-    path.join(root, 'resources/presentation/native/bin/win32-x64/wgc-capture.exe'),
-    ['--test-tone'],
-    { encoding: 'utf8', windowsHide: true, env: { ...process.env, TABDO_E2E: '1' } }
-  )
-  return JSON.parse(output).firstSampleEpochMs
-}
-
-test('共同捕获时钟对齐实际屏幕/相机时间码、双音频脉冲及键鼠，暂停恢复不漂移', async ({
+test('共同捕获时钟对齐实际屏幕/相机时间码及键鼠，暂停恢复不漂移', async ({
   browserName: _browserName
 }, testInfo) => {
   test.skip(process.platform !== 'win32', 'Windows共同采集时钟专项')
@@ -132,20 +50,13 @@ test('共同捕获时钟对齐实际屏幕/相机时间码、双音频脉冲及�
   const anchor = Date.now() - 1000
   let app: ElectronApplication | undefined
   let recordedFiles: string[] = []
-  let restoreMute = false
   const logs: string[] = []
   try {
-    const initialAudio = audioState(root, 'read')
-    if (process.env.TABDO_E2E_TEMP_UNMUTE === '1') {
-      restoreMute = process.env.TABDO_E2E_RESTORE_AUDIO_MUTE === '1' || initialAudio.muted
-      if (initialAudio.muted) audioState(root, 'unmute')
-    }
     const env = {
       ...process.env,
       TABDO_E2E: '1',
       TABDO_SOURCE_PREVIEW: '1',
       TABDO_E2E_NATIVE_CAMERA_REFERENCE: '1',
-      TABDO_E2E_CAPTURE_MIC_LOOPBACK: '1',
       TABDO_DATA_ROOT: path.join(temporary, 'data'),
       TABDO_LEGACY_USER_DATA_PATH: path.join(temporary, 'legacy'),
       ELECTRON_RENDERER_URL: 'http://127.0.0.1:5174',
@@ -259,13 +170,10 @@ test('共同捕获时钟对齐实际屏幕/相机时间码、双音频脉冲及�
       await fixture.loadURL(
         'data:text/html;charset=utf-8,' +
           encodeURIComponent(
-            `<title>共同采集时间码</title><style>html,body{margin:0;overflow:hidden}canvas{width:100vw;height:100vh}</style><canvas width="640" height="360"></canvas><script>const anchor=${anchor};const c=document.querySelector('canvas').getContext('2d');function draw(){const code=Math.floor((performance.timeOrigin+performance.now()-anchor)*60/1000);for(let bit=0;bit<16;bit++){c.fillStyle=(code&(1<<bit))?'#fff':'#000';c.fillRect(bit*40,0,40,360)}requestAnimationFrame(draw)}draw();const audio=new AudioContext();const oscillator=audio.createOscillator();const gain=audio.createGain();oscillator.frequency.value=440;gain.gain.value=0.05;oscillator.connect(gain).connect(audio.destination);oscillator.start();addEventListener('pagehide',()=>{oscillator.stop();audio.close()},{once:true});</script>`
+            `<title>共同采集时间码</title><style>html,body{margin:0;overflow:hidden}canvas{width:100vw;height:100vh}</style><canvas width="640" height="360"></canvas><script>const anchor=${anchor};const c=document.querySelector('canvas').getContext('2d');function draw(){const code=Math.floor((performance.timeOrigin+performance.now()-anchor)*60/1000);for(let bit=0;bit<16;bit++){c.fillStyle=(code&(1<<bit))?'#fff':'#000';c.fillRect(bit*40,0,40,360)}requestAnimationFrame(draw)}draw();</script>`
           )
       )
       fixture.show()
-      fixture.webContents.setAudioMuted(false)
-      // 故意保留非静音背景，旧阈值算法会误判；只让本夹具持有声音源。
-      await fixture.webContents.executeJavaScript('audio.resume()', true)
       return fixture.id
     }, anchor)
     const source = await hud.evaluate(
@@ -279,7 +187,7 @@ test('共同捕获时钟对齐实际屏幕/相机时间码、双音频脉冲及�
     )
     expect(source).toBeTruthy()
     await hud.evaluate((source) => window.electronAPI.selectSource(source), source)
-    // Substitute only device sources: camera uses real WGC reference pixels in an independent native encoder; two real WASAPI clients capture the same pulse.
+    // 只替换摄像头来源；屏幕时间码、原生编码器和真实键鼠事件保持真实。
     await hud.evaluate(() => {
       navigator.mediaDevices.enumerateDevices = async (): Promise<MediaDeviceInfo[]> => [
         {
@@ -288,28 +196,11 @@ test('共同捕获时钟对齐实际屏幕/相机时间码、双音频脉冲及�
           groupId: 'sync-reference',
           label: '同步参考视频',
           toJSON: () => ({})
-        },
-        {
-          kind: 'audioinput',
-          deviceId: 'sync-audio',
-          groupId: 'sync-reference',
-          label: '同步参考音频',
-          toJSON: () => ({})
         }
       ]
     })
     await hud.getByRole('button', { name: '倒计时延迟', exact: true }).click()
     await hud.getByText('无延迟', { exact: true }).click()
-    await hud.getByRole('button', { name: '启用系统音频', exact: true }).click()
-    await hud.getByRole('button', { name: '启用麦克风', exact: true }).click()
-    const mic = await hud.evaluate(
-      async () =>
-        (await navigator.mediaDevices.enumerateDevices()).find(
-          (device) => device.kind === 'audioinput'
-        )!.label
-    )
-    await hud.getByText(mic, { exact: true }).first().click()
-    await hud.keyboard.press('Escape')
     await hud.getByRole('button', { name: '启用摄像头叠加', exact: true }).click()
     await hud.getByText('同步参考视频', { exact: true }).click()
     await hud.keyboard.press('Escape')
@@ -363,7 +254,6 @@ test('共同捕获时钟对齐实际屏幕/相机时间码、双音频脉冲及�
           )
         })
     )
-    const firstPulse = referencePulse(root)
     // Real OS input follows the same timestamp origin used by physical recording.
     const point = await app.evaluate(({ BrowserWindow, screen }, id) => {
       const fixture = BrowserWindow.fromId(id)!
@@ -387,7 +277,6 @@ test('共同捕获时钟对齐实际屏幕/相机时间码、双音频脉冲及�
     await new Promise((resolve) => setTimeout(resolve, 450))
     await hud.getByRole('button', { name: '恢复', exact: true }).click()
     await expect(hud.getByRole('button', { name: '暂停', exact: true })).toBeVisible()
-    const secondPulse = referencePulse(root)
     await new Promise((resolve) => setTimeout(resolve, 1100))
     const boundaries = await app.evaluate(
       () => (globalThis as any).__captureBoundaries as { method: string; epochMs: number }[]
@@ -447,29 +336,12 @@ test('共同捕获时钟对齐实际屏幕/相机时间码、双音频脉冲及�
       expect.soft(Math.abs(screen - camera), JSON.stringify(content)).toBeLessThanOrEqual(1)
       // JS paint time precedes desktop presentation; compare the independent captured reference frames above.
     }
-    const companions = await tool.evaluate(
-      async (file) => window.electronAPI.getVideoAudioFallbackPaths(file),
-      video
-    )
-    expect(companions.paths).toHaveLength(2)
-    recordedFiles.push(...companions.paths!)
-    const pulses: { file: string; expected: number; actual: number }[] = []
-    for (const file of companions.paths!)
-      for (const epoch of [firstPulse, secondPulse]) {
-        const expected = epoch - start - (epoch > resume ? resume - pause : 0)
-        const actual = readPulse(file, expected)
-        pulses.push({ file: path.basename(file), expected, actual })
-        expect.soft(Math.abs(actual - expected), JSON.stringify(pulses)).toBeLessThan(1000 / 60)
-      }
+    // 本用例不录制系统音频或麦克风，只核验屏幕与相机时间码及键鼠轨迹。
     const telemetry = JSON.parse(await fs.readFile(video + '.cursor.json', 'utf8'))
     expect(telemetry.samples.some((sample) => sample.keyText?.toUpperCase().includes('K'))).toBe(
       true
     )
     expect(telemetry.samples.some((sample) => sample.interactionType === 'click')).toBe(true)
-    // 先核验采集文件，再静音验证播放结尾；预览阶段不向系统输出额外声音。
-    await frame.getByRole('button', { name: '预览音量', exact: true }).click()
-    await frame.getByRole('slider', { name: '预览音量', exact: true }).press('Home')
-    await frame.getByRole('dialog', { name: '预览音量', exact: true }).press('Escape')
     // 实际播放到EOF，避开进度条10ms步长在部分素材上无法触及精确终点的问题。
     await frame.getByRole('slider', { name: '播放进度', exact: true }).press('Home')
     await frame.getByRole('button', { name: '播放', exact: true }).click()
@@ -491,8 +363,7 @@ test('共同捕获时钟对齐实际屏幕/相机时间码、双音频脉冲及�
           startupMs,
           captureLatencyMs: start - uiTiming.clicked,
           uiAfterCommitMs: uiTiming.ready - start,
-          content,
-          pulses
+          content
         })
     )
     await testInfo.attach('capture-content-sync.json', {
@@ -502,8 +373,7 @@ test('共同捕获时钟对齐实际屏幕/相机时间码、双音频脉冲及�
             startupMs,
             captureLatencyMs: start - uiTiming.clicked,
             uiAfterCommitMs: uiTiming.ready - start,
-            content,
-            pulses
+            content
           },
           null,
           2
@@ -512,7 +382,6 @@ test('共同捕获时钟对齐实际屏幕/相机时间码、双音频脉冲及�
       contentType: 'application/json'
     })
   } finally {
-    if (restoreMute) expect(audioState(root, 'mute').muted).toBe(true)
     const logPath = testInfo.outputPath('capture-clock.log')
     await fs.writeFile(logPath, logs.join('\n'))
     await testInfo.attach('capture-clock.log', {

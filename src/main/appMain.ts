@@ -18,8 +18,9 @@ import {
   isLegacyImportWindowActive
 } from './core/firstRunStorageImport'
 import httpServer from './core/httpServer'
+import interconnectService from './core/interconnect/service'
 import { registerIconProtocolForSession, registerIconScheme } from './core/iconProtocol'
-import { getLogsPath } from './core/appData/appDataPaths'
+import { getLogsPath, getTabDoRoot } from './core/appData/appDataPaths'
 import { loadInternalPlugins } from './core/internalPluginLoader'
 import { cleanupPendingPluginArtifacts } from './core/pluginArtifactCleanup'
 import pluginManager from './managers/pluginManager'
@@ -104,6 +105,13 @@ log.transports.file.level = 'debug'
 log.transports.file.maxSize = 5 * 1024 * 1024 // 5MB
 log.transports.file.resolvePathFn = () => {
   return path.join(getLogsPath(), 'main.log')
+}
+// 首行记录实际资料与日志位置，迁移重启后可直接核对是否已切换目录。
+try {
+  log.info(`[Main] 数据与缓存目录: ${getTabDoRoot()}`)
+  log.info(`[Main] 日志目录: ${getLogsPath()}`)
+} catch (error) {
+  log.error('[Main] 解析数据目录失败:', error)
 }
 // 免安装与安装版无需终端输出；开发终端断开时仅停用控制台通道，文件日志继续保存。
 log.transports.console.level = app.isPackaged ? false : 'debug'
@@ -191,6 +199,8 @@ app.whenReady().then(async () => {
   if (mainWindow) {
     api.init(mainWindow, pluginManager)
     pluginManager.init(mainWindow)
+    // 托盘右键“互联传输”打开宿主级传输面板，不经过插件。
+    windowManager.setInterconnectPanelHandler(() => interconnectService.showPanel())
     if (!isE2ETest) {
       // 首次应用列表准备完成后再初始化应用目录监听器，避免启动时与应用扫描抢占磁盘 I/O。
       appsAPI.setAfterFirstAppsReadyCallback(() => {
@@ -235,6 +245,8 @@ app.on('will-quit', () => {
   appWatcher.stop()
   // 关闭 HTTP 服务器
   httpServer.stop()
+  // 停止互联监听、链路与进度窗
+  interconnectService.stop()
 })
 
 /**

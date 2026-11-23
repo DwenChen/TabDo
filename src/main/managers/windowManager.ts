@@ -69,6 +69,7 @@ class WindowManager {
   private settingsOpenPromise: Promise<void> | null = null
   private tray: Tray | null = null
   private trayMenu: Menu | null = null // 托盘菜单
+  private interconnectPanelHandler: (() => void) | null = null // 托盘打开互联传输面板
   private currentShortcut = '' // 新资料默认不注册设置页呼出快捷键
   private isDoubleTapMode = false // 当前呼出快捷键是否为双击修饰键模式
   private static readonly MODIFIER_NAMES = ['Command', 'Ctrl', 'Alt', 'Option', 'Shift']
@@ -821,6 +822,10 @@ class WindowManager {
         submenu: this.buildAwakeSubmenu()
       },
       {
+        label: '互联传输',
+        click: () => this.interconnectPanelHandler?.()
+      },
+      {
         type: 'separator'
       },
       {
@@ -888,8 +893,7 @@ class WindowManager {
       {
         label: '持续时间',
         submenu: durations.map((option) => ({
-          label:
-            state.durationMinutes === option.minutes ? `${option.label} ✓` : option.label,
+          label: state.durationMinutes === option.minutes ? `${option.label} ✓` : option.label,
           click: () => this.setAwakeDuration(option.minutes)
         }))
       },
@@ -1550,6 +1554,15 @@ class WindowManager {
    */
   public setQuitting(value: boolean): void {
     this.isQuitting = value
+  }
+
+  /**
+   * 注册托盘“互联传输”菜单的打开回调，避免窗口管理器直接依赖互联服务。
+   * @param handler 打开面板的回调；传 null 取消注册。
+   * @returns 无返回值。
+   */
+  public setInterconnectPanelHandler(handler: (() => void) | null): void {
+    this.interconnectPanelHandler = handler
   }
 
   /**

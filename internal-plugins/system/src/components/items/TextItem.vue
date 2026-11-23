@@ -36,7 +36,7 @@ function openLink() {
   if (/^https?:\/\//i.test(url)) window.tabdo.shellOpenExternal(url)
 }
 
-const emit = defineEmits(['toggle-expand', 'delete-favorite', 'float-text'])
+const emit = defineEmits(['toggle-expand', 'delete-favorite', 'float-text', 'split-words'])
 </script>
 
 <template>
@@ -83,6 +83,15 @@ const emit = defineEmits(['toggle-expand', 'delete-favorite', 'float-text'])
         ✕
       </button>
       <span class="meta-count">{{ item.charCount }} 字符</span>
+      <button
+        class="float-btn"
+        title="拆分选词"
+        aria-label="拆分选词"
+        @click.stop="emit('split-words')"
+        @dblclick.stop
+      >
+        拆分选词
+      </button>
       <button
         class="float-btn"
         title="悬浮中转"

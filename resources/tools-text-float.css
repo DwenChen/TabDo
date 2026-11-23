@@ -159,7 +159,8 @@ main {
   flex: none;
 }
 .delete-entry,
-.reorder-handle {
+.reorder-handle,
+.split-entry {
   border: 0;
   padding: 0 3px;
   background: transparent;
@@ -168,6 +169,14 @@ main {
 .delete-entry {
   font-size: 17px;
   line-height: 1.2;
+}
+.split-entry {
+  font-size: 15px;
+  line-height: 1.2;
+}
+.split-entry:hover {
+  color: var(--accent);
+  opacity: 1;
 }
 .reorder-handle {
   font-size: 17px;

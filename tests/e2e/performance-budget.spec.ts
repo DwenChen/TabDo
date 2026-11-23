@@ -53,9 +53,31 @@ test('performance: repeated tool switches and panel sessions release resources',
       const wm = process.mainModule!.require(
         app.getAppPath() + '/src/main/managers/windowManager.ts'
       ).default
+      // 本用例测量工具与菜单的资源回收，外部桌面焦点切换不应让宿主提前隐藏。
+      void wm.withBlurHideSuppressed(
+        () =>
+          new Promise((resolve) => {
+            ;(globalThis as any).__releasePerformanceFocus = resolve
+          })
+      )
       wm.getMainWindow().show()
       wm.getMainWindow().focus()
+      app.focus({ steal: true })
     })
+    /**
+     * 把宿主重新带回前台，避免外部应用持有前台时菜单因失焦被取消。
+     * @returns 前台恢复后的 Promise。
+     */
+    async function bringHostToFront(): Promise<void> {
+      await app.evaluate(({ app }) => {
+        app.focus({ steal: true })
+        const wm = process.mainModule!.require(
+          app.getAppPath() + '/src/main/managers/windowManager.ts'
+        ).default
+        wm.getMainWindow().show()
+        wm.getMainWindow().focus()
+      })
+    }
     /**
      * 记录真实 Electron 进程工作集与插件 Session 的 preload 注册数。
      * @returns 本次资源快照。
@@ -88,6 +110,7 @@ test('performance: repeated tool switches and panel sessions release resources',
       const old = current
       const before = new Set(app.context().pages())
       const featureCode = round % 2 === 0 ? 'web-quick-open' : 'qrcode-scan'
+      await bringHostToFront()
       const start = performance.now()
       await main.evaluate(
         async ({ pluginPath, featureCode }) => {
@@ -112,6 +135,26 @@ test('performance: repeated tool switches and panel sessions release resources',
       registrations.push((await snapshot()).preloads)
     }
     const active = await snapshot()
+    // 默认只启用 Bing 时不会创建二级菜单；补齐两个已启用网站，保留菜单启动链的测量目标。
+    await current!.evaluate(() =>
+      window.tabdo.dbStorage.setItem('web-quick-open', {
+        sites: [
+          {
+            id: 'baidu',
+            name: '百度',
+            url: 'https://www.baidu.com/s?wd={query}',
+            enabled: true
+          },
+          {
+            id: 'bing',
+            name: 'Bing',
+            url: 'https://www.bing.com/search?q={query}',
+            enabled: true
+          }
+        ],
+        imageEngines: ['bing']
+      })
+    )
     await app.evaluate(({ app }) => {
       process
         .mainModule!.require(app.getAppPath() + '/src/main/managers/pluginManager.ts')
@@ -157,6 +200,7 @@ test('performance: repeated tool switches and panel sessions release resources',
       const before = new Set(app.context().pages())
       const start = performance.now()
       const control = round % 2 === 0
+      await bringHostToFront()
       const launching = control
         ? app.evaluate(async ({ app }, pluginPath) => {
             const commands = process.mainModule!.require(
@@ -261,6 +305,7 @@ test('performance: repeated tool switches and panel sessions release resources',
         panel.releaseIdleWindow()
       })
       const start = performance.now()
+      await bringHostToFront()
       await app.evaluate(
         ({ app }, parallel) => {
           const panel = process.mainModule!.require(
@@ -401,6 +446,9 @@ test('performance: repeated tool switches and panel sessions release resources',
     expect(registrations.every((count) => count === 1)).toBe(true)
     expect(released.cachedViews).toBe(0)
   } finally {
+    await app
+      .evaluate(() => (globalThis as any).__releasePerformanceFocus?.())
+      .catch(() => undefined)
     await fs.writeFile(testInfo.outputPath('timings.json'), JSON.stringify(timings, null, 2))
     await app.close()
     await fs.rm(temporary, { recursive: true, force: true })

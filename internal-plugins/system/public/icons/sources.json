@@ -117,6 +117,15 @@
       "color": "#149878"
     },
     {
+      "code": "split-words",
+      "name": "拆分选词",
+      "group": "剪贴板",
+      "icon": "段落与拆分词语块",
+      "source": "TabDo 原创 SVG，2026-11-23，MIT",
+      "original": "split-words.svg",
+      "color": "#149878"
+    },
+    {
       "code": "file-renamer",
       "name": "重命名",
       "group": "文件操作",
@@ -303,6 +312,15 @@
       "icon": "call-ai.svg",
       "color": "#6257db",
       "original": true
+    },
+    {
+      "code": "interconnect-transfer",
+      "name": "互联传输",
+      "group": "互联服务",
+      "icon": "节点与双向箭头",
+      "source": "TabDo 原创 SVG，2026-11-22，MIT",
+      "original": "interconnect.svg",
+      "color": "#0f766e"
     }
   ]
 }

@@ -11,6 +11,7 @@ import { buildPluginThemeCSS, getCurrentPluginThemeState } from './pluginTheme'
 import { getClipboardTransferError } from '../../shared/clipboardTransfer'
 import { resolveWindowOpenBounds } from '../utils/windowPlacement'
 import { getToolWindowConfig } from './toolWindowConfig'
+import { openWordPicker } from './wordPicker'
 
 export interface RelayInput {
   type: 'text' | 'image' | 'file'
@@ -277,6 +278,15 @@ async function operate(senderId: number, action: string, value: unknown): Promis
     entry.openedAt = Date.now()
     entry.initialHashes = snapshotClipboardHashes()
     return removed
+  }
+  // 拆分选词只读取所属条目的文本，不改变中转内容与选择集。
+  if (action === 'split') {
+    const id = typeof value === 'string' ? value : ''
+    const row = entry.rows.find((item) => item.id === id)
+    if (!row || row.type !== 'text' || !row.text)
+      throw new Error('请选择一条可拆分的文本条目')
+    await openWordPicker(row.text)
+    return true
   }
   const ids = Array.isArray(value) ? value : typeof value === 'string' ? [value] : []
   if (ids.length > 1000 || new Set(ids).size !== ids.length) throw new Error('选择数量无效')

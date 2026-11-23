@@ -102,7 +102,7 @@ function copyVerified(source, destination, skipLocationRecord = false) {
 
 /**
  * 完成离线迁移；发布目标和位置记录之前，原资料始终保留。
- * @param {{source: string, target: string, anchor: string}} job 迁移目录与启动锚点。
+ * @param {{source: string, target: string, anchor: string, stableLocation?: string}} job 迁移目录、启动锚点与稳定记录。
  * @returns {{root: string, previousRoot: string, files: number}} 新旧位置及校验数。
  * @throws {Error} 复制、校验或原子发布失败时抛错。
  */
@@ -129,6 +129,22 @@ function relocateData(job) {
       fs.renameSync(temporary, configuration)
     } finally {
       fs.rmSync(temporary, { force: true })
+    }
+    // 稳定记录与锚点并存：锚点资料目录被移动或清理后仍能解析到已迁移目标。
+    if (job.stableLocation) {
+      try {
+        const stable = job.stableLocation
+        fs.mkdirSync(path.dirname(stable), { recursive: true })
+        const stableTemporary = stable + '.' + crypto.randomUUID() + '.tmp'
+        fs.writeFileSync(stableTemporary, JSON.stringify({ root: target }), { mode: 0o600 })
+        try {
+          fs.renameSync(stableTemporary, stable)
+        } finally {
+          fs.rmSync(stableTemporary, { force: true })
+        }
+      } catch {
+        // 稳定记录只是恢复通道，写入失败不影响已发布目标与锚点记录。
+      }
     }
     return { root: target, previousRoot: source, files }
   } finally {
@@ -166,6 +182,9 @@ async function run(job) {
   const environment = { ...process.env }
   delete environment.ELECTRON_RUN_AS_NODE
   delete environment.ELECTRON_FORCE_IS_PACKAGED
+  // 成功时向重启进程注入一次性位置，保证首帧设置页和日志立即写入新目录。
+  if (result.success) environment.TABDO_DATA_LOCATION_ROOT = result.root
+  else delete environment.TABDO_DATA_LOCATION_ROOT
   if (job.executable)
     spawn(job.executable, job.args || [], {
       cwd: job.cwd,

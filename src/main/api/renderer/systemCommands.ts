@@ -13,6 +13,8 @@ import * as terminalLauncher from '../../utils/terminalLauncher'
 import { ColorPicker } from '../../core/native/index.js'
 import { getExplorerFolderPathFromWindow } from '../../utils/common'
 import { applyToolsWindowIdentity, getToolsWindowIcon } from '../../core/toolsWindowIdentity'
+import interconnectService from '../../core/interconnect/service'
+import { openWordPicker } from '../../core/wordPicker'
 
 interface SystemCommandContext {
   mainWindow: Electron.BrowserWindow | null
@@ -152,6 +154,12 @@ export async function executeSystemCommand(
     case 'screenshot':
       return handleScreenshot(ctx)
 
+    case 'interconnect-transfer':
+      return handleInterconnectTransfer(ctx, param)
+
+    case 'split-words':
+      return handleSplitWords(ctx, param)
+
     default:
       return { success: false, error: `Unknown system command: ${command}` }
   }
@@ -264,6 +272,50 @@ async function handleScreenshot(ctx: SystemCommandContext): Promise<any> {
   } catch (error) {
     console.error('[SystemCmd] 截图失败:', error)
     return { success: false, error: String(error) }
+  }
+}
+
+/**
+ * 执行“互联传输”：文件交给互联服务发送，文本触发一次主动剪贴板同步。
+ * @param ctx 本次系统指令的宿主上下文。
+ * @param param 当前匹配输入。
+ * @returns 启动结果；实际传输由互联服务在后台继续。
+ */
+async function handleInterconnectTransfer(ctx: SystemCommandContext, param?: any): Promise<any> {
+  console.log('[SystemCmd] 执行互联传输')
+  const result = await interconnectService.transferFromInput(param)
+  if (!result.success) {
+    // 用户在设备选择窗口取消时不算失败，不弹错误通知。
+    if (!result.canceled) interconnectService.notify('互联传输', result.error || '传输失败')
+    return result
+  }
+  ctx.mainWindow?.webContents.send('app-launched')
+  ctx.mainWindow?.hide()
+  return result
+}
+
+/**
+ * 把匹配到的选中文字交给拆分选词窗口，并隐藏来源宿主。
+ * @param ctx 本次指令的宿主窗口上下文。
+ * @param param 文本匹配参数，正文位于 payload。
+ * @returns 窗口打开结果；正文为空时返回错误。
+ */
+async function handleSplitWords(ctx: SystemCommandContext, param?: any): Promise<any> {
+  const text = typeof param?.payload === 'string' ? param.payload : ''
+  if (!text.trim()) return { success: false, error: '没有可拆分的文字' }
+  ctx.mainWindow?.webContents.send('app-launched')
+  ctx.mainWindow?.hide()
+  try {
+    await openWordPicker(text)
+    return { success: true }
+  } catch (error) {
+    if (Notification.isSupported()) {
+      new Notification({
+        title: '拆分选词',
+        body: error instanceof Error ? error.message : '无法打开选词窗口'
+      }).show()
+    }
+    return { success: false, error: error instanceof Error ? error.message : '无法打开选词窗口' }
   }
 }
 

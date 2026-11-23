@@ -308,6 +308,14 @@
     "unit": ["tests/main/toolsFiles.test.ts"],
     "e2e": ["tests/e2e/file-locksmith.spec.ts", "tests/e2e/tools-catalog.spec.ts"]
   },
+  "interconnect": {
+    "unit": [
+      "tests/main/interconnectCertificate.test.ts",
+      "tests/main/interconnectProtocol.test.ts",
+      "tests/main/interconnectLink.test.ts"
+    ],
+    "e2e": ["tests/e2e/interconnect.spec.ts"]
+  },
   "tools-catalog": {
     "unit": [
       "tests/renderer/toolFeatureGroups.test.ts",
@@ -382,13 +390,15 @@
       "tests/main/windowMaterialDefaults.test.ts",
       "tests/main/clipboardWriteContentApi.test.ts",
       "tests/main/floatingPointer.test.ts",
-      "tests/main/clipboardSelectionState.test.ts"
+      "tests/main/clipboardSelectionState.test.ts",
+      "tests/main/wordSegments.test.ts"
     ],
     "e2e": [
       "tests/e2e/floating-relay.spec.ts",
       "tests/e2e/clipboard-interactions.spec.ts",
       "tests/e2e/tools-expanded.spec.ts",
-      "tests/e2e/local-tutorial.spec.ts"
+      "tests/e2e/local-tutorial.spec.ts",
+      "tests/e2e/split-words.spec.ts"
     ]
   },
   "selection-translation": {
@@ -450,7 +460,8 @@
     "e2e": [
       "tests/e2e/tools-polish.spec.ts",
       "tests/e2e/tools-screenshot.spec.ts",
-      "tests/e2e/image-annotation-interactions.spec.ts"
+      "tests/e2e/image-annotation-interactions.spec.ts",
+      "tests/e2e/image-annotation-transform.spec.ts"
     ]
   },
   "presentation-timeline": {

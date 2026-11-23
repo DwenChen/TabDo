@@ -98,6 +98,21 @@ async function relayItems(target = null) {
   }
 }
 /**
+ * 用文本条目的原文打开拆分选词窗口，不改动历史与选择集。
+ * @param {object|null} item 当前右键或行内操作的文本条目。
+ * @returns {Promise<void>} 打开结束后保留原列表，失败显示宿主原因。
+ */
+async function splitWords(item) {
+  const text = typeof item?.content === 'string' ? item.content : ''
+  if (!text.trim()) return
+  hideContextMenu()
+  try {
+    await window.toolsLifecycle.runTask(() => window.tabdo.internal.tools.openWordPicker({ text }))
+  } catch (error) {
+    if (!window.toolsLifecycle.signal.aborted) showFloatingMessage(error.message)
+  }
+}
+/**
  * 悬浮全部选中图片或标记明确的一张图片，中转走独立入口。
  * @param edit 是否直接进入图片标注。
  * @param target 可见图片按钮指向的条目。
@@ -558,6 +573,7 @@ onUnmounted(() => {
         @scroll="handleScroll"
         @float-image="(item, source) => floatItem(false, item, source)"
         @float-text="relayItems($event)"
+        @split-words="splitWords($event)"
         @relay="relayItems($event)"
         @transfer-error="showFloatingMessage($event)"
         @annotate-image="(item, source) => floatItem(true, item, source)"
@@ -585,9 +601,11 @@ onUnmounted(() => {
       "
       :can-float="contextMenu.item?.type === 'image' || contextMenu.item?.category === 'image'"
       :can-relay="['text', 'image', 'file'].includes(contextMenu.item?.type)"
+      :can-split-words="contextMenu.item?.type === 'text'"
       :can-annotate="contextMenu.item?.type === 'image' || contextMenu.item?.category === 'image'"
       @float="floatItem(false)"
       @relay="relayItems(contextMenu.item)"
+      @split-words="splitWords(contextMenu.item)"
       @annotate="floatItem(true)"
       @favorite="handleOpenFavoriteDialog"
       @delete="handleDeleteItem"

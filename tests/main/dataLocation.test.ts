@@ -27,6 +27,7 @@ beforeEach(() => {
 })
 afterEach(() => {
   vi.restoreAllMocks()
+  delete process.env.TABDO_DATA_LOCATION_ROOT
   fs.rmSync(base, { recursive: true, force: true })
 })
 describe('完整资料目录迁移', () => {
@@ -112,5 +113,20 @@ describe('完整资料目录迁移', () => {
     )
     expect(() => getTabDoRoot({ dataRoot: source })).toThrow()
     expect(fs.existsSync(path.join(base, 'missing'))).toBe(false)
+  })
+  it('迁移重启的一次性位置优先于锚点记录，缺失时明确失败', () => {
+    relocateData({ source, target, anchor: source })
+    process.env.TABDO_DATA_LOCATION_ROOT = target
+    expect(getTabDoRoot({ homeDir: base })).toBe(target)
+    process.env.TABDO_DATA_LOCATION_ROOT = path.join(base, 'missing')
+    expect(() => getTabDoRoot({ homeDir: base })).toThrow('迁移后的数据与缓存目录不可用')
+  })
+  it('锚点记录缺失时回退到独立稳定记录，损坏记录明确失败', () => {
+    const stable = path.join(base, 'stable', '.data-location.json')
+    relocateData({ source, target, anchor: source, stableLocation: stable })
+    fs.rmSync(path.join(source, '.data-location.json'))
+    expect(getTabDoRoot({ homeDir: base, stableLocation: stable })).toBe(target)
+    fs.writeFileSync(stable, JSON.stringify({ root: path.join(base, 'missing') }))
+    expect(() => getTabDoRoot({ homeDir: base, stableLocation: stable })).toThrow('稳定位置记录')
   })
 })

@@ -8,6 +8,10 @@ TabDo 由 DwenChen 独立维护，源自 ZTools 及其社区插件生态。独�
 
 同时感谢 [ZTools-plugins](https://github.com/ZToolsCenter/ZTools-plugins)、[ztools-plugin-cli](https://github.com/ZToolsCenter/ztools-plugin-cli)和 [ztools-api-types](https://github.com/ZToolsCenter/ztools-api-types)。本仓库中的历史 CLI 与类型资料用于迁移参考，新的插件开发以 TabDo 文档和 `session-v1` 协议为准。
 
+## 互联服务协议来源
+
+“设置 → 互联服务”和“互联传输”按 [KDE Connect](https://invent.kde.org/network/kdeconnect-kde) 的公开局域网协议重新实现，参考协议版本 8 的身份、配对、载荷传输以及 `kdeconnect.clipboard`、`kdeconnect.share.request` 行为。上游项目及贡献者版权归 KDE Connect 社区所有，许可为 GPL-2.0-only / GPL-3.0-only / LicenseRef-KDE-Accepted-GPL。TabDo 只保留剪贴板同步与文件传输能力，未复制或分发上游源码、图标或插件；协议实现使用独立的 TypeScript 代码，不改变 TabDo 自身许可。与真实设备互通时仍可能受对方应用版本与厂商网络策略影响。
+
 ## 演示录屏来源
 
 [Recordly](https://github.com/webadderallorg/Recordly/tree/109ca3a13c362e969d9add25d1f93406c36dba2a)（webadderall，源自 Siddharth Vaddem 的 OpenScreen），固定提交 `109ca3a13c362e969d9add25d1f93406c36dba2a`，1.4.0。2026-10-27 移植编辑、捕获、光标与项目能力，并改为中文和 TabDo 会话、主题、快捷键。完整 AGPLv3、依赖声明与修改范围见 [组件说明](../internal-plugins/system/presentation/README.md)。来源与许可告知集中在应用“设置 → 关于”，不使用上游名称作为产品名。组合分发须同时满足 AGPLv3，不以项目原 MIT 说明覆盖上游许可。

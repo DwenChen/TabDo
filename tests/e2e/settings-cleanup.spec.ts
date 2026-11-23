@@ -434,7 +434,7 @@ test('初始设置、快捷键、托盘和指令符合精简版约定，目录�
     // 重启探针实际加载同一源码应用并打开迁移后的数据库，再通过正常退出清理。
     await fs.writeFile(
       probe,
-      `const fs=require('node:fs');const {app}=require('electron');require(${JSON.stringify(path.join(root, 'scripts/preview-main.cjs'))});let count=0;const timer=setInterval(()=>{try{const db=require(${JSON.stringify(path.join(root, 'src/main/api/shared/database.ts'))}).default;if(fs.existsSync(require('node:path').join(app.getPath('userData'),'.migration.json')))throw Error('migration pending');const fixture=db.dbGet('migration-fixture');if(!fixture)throw Error('not ready');const result={pid:process.pid,root:app.getPath('userData'),sessionRoot:app.getPath('sessionData'),fixture,plugins:db.dbGet('plugins'),pinned:db.dbGet('super-panel-pinned'),private:Array.from(fs.readFileSync(require('node:path').join(app.getPath('userData'),'plugins-data/fixture-installed/content.bin')))};fs.writeFileSync(${JSON.stringify(resultFile)},JSON.stringify(result));clearInterval(timer);require(${JSON.stringify(path.join(root, 'src/main/managers/windowManager.ts'))}).default.setQuitting(true);app.quit()}catch(error){if(++count>160){clearInterval(timer);fs.writeFileSync(${JSON.stringify(resultFile)},JSON.stringify({error:String(error),pid:process.pid}));app.quit()}}},250);`
+      `const fs=require('node:fs');const {app}=require('electron');require(${JSON.stringify(path.join(root, 'scripts/preview-main.cjs'))});let count=0;const timer=setInterval(()=>{try{const db=require(${JSON.stringify(path.join(root, 'src/main/api/shared/database.ts'))}).default,paths=require(${JSON.stringify(path.join(root, 'src/main/core/appData/appDataPaths.ts'))});if(fs.existsSync(require('node:path').join(app.getPath('userData'),'.migration.json')))throw Error('migration pending');const fixture=db.dbGet('migration-fixture');if(!fixture)throw Error('not ready');const result={pid:process.pid,root:app.getPath('userData'),sessionRoot:app.getPath('sessionData'),logs:paths.getLogsPath(),fixture,plugins:db.dbGet('plugins'),pinned:db.dbGet('super-panel-pinned'),private:Array.from(fs.readFileSync(require('node:path').join(app.getPath('userData'),'plugins-data/fixture-installed/content.bin')))};fs.writeFileSync(${JSON.stringify(resultFile)},JSON.stringify(result));clearInterval(timer);require(${JSON.stringify(path.join(root, 'src/main/managers/windowManager.ts'))}).default.setQuitting(true);app.quit()}catch(error){if(++count>160){clearInterval(timer);fs.writeFileSync(${JSON.stringify(resultFile)},JSON.stringify({error:String(error),pid:process.pid}));app.quit()}}},250);`
     )
     await app.evaluate(({ dialog, app }, probe) => {
       dialog.showMessageBox = async () => ({ response: 0, checkboxChecked: false })
@@ -477,7 +477,8 @@ test('初始设置、快捷键、托盘和指令符合精简版约定，目录�
     expect(restarted.error).toBeUndefined()
     expect(restarted.root).toBe(target)
     expect(restarted.sessionRoot).toBe(target)
-    expect(restarted.sessionRoot).toBe(target)
+    // 迁移重启后的日志目录必须跟随新资料根，而不是继续写入旧目录。
+    expect(restarted.logs).toBe(path.join(target, 'logs'))
     expect(restarted.fixture).toEqual({
       value: 'preserve-this',
       path: path.join(target, 'plugins', 'fixture-installed')

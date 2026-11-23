@@ -303,9 +303,10 @@ test('expanded tools classify image files, rename safely, scan QR and own floati
     await expect(floating.getByRole('button', { name: '白色', exact: true })).toBeHidden()
     await floating.getByRole('button', { name: '绿色', exact: true }).click()
     await floating.getByRole('button', { name: '矩形', exact: true }).click()
+    // 各标记工具独立记忆颜色；矩形未单独改色时使用默认红色。
     await expect(floating.locator('#color-preview')).toHaveCSS(
       'background-color',
-      'rgb(0, 122, 255)'
+      'rgb(255, 59, 48)'
     )
     await floating.getByRole('button', { name: '荧光笔', exact: true }).click()
     await expect(floating.locator('#color-preview')).toHaveCSS(
@@ -313,6 +314,10 @@ test('expanded tools classify image files, rename safely, scan QR and own floati
       'rgb(52, 199, 89)'
     )
     await floating.getByRole('button', { name: '画笔', exact: true }).click()
+    await expect(floating.locator('#color-preview')).toHaveCSS(
+      'background-color',
+      'rgb(0, 122, 255)'
+    )
     // 透明窗口的客户区与外框完全重合，不再保留系统标题栏和边框。
     expect(
       await app.evaluate(({ BrowserWindow }) => {
@@ -563,15 +568,19 @@ test('expanded tools classify image files, rename safely, scan QR and own floati
     expect(await fs.readFile(path.join(temporary, 'after_before.txt'), 'utf8')).toBe('rename data')
     await tools.getByRole('button', { name: '撤销重命名' }).click()
     await expect(tools.locator('.rename-message > span')).toHaveText('已撤销上次改名')
+    // 撤销会重新检查并替换列表数据；等待结果落地，避免手动编辑被迟到的刷新覆盖。
+    await expect(tools.locator('.file-name')).toHaveText('before.txt')
     expect(await fs.readFile(renameFile, 'utf8')).toBe('rename data')
     await capture(tools, 'tools-renamer.png')
     await tools.getByRole('button', { name: '手动编辑', exact: true }).click()
     await expect(tools.getByLabel('before.txt 的新文件名')).toBeVisible()
     await expect(tools.getByLabel('before.txt 的新文件名')).toHaveCSS('font-family', referenceFont)
-    await tools.getByLabel('before.txt 的新文件名').fill('invalid/name.txt')
+    const manualName = tools.getByLabel('before.txt 的新文件名')
+    await manualName.fill('')
+    await manualName.pressSequentially('invalid/name.txt')
     await expect(tools.getByRole('button', { name: '执行重命名' })).toBeDisabled()
     await expect(tools.locator('.error-tag')).toHaveText('文件名无效')
-    await tools.getByLabel('before.txt 的新文件名').fill('manual.txt')
+    await manualName.fill('manual.txt')
     await expect(tools.getByRole('button', { name: '执行重命名' })).toBeEnabled()
     await capture(tools, 'tools-renamer-manual.png')
     await tools.getByRole('button', { name: '智能重命名', exact: true }).click()

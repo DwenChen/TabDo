@@ -1,0 +1,23 @@
+{
+  "id": "e2e-four-existing-failures",
+  "date": "2026-11-22",
+  "summary": "修复四个既有失败 E2E：性能菜单配置、演示音频范围和工具颜色与撤销竞态",
+  "changes": [
+    "performance-budget 的根因是 1.5.8 起文字网站默认只启用 Bing，二级菜单在只有一项时不会创建；同时外部桌面焦点切换会让宿主在菜单出现前隐藏。测试在隔离配置中补齐两个启用网站，菜单测量前抑制失焦隐藏并把宿主带回前台，保持原计时和资源断言不变。",
+    "presentation-recorder 取消系统音频与麦克风启用、麦克风选择、音频轨和音频伴随文件断言；保留窗口来源、相机、按键、光标轨迹、暂停恢复、编辑器交接和资源回收。编辑器标题栏按当前独立窗口规范断言没有临时常驻开关，并通过显式关闭验证会话回收。",
+    "presentation-synchronization 取消系统音频、麦克风、WASAPI 脉冲和三路音频对齐，保留真实 WGC 屏幕与相机时间码、物理键鼠事件及暂停恢复映射。测试名称同步去掉双音频描述。",
+    "tools-expanded 修正矩形工具颜色断言：各标记工具独立记忆颜色，矩形未改色时使用默认红色；补充切回画笔后仍为蓝色的校验。手动无效名称校验前等待撤销重新检查落地，避免迟到的列表刷新覆盖输入。",
+    "同步 tests/regressions/README.md 的 TX-63 与新增 TX-166，说明菜单双网站前提、失焦抑制和演示音频范围调整。",
+    "本轮只改测试与回归说明，FileRenamer 的临时诊断日志已全部移除，没有遗留产品代码差异。"
+  ],
+  "checks": [
+    "四个修改文件通过 eslint。",
+    "performance-budget、presentation-recorder、presentation-synchronization、tools-expanded 同批源码 Electron E2E 4 项全部通过，归档 .artifacts/runs/2026-11-22T10-47-57-248Z-e2e。",
+    "performance-budget 记录 registrations 全为 1、cachedViews 为 0，菜单/面板计时为真实同机对照；presentation-synchronization 的屏幕与相机时间码在 5 个采样点完全一致；presentation-recorder 的 systemAudioPath 与 microphonePath 均为 null。",
+    "本轮未修改产品行为，不需要重建或同步免安装预览。"
+  ],
+  "pending": [
+    "真实系统音频、麦克风、音画脉冲与设备延迟转入人工验收，不再由源码 E2E 自动覆盖。",
+    "其他 DPI、多显示器和外部前台应用下的菜单观感保留人工验收。"
+  ]
+}

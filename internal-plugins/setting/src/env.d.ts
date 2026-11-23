@@ -724,6 +724,48 @@ declare global {
           running?: boolean
           error?: string
         }>
+
+        // 互联服务
+        interconnectGetState: () => Promise<{
+          success: boolean
+          state?: import('@shared/interconnect').InterconnectState
+          error?: string
+        }>
+        interconnectSaveConfig: (
+          patch: Partial<import('@shared/interconnect').InterconnectConfig>
+        ) => Promise<{
+          success: boolean
+          state?: import('@shared/interconnect').InterconnectState
+          error?: string
+        }>
+        interconnectRefresh: () => Promise<{
+          success: boolean
+          devices?: import('@shared/interconnect').InterconnectDeviceView[]
+          state?: import('@shared/interconnect').InterconnectState
+          error?: string
+        }>
+        interconnectPair: (
+          deviceId: string,
+          pair: boolean
+        ) => Promise<{ success: boolean; error?: string }>
+        interconnectAcceptPairing: (deviceId: string) => Promise<{
+          success: boolean
+          error?: string
+        }>
+        interconnectSyncClipboard: (
+          deviceId?: string
+        ) => Promise<{ success: boolean; error?: string }>
+        interconnectChooseDownloadDir: () => Promise<{
+          success: boolean
+          canceled?: boolean
+          directory?: string
+          state?: import('@shared/interconnect').InterconnectState
+          error?: string
+        }>
+        interconnectOpenDownloadDir: () => Promise<{ success: boolean; error?: string }>
+        onInterconnectState: (
+          callback: (state: import('@shared/interconnect').InterconnectState) => void
+        ) => () => void
       }
     }
   }

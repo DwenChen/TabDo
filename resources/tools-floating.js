@@ -26,10 +26,14 @@ let content,
   current = null,
   textPosition = null
 let shapes = [],
-  undone = [],
+  history = [],
+  future = [],
   disposed = false
 let resizeStart = null
 let dragStart = null
+// 选中标记与拖动会话：只修改已提交历史，选中框和手柄属于独立浮层，不写入导出图片。
+let selectedShape = -1
+let shapeEdit = null
 // 每个工具拥有独立的本次窗口参数；切换只恢复自己的选择，不修改其他工具或持久配置。
 const toolOptions = Object.fromEntries(
   [...annotationCatalogue.tools.map(({ id }) => id), 'eraser'].map((id) => [
@@ -47,6 +51,10 @@ let mosaicMode = 'brush',
   mosaicSample = null,
   mosaicSampleDensity = 0,
   mosaicPointer = null
+// 聚光灯支持框选与笔触两种清晰区域；笔触复用马赛克的胶囊蒙版算法。
+let spotlightMode = 'rect',
+  spotlightRadius = 22,
+  spotlightLayer = null
 const annotationFont = '"Microsoft YaHei", "Segoe UI", sans-serif'
 const noteColors = {
   '#c1f3bd': '#adeea8',
@@ -75,61 +83,72 @@ async function invoke(action, value) {
 /**
  * 按原图坐标绘制单个矢量标记，避免撤销历史保存多份大图。
  * @param {object} shape 标记与画笔参数。
+ * @param {CanvasRenderingContext2D} target 目标上下文；橡皮擦使用独立透明层。
  * @returns {void} 无返回值。
  */
-function draw(shape) {
+function draw(shape, target = ctx) {
   const { points, color, size, font, type, text } = shape
   const a = points[0],
     b = points[points.length - 1]
-  ctx.strokeStyle = color
-  ctx.fillStyle = color
-  ctx.lineWidth = size
-  ctx.lineCap = 'round'
-  ctx.lineJoin = 'round'
-  ctx.beginPath()
+  target.strokeStyle = color
+  target.fillStyle = color
+  target.lineWidth = size
+  target.lineCap = 'round'
+  target.lineJoin = 'round'
+  target.beginPath()
   if (type === 'number') {
-    const radius = Math.max(12, size * 3 + 8)
-    ctx.arc(a.x, a.y, radius, 0, Math.PI * 2)
-    ctx.fill()
+    const radius = numberRadius(shape)
+    target.arc(a.x, a.y, radius, 0, Math.PI * 2)
+    target.fill()
     const rgb = color.match(/[a-f\d]{2}/gi).map((part) => parseInt(part, 16))
-    ctx.fillStyle = rgb[0] * 0.299 + rgb[1] * 0.587 + rgb[2] * 0.114 > 170 ? '#333333' : '#ffffff'
-    ctx.font = `bold ${Math.floor(radius * (shape.number > 99 ? 0.9 : 1.15))}px "Segoe UI", sans-serif`
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(String(shape.number), a.x, a.y, radius * 1.6)
-    ctx.textAlign = 'start'
+    target.fillStyle =
+      rgb[0] * 0.299 + rgb[1] * 0.587 + rgb[2] * 0.114 > 170 ? '#333333' : '#ffffff'
+    target.font = `bold ${Math.floor(radius * (shape.number > 99 ? 0.9 : 1.15))}px "Segoe UI", sans-serif`
+    target.textAlign = 'center'
+    target.textBaseline = 'middle'
+    target.fillText(String(shape.number), a.x, a.y, radius * 1.6)
+    target.textAlign = 'start'
   }
   if (type === 'pen' || type === 'highlighter') {
-    ctx.globalAlpha = type === 'highlighter' ? 0.3 : 1
-    ctx.lineWidth = type === 'highlighter' ? size * 4 : size
-    ctx.moveTo(a.x, a.y)
-    for (const p of points) ctx.lineTo(p.x, p.y)
-    ctx.stroke()
-    ctx.globalAlpha = 1
+    target.globalAlpha = type === 'highlighter' ? 0.3 : 1
+    target.lineWidth = type === 'highlighter' ? size * 4 : size
+    target.moveTo(a.x, a.y)
+    for (const p of points) target.lineTo(p.x, p.y)
+    target.stroke()
+    target.globalAlpha = 1
   }
   if (type === 'eraser') {
-    // 仅在笔迹范围恢复原图，擦除操作也进入矢量历史以支持撤销。
-    ctx.save()
-    const radius = Math.max(3, size * 2)
-    for (let index = 0; index < points.length; index++) {
-      const p = points[index],
-        previous = points[Math.max(0, index - 1)]
-      const steps = Math.max(1, Math.ceil(Math.hypot(p.x - previous.x, p.y - previous.y) / radius))
-      for (let step = 0; step <= steps; step++) {
-        const x = previous.x + ((p.x - previous.x) * step) / steps
-        const y = previous.y + ((p.y - previous.y) * step) / steps
-        ctx.moveTo(x + radius, y)
-        ctx.arc(x, y, radius, 0, Math.PI * 2)
+    // 在独立透明层上用 destination-out 擦除标记，不裁剪原图本身；
+    // 这样擦除边缘只会减少标记透明度，不会把画布边缘变成半透明水印。
+    target.save()
+    target.globalCompositeOperation = 'destination-out'
+    target.globalAlpha = 1
+    target.strokeStyle = '#000'
+    target.fillStyle = '#000'
+    // 荧光笔线宽为笔触的四倍，半径需略大于半个荧光笔宽度并留出抗锯齿余量。
+    const radius = Math.max(4, size * 2 + 2)
+    // 以加宽的圆头折线一次擦除，避免逐点圆之间出现扇贝形缺口留下虚线状残影。
+    target.lineWidth = radius * 2
+    target.lineCap = 'round'
+    target.lineJoin = 'round'
+    if (points.length > 1) {
+      target.beginPath()
+      target.moveTo(points[0].x, points[0].y)
+      for (let index = 1; index < points.length; index++) {
+        target.lineTo(points[index].x, points[index].y)
       }
+      target.stroke()
+    } else {
+      target.beginPath()
+      target.arc(a.x, a.y, radius, 0, Math.PI * 2)
+      target.fill()
     }
-    ctx.clip()
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
-    ctx.drawImage(image, 0, 0)
-    ctx.restore()
+    target.restore()
+    return
   }
-  if (type === 'rect') ctx.strokeRect(a.x, a.y, b.x - a.x, b.y - a.y)
+  if (type === 'rect') target.strokeRect(a.x, a.y, b.x - a.x, b.y - a.y)
   if (type === 'ellipse') {
-    ctx.ellipse(
+    target.ellipse(
       (a.x + b.x) / 2,
       (a.y + b.y) / 2,
       Math.abs(b.x - a.x) / 2,
@@ -138,15 +157,15 @@ function draw(shape) {
       0,
       Math.PI * 2
     )
-    ctx.stroke()
+    target.stroke()
   }
   if (type === 'arrow') {
-    drawArrow(a, b, size)
+    drawArrow(a, b, size, target)
   }
   if (type === 'text') {
-    ctx.font = `${font}px ${annotationFont}`
-    ctx.textBaseline = 'top'
-    ctx.fillText(text, a.x, a.y)
+    target.font = `${font}px ${annotationFont}`
+    target.textBaseline = 'top'
+    target.fillText(text, a.x, a.y)
   }
 }
 
@@ -155,9 +174,10 @@ function draw(shape) {
  * @param {{x:number,y:number}} a 起点。
  * @param {{x:number,y:number}} b 终点。
  * @param {number} thick 原图像素线宽。
+ * @param {CanvasRenderingContext2D} target 目标上下文。
  * @returns {void} 在当前填色下绘制两个相连多边形。
  */
-function drawArrow(a, b, thick) {
+function drawArrow(a, b, thick, target = ctx) {
   const length = Math.hypot(b.x - a.x, b.y - a.y)
   if (length < 1) return
   let headLength = thick * 4 + 8
@@ -176,20 +196,20 @@ function drawArrow(a, b, thick) {
   const endX = notchX + ux * 1.5,
     endY = notchY + uy * 1.5
   // 箭身与箭头略重叠，避免抗锯齿在连接处产生细缝。
-  ctx.beginPath()
+  target.beginPath()
   // 起点只保留一个顶点，消除平切尾端，使箭身从真正的尖点逐渐变宽。
-  ctx.moveTo(a.x, a.y)
-  ctx.lineTo(endX - nx * endHalfWidth, endY - ny * endHalfWidth)
-  ctx.lineTo(endX + nx * endHalfWidth, endY + ny * endHalfWidth)
-  ctx.closePath()
-  ctx.fill()
-  ctx.beginPath()
-  ctx.moveTo(b.x, b.y)
-  ctx.lineTo(baseX + nx * headHalfWidth, baseY + ny * headHalfWidth)
-  ctx.lineTo(notchX, notchY)
-  ctx.lineTo(baseX - nx * headHalfWidth, baseY - ny * headHalfWidth)
-  ctx.closePath()
-  ctx.fill()
+  target.moveTo(a.x, a.y)
+  target.lineTo(endX - nx * endHalfWidth, endY - ny * endHalfWidth)
+  target.lineTo(endX + nx * endHalfWidth, endY + ny * endHalfWidth)
+  target.closePath()
+  target.fill()
+  target.beginPath()
+  target.moveTo(b.x, b.y)
+  target.lineTo(baseX + nx * headHalfWidth, baseY + ny * headHalfWidth)
+  target.lineTo(notchX, notchY)
+  target.lineTo(baseX - nx * headHalfWidth, baseY - ny * headHalfWidth)
+  target.closePath()
+  target.fill()
 }
 
 /**
@@ -204,11 +224,12 @@ function releaseMosaicSample() {
 
 /**
  * 将涂抹路径的圆和连接四边形加入同向蒙版，快速移动和重叠时不留洞。
- * @param {Path2D} mask 所有马赛克共用的并集路径。
- * @param {object} shape 一次涂抹或框选的历史参数。
+ * 马赛克与聚光灯共用：框选加矩形，笔触加胶囊。
+ * @param {Path2D} mask 所有区域共用的并集路径。
+ * @param {object} shape 一次涂抹或框选的标记参数。
  * @returns {void} 扩充路径，不修改底图或已提交标记。
  */
-function addMosaicMask(mask, shape) {
+function addRegionMask(mask, shape) {
   const a = shape.points[0],
     b = shape.points[shape.points.length - 1]
   if (shape.mode === 'rect') {
@@ -237,9 +258,10 @@ function addMosaicMask(mask, shape) {
 /**
  * 仿照截图的揭示蒙版：统一采样原图，按涂抹和框选并集显示，浓度影响全部马赛克。
  * @param {object[]} visible 当前历史和正在绘制的标记。
+ * @param {CanvasRenderingContext2D} target 目标上下文。
  * @returns {void} 在底图上合成马赛克；无马赛克时立即释放采样图。
  */
-function drawMosaics(visible) {
+function drawMosaics(visible, target = ctx) {
   const mosaics = visible.filter((shape) => shape.type === 'mosaic' && validShape(shape))
   if (!mosaics.length) {
     releaseMosaicSample()
@@ -257,13 +279,73 @@ function drawMosaics(visible) {
     mosaicSampleDensity = mosaicDensity
   }
   const mask = new Path2D()
-  for (const shape of mosaics) addMosaicMask(mask, shape)
-  ctx.save()
-  ctx.clip(mask)
+  for (const shape of mosaics) addRegionMask(mask, shape)
+  target.save()
+  target.clip(mask)
   // 最近邻放大保留色块边界，始终从原图采样，重叠不发生二次模糊。
-  ctx.imageSmoothingEnabled = false
-  ctx.drawImage(mosaicSample, 0, 0, canvas.width, canvas.height)
-  ctx.restore()
+  target.imageSmoothingEnabled = false
+  target.drawImage(mosaicSample, 0, 0, canvas.width, canvas.height)
+  target.restore()
+}
+
+/** 当前会话的透明标记层，仅在存在橡皮擦时使用。 */
+let annotationLayer = null
+
+/**
+ * 取得与画布同尺寸的透明标记层。
+ * @returns {HTMLCanvasElement} 标记层画布。
+ */
+function ensureAnnotationLayer() {
+  if (!annotationLayer) annotationLayer = document.createElement('canvas')
+  if (annotationLayer.width !== canvas.width || annotationLayer.height !== canvas.height) {
+    annotationLayer.width = canvas.width
+    annotationLayer.height = canvas.height
+  }
+  return annotationLayer
+}
+
+/**
+ * 释放聚光灯压暗层，避免为无聚光灯的图片长期持有一张整图。
+ * @returns {void} 无返回值。
+ */
+function releaseSpotlightLayer() {
+  if (spotlightLayer) spotlightLayer.width = spotlightLayer.height = 0
+  spotlightLayer = null
+}
+
+/**
+ * 绘制聚光区外的变暗遮罩，重叠区域不重复变暗。
+ * 框选与笔触共用同一并集路径，笔触重叠时也不会出现孔洞。
+ * @param {object[]} visible 当前可见标记。
+ * @param {CanvasRenderingContext2D} target 目标上下文。
+ * @returns {void} 无返回值。
+ */
+function drawSpotlights(visible, target = ctx) {
+  const spotlights = visible.filter((shape) => shape.type === 'spotlight' && validShape(shape))
+  if (!spotlights.length) {
+    releaseSpotlightLayer()
+    return
+  }
+  // 先在独立压暗层上用 destination-out 挖出清晰区域，再整体合成，重叠区域只压暗一次。
+  if (!spotlightLayer) spotlightLayer = new OffscreenCanvas(canvas.width, canvas.height)
+  if (spotlightLayer.width !== canvas.width || spotlightLayer.height !== canvas.height) {
+    spotlightLayer.width = canvas.width
+    spotlightLayer.height = canvas.height
+  }
+  const mask = spotlightLayer.getContext('2d')
+  mask.setTransform(1, 0, 0, 1, 0, 0)
+  mask.globalAlpha = 1
+  mask.globalCompositeOperation = 'source-over'
+  mask.clearRect(0, 0, spotlightLayer.width, spotlightLayer.height)
+  mask.fillStyle = 'rgba(0,0,0,0.56)'
+  mask.fillRect(0, 0, spotlightLayer.width, spotlightLayer.height)
+  const clear = new Path2D()
+  for (const shape of spotlights) addRegionMask(clear, shape)
+  // destination-out 按源 alpha 擦除，挖孔必须使用不透明黑色，否则会留下半透明压暗。
+  mask.fillStyle = '#000'
+  mask.globalCompositeOperation = 'destination-out'
+  mask.fill(clear)
+  target.drawImage(spotlightLayer, 0, 0)
 }
 
 /**
@@ -272,35 +354,38 @@ function drawMosaics(visible) {
  */
 function render() {
   if (!image || disposed) return
+  const visible = current ? [...shapes, current] : shapes
   ctx.clearRect(0, 0, canvas.width, canvas.height)
   ctx.drawImage(image, 0, 0)
-  const visible = current ? [...shapes, current] : shapes
+  // 马赛克与聚光灯属于底图效果，先落到原图上；橡皮擦只在标记层内擦除，
+  // 不能把之后才绘制的压暗遮罩擦出旧路径。
   drawMosaics(visible)
-  const spotlights = visible.filter((shape) => shape.type === 'spotlight' && validShape(shape))
-  if (spotlights.length) {
-    // 先绘制区域并集的遮罩，重叠聚光区不重复变暗，其他标记始终清晰。
-    ctx.save()
-    for (const shape of spotlights) {
-      const [a, b] = shape.points
-      // 连续求各区域补集的交集，避免重叠孔洞反转，也无需额外分配整图遮罩。
-      const outside = new Path2D()
-      outside.rect(0, 0, canvas.width, canvas.height)
-      outside.rect(Math.min(a.x, b.x), Math.min(a.y, b.y), Math.abs(b.x - a.x), Math.abs(b.y - a.y))
-      ctx.clip(outside, 'evenodd')
+  drawSpotlights(visible)
+  if (visible.some((shape) => shape.type === 'eraser')) {
+    const layer = ensureAnnotationLayer()
+    const layerContext = layer.getContext('2d')
+    layerContext.setTransform(1, 0, 0, 1, 0, 0)
+    layerContext.globalAlpha = 1
+    layerContext.globalCompositeOperation = 'source-over'
+    layerContext.clearRect(0, 0, layer.width, layer.height)
+    for (const shape of visible) {
+      if (!['spotlight', 'mosaic'].includes(shape.type)) draw(shape, layerContext)
     }
-    ctx.fillStyle = 'rgba(0,0,0,0.56)'
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
-    ctx.restore()
+    ctx.drawImage(layer, 0, 0)
+  } else {
+    for (const shape of visible) if (!['spotlight', 'mosaic'].includes(shape.type)) draw(shape)
   }
-  for (const shape of visible) if (!['spotlight', 'mosaic'].includes(shape.type)) draw(shape)
   syncMosaicSelection()
+  // 历史变化后丢弃越界的选中索引，避免手柄指向已撤销的标记。
+  if (selectedShape >= shapes.length) selectedShape = -1
+  syncAnnotationSelection()
   // 只发布已经提交到画布的标记数；按下画笔或临时拖动不冒充有效标注。
   canvas.dataset.annotationCount = String(shapes.length)
   canvas.dataset.nextNumber = String(nextNumber())
   const numberButton = document.querySelector('[data-tool="number"]')
   numberButton.title = `序号圆圈 (N) · 下一个 ${nextNumber()}`
-  $('undo').disabled = !shapes.length
-  $('redo').disabled = !undone.length
+  $('undo').disabled = !history.length
+  $('redo').disabled = !future.length
 }
 
 /**
@@ -320,17 +405,456 @@ function nextNumber() {
  * @returns {boolean} 是否应进入撤销历史。
  */
 function validShape(shape) {
-  if (
-    ['rect', 'ellipse', 'arrow', 'spotlight'].includes(shape.type) ||
-    (shape.type === 'mosaic' && shape.mode === 'rect')
-  ) {
+  if (shape.type === 'spotlight' || shape.type === 'mosaic') {
+    if (shape.mode === 'brush') return shape.points.length >= 1
     const [a, b = a] = shape.points
-    return shape.type === 'spotlight' || shape.type === 'mosaic'
-      ? Math.abs(b.x - a.x) >= 2 && Math.abs(b.y - a.y) >= 2
-      : Math.hypot(b.x - a.x, b.y - a.y) >= 2
+    return Math.abs(b.x - a.x) >= 2 && Math.abs(b.y - a.y) >= 2
+  }
+  if (['rect', 'ellipse', 'arrow'].includes(shape.type)) {
+    const [a, b = a] = shape.points
+    return Math.hypot(b.x - a.x, b.y - a.y) >= 2
   }
   return true
 }
+
+/**
+ * 序号圆圈的半径，缩放后沿用保存值，未缩放时按笔触推导。
+ * @param {object} shape 序号标记。
+ * @returns {number} 原图坐标下的半径。
+ */
+function numberRadius(shape) {
+  return typeof shape.radius === 'number'
+    ? Math.max(6, shape.radius)
+    : Math.max(12, (shape.size || 4) * 3 + 8)
+}
+
+/**
+ * 复制单个标记，避免拖动和撤销快照与画布状态共享引用。
+ * @param {object} shape 待复制的标记。
+ * @returns {object} 点数组已独立的新标记。
+ */
+function cloneShape(shape) {
+  return { ...shape, points: shape.points.map((point) => ({ x: point.x, y: point.y })) }
+}
+
+/**
+ * 复制当前全部已提交标记。
+ * @returns {object[]} 与画布状态互不共享引用的副本。
+ */
+function cloneShapes() {
+  return shapes.map(cloneShape)
+}
+
+/**
+ * 记录一次可撤销快照并清空重做分支，深度与原生截图保持一致。
+ * @param {object[]} snapshot 变更前的标记副本。
+ * @returns {void} 无返回值。
+ */
+function pushSnapshot(snapshot) {
+  history.push(snapshot)
+  if (history.length > 50) history.shift()
+  future = []
+}
+
+/**
+ * 取得显示像素与原图像素的比例，用于把固定像素容差换算到原图坐标。
+ * @returns {number} 每个显示像素对应的原图像素数。
+ */
+function imagePerPixel() {
+  const rect = canvas.getBoundingClientRect()
+  return rect.width > 0 ? canvas.width / rect.width : 1
+}
+
+/**
+ * 点到线段的最短距离。
+ * @param {number} px 点的横向坐标。
+ * @param {number} py 点的纵向坐标。
+ * @param {number} ax 线段起点横坐标。
+ * @param {number} ay 线段起点纵坐标。
+ * @param {number} bx 线段终点横坐标。
+ * @param {number} by 线段终点纵坐标。
+ * @returns {number} 原图坐标下的距离。
+ */
+function segmentDistance(px, py, ax, ay, bx, by) {
+  const dx = bx - ax,
+    dy = by - ay,
+    length = dx * dx + dy * dy
+  const t = length ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / length)) : 0
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy))
+}
+
+/**
+ * 点到折线各段的最短距离，供画笔、荧光笔和涂抹马赛克命中使用。
+ * @param {number} px 点的横向坐标。
+ * @param {number} py 点的纵向坐标。
+ * @param {{x:number,y:number}[]} points 折线顶点。
+ * @returns {number} 原图坐标下的最短距离。
+ */
+function polylineDistance(px, py, points) {
+  if (!points.length) return Number.POSITIVE_INFINITY
+  if (points.length === 1) return Math.hypot(px - points[0].x, py - points[0].y)
+  let best = Number.POSITIVE_INFINITY
+  for (let index = 1; index < points.length; index++) {
+    const previous = points[index - 1],
+      current = points[index]
+    best = Math.min(best, segmentDistance(px, py, previous.x, previous.y, current.x, current.y))
+  }
+  return best
+}
+
+/**
+ * 计算单个标记的完整包围盒，选中框和手柄都以此为准。
+ * @param {object} shape 待测量的标记。
+ * @returns {{left:number,top:number,right:number,bottom:number}} 原图坐标包围盒。
+ */
+function shapeBounds(shape) {
+  const first = shape.points[0],
+    last = shape.points[shape.points.length - 1]
+  if (shape.type === 'text') {
+    ctx.save()
+    ctx.font = `${shape.font}px ${annotationFont}`
+    const width = Math.max(8, ctx.measureText(shape.text || '').width)
+    ctx.restore()
+    return {
+      left: first.x,
+      top: first.y,
+      right: first.x + width,
+      bottom: first.y + shape.font * 1.25
+    }
+  }
+  if (shape.type === 'number') {
+    const radius = numberRadius(shape)
+    return {
+      left: first.x - radius,
+      top: first.y - radius,
+      right: first.x + radius,
+      bottom: first.y + radius
+    }
+  }
+  if (
+    shape.type === 'pen' ||
+    shape.type === 'highlighter' ||
+    shape.type === 'eraser' ||
+    ((shape.type === 'mosaic' || shape.type === 'spotlight') && shape.mode !== 'rect')
+  ) {
+    let left = Number.POSITIVE_INFINITY,
+      top = Number.POSITIVE_INFINITY,
+      right = Number.NEGATIVE_INFINITY,
+      bottom = Number.NEGATIVE_INFINITY
+    for (const point of shape.points) {
+      left = Math.min(left, point.x)
+      top = Math.min(top, point.y)
+      right = Math.max(right, point.x)
+      bottom = Math.max(bottom, point.y)
+    }
+    if (!Number.isFinite(left)) return { left: 0, top: 0, right: 0, bottom: 0 }
+    const padding =
+      shape.type === 'mosaic' || shape.type === 'spotlight'
+        ? shape.radius || 0
+        : shape.type === 'highlighter'
+          ? shape.size * 2
+          : shape.size / 2
+    return { left: left - padding, top: top - padding, right: right + padding, bottom: bottom + padding }
+  }
+  return {
+    left: Math.min(first.x, last.x),
+    top: Math.min(first.y, last.y),
+    right: Math.max(first.x, last.x),
+    bottom: Math.max(first.y, last.y)
+  }
+}
+
+/**
+ * 判断标记是否属于可选中、可拖动的非笔触标记。
+ * @param {string} type 标记类型。
+ * @returns {boolean} 矩形、椭圆、箭头、马赛克、文字、序号和聚光灯可选中。
+ */
+function selectableType(type) {
+  return ['rect', 'ellipse', 'arrow', 'mosaic', 'text', 'number', 'spotlight'].includes(type)
+}
+
+/**
+ * 判断标记是否有可拖动的缩放/端点手柄，与原生截图保持一致。
+ * @param {object} shape 标记。
+ * @returns {boolean} 矩形、椭圆、箭头、聚光灯、框选马赛克和序号可缩放。
+ */
+function resizableShape(shape) {
+  if (shape.type === 'arrow') return true
+  if (shape.type === 'mosaic' || shape.type === 'spotlight') return shape.mode === 'rect'
+  return ['rect', 'ellipse', 'number'].includes(shape.type)
+}
+
+/**
+ * 命中单个标记：轮廓类只认线条，区域类允许整块命中，避免不可见边框难以点选。
+ * @param {object} shape 待检测标记。
+ * @param {number} x 原图横坐标。
+ * @param {number} y 原图纵坐标。
+ * @param {number} tolerance 原图坐标容差。
+ * @returns {boolean} 是否命中。
+ */
+function hitShapeAt(shape, x, y, tolerance) {
+  const first = shape.points[0],
+    last = shape.points[shape.points.length - 1]
+  if (shape.type === 'rect') {
+    return (
+      Math.min(
+        segmentDistance(x, y, first.x, first.y, last.x, first.y),
+        segmentDistance(x, y, last.x, last.y, first.x, last.y),
+        segmentDistance(x, y, first.x, last.y, first.x, first.y),
+        segmentDistance(x, y, last.x, first.y, last.x, last.y)
+      ) <= tolerance
+    )
+  }
+  if (shape.type === 'ellipse') {
+    const centerX = (first.x + last.x) / 2,
+      centerY = (first.y + last.y) / 2
+    const axisX = Math.abs(last.x - first.x) / 2,
+      axisY = Math.abs(last.y - first.y) / 2
+    if (axisX < 0.5 && axisY < 0.5) return Math.hypot(x - centerX, y - centerY) <= tolerance
+    if (axisX < 0.5 || axisY < 0.5) {
+      return (
+        segmentDistance(x, y, first.x, centerY, last.x, centerY) <= tolerance ||
+        segmentDistance(x, y, centerX, first.y, centerX, last.y) <= tolerance
+      )
+    }
+    const radial = Math.hypot((x - centerX) / axisX, (y - centerY) / axisY)
+    return Math.abs(radial - 1) * Math.min(axisX, axisY) <= tolerance
+  }
+  if (shape.type === 'arrow') {
+    return segmentDistance(x, y, first.x, first.y, last.x, last.y) <= tolerance + shape.size
+  }
+  if (shape.type === 'spotlight') {
+    // 笔触聚光灯按路径半径命中，框选聚光灯允许整块命中。
+    if (shape.mode === 'brush')
+      return polylineDistance(x, y, shape.points) <= (shape.radius || 0) + tolerance
+    return (
+      x >= Math.min(first.x, last.x) - tolerance &&
+      x <= Math.max(first.x, last.x) + tolerance &&
+      y >= Math.min(first.y, last.y) - tolerance &&
+      y <= Math.max(first.y, last.y) + tolerance
+    )
+  }
+  if (shape.type === 'mosaic' && shape.mode === 'rect') {
+    return (
+      x >= Math.min(first.x, last.x) - tolerance &&
+      x <= Math.max(first.x, last.x) + tolerance &&
+      y >= Math.min(first.y, last.y) - tolerance &&
+      y <= Math.max(first.y, last.y) + tolerance
+    )
+  }
+  if (shape.type === 'mosaic') {
+    return polylineDistance(x, y, shape.points) <= (shape.radius || 0) + tolerance
+  }
+  if (shape.type === 'number') {
+    return Math.hypot(x - first.x, y - first.y) <= numberRadius(shape) + tolerance / 2
+  }
+  if (shape.type === 'text') {
+    const box = shapeBounds(shape)
+    return x >= box.left && x <= box.right && y >= box.top && y <= box.bottom
+  }
+  return false
+}
+
+/**
+ * 从顶层向下命中可拖动标记。
+ * @param {number} x 原图横坐标。
+ * @param {number} y 原图纵坐标。
+ * @param {number} tolerance 原图坐标容差。
+ * @returns {number} 标记索引，未命中返回 -1。
+ */
+function hitShape(x, y, tolerance) {
+  for (let index = shapes.length - 1; index >= 0; index--) {
+    if (selectableType(shapes[index].type) && hitShapeAt(shapes[index], x, y, tolerance))
+      return index
+  }
+  return -1
+}
+
+/**
+ * 按位移平移标记的全部坐标。
+ * @param {object} shape 已被复制的标记。
+ * @param {number} dx 横向位移。
+ * @param {number} dy 纵向位移。
+ * @returns {object} 平移后的标记。
+ */
+function translateShape(shape, dx, dy) {
+  for (const point of shape.points) {
+    point.x += dx
+    point.y += dy
+  }
+  return shape
+}
+
+/**
+ * 把手柄位移换算为包围盒变换；箭头只移动被拖动的端点，序号按外框调整半径。
+ * @param {object} shape 已被复制的标记。
+ * @param {string} handle 手柄标识（nw/n/ne/e/se/s/sw/w/start/end）。
+ * @param {number} dx 横向位移。
+ * @param {number} dy 纵向位移。
+ * @param {{left:number,top:number,right:number,bottom:number}} box 拖动起始包围盒。
+ * @returns {object} 变形后的标记。
+ */
+function resizeShape(shape, handle, dx, dy, box) {
+  if (handle === 'start' || handle === 'end') {
+    const index = handle === 'start' ? 0 : shape.points.length - 1
+    shape.points[index] = { x: shape.points[index].x + dx, y: shape.points[index].y + dy }
+    return shape
+  }
+  let left = box.left,
+    top = box.top,
+    right = box.right,
+    bottom = box.bottom
+  if (handle.includes('w')) left += dx
+  if (handle.includes('e')) right += dx
+  if (handle.includes('n')) top += dy
+  if (handle.includes('s')) bottom += dy
+  if (right - left < 2) right = left + 2
+  if (bottom - top < 2) bottom = top + 2
+  const oldWidth = Math.max(0.5, box.right - box.left),
+    oldHeight = Math.max(0.5, box.bottom - box.top)
+  const newWidth = right - left,
+    newHeight = bottom - top
+  const mapX = (value) => left + ((value - box.left) * newWidth) / oldWidth
+  const mapY = (value) => top + ((value - box.top) * newHeight) / oldHeight
+  if (shape.type === 'number') {
+    shape.points[0] = { x: mapX(shape.points[0].x), y: mapY(shape.points[0].y) }
+    shape.radius = Math.max(6, Math.max(newWidth, newHeight) / 2)
+    return shape
+  }
+  if (
+    (shape.type === 'mosaic' || shape.type === 'spotlight') &&
+    shape.mode !== 'rect'
+  ) {
+    for (const point of shape.points) {
+      point.x = mapX(point.x)
+      point.y = mapY(point.y)
+    }
+    return shape
+  }
+  shape.points = shape.points
+    .slice(0, 2)
+    .map((point) => ({ x: mapX(point.x), y: mapY(point.y) }))
+  return shape
+}
+
+/**
+ * 把选中框和手柄贴合到当前缩放下的画布位置，缩放或滚动后保持同步。
+ * @returns {void} 无选中项时隐藏浮层。
+ */
+function syncAnnotationSelection() {
+  const overlay = $('annotation-selection')
+  const shape = selectedShape >= 0 ? shapes[selectedShape] : null
+  if (!shape || disposed || !content?.edit || !selectableType(shape.type)) {
+    overlay.hidden = true
+    return
+  }
+  const bounds = shapeBounds(shape),
+    rect = canvas.getBoundingClientRect()
+  const scaleX = rect.width / canvas.width,
+    scaleY = rect.height / canvas.height
+  const boxWidth = bounds.right - bounds.left,
+    boxHeight = bounds.bottom - bounds.top
+  overlay.hidden = false
+  overlay.style.left = `${rect.left + bounds.left * scaleX}px`
+  overlay.style.top = `${rect.top + bounds.top * scaleY}px`
+  overlay.style.width = `${Math.max(1, boxWidth * scaleX)}px`
+  overlay.style.height = `${Math.max(1, boxHeight * scaleY)}px`
+  for (const handle of overlay.querySelectorAll('[data-annotation-handle]')) {
+    const kind = handle.dataset.annotationHandle
+    const endpoint = kind === 'start' || kind === 'end'
+    // 箭头只有两个端点手柄；文字只显示选中框，不支持缩放。
+    const visible =
+      shape.type === 'arrow'
+        ? endpoint
+        : !endpoint && shape.type !== 'text' && resizableShape(shape)
+    handle.hidden = !visible
+    if (!visible || !endpoint) continue
+    const point = shape.points[kind === 'start' ? 0 : shape.points.length - 1]
+    handle.style.left = `${((point.x - bounds.left) / Math.max(1, boxWidth)) * 100}%`
+    handle.style.top = `${((point.y - bounds.top) / Math.max(1, boxHeight)) * 100}%`
+  }
+}
+
+/**
+ * 退出选中态，丢弃进行中的拖动会话。
+ * @returns {void} 无返回值。
+ */
+function clearSelection() {
+  selectedShape = -1
+  shapeEdit = null
+  syncAnnotationSelection()
+}
+
+/**
+ * 删除当前选中的标记，并写入可撤销历史。
+ * @returns {void} 无选中项或索引失效时不修改画布。
+ */
+function deleteSelectedShape() {
+  if (selectedShape < 0 || selectedShape >= shapes.length) return
+  pushSnapshot(cloneShapes())
+  shapes.splice(selectedShape, 1)
+  clearSelection()
+  render()
+}
+
+/**
+ * 把拖动/缩放的首次位移写入撤销历史，之后每帧都从按下时快照重算。
+ * @param {PointerEvent} event 当前指针事件。
+ * @returns {void} 无返回值。
+ */
+function moveShapeEdit(event) {
+  if (!shapeEdit || shapeEdit.pointerId !== event.pointerId) return
+  const next = point(event)
+  const dx = next.x - shapeEdit.start.x,
+    dy = next.y - shapeEdit.start.y
+  if (!shapeEdit.moved) {
+    if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) return
+    shapeEdit.moved = true
+    pushSnapshot(shapeEdit.before)
+  }
+  const snapshot = shapeEdit.before[shapeEdit.index]
+  shapes[shapeEdit.index] =
+    shapeEdit.mode === 'move'
+      ? translateShape(cloneShape(snapshot), dx, dy)
+      : resizeShape(cloneShape(snapshot), shapeEdit.handle, dx, dy, shapeEdit.box)
+  render()
+}
+
+/**
+ * 结束拖动或缩放并保持选中态，便于继续微调。
+ * @param {PointerEvent|Event} event 指针结束、取消或窗口失焦事件。
+ * @returns {void} 无返回值。
+ */
+function endShapeEdit(event) {
+  if (!shapeEdit) return
+  if (event.type !== 'blur' && shapeEdit.pointerId !== event.pointerId) return
+  shapeEdit = null
+  render()
+}
+
+$('annotation-selection').innerHTML = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w', 'start', 'end']
+  .map((kind) => `<i data-annotation-handle="${kind}" hidden></i>`)
+  .join('')
+$('annotation-selection').addEventListener('pointerdown', (event) => {
+  const handle = event.target.closest('[data-annotation-handle]')
+  if (!handle || event.button !== 0 || !content?.edit || selectedShape < 0) return
+  event.preventDefault()
+  const snapshot = cloneShapes()
+  shapeEdit = {
+    mode: 'resize',
+    index: selectedShape,
+    handle: handle.dataset.annotationHandle,
+    start: point(event),
+    before: snapshot,
+    box: shapeBounds(snapshot[selectedShape]),
+    moved: false,
+    pointerId: event.pointerId
+  }
+  handle.setPointerCapture(event.pointerId)
+})
+document.addEventListener('pointermove', moveShapeEdit)
+document.addEventListener('pointerup', endShapeEdit)
+document.addEventListener('pointercancel', endShapeEdit)
 
 /**
  * 在可见区域适配图片，100% 模式允许滚动查看原始分辨率。
@@ -356,6 +880,7 @@ function fit() {
   canvas.style.width = `${Math.max(1, canvas.width * scale)}px`
   canvas.style.height = `${Math.max(1, canvas.height * scale)}px`
   syncTextEntry()
+  syncAnnotationSelection()
   updateMosaicCursor()
 }
 
@@ -385,8 +910,10 @@ function point(event) {
 function finish() {
   if (!current) return
   if (validShape(current)) {
+    pushSnapshot(cloneShapes())
     shapes.push(current)
-    undone = []
+    // 新放置的非笔触标记直接进入选中态，可立即拖动或缩放，无需再次切换工具。
+    selectedShape = selectableType(current.type) ? shapes.length - 1 : -1
   }
   current = null
   render()
@@ -439,7 +966,7 @@ function syncTextEntry() {
 }
 
 /**
- * 同步马赛克笔的实际覆盖圆，离开图片或切换模式时撤下，不进入导出画布。
+ * 同步马赛克笔/聚光灯笔的实际覆盖圆，离开图片或切换模式时撤下，不进入导出画布。
  * @param {PointerEvent|null} event 当前指针；省略时复用上次位置并重算缩放。
  * @returns {void} 更新独立DOM光标的显示和尺寸。
  */
@@ -447,10 +974,13 @@ function updateMosaicCursor(event = null) {
   if (event) mosaicPointer = { x: event.clientX, y: event.clientY }
   const cursor = $('mosaic-cursor'),
     rect = canvas.getBoundingClientRect()
+  const brushMode =
+    (tool === 'mosaic' && mosaicMode === 'brush') ||
+    (tool === 'spotlight' && spotlightMode === 'brush')
+  const radius = tool === 'spotlight' ? spotlightRadius : mosaicRadius
   const visible =
     content?.edit &&
-    tool === 'mosaic' &&
-    mosaicMode === 'brush' &&
+    brushMode &&
     mosaicPointer &&
     mosaicPointer.x >= rect.left &&
     mosaicPointer.x < rect.right &&
@@ -460,8 +990,8 @@ function updateMosaicCursor(event = null) {
   if (!visible) return
   cursor.style.left = `${mosaicPointer.x}px`
   cursor.style.top = `${mosaicPointer.y}px`
-  cursor.style.width = `${(mosaicRadius * 2 * rect.width) / canvas.width}px`
-  cursor.style.height = `${(mosaicRadius * 2 * rect.height) / canvas.height}px`
+  cursor.style.width = `${(radius * 2 * rect.width) / canvas.width}px`
+  cursor.style.height = `${(radius * 2 * rect.height) / canvas.height}px`
 }
 
 /**
@@ -470,7 +1000,11 @@ function updateMosaicCursor(event = null) {
  */
 function syncMosaicSelection() {
   const selection = $('mosaic-selection')
-  const visible = current?.type === 'mosaic' && current.mode === 'rect' && validShape(current)
+  const visible =
+    current &&
+    (current.type === 'mosaic' || current.type === 'spotlight') &&
+    current.mode === 'rect' &&
+    validShape(current)
   selection.hidden = !visible
   if (!visible) return
   const [a, b] = current.points,
@@ -503,8 +1037,23 @@ function syncMosaicControls() {
     button.classList.toggle('active', active)
     button.setAttribute('aria-pressed', String(active))
   })
-  canvas.style.cursor =
-    tool === 'mosaic' && mosaicMode === 'brush' ? 'none' : tool === 'text' ? 'text' : 'crosshair'
+  // 聚光灯与马赛克共用笔触外观：框选时不显示无效的笔刷大小，笔触时隐藏十字光标。
+  $('spotlight-controls').hidden = tool !== 'spotlight'
+  $('spotlight-brush-sizes').hidden = spotlightMode !== 'brush'
+  document.querySelectorAll('[data-spotlight-mode]').forEach((button) => {
+    const active = button.dataset.spotlightMode === spotlightMode
+    button.classList.toggle('active', active)
+    button.setAttribute('aria-pressed', String(active))
+  })
+  document.querySelectorAll('[data-spotlight-radius]').forEach((button) => {
+    const active = Number(button.dataset.spotlightRadius) === spotlightRadius
+    button.classList.toggle('active', active)
+    button.setAttribute('aria-pressed', String(active))
+  })
+  const brushMode =
+    (tool === 'mosaic' && mosaicMode === 'brush') ||
+    (tool === 'spotlight' && spotlightMode === 'brush')
+  canvas.style.cursor = brushMode ? 'none' : tool === 'text' ? 'text' : 'crosshair'
   fit()
 }
 
@@ -659,6 +1208,8 @@ document.querySelectorAll('[data-tool]').forEach((button) =>
   button.addEventListener('click', () => {
     finishText(true)
     tool = button.dataset.tool
+    // 切换工具时退出选中态，避免旧标记的手柄留在画布上拦截新标记的拖动。
+    clearSelection()
     syncAnnotationStyle()
     togglePalette(false)
     document.querySelectorAll('[data-tool]').forEach((item) => {
@@ -673,38 +1224,62 @@ canvas.addEventListener('pointerdown', (event) => {
   if (event.button !== 0 || !content?.edit) return
   // 阻止画布的默认焦点转移，否则刚显示的文字输入会立即 blur 并被清空。
   event.preventDefault()
-  if (shapes.length >= 200) {
-    $('status').textContent = '已达 200 个标记，请复制或保存后继续编辑'
+  finishText(true)
+  const start = point(event)
+  // 已有非笔触标记优先进入拖动/缩放；文字工具点中已有文本框时同样先选中，
+  // 避免同一次点击既想移动文本框又弹出新的文字输入。
+  const hit = hitShape(start.x, start.y, 6 * imagePerPixel())
+  if (hit >= 0) {
+    selectedShape = hit
+    shapeEdit = {
+      mode: 'move',
+      index: hit,
+      start,
+      before: cloneShapes(),
+      moved: false,
+      pointerId: event.pointerId
+    }
+    canvas.setPointerCapture(event.pointerId)
+    syncAnnotationSelection()
+    render()
     return
   }
-  finishText(true)
+  clearSelection()
   if (tool === 'text') {
-    textPosition = point(event)
+    // 空白处仍按文字工具落点新建输入框。
+    textPosition = start
     $('text-entry').hidden = false
     syncTextEntry()
     $('text-entry').focus()
     return
   }
+  if (shapes.length >= 200) {
+    $('status').textContent = '已达 200 个标记，请复制或保存后继续编辑'
+    return
+  }
   canvas.setPointerCapture(event.pointerId)
   current = {
     type: tool,
-    points: [point(event)],
+    points: [start],
     color: $('color').value,
     size: Number($('size').value),
     font: Number($('font-size').value),
     number: tool === 'number' ? nextNumber() : undefined,
-    mode: tool === 'mosaic' ? mosaicMode : undefined,
-    radius: tool === 'mosaic' ? mosaicRadius : undefined
+    mode:
+      tool === 'mosaic' ? mosaicMode : tool === 'spotlight' ? spotlightMode : undefined,
+    radius:
+      tool === 'mosaic' ? mosaicRadius : tool === 'spotlight' ? spotlightRadius : undefined
   }
   render()
 })
 canvas.addEventListener('pointermove', (event) => {
   updateMosaicCursor(event)
+  if (shapeEdit) return
   if (!current || current.type === 'number') return
   const next = point(event)
   if (
     ['pen', 'highlighter', 'eraser'].includes(current.type) ||
-    (current.type === 'mosaic' && current.mode === 'brush')
+    ((current.type === 'mosaic' || current.type === 'spotlight') && current.mode === 'brush')
   ) {
     if (current.points.length < 20000) current.points.push(next)
   } else current.points[1] = next
@@ -753,6 +1328,18 @@ document.querySelectorAll('[data-mosaic-radius]').forEach((button) => {
     syncMosaicControls()
   }
 })
+document.querySelectorAll('[data-spotlight-mode]').forEach((button) => {
+  button.onclick = () => {
+    spotlightMode = button.dataset.spotlightMode
+    syncMosaicControls()
+  }
+})
+document.querySelectorAll('[data-spotlight-radius]').forEach((button) => {
+  button.onclick = () => {
+    spotlightRadius = Number(button.dataset.spotlightRadius)
+    syncMosaicControls()
+  }
+})
 document.querySelectorAll('[data-mosaic-density]').forEach((button) => {
   button.innerHTML = mosaicDensityIcon(Number(button.dataset.grid))
   button.onclick = () => {
@@ -763,11 +1350,17 @@ document.querySelectorAll('[data-mosaic-density]').forEach((button) => {
 })
 $('undo').onclick = () => {
   finishText(true)
-  if (shapes.length) undone.push(shapes.pop())
+  if (!history.length) return
+  future.push(cloneShapes())
+  shapes = history.pop()
+  clearSelection()
   render()
 }
 $('redo').onclick = () => {
-  if (undone.length) shapes.push(undone.pop())
+  if (!future.length) return
+  history.push(cloneShapes())
+  shapes = future.pop()
+  clearSelection()
   render()
 }
 // 保留编辑区焦点，原生撤销历史才能精确作用于当前便签。
@@ -777,8 +1370,9 @@ for (const action of ['undo', 'redo']) {
 }
 $('clear').onclick = () => {
   finishText(false)
+  if (shapes.length) pushSnapshot(cloneShapes())
   shapes = []
-  undone = []
+  clearSelection()
   render()
 }
 $('zoom').onchange = fit
@@ -944,6 +1538,7 @@ document.querySelectorAll('[data-resize]').forEach((handle) => {
 })
 window.addEventListener('blur', () => {
   endDrag({ type: 'blur' })
+  endShapeEdit({ type: 'blur' })
   resizeStart = null
   togglePalette(false)
   mosaicPointer = null
@@ -986,6 +1581,7 @@ window.addEventListener('resize', () => {
 stage.addEventListener('scroll', () => {
   syncTextEntry()
   syncMosaicSelection()
+  syncAnnotationSelection()
   mosaicPointer = null
   updateMosaicCursor()
 })
@@ -1007,11 +1603,18 @@ document.addEventListener('keydown', (event) => {
     } else invoke('close')
     return
   }
-  // 输入文字时保留原生编辑快捷键，避免误触绘图或复制整图。
-  if (content?.type !== 'image' || event.target.matches('input, textarea, select')) return
+  // 输入文字时保留原生编辑快捷键；输入框已提交并隐藏后，快捷键仍作用于画布。
+  const editingText = !$('text-entry').hidden
+  if (content?.type !== 'image' || editingText) return
   const key = event.key.toLowerCase()
   // 单纯悬浮图片只保留复制/保存，不接受任何标注工具或历史快捷键。
   if (!content.edit && !((event.ctrlKey || event.metaKey) && ['c', 's'].includes(key))) return
+  // 选中标记后按 Delete/Backspace 删除；拖动进行中不打断当前手势。
+  if ((event.key === 'Delete' || event.key === 'Backspace') && selectedShape >= 0 && !shapeEdit) {
+    event.preventDefault()
+    deleteSelectedShape()
+    return
+  }
   if (event.ctrlKey || event.metaKey) {
     const action = {
       z: event.shiftKey ? 'redo' : 'undo',
@@ -1041,6 +1644,12 @@ document.addEventListener('keydown', (event) => {
 window.addEventListener('beforeunload', () => {
   disposed = true
   releaseMosaicSample()
+  releaseSpotlightLayer()
+  if (annotationLayer) {
+    annotationLayer.width = 0
+    annotationLayer.height = 0
+    annotationLayer = null
+  }
   mosaicPointer = null
   $('mosaic-cursor').hidden = true
   $('mosaic-selection').hidden = true
@@ -1049,7 +1658,11 @@ window.addEventListener('beforeunload', () => {
   unsubscribePointer()
   unsubscribeDockPreference()
   shapes = []
-  undone = []
+  history = []
+  future = []
+  selectedShape = -1
+  shapeEdit = null
+  $('annotation-selection').hidden = true
   current = null
   resizeStart = null
   dragStart = null

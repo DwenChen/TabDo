@@ -198,6 +198,83 @@
             </div>
           </div>
 
+          <div
+            class="mosaic-controls"
+            id="spotlight-controls"
+            role="group"
+            aria-label="聚光灯设置"
+            hidden
+          >
+            <div class="group" role="group" aria-label="聚光灯模式">
+              <button
+                class="tool-btn"
+                data-spotlight-mode="brush"
+                aria-label="聚光灯笔"
+                aria-pressed="false"
+                title="聚光灯笔"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="m5 16 5-9 4 9 5-9" />
+                </svg>
+              </button>
+              <button
+                class="tool-btn active"
+                data-spotlight-mode="rect"
+                aria-label="框选聚光灯"
+                aria-pressed="true"
+                title="框选聚光灯"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <rect x="6" y="6" width="12" height="12" />
+                </svg>
+              </button>
+            </div>
+            <span class="mosaic-option-divider" aria-hidden="true"></span>
+            <div class="group" id="spotlight-brush-sizes" role="group" aria-label="聚光灯笔大小">
+              <button
+                class="size-dot"
+                data-spotlight-radius="12"
+                aria-label="聚光灯笔 小"
+                aria-pressed="false"
+                title="小笔刷"
+              >
+                <i style="width: 5px; height: 5px"></i>
+              </button>
+              <button
+                class="size-dot active"
+                data-spotlight-radius="22"
+                aria-label="聚光灯笔 中"
+                aria-pressed="true"
+                title="中笔刷"
+              >
+                <i style="width: 10px; height: 10px"></i>
+              </button>
+              <button
+                class="size-dot"
+                data-spotlight-radius="36"
+                aria-label="聚光灯笔 大"
+                aria-pressed="false"
+                title="大笔刷"
+              >
+                <i style="width: 16px; height: 16px"></i>
+              </button>
+            </div>
+          </div>
+
           <div class="divider"></div>
 
           <div class="group color-control">
@@ -473,6 +550,7 @@
       />
       <div id="mosaic-cursor" aria-hidden="true" hidden></div>
       <div id="mosaic-selection" aria-hidden="true" hidden></div>
+      <div id="annotation-selection" aria-hidden="true" hidden></div>
 
       <!-- 右下角调节大小手柄（透明窗口下原生 resize 边缘体验欠佳，提供自定义手柄） -->
       <div class="resize-edge north" data-resize="n"></div>

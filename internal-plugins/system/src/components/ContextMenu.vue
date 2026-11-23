@@ -6,14 +6,18 @@ defineProps({
   canFavorite: { type: Boolean, default: false },
   canFloat: { type: Boolean, default: false },
   canRelay: { type: Boolean, default: false },
-  canAnnotate: { type: Boolean, default: false }
+  canAnnotate: { type: Boolean, default: false },
+  canSplitWords: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['favorite', 'delete', 'float', 'annotate', 'relay'])
+const emit = defineEmits(['favorite', 'delete', 'float', 'annotate', 'relay', 'split-words'])
 </script>
 
 <template>
   <div v-if="show" class="context-menu" :style="{ left: x + 'px', top: y + 'px' }" @click.stop>
+    <div v-if="canSplitWords" class="context-menu-item" @click="emit('split-words')">
+      ✂ <span>拆分选词</span>
+    </div>
     <div v-if="canRelay" class="context-menu-item" @click="emit('relay')">
       ⇄ <span>悬浮中转</span>
     </div>

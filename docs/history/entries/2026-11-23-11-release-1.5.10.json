@@ -1,0 +1,27 @@
+{
+  "id": "release-1.5.10",
+  "date": "2026-11-23",
+  "version": "1.5.10",
+  "summary": "发布并核验 TabDo 1.5.10",
+  "changes": [
+    "整合互联服务与互联传输、拆分选词、截图与图片标记的选中拖动/删除/聚光灯笔触、数据目录迁移首帧修复，以及四个既有失败 E2E 的修正。",
+    "更新 package.json 与 README 基准版本到 1.5.10，changelog.md 新增 1.5.10 条目，记录互联服务、互联传输、拆分选词和图片标记的变化。",
+    "README 补齐互联服务说明与工具分类行，指向设置规范的互联服务章节；其余 README、开发规范、两份教程与历史记录对照当前源码复核，无需其他改动。"
+  ],
+  "checks": [
+    "与本轮未提交改动相关的 18 个单测文件、121 项通过：互联证书/链路/协议、分词、数据目录与启动迁移、窗口尺寸与托盘、临时常驻、内部 preload、工具宿主、悬浮指针、匹配器、内置插件、功能分组、文档与维护脚本；归档 .artifacts/runs/2026-11-23T09-00-25-717Z-unit。",
+    "tsc --noEmit -p tsconfig.node.json、vue-tsc --noEmit -p tsconfig.web.json 与设置插件 vue-tsc --noEmit 全部通过。",
+    "源码 Electron E2E 组 A：interconnect、split-words、image-annotation-transform、settings-cleanup、tools-catalog、tools-expanded 通过；image-annotation-interactions 首次冷启动等待 .plugin-host 超过 5 秒失败，单文件重跑通过；归档 .artifacts/runs/2026-11-23T09-01-07-990Z-e2e 与 2026-11-23T09-03-36-681Z-e2e。",
+    "源码 Electron E2E 组 B：presentation-recorder 与 presentation-synchronization 通过，均未启用本机音频或麦克风；performance-budget 首次冷启动等待网页快开页面超过 5 秒失败，单文件重跑通过，首轮耗时 5184ms 已贴近默认超时；归档 .artifacts/runs/2026-11-23T09-04-12-186Z-e2e 与 2026-11-23T09-07-36-626Z-e2e。",
+    "按要求未运行全量 E2E，也未运行本轮未涉及的其他 E2E 文件；两个冷启动失败均以单文件重跑确认非功能回归，未改动测试断言或超时掩盖。",
+    "构建呼叫AI产物、设置插件、工具插件与 electron-vite 主进程输出全部成功；随后 node scripts/sync-portable-preview.cjs 同步 1.5.10，保留 257 个既有资料与插件文件，逐文件核验 2146 个程序文件，回退副本 .artifacts/backups/preview-sync/update-1795425007092。",
+    "node scripts/verify-portable-preview.cjs 通过：2145 个程序文件、367 个内置插件文件、11842 个媒体依赖。",
+    "node scripts/check-docs.mjs 通过：38 个文档、262 个本地链接、43 个功能、16 个分类、32 个普通文字指令、16 章教程、77 个步骤，无错误。"
+  ],
+  "pending": [
+    "本轮按用户指示不执行 Release 产物下载与解包核验，仅跟踪云端构建与发布状态。",
+    "互联服务需在真实多设备与 Windows 防火墙首次放行环境中人工验收配对、剪贴板与文件传输。",
+    "拆分选词、图片标记拖动缩放与删除、截图聚光灯笔触仍需在免安装预览中人工复核观感。"
+  ],
+  "preview": "已同步 .local/portable-preview，保留既有 257 个资料与插件文件，2146 个程序文件逐文件核验通过，版本 1.5.10"
+}

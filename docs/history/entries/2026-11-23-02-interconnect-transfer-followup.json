@@ -1,0 +1,24 @@
+{
+  "id": "interconnect-transfer-followup",
+  "date": "2026-11-23",
+  "summary": "修复互联传输正常进行时仍弹出防火墙等待提示，并让 KDE Connect 等非 TabDo 接收端也按接收时间落盘",
+  "changes": [
+    "发送文件时，接收方连入载荷端口后立即取消防火墙等待提示；提示计时器回调也会检查接收方是否已连入，避免传输已开始仍误报。",
+    "kdeconnect.share.request 不再声明 creationTime 与 lastModified。KDE Connect 等接收端不会据此还原原文件日期，而是按自身接收时间落盘；TabDo 接收端继续强制使用当前时间。",
+    "设置规范与工具清单同步说明发送端不再声明原文件时间，以及防火墙提示只在接收方尚未连入时出现。"
+  ],
+  "checks": [
+    "pnpm typecheck:node 通过。",
+    "源码 Electron E2E tests/e2e/interconnect.spec.ts 通过：新增断言确认 share.request 不含 lastModified 与 creationTime，其余配对、多设备选择、双向传输与面板操作继续通过；归档 .artifacts/runs/2026-11-23T02-46-37-577Z-e2e。",
+    "防火墙提示时序未纳入自动化：接收方连入后取消计时器、回调内再次检查 accepted，需在免安装预览中观察大文件传输时不再弹出该通知。",
+    "pnpm build 通过：类型检查、设置插件、工具插件与 electron-vite 主/预加载/渲染器均产出。",
+    "node scripts/sync-portable-preview.cjs 同步到 .local/portable-preview，保留既有 230 个资料与插件文件，逐文件核验 2142 个程序文件，版本 1.5.9；回滚副本 .artifacts/backups/preview-sync/update-1795402107108。",
+    "node scripts/verify-portable-preview.cjs 通过：2141 个程序文件、364 个内置插件文件、11842 个媒体依赖。",
+    "清理上一轮回退载荷 update-1795400463694，释放约 1395MB，保留本轮回退与全部 preservation 审计收据；预览 data/legacy、程序与插件不变。"
+  ],
+  "pending": [
+    "真实 KDE Connect Android/桌面端接收文件后的修改时间需人工确认；不同 KDE 版本对缺失 lastModified 的处理可能不同。",
+    "真实 Windows 防火墙首次放行与长时传输过程中不得再出现等待连接提示，需在预览中复核。"
+  ],
+  "preview": "已同步 .local/portable-preview，保留既有 230 个资料与插件文件，2142 个程序文件逐文件核验通过，版本 1.5.9"
+}

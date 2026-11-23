@@ -1014,7 +1014,11 @@ window.tabdo = {
      * @returns {Promise<unknown>} 宿主结果。
      */
     callAi: async (operation, input) => {
-      const result = await electron.ipcRenderer.invoke('internal:call-ai', operation, toIpcCloneable(input))
+      const result = await electron.ipcRenderer.invoke(
+        'internal:call-ai',
+        operation,
+        toIpcCloneable(input)
+      )
       if (result?.__callAiFailure) throw new Error(result.__callAiFailure)
       return result
     },
@@ -1499,7 +1503,16 @@ window.tabdo = {
     // ==================== Provider（翻译 / OCR 等）管理 API ====================
     tools: {
       openFloating: async (content) =>
-        await electron.ipcRenderer.invoke('internal:tools-float', toIpcCloneable(content))
+        await electron.ipcRenderer.invoke('internal:tools-float', toIpcCloneable(content)),
+      /**
+       * 用指定文本打开拆分选词窗口。
+       * @param {object} request 包含 text 字段的选词请求。
+       * @returns {Promise<number>} 选词窗口标识。
+       */
+      openWordPicker: async (request) =>
+        await electron.ipcRenderer.invoke('internal:tools-word-picker', {
+          text: request && typeof request.text === 'string' ? request.text : ''
+        })
     },
     providers: {
       getBuiltinState: async () =>
@@ -1551,7 +1564,35 @@ window.tabdo = {
       await electron.ipcRenderer.invoke('internal:http-server-save-config', config),
     httpServerRegenerateKey: async () =>
       await electron.ipcRenderer.invoke('internal:http-server-regenerate-key'),
-    httpServerStatus: async () => await electron.ipcRenderer.invoke('internal:http-server-status')
+    httpServerStatus: async () => await electron.ipcRenderer.invoke('internal:http-server-status'),
+
+    // ==================== 互联服务 API ====================
+    interconnectGetState: async () =>
+      await electron.ipcRenderer.invoke('internal:interconnect-get-state'),
+    interconnectSaveConfig: async (patch) =>
+      await electron.ipcRenderer.invoke('internal:interconnect-save-config', patch),
+    interconnectRefresh: async () =>
+      await electron.ipcRenderer.invoke('internal:interconnect-refresh'),
+    interconnectPair: async (deviceId, pair) =>
+      await electron.ipcRenderer.invoke('internal:interconnect-pair', deviceId, pair),
+    interconnectAcceptPairing: async (deviceId) =>
+      await electron.ipcRenderer.invoke('internal:interconnect-accept-pairing', deviceId),
+    interconnectSyncClipboard: async (deviceId) =>
+      await electron.ipcRenderer.invoke('internal:interconnect-sync-clipboard', deviceId),
+    interconnectChooseDownloadDir: async () =>
+      await electron.ipcRenderer.invoke('internal:interconnect-choose-download-dir'),
+    interconnectOpenDownloadDir: async () =>
+      await electron.ipcRenderer.invoke('internal:interconnect-open-download-dir'),
+    /**
+     * 订阅互联服务状态快照。
+     * @param {Function} callback 状态更新回调。
+     * @returns {Function} 取消订阅函数。
+     */
+    onInterconnectState: (callback) => {
+      const listener = (_event, value) => callback(value)
+      electron.ipcRenderer.on('interconnect-state-updated', listener)
+      return () => electron.ipcRenderer.removeListener('interconnect-state-updated', listener)
+    }
   },
 
   // ── zbrowser / ubrowser 浏览器自动化 API ──

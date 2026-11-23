@@ -151,12 +151,14 @@ input:focus-visible {
   height: 24px;
   fill: none;
 }
-#mosaic-controls .tool-btn svg {
+#mosaic-controls .tool-btn svg,
+#spotlight-controls .tool-btn svg {
   width: 20px;
   height: 20px;
   fill: none;
 }
-#mosaic-controls .tool-btn {
+#mosaic-controls .tool-btn,
+#spotlight-controls .tool-btn {
   width: 28px;
   height: 28px;
 }
@@ -220,6 +222,77 @@ input:focus-visible {
 #mosaic-cursor::after {
   height: 9px;
   width: 1px;
+}
+/* 选中标记的虚框只做定位容器，手柄单独接收指针，图片本身仍由画布处理拖动。 */
+#annotation-selection {
+  position: fixed;
+  z-index: 8;
+  pointer-events: none;
+  border: 1px dashed #1e1e1e;
+  box-shadow: 0 0 0 1px #fff;
+  background: transparent;
+}
+#annotation-selection[hidden] {
+  display: none;
+}
+#annotation-selection i {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid #e53935;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12);
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  touch-action: none;
+}
+#annotation-selection i[hidden] {
+  display: none;
+}
+#annotation-selection i[data-annotation-handle='nw'] {
+  left: 0;
+  top: 0;
+  cursor: nwse-resize;
+}
+#annotation-selection i[data-annotation-handle='n'] {
+  left: 50%;
+  top: 0;
+  cursor: ns-resize;
+}
+#annotation-selection i[data-annotation-handle='ne'] {
+  left: 100%;
+  top: 0;
+  cursor: nesw-resize;
+}
+#annotation-selection i[data-annotation-handle='e'] {
+  left: 100%;
+  top: 50%;
+  cursor: ew-resize;
+}
+#annotation-selection i[data-annotation-handle='se'] {
+  left: 100%;
+  top: 100%;
+  cursor: nwse-resize;
+}
+#annotation-selection i[data-annotation-handle='s'] {
+  left: 50%;
+  top: 100%;
+  cursor: ns-resize;
+}
+#annotation-selection i[data-annotation-handle='sw'] {
+  left: 0;
+  top: 100%;
+  cursor: nesw-resize;
+}
+#annotation-selection i[data-annotation-handle='w'] {
+  left: 0;
+  top: 50%;
+  cursor: ew-resize;
+}
+#annotation-selection i[data-annotation-handle='start'],
+#annotation-selection i[data-annotation-handle='end'] {
+  cursor: move;
 }
 #image-tools .size-dot > i {
   background: #333;

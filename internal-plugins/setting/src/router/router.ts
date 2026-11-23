@@ -96,13 +96,13 @@ const homeRoutes: MenuRouterItemType[] = [
     }
   },
   {
-    path: '/data',
-    name: 'Data',
-    component: () => import('@/views/DataSetting/DataSetting.vue'),
+    path: '/interconnect',
+    name: 'Interconnect',
+    component: () => import('@/views/InterconnectSetting/InterconnectSetting.vue'),
     meta: {
       menu: {
-        label: '我的数据',
-        icon: 'i-z-database'
+        label: '互联服务',
+        icon: 'i-z-share'
       }
     }
   },
@@ -141,6 +141,17 @@ const homeRoutes: MenuRouterItemType[] = [
       menu: {
         label: 'HTTP 服务',
         icon: 'i-z-monitor'
+      }
+    }
+  },
+  {
+    path: '/data',
+    name: 'Data',
+    component: () => import('@/views/DataSetting/DataSetting.vue'),
+    meta: {
+      menu: {
+        label: '我的数据',
+        icon: 'i-z-database'
       }
     }
   },

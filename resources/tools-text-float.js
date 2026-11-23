@@ -292,6 +292,19 @@ function append(entries) {
       event.stopPropagation()
       beginReorder(entry.id, event)
     }
+    // 文本条目提供拆分选词；图片和文件没有可拆分的词语。
+    if (entry.type === 'text') {
+      const split = document.createElement('button')
+      split.className = 'split-entry'
+      split.textContent = '✂'
+      split.title = '拆分选词'
+      split.setAttribute('aria-label', '拆分选词')
+      split.onclick = (event) => {
+        event.stopPropagation()
+        void invoke('split', entry.id)
+      }
+      element.append(split)
+    }
     const remove = document.createElement('button')
     remove.className = 'delete-entry'
     remove.textContent = '×'

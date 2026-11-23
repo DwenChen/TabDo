@@ -1,0 +1,31 @@
+{
+  "id": "annotation-transform-select-state",
+  "date": "2026-11-23",
+  "summary": "图片标记的非笔触标记支持选中拖动与手柄缩放，截图聚光灯/框选马赛克可拖动缩放，并恢复未选中工具的选择态",
+  "changes": [
+    "图片标记为非笔触标记（矩形、椭圆、箭头、马赛克、文字、序号圆圈、聚光灯）增加命中测试：轮廓类只认线条，区域类允许整块命中；按下已命中标记优先进入整体拖动，空白处才新建，减少拖动与放置互相抢占。",
+    "新增独立选中浮层 #annotation-selection，显示虚框与圆形手柄；矩形、椭圆、聚光灯、框选马赛克和序号提供八向缩放，箭头提供起止端点，文字与涂抹马赛克仅整体拖动，浮层不进入导出画布。",
+    "图片标记的撤销/重做改为整份历史快照（深度 50），覆盖新增、拖动、缩放与清空；新放置的非笔触标记自动选中，便于立即拖动或缩放。",
+    "截图原生模块移除马赛克整体跳过命中、按工具禁用聚光灯/序号/荧光笔命中的分支；框选马赛克与聚光灯提供八向手柄，涂抹马赛克/画笔/荧光笔只整体拖动，文字只平移。",
+    "确认选区后不再强制切换到“拖拽”工具：默认未选中任何绘制工具，处于可拖动、缩放元素和选区的选择态；再次点击当前工具按钮回到该状态。",
+    "为消除竞争，聚光灯/马赛克工具激活时其内部点击仍用于新建（只认边框）；选择态或其他工具下可整块点选区域标记。选中元素时只为支持样式参数的标记打开子菜单。",
+    "新增源码 E2E image-annotation-transform 覆盖图片标记的命中、拖动、撤销和手柄缩放，并加入 annotations 回归分组。"
+  ],
+  "checks": [
+    "resources/tools-floating.js 通过 node --check；图片标记源码 E2E image-annotation-interactions.spec.ts 通过（首次运行既有冷启动 flake，复跑通过，归档 .artifacts/runs/2026-11-23T04-28-43-781Z-e2e）。",
+    "新增图片标记源码 E2E image-annotation-transform.spec.ts 通过：矩形绘制后边线拖动不新增标记，撤销恢复原位，右中手柄放大后边线随之移动；归档 .artifacts/runs/2026-11-23T04-46-13-294Z-e2e。",
+    "截图原生模块用 MinGW-w64 g++ 11.2.0 与 Electron 42.1.0 头文件重编译成功，node 可加载并返回 startRegionCapture/primeScreenshotFrame/startRegionCaptureWithPrimedFrame/abortLongCapture；二进制 resources/lib/win/tabdo_screenshot.node 已更新。",
+    "源码覆盖层人工操作：确认选区后工具栏无高亮，处于选择态；矩形工具绘制后可在边线拖动并显示八个圆形手柄；再次点击矩形按钮回到选择态。证据 .artifacts/native/step3-smaller.png、step4-rect-drawn.png、step5-rect-dragged.png。",
+    "ps1 坐标换算只能精确驱动部分按钮，聚光灯/框选马赛克的拖动缩放未在覆盖层自动化中完成，列为待人工复核项。",
+    "corepack pnpm build 通过：typecheck、build:call-ai、build:setting、build:tools 与 electron-vite build 均完成，out/ 与设置插件 dist 更新。",
+    "project-maintenance prepare 生成 3 个索引文件，check 为 0；check-docs 通过：38 个文件、261 个本地链接、42 个功能码/16 个分类/32 个普通入口、16 章 76 步、无错误。",
+    "sync-portable-preview 同步 2142 个程序文件并保留 238 个资料与插件文件，版本 1.5.9，回退副本 .artifacts/backups/preview-sync/update-1795409674582；verify-portable-preview 通过（2141 个程序文件、364 个内置插件文件、11842 个媒体依赖），预览中检出 annotation-selection 与新教程文案。",
+    "回收旧预览程序载荷约 1395MB，仅保留最近一次程序回退及各轮 preservation.json 审计收据；清理本轮临时驱动脚本与失败截图，保留 3 张人工复核截图。"
+  ],
+  "pending": [
+    "在免安装预览中手工复核：聚光灯与框选马赛克在选择态整块点选拖动、八手柄缩放；聚光灯/马赛克工具下内部点击仍新建。",
+    "复核马赛克（框选/涂抹）、序号圆圈与荧光笔拖动缩放后的最终 PNG 合成与撤销/重做顺序。",
+    "复核原生选中框与样式子菜单在高 DPI、多显示器与远程桌面节流鼠标事件下的表现。"
+  ],
+  "preview": "已同步 .local/portable-preview，保留既有 238 个资料与插件文件，2142 个程序文件逐文件核验通过，版本 1.5.9"
+}

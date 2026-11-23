@@ -16,9 +16,9 @@
 
 ## 自动化测试文件
 
-共 201 个文件；文件数不等于用例数，通过状态以每轮变更记录为准。
+共 208 个文件；文件数不等于用例数，通过状态以每轮变更记录为准。
 
-### tests/main（130）
+### tests/main（134）
 
 - [tests/main/aiChatEventBatcher.test.ts](../../tests/main/aiChatEventBatcher.test.ts)
 - [tests/main/aiChatTransport.test.ts](../../tests/main/aiChatTransport.test.ts)
@@ -59,6 +59,9 @@
 - [tests/main/iconProtocol.test.ts](../../tests/main/iconProtocol.test.ts)
 - [tests/main/iconUtils.test.ts](../../tests/main/iconUtils.test.ts)
 - [tests/main/idleMemoryReclaimer.test.ts](../../tests/main/idleMemoryReclaimer.test.ts)
+- [tests/main/interconnectCertificate.test.ts](../../tests/main/interconnectCertificate.test.ts)
+- [tests/main/interconnectLink.test.ts](../../tests/main/interconnectLink.test.ts)
+- [tests/main/interconnectProtocol.test.ts](../../tests/main/interconnectProtocol.test.ts)
 - [tests/main/internalPluginDefaults.test.ts](../../tests/main/internalPluginDefaults.test.ts)
 - [tests/main/internalPlugins.test.ts](../../tests/main/internalPlugins.test.ts)
 - [tests/main/lensBrowserUpload.test.ts](../../tests/main/lensBrowserUpload.test.ts)
@@ -149,6 +152,7 @@
 - [tests/main/windowsScanner.test.ts](../../tests/main/windowsScanner.test.ts)
 - [tests/main/windowsScannerFlat.test.ts](../../tests/main/windowsScannerFlat.test.ts)
 - [tests/main/windowsShortcutScannerRunner.test.ts](../../tests/main/windowsShortcutScannerRunner.test.ts)
+- [tests/main/wordSegments.test.ts](../../tests/main/wordSegments.test.ts)
 - [tests/main/zpxArchive.test.ts](../../tests/main/zpxArchive.test.ts)
 
 ### tests/renderer（5）
@@ -167,7 +171,7 @@
 - [tests/scripts/projectMaintenance.test.ts](../../tests/scripts/projectMaintenance.test.ts)
 - [tests/scripts/updateMetadata.test.ts](../../tests/scripts/updateMetadata.test.ts)
 
-### tests/e2e（61）
+### tests/e2e（64）
 
 - [tests/e2e/all-commands-pinning.spec.ts](../../tests/e2e/all-commands-pinning.spec.ts)
 - [tests/e2e/builtin-models.spec.ts](../../tests/e2e/builtin-models.spec.ts)
@@ -183,6 +187,8 @@
 - [tests/e2e/idle-input-state.spec.ts](../../tests/e2e/idle-input-state.spec.ts)
 - [tests/e2e/idle-memory.spec.ts](../../tests/e2e/idle-memory.spec.ts)
 - [tests/e2e/image-annotation-interactions.spec.ts](../../tests/e2e/image-annotation-interactions.spec.ts)
+- [tests/e2e/image-annotation-transform.spec.ts](../../tests/e2e/image-annotation-transform.spec.ts)
+- [tests/e2e/interconnect.spec.ts](../../tests/e2e/interconnect.spec.ts)
 - [tests/e2e/lens-browser-upload.spec.ts](../../tests/e2e/lens-browser-upload.spec.ts)
 - [tests/e2e/local-edition.spec.ts](../../tests/e2e/local-edition.spec.ts)
 - [tests/e2e/local-tutorial.spec.ts](../../tests/e2e/local-tutorial.spec.ts)
@@ -217,6 +223,7 @@
 - [tests/e2e/selection-translation.spec.ts](../../tests/e2e/selection-translation.spec.ts)
 - [tests/e2e/settings-cleanup.spec.ts](../../tests/e2e/settings-cleanup.spec.ts)
 - [tests/e2e/settings-window-stability.spec.ts](../../tests/e2e/settings-window-stability.spec.ts)
+- [tests/e2e/split-words.spec.ts](../../tests/e2e/split-words.spec.ts)
 - [tests/e2e/super-panel-selection.spec.ts](../../tests/e2e/super-panel-selection.spec.ts)
 - [tests/e2e/tabdo-market.spec.ts](../../tests/e2e/tabdo-market.spec.ts)
 - [tests/e2e/temporary-residency-switch.spec.ts](../../tests/e2e/temporary-residency-switch.spec.ts)
@@ -263,6 +270,7 @@
 - `settings-defaults`：6 个单测文件、8 个源码 E2E 文件。
 - `host-services`：3 个单测文件、2 个源码 E2E 文件。
 - `file-locksmith`：1 个单测文件、2 个源码 E2E 文件。
+- `interconnect`：3 个单测文件、1 个源码 E2E 文件。
 - `tools-catalog`：6 个单测文件、4 个源码 E2E 文件。
 - `overlay-surfaces`：0 个单测文件、1 个源码 E2E 文件。
 - `branding`：1 个单测文件、1 个源码 E2E 文件。
@@ -270,11 +278,11 @@
 - `clipboard-interactions`：5 个单测文件、4 个源码 E2E 文件。
 - `documentation`：1 个单测文件、1 个源码 E2E 文件。
 - `relay-feedback`：0 个单测文件、2 个源码 E2E 文件。
-- `floating-relay`：5 个单测文件、4 个源码 E2E 文件。
+- `floating-relay`：6 个单测文件、5 个源码 E2E 文件。
 - `selection-translation`：3 个单测文件、2 个源码 E2E 文件。
 - `presentation-recorder`：15 个单测文件、8 个源码 E2E 文件。
 - `idle-memory`：6 个单测文件、5 个源码 E2E 文件。
-- `annotations`：1 个单测文件、3 个源码 E2E 文件。
+- `annotations`：1 个单测文件、4 个源码 E2E 文件。
 - `presentation-timeline`：6 个单测文件、4 个源码 E2E 文件。
 - `presentation-camera-framing`：1 个单测文件、1 个源码 E2E 文件。
 - `presentation-editor-followup`：3 个单测文件、1 个源码 E2E 文件。
