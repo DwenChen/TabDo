@@ -16,11 +16,13 @@
     "按用户指示本轮未运行全量单测与全量 E2E，仅执行受影响的 interconnect 单测与源码 E2E。",
     "免安装预览已同步并核验：保留 257 个资料与插件文件，2146 个程序文件，版本 1.5.11；回退副本 .artifacts/backups/preview-sync/update-1795511295950。",
     "node scripts/verify-portable-preview.cjs 通过：2145 个程序文件、367 个内置插件文件、11842 个媒体依赖。",
-    "node scripts/project-maintenance.cjs prepare/check 与 node scripts/check-docs.mjs 通过。"
+    "node scripts/project-maintenance.cjs prepare/check 与 node scripts/check-docs.mjs 通过。",
+    "通过提交及推送 hooks，原子推送 main 与 v1.5.11，提交 32d249ee642f44d29f19957ef72b81c448760ae9，远端 main 与标签指向同一提交。",
+    "云端 https://github.com/DwenChen/TabDo/actions/runs/45363229169 的 build 与 publish 均成功。https://github.com/DwenChen/TabDo/releases/tag/v1.5.11 非草稿、非预发布，目标提交为 32d249ee，已成为最新正式版；发行 id 456532697，published_at 2026-11-24T09:21:31Z。",
+    "Release 已上传 latest.yml、TabDo-1.5.11-win-x64-setup.exe、对应的 blockmap 与 TabDo-1.5.11-win-x64.zip 四个附件，状态均为 uploaded。"
   ],
   "pending": [
-    "push、云端构建与 release 尚待执行；完成后补充工作流、标签与发行状态核验。",
-    "按用户指示 release 后不下载产物做 SHA-256/SHA-512 与 ZIP 内容核验。",
+    "按用户指示 release 后不下载产物做 SHA-256/SHA-512 与 ZIP 内容核验，仅核对云端构建、标签、发行状态与附件上传状态。",
     "真实 Android KDE Connect 手机跨多个 20 秒广播周期的在线稳定性仍需人工验收。"
   ],
   "preview": "已同步 .local/portable-preview，保留既有 257 个资料与插件文件，2146 个程序文件逐文件核验通过，版本 1.5.11"

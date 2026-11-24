@@ -18,6 +18,9 @@
 - 验证：免安装预览已同步并核验：保留 257 个资料与插件文件，2146 个程序文件，版本 1.5.11；回退副本 .artifacts/backups/preview-sync/update-1795511295950。
 - 验证：node scripts/verify-portable-preview.cjs 通过：2145 个程序文件、367 个内置插件文件、11842 个媒体依赖。
 - 验证：node scripts/project-maintenance.cjs prepare/check 与 node scripts/check-docs.mjs 通过。
+- 验证：通过提交及推送 hooks，原子推送 main 与 v1.5.11，提交 32d249ee642f44d29f19957ef72b81c448760ae9，远端 main 与标签指向同一提交。
+- 验证：云端 https://github.com/DwenChen/TabDo/actions/runs/45363229169 的 build 与 publish 均成功。https://github.com/DwenChen/TabDo/releases/tag/v1.5.11 非草稿、非预发布，目标提交为 32d249ee，已成为最新正式版；发行 id 456532697，published_at 2026-11-24T09:21:31Z。
+- 验证：Release 已上传 latest.yml、TabDo-1.5.11-win-x64-setup.exe、对应的 blockmap 与 TabDo-1.5.11-win-x64.zip 四个附件，状态均为 uploaded。
 
 ## 2026-11-24 · 修正与 Android KDE Connect 互联时设备在线状态反复跳变，改为新链路优先生效并在替换时保持在线状态
 
