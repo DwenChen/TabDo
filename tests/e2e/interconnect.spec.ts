@@ -78,6 +78,7 @@ class PeerConnection {
     resolve: (packet: PeerPacket) => void
   }[] = []
   private buffer = Buffer.alloc(0)
+  private closed = false
 
   /**
    * 绑定已握手的套接字。
@@ -86,6 +87,29 @@ class PeerConnection {
   constructor(socket: tls.TLSSocket) {
     this.socket = socket
     socket.on('data', (chunk: Buffer) => this.receive(chunk))
+    socket.on('close', () => {
+      this.closed = true
+    })
+  }
+
+  /**
+   * 等待服务端关闭当前链路。
+   * @param timeout 超时时间。
+   * @returns 套接字关闭后的 Promise。
+   */
+  waitForClose(timeout = 10000): Promise<void> {
+    if (this.closed || this.socket.destroyed) return Promise.resolve()
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.socket.off('close', onClose)
+        reject(new Error('等待链路关闭超时'))
+      }, timeout)
+      const onClose = (): void => {
+        clearTimeout(timer)
+        resolve()
+      }
+      this.socket.once('close', onClose)
+    })
   }
 
   /**
@@ -482,6 +506,50 @@ test('互联服务完成配对、剪贴板同步、双向文件传输并显示�
     await settings.getByRole('button', { name: '接受', exact: true }).click()
     await expect(settings.getByText('E2E 手机').first()).toBeVisible()
     await expect(settings.getByText('已配对').first()).toBeVisible()
+
+    // 真实 KDE Connect 客户端收到发现广播后会重建链路并先关闭旧 socket。
+    // 服务必须在新链路完成握手后直接接管，且替换过程中不得向界面推送离线状态。
+    await settings.evaluate((deviceId) => {
+      const scope = window as unknown as {
+        __interconnectReachable: boolean[]
+        __interconnectUnsubscribe?: () => void
+        tabdo: {
+          internal: {
+            onInterconnectState: (
+              callback: (state: { devices: { id: string; reachable: boolean }[] }) => void
+            ) => () => void
+          }
+        }
+      }
+      scope.__interconnectReachable = []
+      scope.__interconnectUnsubscribe = scope.tabdo.internal.onInterconnectState((state) => {
+        const device = state.devices.find((item) => item.id === deviceId)
+        if (device) scope.__interconnectReachable.push(device.reachable)
+      })
+    }, peer.deviceId)
+    const replacement = await connectPeer(tcpPort, peer, serviceDeviceId)
+    const replacementConnection = replacement.connection
+    await connection.waitForClose()
+    await expect
+      .poll(async () => {
+        const state = await settings.evaluate(
+          async () => await window.tabdo.internal.interconnectGetState()
+        )
+        return state.state!.devices.find((device) => device.id === peer.deviceId)?.reachable
+      })
+      .toBe(true)
+    // 留出事件投递时间，确认替换期间没有离线状态被推送到界面。
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    expect(
+      await settings.evaluate(
+        () => (window as unknown as { __interconnectReachable: boolean[] }).__interconnectReachable
+      )
+    ).not.toContain(false)
+    await settings.evaluate(() => {
+      const scope = window as unknown as { __interconnectUnsubscribe?: () => void }
+      scope.__interconnectUnsubscribe?.()
+    })
+    connection = replacementConnection
 
     // 主动剪贴板同步。
     await app.evaluate(({ clipboard }) => clipboard.writeText('E2E clipboard'))

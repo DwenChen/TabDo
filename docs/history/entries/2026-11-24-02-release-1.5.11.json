@@ -1,0 +1,27 @@
+{
+  "id": "release-1.5.11",
+  "date": "2026-11-24",
+  "version": "1.5.11",
+  "summary": "发布 TabDo 1.5.11，修复与 Android KDE Connect 互联时的在线状态跳变",
+  "changes": [
+    "互联服务改为新链路优先生效：完成握手的链路直接替换旧链路，先接管新链路再关闭旧链路，旧链路的关闭回调不再清空新链路或推送离线状态。",
+    "外连失败只在该设备确实没有可用链路时清理记录，避免抹掉对端在重试期间连入的可用链路。",
+    "更新 package.json 与 README 基准版本到 1.5.11，changelog.md 新增 1.5.11 修复说明。",
+    "README、开发规范、两份本地教程与相关模块文档对照当前源码复核；本轮只修正链路接管行为，无界面标签或操作流程变化，无需其他文档改动。"
+  ],
+  "checks": [
+    "tsc --noEmit -p tsconfig.node.json、vue-tsc --noEmit -p tsconfig.web.json 与设置插件 vue-tsc --noEmit 通过。",
+    "interconnect 回归组通过：3 个单测文件 16 项与 1 个源码 Electron E2E（18.3 秒）；归档 .artifacts/runs/2026-11-24T09-00-35-988Z-unit 与 .artifacts/runs/2026-11-24T09-00-38-274Z-e2e。",
+    "改动文件 eslint 无错误与警告。",
+    "按用户指示本轮未运行全量单测与全量 E2E，仅执行受影响的 interconnect 单测与源码 E2E。",
+    "免安装预览已同步并核验：保留 257 个资料与插件文件，2146 个程序文件，版本 1.5.11；回退副本 .artifacts/backups/preview-sync/update-1795511295950。",
+    "node scripts/verify-portable-preview.cjs 通过：2145 个程序文件、367 个内置插件文件、11842 个媒体依赖。",
+    "node scripts/project-maintenance.cjs prepare/check 与 node scripts/check-docs.mjs 通过。"
+  ],
+  "pending": [
+    "push、云端构建与 release 尚待执行；完成后补充工作流、标签与发行状态核验。",
+    "按用户指示 release 后不下载产物做 SHA-256/SHA-512 与 ZIP 内容核验。",
+    "真实 Android KDE Connect 手机跨多个 20 秒广播周期的在线稳定性仍需人工验收。"
+  ],
+  "preview": "已同步 .local/portable-preview，保留既有 257 个资料与插件文件，2146 个程序文件逐文件核验通过，版本 1.5.11"
+}

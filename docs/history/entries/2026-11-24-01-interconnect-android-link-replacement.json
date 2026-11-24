@@ -1,0 +1,27 @@
+{
+  "id": "interconnect-android-link-replacement",
+  "date": "2026-11-24",
+  "summary": "修正与 Android KDE Connect 互联时设备在线状态反复跳变，改为新链路优先生效并在替换时保持在线状态",
+  "changes": [
+    "链路接管改为与 KDE Connect 一致的新链路优先：任何完成握手的链路直接替换旧链路，不再按设备 ID 字典序保留旧链路，避免把对端刚建立的可用连接关闭。",
+    "替换时先让新链路接管设备记录、协议包与关闭回调，再关闭旧链路；旧链路的 closed 回调不会清空新链路或向界面推送离线状态。",
+    "外连失败只在该设备确实没有可用链路时清理记录；对端已在重试期间连入时保留其链路，不再向界面推送离线。",
+    "移除设备记录中不再使用的链路发起方字段；互联 E2E 新增同一对端重连场景，断言旧链路关闭、新链路在线、替换期间无离线推送，并用新链路完成剪贴板同步。"
+  ],
+  "checks": [
+    "corepack pnpm typecheck:node 通过。",
+    "corepack pnpm test:regressions interconnect 通过：3 个单测文件 16 项与 1 个源码 Electron E2E（18.3 秒）；归档 .artifacts/runs/2026-11-24T09-00-35-988Z-unit 与 .artifacts/runs/2026-11-24T09-00-38-274Z-e2e。",
+    "eslint 检查 src/main/core/interconnect/service.ts 与 tests/e2e/interconnect.spec.ts 无错误与警告。",
+    "已查看 interconnect-settings.png：互联服务开关、运行状态、本机名称与证书指纹显示正常，窄宽度无横向溢出；本次未改界面结构与标签。",
+    "electron-vite build 通过，主进程、预加载与渲染器重新产出。",
+    "node scripts/sync-portable-preview.cjs 同步到 .local/portable-preview，保留既有 257 个资料与插件文件，核验 2146 个程序文件，版本 1.5.11；程序回退与审计收据位于 .artifacts/backups/preview-sync/update-1795511295950。",
+    "node scripts/verify-portable-preview.cjs 通过：2145 个程序文件、367 个内置插件文件、11842 个媒体依赖。",
+    "按项目空间规范清理 .artifacts/backups/preview-sync 中已消费的 app、new-resources 与更早的 previous-resources 共 14 项、约 6247.9 MiB，保留 27 份 preservation.json 与最近一次完整程序回退 update-1795511295950；清单与结果位于 .artifacts/cleanup-2026-11-24/，清理后 test:preview:resources 再次通过。",
+    "node scripts/project-maintenance.cjs prepare/check 与 node scripts/check-docs.mjs 通过。"
+  ],
+  "pending": [
+    "需用真实 Android KDE Connect 手机观察跨多个 20 秒发现广播周期时在线状态保持稳定，并复核剪贴板与文件传输。",
+    "并发外连失败时保留可用链路的分支未单独自动化；多网卡、不同网段与厂商省电策略仍待人工验收。"
+  ],
+  "preview": "已同步 .local/portable-preview，保留既有 257 个资料与插件文件，2146 个程序文件逐文件核验通过，版本 1.5.11"
+}

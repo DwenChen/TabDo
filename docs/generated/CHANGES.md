@@ -2,6 +2,42 @@
 
 > 自动生成；原始记录在 [entries](../history/entries/)。
 
+## 2026-11-24 · 发布 TabDo 1.5.11，修复与 Android KDE Connect 互联时的在线状态跳变
+
+记录：[release-1.5.11](../../docs/history/entries/2026-11-24-02-release-1.5.11.json)；版本：1.5.11。
+
+- 互联服务改为新链路优先生效：完成握手的链路直接替换旧链路，先接管新链路再关闭旧链路，旧链路的关闭回调不再清空新链路或推送离线状态。
+- 外连失败只在该设备确实没有可用链路时清理记录，避免抹掉对端在重试期间连入的可用链路。
+- 更新 package.json 与 README 基准版本到 1.5.11，changelog.md 新增 1.5.11 修复说明。
+- README、开发规范、两份本地教程与相关模块文档对照当前源码复核；本轮只修正链路接管行为，无界面标签或操作流程变化，无需其他文档改动。
+
+- 验证：tsc --noEmit -p tsconfig.node.json、vue-tsc --noEmit -p tsconfig.web.json 与设置插件 vue-tsc --noEmit 通过。
+- 验证：interconnect 回归组通过：3 个单测文件 16 项与 1 个源码 Electron E2E（18.3 秒）；归档 .artifacts/runs/2026-11-24T09-00-35-988Z-unit 与 .artifacts/runs/2026-11-24T09-00-38-274Z-e2e。
+- 验证：改动文件 eslint 无错误与警告。
+- 验证：按用户指示本轮未运行全量单测与全量 E2E，仅执行受影响的 interconnect 单测与源码 E2E。
+- 验证：免安装预览已同步并核验：保留 257 个资料与插件文件，2146 个程序文件，版本 1.5.11；回退副本 .artifacts/backups/preview-sync/update-1795511295950。
+- 验证：node scripts/verify-portable-preview.cjs 通过：2145 个程序文件、367 个内置插件文件、11842 个媒体依赖。
+- 验证：node scripts/project-maintenance.cjs prepare/check 与 node scripts/check-docs.mjs 通过。
+
+## 2026-11-24 · 修正与 Android KDE Connect 互联时设备在线状态反复跳变，改为新链路优先生效并在替换时保持在线状态
+
+记录：[interconnect-android-link-replacement](../../docs/history/entries/2026-11-24-01-interconnect-android-link-replacement.json)；版本：未发布。
+
+- 链路接管改为与 KDE Connect 一致的新链路优先：任何完成握手的链路直接替换旧链路，不再按设备 ID 字典序保留旧链路，避免把对端刚建立的可用连接关闭。
+- 替换时先让新链路接管设备记录、协议包与关闭回调，再关闭旧链路；旧链路的 closed 回调不会清空新链路或向界面推送离线状态。
+- 外连失败只在该设备确实没有可用链路时清理记录；对端已在重试期间连入时保留其链路，不再向界面推送离线。
+- 移除设备记录中不再使用的链路发起方字段；互联 E2E 新增同一对端重连场景，断言旧链路关闭、新链路在线、替换期间无离线推送，并用新链路完成剪贴板同步。
+
+- 验证：corepack pnpm typecheck:node 通过。
+- 验证：corepack pnpm test:regressions interconnect 通过：3 个单测文件 16 项与 1 个源码 Electron E2E（18.3 秒）；归档 .artifacts/runs/2026-11-24T09-00-35-988Z-unit 与 .artifacts/runs/2026-11-24T09-00-38-274Z-e2e。
+- 验证：eslint 检查 src/main/core/interconnect/service.ts 与 tests/e2e/interconnect.spec.ts 无错误与警告。
+- 验证：已查看 interconnect-settings.png：互联服务开关、运行状态、本机名称与证书指纹显示正常，窄宽度无横向溢出；本次未改界面结构与标签。
+- 验证：electron-vite build 通过，主进程、预加载与渲染器重新产出。
+- 验证：node scripts/sync-portable-preview.cjs 同步到 .local/portable-preview，保留既有 257 个资料与插件文件，核验 2146 个程序文件，版本 1.5.11；程序回退与审计收据位于 .artifacts/backups/preview-sync/update-1795511295950。
+- 验证：node scripts/verify-portable-preview.cjs 通过：2145 个程序文件、367 个内置插件文件、11842 个媒体依赖。
+- 验证：按项目空间规范清理 .artifacts/backups/preview-sync 中已消费的 app、new-resources 与更早的 previous-resources 共 14 项、约 6247.9 MiB，保留 27 份 preservation.json 与最近一次完整程序回退 update-1795511295950；清单与结果位于 .artifacts/cleanup-2026-11-24/，清理后 test:preview:resources 再次通过。
+- 验证：node scripts/project-maintenance.cjs prepare/check 与 node scripts/check-docs.mjs 通过。
+
 ## 2026-11-23 · 发布并核验 TabDo 1.5.10
 
 记录：[release-1.5.10](../../docs/history/entries/2026-11-23-11-release-1.5.10.json)；版本：1.5.10。

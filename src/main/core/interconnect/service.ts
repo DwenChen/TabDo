@@ -86,7 +86,6 @@ interface DeviceRecord {
   address?: string
   tcpPort?: number
   link?: InterconnectLink
-  linkInitiator?: 'local' | 'remote'
   certificatePem?: string
   pendingPair: boolean
   pairRequestedAt?: number
@@ -794,8 +793,11 @@ class InterconnectService {
       this.attachLink(result)
     } catch (error) {
       console.warn('[Interconnect] 连接设备失败:', record.name, (error as Error).message)
-      record.link = undefined
-      this.emitState()
+      // 对端可能已在本次重试期间连入并建立可用链路，失败结果不能清掉它。
+      if (!record.link?.isAlive()) {
+        record.link = undefined
+        this.emitState()
+      }
     }
   }
 
@@ -855,29 +857,23 @@ class InterconnectService {
     record.outgoingCapabilities = result.remote.outgoingCapabilities
     record.certificatePem = result.certificatePem
     record.address = result.link.getPeerAddress() || record.address
-    // 双方同时互连时会短暂存在两条链路；按设备 ID 约定保留同一条，避免反复互踢。
-    const preferredInitiator =
-      this.identity && this.identity.deviceId < result.remote.deviceId ? 'local' : 'remote'
-    if (record.link && record.link !== result.link && record.link.isAlive()) {
-      if (record.linkInitiator === preferredInitiator) {
-        result.link.close()
-        return
-      }
-      record.link.close()
-    }
+    // 与 KDE Connect 保持一致：新完成握手的链路直接替换旧链路。
+    // Android 收到发现广播后会新建链路并先关闭旧 socket；若这里保留旧链路，
+    // 会持续关掉对端当前可用的连接，表现为“已配对/离线”反复跳变。
+    const previousLink = record.link
     record.link = result.link
-    record.linkInitiator = result.initiator
 
     result.link.on('packet', (packet: NetworkPacket) => this.handlePacket(record, packet))
     result.link.on('closed', () => {
       if (record.link === result.link) {
         record.link = undefined
-        record.linkInitiator = undefined
         this.emitState()
         // 链路意外结束后再广播一次，避免双方都停在“假离线”状态。
         setTimeout(() => this.broadcastDiscovery(), 800)
       }
     })
+    // 先让新链路接管记录与回调，再关闭旧链路；旧链路的 closed 回调不会清空新状态。
+    if (previousLink && previousLink !== result.link) previousLink.close()
 
     if (trusted) {
       trusted.name = record.name
