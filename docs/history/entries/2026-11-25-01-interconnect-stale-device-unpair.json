@@ -1,0 +1,28 @@
+{
+  "id": "interconnect-stale-device-unpair",
+  "date": "2026-11-25",
+  "summary": "修复已配对但离线或已失效的互联设备无法取消配对并从设备列表删除的问题",
+  "changes": [
+    "pairDevice 的取消配对分支不再要求本次运行存在设备记录：只从持久化信任恢复的离线设备可以直接撤销信任并刷新界面，不再返回“设备不存在”。",
+    "存在本次运行记录时，取消配对先清除待配对状态并向仍存活的链路发送取消包；设备离线时同时移除该临时记录，避免本次发现后断开的条目继续残留。",
+    "请求配对与接受配对仍要求设备记录和可用链路，离线设备不能发起新配对。",
+    "interconnect 源码 E2E 增加离线条目删除场景：删除本次运行记录以模拟升级后仅恢复信任的残留条目，再覆盖本次发现后断开的记录。",
+    "同步设置规范的配对与信任说明和回归清单 TX-182。"
+  ],
+  "checks": [
+    "corepack pnpm typecheck:node 通过。",
+    "eslint 检查 src/main/core/interconnect/service.ts 与 tests/e2e/interconnect.spec.ts 无错误与警告。",
+    "corepack pnpm test:e2e tests/e2e/interconnect.spec.ts 通过，18.6 秒；覆盖配对、剪贴板同步、双向文件传输、多设备目标选择，以及两种离线条目的取消配对删除；归档 .artifacts/runs/2026-11-25T02-49-27-237Z-e2e。",
+    "已查看 interconnect-settings.png：互联服务开关、运行状态、设备名称与证书指纹布局正常，窄宽度无横向溢出；本轮未改设备列表模板。",
+    "electron-vite build 通过，主进程、预加载与渲染器重新产出。",
+    "corepack pnpm preview:sync 同步 .local/portable-preview，保留既有 257 个资料与插件文件，核验 2146 个程序文件，版本 1.5.11；程序回退位于 .artifacts/backups/preview-sync/update-1795575059718。",
+    "corepack pnpm test:preview:resources 通过：2145 个程序文件、367 个内置插件文件、11842 个媒体依赖。",
+    "按项目空间规范清理上轮回退 update-1795516564295/previous-resources 与本次 update-1795575059718/app、new-resources，共约 1394.5 MiB；保留最近一次程序回退与全部 preservation.json。",
+    "corepack pnpm maintain、corepack pnpm docs:check 与 corepack pnpm maintain:check 通过。"
+  ],
+  "pending": [
+    "需在真实安装版中确认升级遗留的同名设备条目可通过“取消配对”移除，并观察手机端仍显示已配对、重新连接后需再次确认的行为。",
+    "离线条目无法向对端发送取消包，跨设备信任状态需要用户在手机端同步清理。"
+  ],
+  "preview": "已同步 .local/portable-preview，保留既有 257 个资料与插件文件，2146 个程序文件逐文件核验通过，版本 1.5.11"
+}

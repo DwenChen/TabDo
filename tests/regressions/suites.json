@@ -280,6 +280,7 @@
     "unit": [
       "tests/main/localEditionDefaults.test.ts",
       "tests/main/dataLocation.test.ts",
+      "tests/main/electronUpdater.test.ts",
       "tests/main/startupDataMigrations.test.ts",
       "tests/main/settingsOptimizedShortcutFallback.test.ts",
       "tests/main/dndManager.test.ts",

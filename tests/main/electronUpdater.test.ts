@@ -1,4 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import os from 'node:os'
+import path from 'node:path'
 import type { CancellationToken } from 'builder-util-runtime'
 import type { PlatformUpdaterCallbacks } from '../../src/main/api/platformUpdater/types'
 
@@ -10,8 +12,11 @@ const updaterMocks = vi.hoisted(() => ({
   on: vi.fn()
 }))
 
+// 保存构造时注册的事件回调，模拟 electron-updater 下载完成事件。
+const updaterHandlers = vi.hoisted(() => ({}) as Record<string, (info: unknown) => void>)
+
 vi.mock('electron', () => ({
-  app: { isPackaged: true }
+  app: { isPackaged: true, getAppPath: () => '/test/app' }
 }))
 
 vi.mock('electron-log', () => ({
@@ -31,6 +36,78 @@ vi.mock('electron-updater', () => ({
 }))
 
 import { ElectronUpdaterService } from '../../src/main/api/electronUpdater'
+import { isPathInside } from '../../src/main/utils/appBundlePath'
+
+const createCallbacks = (): PlatformUpdaterCallbacks => ({
+  onDownloadStart: vi.fn(),
+  onDownloadProgress: vi.fn(),
+  onDownloadCancelled: vi.fn(),
+  onDownloaded: vi.fn(),
+  onDownloadFailed: vi.fn(),
+  onBeforeInstall: vi.fn()
+})
+
+describe('ElectronUpdaterService install directory protection', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    for (const key of Object.keys(updaterHandlers)) delete updaterHandlers[key]
+    updaterMocks.on.mockImplementation((event: string, handler: (info: unknown) => void) => {
+      updaterHandlers[event] = handler
+    })
+    updaterMocks.checkForUpdates.mockResolvedValue({
+      updateInfo: { version: '3.1.0', releaseNotes: 'New version' }
+    })
+    updaterMocks.downloadUpdate.mockResolvedValue(['/update'])
+  })
+  afterEach(() => {
+    delete process.env.TABDO_DATA_ROOT
+    delete process.env.TABDO_DATA_LOCATION_ROOT
+  })
+
+  it('blocks downloading and installing when the data root is inside the install directory', async () => {
+    // 程序安装目录在覆盖安装时会被整体删除，位于其中的资料必须先迁移。
+    process.env.TABDO_DATA_ROOT = path.join(path.dirname(process.execPath), 'tabdo-data-inside')
+    const service = new ElectronUpdaterService(createCallbacks())
+    await service.checkForUpdates()
+
+    const result = await service.downloadAndInstall()
+
+    expect(result.success).toBe(false)
+    expect(result.error).toContain('程序安装目录')
+    expect(updaterMocks.downloadUpdate).not.toHaveBeenCalled()
+    expect(updaterMocks.quitAndInstall).not.toHaveBeenCalled()
+  })
+
+  it('blocks installing an already downloaded update when the data root is inside the install directory', async () => {
+    process.env.TABDO_DATA_ROOT = path.join(path.dirname(process.execPath), 'tabdo-data-inside')
+    const service = new ElectronUpdaterService(createCallbacks())
+    await service.checkForUpdates()
+    await service.downloadUpdate(false)
+    updaterHandlers['update-downloaded']({ version: '3.1.0', releaseNotes: '' })
+
+    const result = service.installDownloadedUpdate()
+
+    expect(result.success).toBe(false)
+    expect(result.error).toContain('程序安装目录')
+    expect(updaterMocks.quitAndInstall).not.toHaveBeenCalled()
+  })
+
+  it('installs normally when the data root is outside the install directory', async () => {
+    process.env.TABDO_DATA_ROOT = path.join(os.tmpdir(), `tabdo-update-outside-${process.pid}`)
+    const service = new ElectronUpdaterService(createCallbacks())
+    await service.checkForUpdates()
+    await service.downloadUpdate(false)
+    updaterHandlers['update-downloaded']({ version: '3.1.0', releaseNotes: '' })
+
+    expect(service.installDownloadedUpdate()).toEqual({ success: true })
+    expect(updaterMocks.quitAndInstall).toHaveBeenCalled()
+  })
+
+  it('does not treat sibling directories sharing the install directory name as inside it', () => {
+    expect(isPathInside(path.join('C:', 'TabDo'), path.join('C:', 'TabDoData'))).toBe(false)
+    expect(isPathInside(path.join('C:', 'TabDo'), path.join('C:', 'TabDo', 'data'))).toBe(true)
+  })
+})
 
 describe('ElectronUpdaterService cancellation', () => {
   beforeEach(() => {

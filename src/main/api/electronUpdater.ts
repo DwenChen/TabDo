@@ -3,6 +3,8 @@ import { app } from 'electron'
 import { CancellationToken } from 'builder-util-runtime'
 import log from 'electron-log'
 import { NsisUpdater, autoUpdater, type UpdateInfo } from 'electron-updater'
+import { getTabDoRoot } from '../core/appData/appDataPaths'
+import { getAppInstallDirectory, isPathInside } from '../utils/appBundlePath'
 import type {
   PlatformDownloadStatus,
   PlatformUpdateActionResult,
@@ -96,6 +98,23 @@ export class ElectronUpdaterService {
       this.state = 'error'
       this.callbacks.onDownloadFailed(error.message)
     })
+  }
+
+  /**
+   * 检查当前数据目录是否会被安装更新整体删除。
+   * @returns 存在冲突时返回界面提示文本；无冲突或无法解析目录时返回 null。
+   */
+  private getInstallDirectoryConflict(): string | null {
+    const installDirectory = getAppInstallDirectory()
+    if (!installDirectory) return null
+    try {
+      // 安装程序在覆盖安装前会删除整个程序目录，迁移到其中的资料无法保留。
+      if (!isPathInside(installDirectory, getTabDoRoot())) return null
+    } catch {
+      // 位置记录异常由启动流程明确报错，这里不改变其他安装行为。
+      return null
+    }
+    return '数据与缓存目录位于程序安装目录内，更新会替换整个安装目录并删除其中的资料。请先在“设置 → 通用设置 → 数据与缓存目录”迁移到安装目录之外，再重试更新。'
   }
 
   /**
@@ -245,6 +264,9 @@ export class ElectronUpdaterService {
   public async downloadAndInstall(
     updateInfo?: PlatformUpdateInfo
   ): Promise<PlatformUpdateActionResult> {
+    // 下载前先阻止会删除当前资料目录的安装，避免下载后才发现冲突。
+    const conflict = this.getInstallDirectoryConflict()
+    if (conflict) return { success: false, error: conflict }
     if (updateInfo?.feedUrl) {
       // 服务端 feed 提供选中下载源的元数据和对应安装包地址。
       autoUpdater.setFeedURL({ provider: 'generic', url: updateInfo.feedUrl })
@@ -264,6 +286,9 @@ export class ElectronUpdaterService {
    */
   public installDownloadedUpdate(): PlatformUpdateActionResult {
     if (this.state !== 'downloaded') return { success: false, error: '更新尚未下载完成' }
+    // 安装会替换整个程序目录，位于其中的资料必须先迁移。
+    const conflict = this.getInstallDirectoryConflict()
+    if (conflict) return { success: false, error: conflict }
 
     // NSIS 需要显式保留当前安装目录，macOS 则交给 Squirrel.Mac 替换应用包。
     this.state = 'installing'

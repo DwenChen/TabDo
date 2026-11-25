@@ -10,7 +10,7 @@ import {
   getTabDoBootstrapRoot,
   getStableLocationRecordPath
 } from './appData/appDataPaths'
-import { getAppBundlePath } from '../utils/appBundlePath'
+import { getAppBundlePath, getAppInstallDirectory } from '../utils/appBundlePath'
 import { requireInternalPlugin } from '../api/plugin/internal'
 import type { PluginManager } from '../managers/pluginManager'
 import windowManager from '../managers/windowManager'
@@ -50,7 +50,9 @@ export function initDataLocationService(manager: PluginManager): void {
       const validate = createRequire(path.join(app.getAppPath(), 'package.json'))(
         worker
       ).validateDestination
-      validate(source, target)
+      // 安装更新会整体替换程序目录，资料不能迁移到其中。
+      const protectedRoots = [getAppInstallDirectory()].filter(Boolean)
+      validate(source, target, protectedRoots)
       const confirmation = await dialog.showMessageBox({
         type: 'question',
         title: '迁移数据与缓存目录',
@@ -71,6 +73,7 @@ export function initDataLocationService(manager: PluginManager): void {
           target,
           anchor: getTabDoBootstrapRoot(),
           stableLocation: getStableLocationRecordPath(),
+          protectedRoots,
           pid: process.pid,
           executable: process.execPath,
           cwd: process.cwd(),

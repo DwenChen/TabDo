@@ -1,0 +1,31 @@
+{
+  "id": "release-1.5.12",
+  "date": "2026-11-25",
+  "version": "1.5.12",
+  "summary": "发布 TabDo 1.5.12，修复更新安装删除安装目录内资料与互联失效设备无法取消配对",
+  "changes": [
+    "数据与缓存目录迁移预检与离线工作进程都拒绝程序安装目录内的目标；更新下载与安装入口在调用安装器前检查当前数据根，位于安装目录内时直接提示先迁移，避免覆盖安装删除资料。",
+    "互联服务取消配对不再要求本次运行存在设备记录：仅从持久化信任恢复的离线条目直接撤销信任，本次发现后已断开的条目在撤销信任时同时移除临时记录。",
+    "通用设置的数据目录说明和迁移文档补充安装目录限制；设置规范补充离线条目删除要求；回归清单新增 TX-181 与 TX-182。",
+    "更新 package.json 与 README 基准版本到 1.5.12，changelog.md 新增 1.5.12 修复说明。",
+    "README、开发规范、两份本地教程与相关模块文档对照当前源码复核；本轮未新增工具、指令或界面入口，无需其他结构调整。"
+  ],
+  "checks": [
+    "tsc --noEmit -p tsconfig.node.json、vue-tsc --noEmit -p tsconfig.web.json 与设置插件 vue-tsc --noEmit 通过。",
+    "改动文件 eslint 无错误与警告。",
+    "dataLocation 与 electronUpdater 单测 18 项通过；归档 .artifacts/runs/2026-11-24T10-33-20-803Z-unit。",
+    "settings-cleanup 源码 Electron E2E 重试通过（24.6 秒），归档 .artifacts/runs/2026-11-24T10-34-31-896Z-e2e；首次冷启动超时失败证据保留在 .artifacts/runs/2026-11-24T10-33-48-023Z-e2e。",
+    "interconnect 源码 Electron E2E 通过（18.6 秒），包含两种离线条目的取消配对删除；归档 .artifacts/runs/2026-11-25T02-49-27-237Z-e2e。",
+    "按用户指示本轮 push 前不运行全量单测与全量 E2E，仅执行受影响的类型检查、单测与源码 E2E。",
+    "免安装预览已同步并核验：保留 257 个资料与插件文件，2146 个程序文件，版本 1.5.12；回退副本 .artifacts/backups/preview-sync/update-1795578409661。",
+    "node scripts/verify-portable-preview.cjs 通过：2145 个程序文件、367 个内置插件文件、11842 个媒体依赖。",
+    "按项目空间规范清理上轮回退 update-1795575059718/previous-resources 与本次 update-1795578409661/app、new-resources，共约 1394.5 MiB；保留最近一次程序回退与全部 preservation.json。",
+    "corepack pnpm maintain、corepack pnpm docs:check 与 corepack pnpm maintain:check 通过。"
+  ],
+  "pending": [
+    "等待云端 Release TabDo 工作流的 build 与 publish 结果，并与标签、提交和 Release 状态核对。",
+    "按用户指示 release 后不下载产物做 SHA-256/SHA-512 与 ZIP 内容核验，只核对云端构建、标签、发行状态与附件上传状态。",
+    "真实安装版更新拦截提示、安装目录外迁移后重试，以及升级遗留互联设备条目的删除仍需人工验收。"
+  ],
+  "preview": "已同步 .local/portable-preview，保留既有 257 个资料与插件文件，2146 个程序文件逐文件核验通过，版本 1.5.12"
+}

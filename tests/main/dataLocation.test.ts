@@ -71,6 +71,24 @@ describe('完整资料目录迁移', () => {
       expect(fs.existsSync(path.join(source, '.data-location.json'))).toBe(false)
     }
   )
+  it('拒绝位于程序安装目录内的新位置，避免更新替换安装目录时删除资料', () => {
+    const install = path.join(base, '安装 目录')
+    fs.mkdirSync(install)
+    const destination = path.join(install, '资料')
+    expect(() => validateDestination(source, destination, [install])).toThrow('程序安装目录')
+    expect(() =>
+      relocateData({ source, target: destination, anchor: source, protectedRoots: [install] })
+    ).toThrow('程序安装目录')
+    expect(fs.existsSync(destination)).toBe(false)
+    expect(fs.existsSync(path.join(source, '.data-location.json'))).toBe(false)
+    expect(fs.readFileSync(path.join(source, 'lmdb/device/data.mdb'), 'utf8')).toBe('settings')
+  })
+  it('安装目录之外的目标不受保护目录限制', () => {
+    const install = path.join(base, '安装 目录')
+    fs.mkdirSync(install)
+    relocateData({ source, target, anchor: source, protectedRoots: [install] })
+    expect(getTabDoRoot({ dataRoot: source })).toBe(target)
+  })
   it('复制失败不发布目标或切换位置记录，并清理本任务的暂存树', () => {
     vi.spyOn(fs, 'copyFileSync').mockImplementation(() => {
       throw new Error('disk full')

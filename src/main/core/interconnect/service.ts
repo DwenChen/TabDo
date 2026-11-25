@@ -318,17 +318,23 @@ class InterconnectService {
    */
   public pairDevice(deviceId: string, pair: boolean): { success: boolean; error?: string } {
     const record = this.devices.get(deviceId)
-    if (!record) return { success: false, error: '设备不存在' }
     if (!pair) {
-      record.pendingPair = false
-      record.pairRequestedAt = undefined
-      record.link?.send(PACKET_PAIR, { pair: false })
+      // 重启后只恢复信任记录的离线设备没有本次运行记录，也必须允许撤销配对。
+      if (!record && !this.trusted.has(deviceId)) return { success: false, error: '设备不存在' }
+      if (record) {
+        record.pendingPair = false
+        record.pairRequestedAt = undefined
+        record.link?.send(PACKET_PAIR, { pair: false })
+        // 离线设备没有恢复通道，撤销后直接移除条目，避免失效记录长期残留。
+        if (!record.link?.isAlive()) this.devices.delete(deviceId)
+      }
       this.trusted.delete(deviceId)
       this.saveTrustedDevices()
       this.emitState()
       return { success: true }
     }
     if (this.trusted.has(deviceId)) return { success: true }
+    if (!record) return { success: false, error: '设备不存在' }
     if (!record.link?.isAlive()) return { success: false, error: '设备当前不可达' }
     const sent = record.link.send(PACKET_PAIR, {
       pair: true,

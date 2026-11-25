@@ -33,19 +33,26 @@ function contains(parent, child) {
 }
 
 /**
- * 校验迁移目标，不允许源目标互相嵌套或覆盖已有文件。
+ * 校验迁移目标，不允许源目标互相嵌套、落入更新会替换的安装目录或覆盖已有文件。
  * @param {string} source 当前数据根目录。
  * @param {string} destination 用户选择的新目录。
+ * @param {string[]} [protectedRoots] 安装更新时会整体替换的目录。
  * @returns {{source: string, target: string}} 已验证的规范化路径。
- * @throws {Error} 路径不合法、相互嵌套或目标非空时抛错。
+ * @throws {Error} 路径不合法、相互嵌套、位于安装目录内或目标非空时抛错。
  */
-function validateDestination(source, destination) {
+function validateDestination(source, destination, protectedRoots = []) {
   if (typeof destination !== 'string' || !path.isAbsolute(destination))
     throw new Error('请选择绝对目录')
   const current = canonical(source),
     target = canonical(destination)
   if (contains(current, target) || contains(target, current))
     throw new Error('新目录不能与当前目录相同或相互包含')
+  // 安装更新会先整体替换程序目录，位于其中的资料无法跨版本保留。
+  for (const root of protectedRoots) {
+    if (typeof root !== 'string' || !root) continue
+    if (contains(canonical(root), target))
+      throw new Error('新目录不能位于程序安装目录内，更新程序会替换该目录中的全部文件')
+  }
   if (
     fs.existsSync(target) &&
     (!fs.statSync(target).isDirectory() || fs.readdirSync(target).length)
@@ -102,12 +109,12 @@ function copyVerified(source, destination, skipLocationRecord = false) {
 
 /**
  * 完成离线迁移；发布目标和位置记录之前，原资料始终保留。
- * @param {{source: string, target: string, anchor: string, stableLocation?: string}} job 迁移目录、启动锚点与稳定记录。
+ * @param {{source: string, target: string, anchor: string, stableLocation?: string, protectedRoots?: string[]}} job 迁移目录、启动锚点、稳定记录与受保护目录。
  * @returns {{root: string, previousRoot: string, files: number}} 新旧位置及校验数。
  * @throws {Error} 复制、校验或原子发布失败时抛错。
  */
 function relocateData(job) {
-  const { source, target } = validateDestination(job.source, job.target)
+  const { source, target } = validateDestination(job.source, job.target, job.protectedRoots)
   const parent = path.dirname(target)
   fs.mkdirSync(parent, { recursive: true })
   const staging = fs.mkdtempSync(path.join(parent, '.tabdo-relocate-'))
@@ -118,7 +125,7 @@ function relocateData(job) {
       JSON.stringify({ sourceRoot: source, externalPlugins: [] })
     )
     // 最后复核目标；rmdir 仅允许空目录，竞态出现的内容不能被递归删除。
-    validateDestination(source, target)
+    validateDestination(source, target, job.protectedRoots)
     if (fs.existsSync(target)) fs.rmdirSync(target)
     fs.renameSync(staging, target)
     const configuration = path.join(job.anchor, '.data-location.json')

@@ -53,7 +53,9 @@ onMounted(load)
 <template>
   <section class="data-location-setting">
     <h3>数据与缓存目录</h3>
-    <p>包含配置、已安装插件、历史和缓存。更改后退出应用迁移，完整校验后重启，原目录保留作备份。</p>
+    <p>
+      包含配置、已安装插件、历史和缓存。更改后退出应用迁移，完整校验后重启，原目录保留作备份。不能选择程序安装目录内的文件夹，更新程序会替换整个安装目录。
+    </p>
     <div class="location-row">
       <output aria-label="当前数据与缓存目录">{{ current }}</output
       ><button class="btn" :disabled="busy" @click="choose">更改目录</button>

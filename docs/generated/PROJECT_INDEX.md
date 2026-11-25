@@ -267,7 +267,7 @@
 - `media-note-interaction`：5 个单测文件、2 个源码 E2E 文件。
 - `recorder-reference`：6 个单测文件、5 个源码 E2E 文件。
 - `clipboard-trigger`：3 个单测文件、0 个源码 E2E 文件。
-- `settings-defaults`：6 个单测文件、8 个源码 E2E 文件。
+- `settings-defaults`：7 个单测文件、8 个源码 E2E 文件。
 - `host-services`：3 个单测文件、2 个源码 E2E 文件。
 - `file-locksmith`：1 个单测文件、2 个源码 E2E 文件。
 - `interconnect`：3 个单测文件、1 个源码 E2E 文件。

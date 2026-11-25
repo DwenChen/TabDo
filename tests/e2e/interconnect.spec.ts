@@ -739,6 +739,49 @@ test('互联服务完成配对、剪贴板同步、双向文件传输并显示�
       if (panel && card) panel.scrollTop = Math.max(0, card.offsetTop - 16)
     })
     await settings.screenshot({ path: testInfo.outputPath('interconnect-settings-transfer.png') })
+
+    // 离线设备也必须能手动移出列表，覆盖重启后仅恢复信任记录与本次发现后断开的两种情况。
+    secondConnection.close()
+    await expect
+      .poll(async () => {
+        const state = await settings.evaluate(
+          async () => await window.tabdo.internal.interconnectGetState()
+        )
+        return state.state!.devices.find((device) => device.id === secondPeer.deviceId)?.reachable
+      })
+      .toBe(false)
+    // 删除本次运行记录，模拟只从持久化信任恢复、已无法再发现的失效条目。
+    await app.evaluate(({ app: electronApp }, deviceId) => {
+      const service = process.mainModule!.require(
+        electronApp.getAppPath() + '/src/main/core/interconnect/service.ts'
+      ).default
+      service.devices.delete(deviceId)
+    }, secondPeer.deviceId)
+    const staleRow = settings.locator('.device-row').filter({ hasText: 'E2E 平板' })
+    await staleRow.getByRole('button', { name: '取消配对', exact: true }).click()
+    await expect(staleRow).toHaveCount(0)
+    await expect
+      .poll(async () => {
+        const state = await settings.evaluate(
+          async () => await window.tabdo.internal.interconnectGetState()
+        )
+        return state.state!.devices.some((device) => device.id === secondPeer.deviceId)
+      })
+      .toBe(false)
+
+    connection.close()
+    await expect
+      .poll(async () => {
+        const state = await settings.evaluate(
+          async () => await window.tabdo.internal.interconnectGetState()
+        )
+        return state.state!.devices.find((device) => device.id === peer.deviceId)?.reachable
+      })
+      .toBe(false)
+    const offlineRow = settings.locator('.device-row').filter({ hasText: 'E2E 手机' })
+    await offlineRow.getByRole('button', { name: '取消配对', exact: true }).click()
+    await expect(offlineRow).toHaveCount(0)
+
     await settings
       .locator('.card .toggle input')
       .first()

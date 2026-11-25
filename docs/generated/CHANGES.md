@@ -2,6 +2,68 @@
 
 > 自动生成；原始记录在 [entries](../history/entries/)。
 
+## 2026-11-25 · 发布 TabDo 1.5.12，修复更新安装删除安装目录内资料与互联失效设备无法取消配对
+
+记录：[release-1.5.12](../../docs/history/entries/2026-11-25-02-release-1.5.12.json)；版本：1.5.12。
+
+- 数据与缓存目录迁移预检与离线工作进程都拒绝程序安装目录内的目标；更新下载与安装入口在调用安装器前检查当前数据根，位于安装目录内时直接提示先迁移，避免覆盖安装删除资料。
+- 互联服务取消配对不再要求本次运行存在设备记录：仅从持久化信任恢复的离线条目直接撤销信任，本次发现后已断开的条目在撤销信任时同时移除临时记录。
+- 通用设置的数据目录说明和迁移文档补充安装目录限制；设置规范补充离线条目删除要求；回归清单新增 TX-181 与 TX-182。
+- 更新 package.json 与 README 基准版本到 1.5.12，changelog.md 新增 1.5.12 修复说明。
+- README、开发规范、两份本地教程与相关模块文档对照当前源码复核；本轮未新增工具、指令或界面入口，无需其他结构调整。
+
+- 验证：tsc --noEmit -p tsconfig.node.json、vue-tsc --noEmit -p tsconfig.web.json 与设置插件 vue-tsc --noEmit 通过。
+- 验证：改动文件 eslint 无错误与警告。
+- 验证：dataLocation 与 electronUpdater 单测 18 项通过；归档 .artifacts/runs/2026-11-24T10-33-20-803Z-unit。
+- 验证：settings-cleanup 源码 Electron E2E 重试通过（24.6 秒），归档 .artifacts/runs/2026-11-24T10-34-31-896Z-e2e；首次冷启动超时失败证据保留在 .artifacts/runs/2026-11-24T10-33-48-023Z-e2e。
+- 验证：interconnect 源码 Electron E2E 通过（18.6 秒），包含两种离线条目的取消配对删除；归档 .artifacts/runs/2026-11-25T02-49-27-237Z-e2e。
+- 验证：按用户指示本轮 push 前不运行全量单测与全量 E2E，仅执行受影响的类型检查、单测与源码 E2E。
+- 验证：免安装预览已同步并核验：保留 257 个资料与插件文件，2146 个程序文件，版本 1.5.12；回退副本 .artifacts/backups/preview-sync/update-1795578409661。
+- 验证：node scripts/verify-portable-preview.cjs 通过：2145 个程序文件、367 个内置插件文件、11842 个媒体依赖。
+- 验证：按项目空间规范清理上轮回退 update-1795575059718/previous-resources 与本次 update-1795578409661/app、new-resources，共约 1394.5 MiB；保留最近一次程序回退与全部 preservation.json。
+- 验证：corepack pnpm maintain、corepack pnpm docs:check 与 corepack pnpm maintain:check 通过。
+
+## 2026-11-25 · 修复已配对但离线或已失效的互联设备无法取消配对并从设备列表删除的问题
+
+记录：[interconnect-stale-device-unpair](../../docs/history/entries/2026-11-25-01-interconnect-stale-device-unpair.json)；版本：未发布。
+
+- pairDevice 的取消配对分支不再要求本次运行存在设备记录：只从持久化信任恢复的离线设备可以直接撤销信任并刷新界面，不再返回“设备不存在”。
+- 存在本次运行记录时，取消配对先清除待配对状态并向仍存活的链路发送取消包；设备离线时同时移除该临时记录，避免本次发现后断开的条目继续残留。
+- 请求配对与接受配对仍要求设备记录和可用链路，离线设备不能发起新配对。
+- interconnect 源码 E2E 增加离线条目删除场景：删除本次运行记录以模拟升级后仅恢复信任的残留条目，再覆盖本次发现后断开的记录。
+- 同步设置规范的配对与信任说明和回归清单 TX-182。
+
+- 验证：corepack pnpm typecheck:node 通过。
+- 验证：eslint 检查 src/main/core/interconnect/service.ts 与 tests/e2e/interconnect.spec.ts 无错误与警告。
+- 验证：corepack pnpm test:e2e tests/e2e/interconnect.spec.ts 通过，18.6 秒；覆盖配对、剪贴板同步、双向文件传输、多设备目标选择，以及两种离线条目的取消配对删除；归档 .artifacts/runs/2026-11-25T02-49-27-237Z-e2e。
+- 验证：已查看 interconnect-settings.png：互联服务开关、运行状态、设备名称与证书指纹布局正常，窄宽度无横向溢出；本轮未改设备列表模板。
+- 验证：electron-vite build 通过，主进程、预加载与渲染器重新产出。
+- 验证：corepack pnpm preview:sync 同步 .local/portable-preview，保留既有 257 个资料与插件文件，核验 2146 个程序文件，版本 1.5.11；程序回退位于 .artifacts/backups/preview-sync/update-1795575059718。
+- 验证：corepack pnpm test:preview:resources 通过：2145 个程序文件、367 个内置插件文件、11842 个媒体依赖。
+- 验证：按项目空间规范清理上轮回退 update-1795516564295/previous-resources 与本次 update-1795575059718/app、new-resources，共约 1394.5 MiB；保留最近一次程序回退与全部 preservation.json。
+- 验证：corepack pnpm maintain、corepack pnpm docs:check 与 corepack pnpm maintain:check 通过。
+
+## 2026-11-24 · 修复数据与缓存目录迁移到程序安装目录内后，更新下载安装报错并删除该目录的问题
+
+记录：[update-data-location-install-dir](../../docs/history/entries/2026-11-24-03-update-data-location-install-dir.json)；版本：未发布。
+
+- 新增安装目录判定：打包运行时以 exe 所在目录（macOS 为 .app 包根目录）作为更新会整体替换的受保护目录。
+- 迁移预检与离线工作进程的 validateDestination 增加受保护目录参数，拒绝位于程序安装目录内或等于该目录的目标；最终发布前再次复核，原资料、目标与位置记录保持不变。
+- electronUpdater 在下载前和已下载安装前检查当前数据根，位于程序安装目录内时返回明确提示并拒绝调用 quitAndInstall，避免 NSIS 覆盖安装前已删除资料。
+- 通用设置“数据与缓存目录”说明补充不能选择程序安装目录内的文件夹；同步迁移文档、设置规范、仓库与应用内教程。
+- dataLocation 单测增加安装目录内目标被预检和离线迁移拒绝、安装目录外目标正常迁移的场景；electronUpdater 单测增加下载与安装拦截、安装目录外正常安装及同名前缀兄弟目录不误判的场景，并加入 settings-defaults 回归组。
+
+- 验证：corepack pnpm typecheck:node 通过。
+- 验证：eslint 检查 src/main/utils/appBundlePath.ts、src/main/core/dataLocationService.ts、src/main/api/electronUpdater.ts、tests/main/dataLocation.test.ts、tests/main/electronUpdater.test.ts 无错误与警告。
+- 验证：node scripts/run-tests.cjs unit tests/main/dataLocation.test.ts tests/main/electronUpdater.test.ts 通过：2 个文件 18 项；归档 .artifacts/runs/2026-11-24T10-33-20-803Z-unit。
+- 验证：corepack pnpm test:e2e tests/e2e/settings-cleanup.spec.ts 首次在设置页 15177 页面出现前超时失败，归档 .artifacts/runs/2026-11-24T10-33-48-023Z-e2e；随后同一命令重试通过，24.6 秒，归档 .artifacts/runs/2026-11-24T10-34-31-896Z-e2e。
+- 验证：设置插件 vue-tsc 与 vite build 通过；electron-vite build 通过，主进程、预加载与渲染器重新产出。
+- 验证：corepack pnpm preview:sync 同步 .local/portable-preview，保留既有 257 个资料与插件文件，核验 2146 个程序文件，版本 1.5.11；程序回退位于 .artifacts/backups/preview-sync/update-1795516564295。
+- 验证：corepack pnpm test:preview:resources 通过：2145 个程序文件、367 个内置插件文件、11842 个媒体依赖。
+- 验证：按项目空间规范清理本轮已消费的预览同步暂存：移除上轮回退 update-1795511295950/previous-resources 与本次 update-1795516564295/app、new-resources，共约 1394.5 MiB；保留最近一次程序回退 update-1795516564295/previous-resources 及全部 preservation.json，清理后 test:preview:resources 再次通过。
+- 验证：查看 general-settings.png：“数据与缓存目录”说明在默认宽度换为两行，未挤压按钮或产生横向溢出。
+- 验证：corepack pnpm maintain、corepack pnpm docs:check（38 个文档、262 个本地链接、16 章 77 步）与 corepack pnpm maintain:check 均通过。
+
 ## 2026-11-24 · 发布 TabDo 1.5.11，修复与 Android KDE Connect 互联时的在线状态跳变
 
 记录：[release-1.5.11](../../docs/history/entries/2026-11-24-02-release-1.5.11.json)；版本：1.5.11。
