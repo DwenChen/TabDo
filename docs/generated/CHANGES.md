@@ -22,6 +22,9 @@
 - 验证：node scripts/verify-portable-preview.cjs 通过：2145 个程序文件、367 个内置插件文件、11842 个媒体依赖。
 - 验证：按项目空间规范清理上轮回退 update-1795575059718/previous-resources 与本次 update-1795578409661/app、new-resources，共约 1394.5 MiB；保留最近一次程序回退与全部 preservation.json。
 - 验证：corepack pnpm maintain、corepack pnpm docs:check 与 corepack pnpm maintain:check 通过。
+- 验证：通过提交及推送 hooks，原子推送 main 与 v1.5.12，提交 ba624a594bcaa3eb85f7d31019b4d7cb258e229a，远端 main 与标签指向同一提交。
+- 验证：云端 https://github.com/DwenChen/TabDo/actions/runs/45542904116 的 build 与 publish 均成功。https://github.com/DwenChen/TabDo/releases/tag/v1.5.12 非草稿、非预发布，目标提交为 ba624a59，已成为最新正式版；发行 id 457634929，published_at 2026-11-25T03:59:45Z。
+- 验证：Release 已上传 latest.yml、TabDo-1.5.12-win-x64-setup.exe、对应 blockmap 与 TabDo-1.5.12-win-x64.zip 四个附件，状态均为 uploaded。
 
 ## 2026-11-25 · 修复已配对但离线或已失效的互联设备无法取消配对并从设备列表删除的问题
 
