@@ -2,6 +2,69 @@
 
 > 自动生成；原始记录在 [entries](../history/entries/)。
 
+## 2026-11-26 · 发布 TabDo 1.5.13，修复互联传输大文件中断、接收端误报完成与连接超时弹窗，并统一插件标题栏右上角元素
+
+记录：[release-1.5.13](../../docs/history/entries/2026-11-26-03-release-1.5.13.json)；版本：1.5.13。
+
+- 互联传输发送端只在接收方尚未连入载荷端口时计时，连入后立即清除连接等待计时，大文件不再在约 60 秒时被误判为等待超时。
+- 接收载荷按对端声明的 payloadSize 校验完整性，字节不足或连接提前结束时记为失败并删除 .part 临时文件，只有达到声明长度才落盘完成。
+- 主动连接的套接字保留常驻错误监听并在 connect 或 TLS 握手超时时销毁，避免系统 ETIMEDOUT 晚于握手超时到达后成为主进程未捕获异常。
+- 主窗口插件标题栏移除三点菜单、独立窗口移除插件设置齿轮，右上角统一为临时常驻、置顶与窗口控制；分离、结束运行和搜索栏推送改由标题栏双击、Ctrl+D/Ctrl+Q 与设置页插件详情提供。
+- 设置规范补充文档落盘完整性与连接等待说明，插件规范和工具规范补充标题栏元素约束；回归清单新增 TX-183 与 TX-184。
+- 更新 package.json 与 README 基准版本到 1.5.13，changelog.md 新增 1.5.13 修复说明；README、开发规范、两份本地教程与相关模块文档对照当前源码复核。
+
+- 验证：tsc --noEmit -p tsconfig.node.json、vue-tsc --noEmit -p tsconfig.web.json 与设置插件 vue-tsc --noEmit 通过。
+- 验证：改动文件 eslint 无错误（detachedWindowManager 仅保留改动前已存在的 prettier 警告）。
+- 验证：interconnect 3 个单测文件 16 项通过。
+- 验证：interconnect 源码 Electron E2E 通过（36.0 秒），包含新增的截断接收失败与面板失败态截图；归档 .artifacts/runs/2026-11-26T10-53-06-265Z-e2e。
+- 验证：plugin-host-regressions 源码 Electron E2E 通过（34.9 秒），断言主窗口无三点菜单、独立窗口无设置齿轮；归档 .artifacts/runs/2026-11-26T11-42-44-537Z-e2e。
+- 验证：按用户指示本轮 push 前不运行全量单测与全量 E2E，仅执行受影响的类型检查、单测与源码 E2E。
+- 验证：免安装预览已同步并核验：保留 257 个资料与插件文件，2146 个程序文件，版本 1.5.13；回退副本 .artifacts/backups/preview-sync/update-1795694569576。
+- 验证：node scripts/verify-portable-preview.cjs 通过：2145 个程序文件、367 个内置插件文件、11842 个媒体依赖。
+- 验证：按项目空间规范清理上轮回退 update-1795693503022/previous-resources 与本次 update-1795694569576/app、new-resources，共约 1394.4 MiB；保留最近一次程序回退与全部 preservation.json。
+
+## 2026-11-26 · 统一插件标题栏与内置子组件的右上角元素：移除主窗口插件的三点菜单和独立窗口的插件设置按钮
+
+记录：[plugin-titlebar-unified-actions](../../docs/history/entries/2026-11-26-02-plugin-titlebar-unified-actions.json)；版本：未发布。
+
+- 主窗口插件标题栏移除“插件操作”三点菜单及其原生菜单逻辑，右上角只保留宿主统一的临时常驻开关，与内置子组件一致。
+- 独立窗口标题栏移除“插件设置”齿轮按钮，右上角固定为临时常驻、置顶与最小化/最大化/关闭，与剪贴板等内置工具一致。
+- 移除只服务该菜单的 show-plugin-menu IPC 处理与 detached-menu-result 回传，并删除不再使用的 useMainPushSetting 组合式函数；分离、结束运行与搜索栏推送分别保留标题栏双击、Ctrl+D/Ctrl+Q 和设置页插件详情入口。
+- plugin-host-regressions 源码 E2E 改为断言主窗口没有“插件操作”、独立窗口没有“插件设置”，并保留分离、截图与标题栏截图核对。
+- 同步插件规范与工具规范的标题栏元素约束，补记 TX-184 回归。
+
+- 验证：corepack pnpm typecheck:node 与 typecheck:web 通过。
+- 验证：eslint 检查 PluginHeader.vue、DetachedTitlebar.vue、detachedWindowManager.ts 与 plugin-host-regressions.spec.ts 无错误（detachedWindowManager 仅有改动前已存在的 prettier 警告）。
+- 验证：corepack pnpm test:e2e tests/e2e/plugin-host-regressions.spec.ts 通过，34.9 秒，归档 .artifacts/runs/2026-11-26T11-42-44-537Z-e2e；前两次运行在工具开发服务器冷缓存时停在等待 15178 正文，预热后同一用例通过，失败日志与归档保留在 11-35、11-37、11-39。
+- 验证：已查看 detached-titlebar.png：第三方夹具独立标题栏只剩置顶、开发者工具（源码预览）与窗口控制，无设置齿轮和三点菜单；detached-titlebar-tool.png 中剪贴板为临时常驻、置顶、开发者工具与窗口控制，常驻按钮位于置顶左侧。
+- 验证：corepack pnpm exec electron-vite build 通过，主进程、预加载与渲染器重新产出。
+- 验证：corepack pnpm preview:sync 同步 .local/portable-preview，保留既有 257 个资料与插件文件，核验 2146 个程序文件，版本 1.5.12；程序回退位于 .artifacts/backups/preview-sync/update-1795693503022。
+- 验证：corepack pnpm test:preview:resources 通过：2145 个程序文件、367 个内置插件文件、11842 个媒体依赖。
+- 验证：在预览 app.asar 中核对“插件操作”“插件设置”“show-plugin-menu”“detached-menu-result”均已不存在，确认本轮标题栏入口移除已进入免安装预览。
+- 验证：按项目空间规范清理上轮程序回退 update-1795690496557/previous-resources 与本次 update-1795693503022/app、new-resources，共约 1394.4 MiB；保留最近一次程序回退与全部 preservation.json。
+
+## 2026-11-26 · 修复大文件传输进行约 60 秒后被误判失败、接收端把截断文件显示为已完成，以及连接不可达设备时主进程未捕获 ETIMEDOUT 错误弹窗
+
+记录：[interconnect-transfer-integrity](../../docs/history/entries/2026-11-26-01-interconnect-transfer-integrity.json)；版本：未发布。
+
+- 发送载荷时启动的 60 秒连接等待计时器改为只在接收方连入载荷端口前有效；接收方连入后立即清除，大文件传输不再因时长被中断。
+- 接收载荷统一按对端声明的 payloadSize 判定完成：已接收字节不足、连接提前结束时记为失败并删除 .part 临时文件，只有达到声明长度才改名落盘；未声明长度仍按连接结束完成。
+- 发送端在接收方连入后记录读流，载荷连接中途断开时立即失败并回收读流，避免任务长期停在进行中。
+- 链路握手为套接字安装常驻 error 监听并在完成后停止日志输出，connect 与 TLS 握手超时时主动销毁套接字，避免系统 ETIMEDOUT 晚于 8 秒握手超时到达时成为主进程未捕获异常。
+- interconnect 源码 E2E 新增截断接收场景：对端声明 4096 字节只发送 17 字节即关闭，断言接收任务失败、落点与 .part 均不存在，并截图核对面板显示失败原因。
+- 同步设置规范的文件传输完整性、连接等待计时与断开失败说明，补记 TX-183 回归。
+
+- 验证：corepack pnpm typecheck:node 通过。
+- 验证：eslint 检查 src/main/core/interconnect/link.ts、src/main/core/interconnect/service.ts 与 tests/e2e/interconnect.spec.ts 无错误与警告。
+- 验证：corepack pnpm exec vitest run tests/main/interconnectLink.test.ts tests/main/interconnectProtocol.test.ts tests/main/interconnectCertificate.test.ts 通过，16 项。
+- 验证：corepack pnpm test:e2e tests/e2e/interconnect.spec.ts 两次通过：首次 45.1 秒（归档 .artifacts/runs/2026-11-26T10-51-22-353Z-e2e），补充面板断言后 36.0 秒（归档 .artifacts/runs/2026-11-26T10-53-06-265Z-e2e）。
+- 验证：已查看 interconnect-transfer-interrupted.png：截断任务显示“失败”“接收中断：文件不完整（17 / 4113 字节）”，同一面板中的成功任务仍显示“已完成”和“打开位置”，失败计数为 1。
+- 验证：corepack pnpm exec electron-vite build 通过，主进程、预加载与渲染器重新产出。
+- 验证：corepack pnpm preview:sync 同步 .local/portable-preview，保留既有 257 个资料与插件文件，核验 2146 个程序文件，版本 1.5.12；程序回退位于 .artifacts/backups/preview-sync/update-1795690496557。
+- 验证：corepack pnpm test:preview:resources 通过：2145 个程序文件、367 个内置插件文件、11842 个媒体依赖。
+- 验证：在预览 app.asar 中检出“接收中断：文件不完整”“接收方在传输完成前断开连接”文案，确认本轮主进程改动已进入免安装预览。
+- 验证：按项目空间规范清理上上轮程序回退 update-1795578409661/previous-resources 与本次 update-1795690496557/app、new-resources，共约 1394.5 MiB；保留最近一次程序回退与全部 preservation.json。
+
 ## 2026-11-25 · 发布 TabDo 1.5.12，修复更新安装删除安装目录内资料与互联失效设备无法取消配对
 
 记录：[release-1.5.12](../../docs/history/entries/2026-11-25-02-release-1.5.12.json)；版本：1.5.12。

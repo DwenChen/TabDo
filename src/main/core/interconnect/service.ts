@@ -1293,6 +1293,11 @@ class InterconnectService {
       }
       const finish = (): void => {
         if (settled) return
+        // 只有收到对端声明的全部字节才算完成；否则对端中断也会被误判为接收成功。
+        if (expectedSize >= 0 && received < expectedSize) {
+          fail(new Error(`接收中断：文件不完整（${received} / ${expectedSize} 字节）`))
+          return
+        }
         settled = true
         socket?.destroy()
         output.end(() => {
@@ -1330,15 +1335,12 @@ class InterconnectService {
           if (expectedSize >= 0 && received >= expectedSize) finish()
         })
         output.on('drain', () => tlsSocket.resume())
+        // 对端正常结束与异常关闭都走 finish，由声明长度统一判定是否完整。
         tlsSocket.on('end', finish)
         tlsSocket.on('close', () => {
           if (settled) return
           // 个别实现对端会先发 FIN 再交付已缓冲数据，延后一拍再判断是否完整。
-          setTimeout(() => {
-            if (settled) return
-            if (expectedSize < 0 || received >= expectedSize) finish()
-            else fail(new Error('载荷连接在接收完成前关闭'))
-          }, 50)
+          setTimeout(finish, 50)
         })
         tlsSocket.on('error', fail)
       })
@@ -1440,6 +1442,7 @@ class InterconnectService {
       let sent = 0
       let timer: NodeJS.Timeout | null = null
       let hintTimer: NodeJS.Timeout | null = null
+      let readStream: fs.ReadStream | null = null
       const sockets = new Set<tls.TLSSocket>()
       // 载荷连接显式提供证书与私钥：tls.connect 只带 secureContext 时对端可能收不到客户端证书。
       const server = tls.createServer(
@@ -1455,6 +1458,11 @@ class InterconnectService {
             return
           }
           accepted = true
+          // 接收方已连入载荷端口：连接等待计时结束，大文件传输耗时远超该阈值。
+          if (timer) {
+            clearTimeout(timer)
+            timer = null
+          }
           // 接收方已连入载荷端口，取消防火墙等待提示，避免正常传输中误报。
           if (hintTimer) {
             clearTimeout(hintTimer)
@@ -1467,6 +1475,7 @@ class InterconnectService {
             return
           }
           const stream = fs.createReadStream(filePath, { highWaterMark: 64 * 1024 })
+          readStream = stream
           stream.on('data', (chunk) => {
             sent += chunk.length
             onProgress(sent)
@@ -1474,6 +1483,12 @@ class InterconnectService {
           })
           socket.on('drain', () => stream.resume())
           socket.on('error', fail)
+          // 接收方中途断开时立即结束任务，避免发送端长期停在传输中。
+          socket.on('close', () => {
+            if (settled) return
+            if (sent >= size) done()
+            else fail(new Error('接收方在传输完成前断开连接'))
+          })
           stream.on('error', fail)
           stream.on('end', () => {
             // 等 TLS 套接字把缓冲数据写完再结束任务，避免接收方拿到截断文件。
@@ -1486,6 +1501,8 @@ class InterconnectService {
         timer = null
         if (hintTimer) clearTimeout(hintTimer)
         hintTimer = null
+        readStream?.destroy()
+        readStream = null
         for (const socket of sockets) socket.destroy()
         sockets.clear()
         server.close()

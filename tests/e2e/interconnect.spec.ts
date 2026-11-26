@@ -678,6 +678,51 @@ test('互联服务完成配对、剪贴板同步、双向文件传输并显示�
     const receivedStat = await fs.stat(receivedPath)
     expect(Date.now() - receivedStat.mtimeMs).toBeLessThan(5 * 60 * 1000)
 
+    // 对端提前断开时必须判定失败，不能把截断文件当成已完成落盘。
+    const truncatedContent = Buffer.from('truncated payload')
+    const truncatedServer = await startPeerPayloadServer(peer, truncatedContent)
+    connection.send(
+      'kdeconnect.share.request',
+      { filename: 'truncated.bin', open: false },
+      {
+        payloadSize: truncatedContent.length + 4096,
+        payloadTransferInfo: { port: truncatedServer.port }
+      }
+    )
+    await truncatedServer.done
+    let truncatedPath = ''
+    await expect
+      .poll(
+        async () => {
+          const state = await settings.evaluate(
+            async () => await window.tabdo.internal.interconnectGetState()
+          )
+          const transfer = state.state!.transfers.find(
+            (item) => item.direction === 'receive' && item.files[0]?.name === 'truncated.bin'
+          )
+          truncatedPath = transfer?.files[0]?.path || ''
+          return transfer?.status || ''
+        },
+        { timeout: 10000 }
+      )
+      .toBe('error')
+    // 截断任务只保留失败记录，落点文件与 .part 临时文件都必须被清理。
+    expect(truncatedPath).not.toBe('')
+    const exists = async (target: string): Promise<boolean> =>
+      fs.access(target).then(
+        () => true,
+        () => false
+      )
+    await expect.poll(() => exists(truncatedPath)).toBe(false)
+    await expect.poll(() => exists(`${truncatedPath}.part`)).toBe(false)
+    // 面板应把中断任务显示为失败并给出原因，不能停在已完成。
+    const interruptedPanel = await findDataPageWithText(app, 'truncated.bin', 5000)
+    expect(interruptedPanel).toBeTruthy()
+    await expect(interruptedPanel!.getByText('失败', { exact: true })).toBeVisible()
+    await interruptedPanel!.screenshot({
+      path: testInfo.outputPath('interconnect-transfer-interrupted.png')
+    })
+
     // 设置页不再展示发送与接收记录，任务改由互联传输面板承担。
     await expect(settings.getByText('暂无传输任务')).toHaveCount(0)
 

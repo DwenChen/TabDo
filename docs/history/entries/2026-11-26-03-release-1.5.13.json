@@ -1,0 +1,30 @@
+{
+  "id": "release-1.5.13",
+  "date": "2026-11-26",
+  "version": "1.5.13",
+  "summary": "发布 TabDo 1.5.13，修复互联传输大文件中断、接收端误报完成与连接超时弹窗，并统一插件标题栏右上角元素",
+  "changes": [
+    "互联传输发送端只在接收方尚未连入载荷端口时计时，连入后立即清除连接等待计时，大文件不再在约 60 秒时被误判为等待超时。",
+    "接收载荷按对端声明的 payloadSize 校验完整性，字节不足或连接提前结束时记为失败并删除 .part 临时文件，只有达到声明长度才落盘完成。",
+    "主动连接的套接字保留常驻错误监听并在 connect 或 TLS 握手超时时销毁，避免系统 ETIMEDOUT 晚于握手超时到达后成为主进程未捕获异常。",
+    "主窗口插件标题栏移除三点菜单、独立窗口移除插件设置齿轮，右上角统一为临时常驻、置顶与窗口控制；分离、结束运行和搜索栏推送改由标题栏双击、Ctrl+D/Ctrl+Q 与设置页插件详情提供。",
+    "设置规范补充文档落盘完整性与连接等待说明，插件规范和工具规范补充标题栏元素约束；回归清单新增 TX-183 与 TX-184。",
+    "更新 package.json 与 README 基准版本到 1.5.13，changelog.md 新增 1.5.13 修复说明；README、开发规范、两份本地教程与相关模块文档对照当前源码复核。"
+  ],
+  "checks": [
+    "tsc --noEmit -p tsconfig.node.json、vue-tsc --noEmit -p tsconfig.web.json 与设置插件 vue-tsc --noEmit 通过。",
+    "改动文件 eslint 无错误（detachedWindowManager 仅保留改动前已存在的 prettier 警告）。",
+    "interconnect 3 个单测文件 16 项通过。",
+    "interconnect 源码 Electron E2E 通过（36.0 秒），包含新增的截断接收失败与面板失败态截图；归档 .artifacts/runs/2026-11-26T10-53-06-265Z-e2e。",
+    "plugin-host-regressions 源码 Electron E2E 通过（34.9 秒），断言主窗口无三点菜单、独立窗口无设置齿轮；归档 .artifacts/runs/2026-11-26T11-42-44-537Z-e2e。",
+    "按用户指示本轮 push 前不运行全量单测与全量 E2E，仅执行受影响的类型检查、单测与源码 E2E。",
+    "免安装预览已同步并核验：保留 257 个资料与插件文件，2146 个程序文件，版本 1.5.13；回退副本 .artifacts/backups/preview-sync/update-1795694569576。",
+    "node scripts/verify-portable-preview.cjs 通过：2145 个程序文件、367 个内置插件文件、11842 个媒体依赖。",
+    "按项目空间规范清理上轮回退 update-1795693503022/previous-resources 与本次 update-1795694569576/app、new-resources，共约 1394.4 MiB；保留最近一次程序回退与全部 preservation.json。"
+  ],
+  "pending": [
+    "按用户指示 release 后不下载产物做 SHA-256/SHA-512 与 ZIP 内容核验，只核对云端构建、标签、发行状态与附件上传状态。",
+    "需在真实安装版与第二台设备上验收 1.2GB 级别传输超过 60 秒、对端中断后的失败提示、不可达设备不再弹出主进程异常，以及第三方插件标题栏与双击/Ctrl+D/Ctrl+Q 行为。"
+  ],
+  "preview": "已同步 .local/portable-preview，保留既有 257 个资料与插件文件，2146 个程序文件逐文件核验通过，版本 1.5.13"
+}

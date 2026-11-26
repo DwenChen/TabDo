@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Menu, WebContentsView } from 'electron'
+import { app, BrowserWindow, ipcMain, WebContentsView } from 'electron'
 import { fileURLToPath, pathToFileURL } from 'url'
 import { v4 as uuidv4 } from 'uuid'
 import databaseAPI from '../api/shared/database'
@@ -853,27 +853,6 @@ class DetachedWindowManager {
       }
     }
 
-    const handleShowPluginMenu = (_event: Electron.IpcMainEvent, menuItems: any[]): void => {
-      // 验证事件来自这个窗口
-      if (_event.sender.id !== win.webContents.id) return
-
-      // 构建菜单
-      const menu = Menu.buildFromTemplate(
-        menuItems.map((item: any) => ({
-          label: item.label,
-          type: item.type,
-          checked: item.checked,
-          click: () => {
-            // 返回点击结果给标题栏
-            win.webContents.send('detached-menu-result', { id: item.id })
-          }
-        }))
-      )
-
-      // 显示菜单
-      menu.popup({ window: win })
-    }
-
     // 监听标题栏发送的窗口控制命令
     ipcMain.on('titlebar-action', handleTitlebarAction)
 
@@ -888,15 +867,11 @@ class DetachedWindowManager {
     // 监听方向键事件
     ipcMain.on('send-arrow-key', handleSendArrowKey)
 
-    // 监听插件设置菜单请求
-    ipcMain.on('show-plugin-menu', handleShowPluginMenu)
-
     // 窗口关闭时移除监听器
     win.once('closed', () => {
       ipcMain.off('titlebar-action', handleTitlebarAction)
       ipcMain.off('search-input', handleSearchInput)
       ipcMain.off('send-arrow-key', handleSendArrowKey)
-      ipcMain.off('show-plugin-menu', handleShowPluginMenu)
       if (process.platform === 'darwin') {
         ipcMain.off('titlebar-dblclick', handleTitlebarDblClick)
       }

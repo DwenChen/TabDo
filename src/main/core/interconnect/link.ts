@@ -102,6 +102,26 @@ function readLine(socket: net.Socket, maxSize: number): Promise<{ line: Buffer; 
 }
 
 /**
+ * 为套接字安装常驻错误监听，并返回关闭日志的释放函数。
+ *
+ * 握手等待有独立超时，可能早于系统 connect 超时结束；此后底层仍会上报
+ * ETIMEDOUT、ECONNRESET 等错误，若没有订阅者会成为主进程未捕获异常。
+ * 监听始终保留以避免崩溃，只在握手阶段输出日志，避免与链路自身的错误日志重复。
+ *
+ * @param socket 需要保护的套接字。
+ * @returns 停止输出日志的函数。
+ */
+function guardSocketErrors(socket: net.Socket): () => void {
+  let logging = true
+  socket.on('error', (error: Error) => {
+    if (logging) console.warn('[Interconnect] 套接字错误:', error.message)
+  })
+  return () => {
+    logging = false
+  }
+}
+
+/**
  * 在超时时间内等待一次事件。
  * @param emitter 事件源。
  * @param event 成功事件名。
@@ -207,7 +227,15 @@ export async function connectOutgoing(
   const raw = net.connect({ host, port })
   raw.setNoDelay(true)
   raw.setKeepAlive(true, 30000)
-  await waitForEvent(raw, 'connect')
+  // 先安装兜底错误监听，再等待连接；否则超时判定后到达的底层错误无人处理。
+  const releaseGuard = guardSocketErrors(raw)
+  try {
+    await waitForEvent(raw, 'connect')
+  } catch (error) {
+    // 主动关闭仍在连接的套接字，避免残留半开连接继续占用系统句柄。
+    raw.destroy()
+    throw error
+  }
 
   raw.write(buildConnectionPacket(context, target.deviceId, target.protocolVersion))
   raw.pause()
@@ -218,9 +246,9 @@ export async function connectOutgoing(
     rejectUnauthorized: false
   })
   raw.resume()
-  await waitForEvent(tlsSocket, 'secure')
 
   try {
+    await waitForEvent(tlsSocket, 'secure')
     const { certificatePem, fingerprint } = verifyPeerCertificate(
       tlsSocket,
       target.deviceId,
@@ -228,6 +256,8 @@ export async function connectOutgoing(
     )
     const { remote, rest } = await exchangeIdentity(tlsSocket, context, target.deviceId)
     if (rest.length) tlsSocket.unshift(rest)
+    // 握手已完成，后续错误由链路对象记录，兜底监听只保留防崩溃作用。
+    releaseGuard()
     return {
       link: new InterconnectLink(tlsSocket, remote, certificatePem, fingerprint),
       remote,
@@ -255,6 +285,8 @@ export async function acceptIncoming(
 ): Promise<HandshakeResult> {
   raw.setNoDelay(true)
   raw.setKeepAlive(true, 30000)
+  // 对端可能在握手阶段消失；常驻错误监听避免其后的 ECONNRESET 成为未捕获异常。
+  const releaseGuard = guardSocketErrors(raw)
   const { line, rest } = await readLine(raw, MAX_IDENTITY_SIZE)
   const connectionPacket = parsePacket(line)
   if (!connectionPacket || connectionPacket.type !== 'kdeconnect.identity') {
@@ -282,9 +314,9 @@ export async function acceptIncoming(
     rejectUnauthorized: false
   })
   raw.resume()
-  await waitForEvent(tlsSocket, 'secure')
 
   try {
+    await waitForEvent(tlsSocket, 'secure')
     const { certificatePem, fingerprint } = verifyPeerCertificate(
       tlsSocket,
       remoteDeviceId,
@@ -296,6 +328,8 @@ export async function acceptIncoming(
       remoteDeviceId
     )
     if (identityRest.length) tlsSocket.unshift(identityRest)
+    // 握手已完成，后续错误由链路对象记录，兜底监听只保留防崩溃作用。
+    releaseGuard()
     return {
       link: new InterconnectLink(tlsSocket, remote, certificatePem, fingerprint),
       remote,

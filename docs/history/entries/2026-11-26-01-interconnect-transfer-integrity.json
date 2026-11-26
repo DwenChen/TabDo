@@ -1,0 +1,31 @@
+{
+  "id": "interconnect-transfer-integrity",
+  "date": "2026-11-26",
+  "summary": "修复大文件传输进行约 60 秒后被误判失败、接收端把截断文件显示为已完成，以及连接不可达设备时主进程未捕获 ETIMEDOUT 错误弹窗",
+  "changes": [
+    "发送载荷时启动的 60 秒连接等待计时器改为只在接收方连入载荷端口前有效；接收方连入后立即清除，大文件传输不再因时长被中断。",
+    "接收载荷统一按对端声明的 payloadSize 判定完成：已接收字节不足、连接提前结束时记为失败并删除 .part 临时文件，只有达到声明长度才改名落盘；未声明长度仍按连接结束完成。",
+    "发送端在接收方连入后记录读流，载荷连接中途断开时立即失败并回收读流，避免任务长期停在进行中。",
+    "链路握手为套接字安装常驻 error 监听并在完成后停止日志输出，connect 与 TLS 握手超时时主动销毁套接字，避免系统 ETIMEDOUT 晚于 8 秒握手超时到达时成为主进程未捕获异常。",
+    "interconnect 源码 E2E 新增截断接收场景：对端声明 4096 字节只发送 17 字节即关闭，断言接收任务失败、落点与 .part 均不存在，并截图核对面板显示失败原因。",
+    "同步设置规范的文件传输完整性、连接等待计时与断开失败说明，补记 TX-183 回归。"
+  ],
+  "checks": [
+    "corepack pnpm typecheck:node 通过。",
+    "eslint 检查 src/main/core/interconnect/link.ts、src/main/core/interconnect/service.ts 与 tests/e2e/interconnect.spec.ts 无错误与警告。",
+    "corepack pnpm exec vitest run tests/main/interconnectLink.test.ts tests/main/interconnectProtocol.test.ts tests/main/interconnectCertificate.test.ts 通过，16 项。",
+    "corepack pnpm test:e2e tests/e2e/interconnect.spec.ts 两次通过：首次 45.1 秒（归档 .artifacts/runs/2026-11-26T10-51-22-353Z-e2e），补充面板断言后 36.0 秒（归档 .artifacts/runs/2026-11-26T10-53-06-265Z-e2e）。",
+    "已查看 interconnect-transfer-interrupted.png：截断任务显示“失败”“接收中断：文件不完整（17 / 4113 字节）”，同一面板中的成功任务仍显示“已完成”和“打开位置”，失败计数为 1。",
+    "corepack pnpm exec electron-vite build 通过，主进程、预加载与渲染器重新产出。",
+    "corepack pnpm preview:sync 同步 .local/portable-preview，保留既有 257 个资料与插件文件，核验 2146 个程序文件，版本 1.5.12；程序回退位于 .artifacts/backups/preview-sync/update-1795690496557。",
+    "corepack pnpm test:preview:resources 通过：2145 个程序文件、367 个内置插件文件、11842 个媒体依赖。",
+    "在预览 app.asar 中检出“接收中断：文件不完整”“接收方在传输完成前断开连接”文案，确认本轮主进程改动已进入免安装预览。",
+    "按项目空间规范清理上上轮程序回退 update-1795578409661/previous-resources 与本次 update-1795690496557/app、new-resources，共约 1394.5 MiB；保留最近一次程序回退与全部 preservation.json。"
+  ],
+  "pending": [
+    "需在免安装预览中用 1.2GB 级别文件实测超过 60 秒的传输，确认不再出现“等待接收方连接超时”并持续到完成。",
+    "需保留一台不可达但曾发现过的设备，观察系统 connect 超时晚到时不再弹出主进程未捕获异常对话框。",
+    "Windows 防火墙首次放行与真实 Android 设备的截断行为仍保留人工验收。"
+  ],
+  "preview": "已同步 .local/portable-preview，保留既有 257 个资料与插件文件，2146 个程序文件逐文件核验通过，版本 1.5.12"
+}

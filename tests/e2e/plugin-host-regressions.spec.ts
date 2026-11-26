@@ -210,7 +210,8 @@ test('cold plugin launch, singleton reuse, screenshot restore and detached body 
       .pages()
       .find((p) => p.url().startsWith('file:') && p.url().endsWith('/fixture/index.html'))!
     await expect(fixturePage.getByText('Detached content remains visible.')).toBeVisible()
-    await expect(main.getByRole('button', { name: '插件操作', exact: true })).toBeVisible()
+    // 插件标题栏与内置子组件一致：右上角不提供三点菜单等额外入口。
+    await expect(main.getByRole('button', { name: '插件操作', exact: true })).toHaveCount(0)
     expect((await main.evaluate(() => window.tabdo.detachPlugin())).success).toBe(true)
     await expect(fixturePage.getByText('Detached content remains visible.')).toBeVisible()
     await expect
@@ -225,9 +226,13 @@ test('cold plugin launch, singleton reuse, screenshot restore and detached body 
       .context()
       .pages()
       .find((page) => page.url().includes('detached-titlebar.html'))!
+    // 独立窗口右上角只保留临时常驻、置顶与窗口控制，不出现插件设置等额外按钮。
     await expect(
       fixtureTitlebar.getByRole('button', { name: '插件设置', exact: true })
-    ).toBeVisible()
+    ).toHaveCount(0)
+    await expect(
+      fixtureTitlebar.getByRole('button', { name: '插件操作', exact: true })
+    ).toHaveCount(0)
     // 未调用 setSubInput 的插件分离后不得出现搜索条，标题栏也不能先亮出占位名称。
     await expect(fixtureTitlebar.locator('input')).toHaveCount(0)
     await expect(fixtureTitlebar.locator('.plugin-name')).toHaveText('Host Fixture')
