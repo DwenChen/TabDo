@@ -20,7 +20,11 @@
     "按用户指示本轮 push 前不运行全量单测与全量 E2E，仅执行受影响的类型检查、单测与源码 E2E。",
     "免安装预览已同步并核验：保留 257 个资料与插件文件，2146 个程序文件，版本 1.5.13；回退副本 .artifacts/backups/preview-sync/update-1795694569576。",
     "node scripts/verify-portable-preview.cjs 通过：2145 个程序文件、367 个内置插件文件、11842 个媒体依赖。",
-    "按项目空间规范清理上轮回退 update-1795693503022/previous-resources 与本次 update-1795694569576/app、new-resources，共约 1394.4 MiB；保留最近一次程序回退与全部 preservation.json。"
+    "按项目空间规范清理上轮回退 update-1795693503022/previous-resources 与本次 update-1795694569576/app、new-resources，共约 1394.4 MiB；保留最近一次程序回退与全部 preservation.json。",
+    "corepack pnpm maintain、corepack pnpm docs:check 与 corepack pnpm maintain:check 通过。",
+    "通过提交及推送 hooks，提交 0770270e4c2d1cade41309b2172b4266724b76de 并推送 main 与 v1.5.13，远端 main 与标签指向同一提交。",
+    "云端 https://github.com/DwenChen/TabDo/actions/runs/45817750759 的 build（12:14–12:22）与 publish（12:22–12:23）均成功。https://github.com/DwenChen/TabDo/releases/tag/v1.5.13 非草稿、非预发布，目标提交为 0770270e，已成为最新正式版；发行 id 459377981，published_at 2026-11-26T12:23:03Z。",
+    "Release 已上传 latest.yml、TabDo-1.5.13-win-x64-setup.exe、对应 blockmap 与 TabDo-1.5.13-win-x64.zip 四个附件，状态均为 uploaded。"
   ],
   "pending": [
     "按用户指示 release 后不下载产物做 SHA-256/SHA-512 与 ZIP 内容核验，只核对云端构建、标签、发行状态与附件上传状态。",

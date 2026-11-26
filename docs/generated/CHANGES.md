@@ -22,6 +22,10 @@
 - 验证：免安装预览已同步并核验：保留 257 个资料与插件文件，2146 个程序文件，版本 1.5.13；回退副本 .artifacts/backups/preview-sync/update-1795694569576。
 - 验证：node scripts/verify-portable-preview.cjs 通过：2145 个程序文件、367 个内置插件文件、11842 个媒体依赖。
 - 验证：按项目空间规范清理上轮回退 update-1795693503022/previous-resources 与本次 update-1795694569576/app、new-resources，共约 1394.4 MiB；保留最近一次程序回退与全部 preservation.json。
+- 验证：corepack pnpm maintain、corepack pnpm docs:check 与 corepack pnpm maintain:check 通过。
+- 验证：通过提交及推送 hooks，提交 0770270e4c2d1cade41309b2172b4266724b76de 并推送 main 与 v1.5.13，远端 main 与标签指向同一提交。
+- 验证：云端 https://github.com/DwenChen/TabDo/actions/runs/45817750759 的 build（12:14–12:22）与 publish（12:22–12:23）均成功。https://github.com/DwenChen/TabDo/releases/tag/v1.5.13 非草稿、非预发布，目标提交为 0770270e，已成为最新正式版；发行 id 459377981，published_at 2026-11-26T12:23:03Z。
+- 验证：Release 已上传 latest.yml、TabDo-1.5.13-win-x64-setup.exe、对应 blockmap 与 TabDo-1.5.13-win-x64.zip 四个附件，状态均为 uploaded。
 
 ## 2026-11-26 · 统一插件标题栏与内置子组件的右上角元素：移除主窗口插件的三点菜单和独立窗口的插件设置按钮
 
